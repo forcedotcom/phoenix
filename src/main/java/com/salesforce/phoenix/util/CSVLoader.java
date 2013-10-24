@@ -28,8 +28,13 @@
 package com.salesforce.phoenix.util;
 
 import java.io.FileReader;
-import java.sql.*;
-import java.util.*;
+import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 import au.com.bytecode.opencsv.CSVReader;
 
@@ -143,6 +148,9 @@ public class CSVLoader {
     		System.out.println("CSV Upsert complete. " + rowCount + " rows upserted");
     		System.out.println("Time: " + elapsedDuration + " sec(s)\n");
 		} finally {
+		    if(stmt != null) {
+		        stmt.close();
+		    }
 		    if (wasAutoCommit) conn.setAutoCommit(true);
 		}
 	}
@@ -169,11 +177,18 @@ public class CSVLoader {
         // TODO: escape wildcard characters here because we don't want that behavior here
         String escapedTableName = StringUtil.escapeLike(tableName);
         String[] schemaAndTable = escapedTableName.split("\\.");
-        ResultSet rs = dbmd.getColumns(null, (schemaAndTable.length == 1 ? "" : schemaAndTable[0]),
-                        (schemaAndTable.length == 1 ? escapedTableName : schemaAndTable[1]),
-                        null);
-        while (rs.next()) {
-            columnNameToTypeMap.put(rs.getString(QueryUtil.COLUMN_NAME_POSITION), rs.getInt(QueryUtil.DATA_TYPE_POSITION));
+        ResultSet rs = null;
+        try {
+            rs = dbmd.getColumns(null, (schemaAndTable.length == 1 ? "" : schemaAndTable[0]),
+                    (schemaAndTable.length == 1 ? escapedTableName : schemaAndTable[1]),
+                    null);
+            while (rs.next()) {
+                columnNameToTypeMap.put(rs.getString(QueryUtil.COLUMN_NAME_POSITION), rs.getInt(QueryUtil.DATA_TYPE_POSITION));
+            }
+        } finally {
+            if(rs != null) {
+                rs.close();
+            }
         }
         ColumnInfo[] columnType;
 	    if (columns == null) {

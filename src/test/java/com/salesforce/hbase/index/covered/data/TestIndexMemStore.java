@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.covered.data;
 
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -66,5 +67,37 @@ public class TestIndexMemStore {
     scanner.seek(first);
     assertTrue("Didn't overwrite kv when specifically requested!", kv2 == scanner.next());
     scanner.close();
+  }
+
+  /**
+   * We don't expect custom KeyValue creation, so we can't get into weird situations, where a
+   * {@link Type#DeleteFamily} has a column qualifier specified.
+   * @throws Exception
+   */
+  @Test
+  public void testExpectedOrdering() throws Exception {
+    IndexMemStore store = new IndexMemStore();
+    KeyValue kv = new KeyValue(row, family, qual, 12, Type.Put, val);
+    store.add(kv, true);
+    KeyValue kv2 = new KeyValue(row, family, qual, 10, Type.Put, val2);
+    store.add(kv2, true);
+    KeyValue df = new KeyValue(row, family, null, 11, Type.DeleteFamily, null);
+    store.add(df, true);
+    KeyValue dc = new KeyValue(row, family, qual, 11, Type.DeleteColumn, null);
+    store.add(dc, true);
+    KeyValue d = new KeyValue(row, family, qual, 12, Type.Delete, null);
+    store.add(d, true);
+
+    // null qualifiers should always sort before the non-null cases
+    KeyValueScanner scanner = store.getScanner();
+    KeyValue first = KeyValue.createFirstOnRow(row);
+    assertTrue("Didn't have any data in the scanner", scanner.seek(first));
+    assertTrue("Didn't get delete family first (no qualifier == sort first)", df == scanner.next());
+    assertTrue("Didn't get point delete before corresponding put", d == scanner.next());
+    assertTrue("Didn't get larger ts Put", kv == scanner.next());
+    assertTrue("Didn't get delete column before corresponding put(delete sorts first)",
+      dc == scanner.next());
+    assertTrue("Didn't get smaller ts Put", kv2 == scanner.next());
+    assertNull("Have more data in the scanner", scanner.next());
   }
 }

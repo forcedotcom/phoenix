@@ -39,6 +39,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 
@@ -542,6 +543,56 @@ public class QueryParserTest {
                 new StringReader(
                         "select * from t where not c"));
         parser.parseStatement();
+    }
+
+    @Test
+    public void testRVCInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( (1,2), (3,4) )"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select * from t where k in ( 1,2 )"));
+        parser.parseStatement();
+    }
+
+    @Test
+    public void testInvalidSelectStar() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "select *,k from t where k in ( 1,2 )"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
+        }
+    }
+
+    @Test
+    public void testInvalidUpsertSelectHint() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "upsert into t select /*+ NO_INDEX */ k from t where k in ( 1,2 )"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.PARSER_ERROR.getErrorCode(), e.getErrorCode());
+        }
+    }
+
+    @Test
+    public void testValidUpsertSelectHint() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "upsert /*+ NO_INDEX */ into t select k from t where k in ( 1,2 )"));
+            parser.parseStatement();
     }
 
     @Test

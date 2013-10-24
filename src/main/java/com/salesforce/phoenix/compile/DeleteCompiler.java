@@ -28,7 +28,9 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.ParameterMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -40,53 +42,79 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.execute.ScanPlan;
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
+import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.iterate.ResultIterator;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixResultSet;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.optimize.QueryOptimizer;
+import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.DeleteStatement;
+import com.salesforce.phoenix.parse.HintNode;
+import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.query.Scanner;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.IndexUtil;
 
 public class DeleteCompiler {
-    private final PhoenixConnection connection;
+    private static ParseNodeFactory FACTORY = new ParseNodeFactory();
     
-    public DeleteCompiler(PhoenixConnection connection) {
-        this.connection = connection;
+    private final PhoenixStatement statement;
+    
+    public DeleteCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
     
-    private static MutationState deleteRows(PhoenixConnection connection, TableRef tableRef, ResultIterator iterator) throws SQLException {
+    private static MutationState deleteRows(PhoenixStatement statement, TableRef tableRef, ResultIterator iterator, RowProjector projector) throws SQLException {
+        PhoenixConnection connection = statement.getConnection();
         final boolean isAutoCommit = connection.getAutoCommit();
         ConnectionQueryServices services = connection.getQueryServices();
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         final int batchSize = Math.min(connection.getMutateBatchSize(), maxSize);
         Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutations = Maps.newHashMapWithExpectedSize(batchSize);
         try {
-            Tuple row;
+            PTable table = tableRef.getTable();
+            List<PColumn> pkColumns = table.getPKColumns();
+            byte[][] values = new byte[pkColumns.size()][];
+            ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
             int rowCount = 0;
-            while ((row = iterator.next()) != null) {
-                // Need to create new ptr each time since we're holding on to it
+            while (rs.next()) {
+                for (int i = 0; i < values.length; i++) {
+                    byte[] byteValue = rs.getBytes(i+1);
+                    // The ResultSet.getBytes() call will have inverted it - we need to invert it back.
+                    // TODO: consider going under the hood and just getting the bytes
+                    if (pkColumns.get(i).getColumnModifier() == ColumnModifier.SORT_DESC) {
+                        byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
+                        byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
+                    }
+                     values[i] = byteValue;
+                }
                 ImmutableBytesPtr ptr = new ImmutableBytesPtr();
-                row.getKey(ptr);
-                mutations.put(ptr,null);
+                table.newKey(ptr, values);
+                mutations.put(ptr, null);
                 if (mutations.size() > maxSize) {
                     throw new IllegalArgumentException("MutationState size of " + mutations.size() + " is bigger than max allowed size of " + maxSize);
                 }
@@ -99,14 +127,16 @@ public class DeleteCompiler {
                     mutations.clear();
                 }
             }
+
             // If auto commit is true, this last batch will be committed upon return
-            return new MutationState(tableRef,mutations, rowCount / batchSize * batchSize, maxSize, connection);
+            return new MutationState(tableRef, mutations, rowCount / batchSize * batchSize, maxSize, connection);
         } finally {
             iterator.close();
         }
     }
     
     private static class DeletingParallelIteratorFactory extends MutatingParallelIteratorFactory {
+        private RowProjector projector;
         
         private DeletingParallelIteratorFactory(PhoenixConnection connection, TableRef tableRef) {
             super(connection, tableRef);
@@ -114,28 +144,80 @@ public class DeleteCompiler {
         
         @Override
         protected MutationState mutate(PhoenixConnection connection, ResultIterator iterator) throws SQLException {
-            return deleteRows(connection, tableRef, iterator);
+            PhoenixStatement statement = new PhoenixStatement(connection);
+            return deleteRows(statement, tableRef, iterator, projector);
+        }
+        
+        public void setRowProjector(RowProjector projector) {
+            this.projector = projector;
         }
         
     }
     
-    public MutationPlan compile(DeleteStatement statement, List<Object> binds) throws SQLException {
+    private boolean hasImmutableIndex(TableRef tableRef) {
+        return tableRef.getTable().isImmutableRows() && !tableRef.getTable().getIndexes().isEmpty();
+    }
+    
+    private boolean hasImmutableIndexWithKeyValueColumns(TableRef tableRef) {
+        if (!hasImmutableIndex(tableRef)) {
+            return false;
+        }
+        for (PTable index : tableRef.getTable().getIndexes()) {
+            for (PColumn column : index.getPKColumns()) {
+                if (!IndexUtil.isDataPKColumn(column)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    public MutationPlan compile(DeleteStatement delete) throws SQLException {
+        final PhoenixConnection connection = statement.getConnection();
         final boolean isAutoCommit = connection.getAutoCommit();
         final ConnectionQueryServices services = connection.getQueryServices();
-        final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+        final ColumnResolver resolver = FromCompiler.getResolver(delete, connection);
         final TableRef tableRef = resolver.getTables().get(0);
         if (tableRef.getTable().getType() == PTableType.VIEW) {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef.getTable() + ")");
         }
-        Scan scan = new Scan();
-        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
-        final Integer limit = LimitCompiler.compile(context, statement);
-        final OrderBy orderBy = OrderByCompiler.compile(context, statement, GroupBy.EMPTY_GROUP_BY, limit); 
-        Expression whereClause = WhereCompiler.compile(context, statement);
-        final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
         
-        if (LiteralExpression.TRUE_EXPRESSION.equals(whereClause) && context.getScanRanges().isSingleRowScan()) {
-            final ImmutableBytesPtr key = new ImmutableBytesPtr(scan.getStartRow());
+        final boolean hasLimit = delete.getLimit() != null;
+        boolean runOnServer = isAutoCommit && !hasLimit && !hasImmutableIndex(tableRef);
+        HintNode hint = delete.getHint();
+        if (runOnServer && !delete.getHint().hasHint(Hint.USE_INDEX_OVER_DATA_TABLE)) {
+            hint = HintNode.create(hint, Hint.USE_DATA_OVER_INDEX_TABLE);
+        }
+
+        PTable table = tableRef.getTable();
+        List<AliasedNode> aliasedNodes = Lists.newArrayListWithExpectedSize(table.getPKColumns().size());
+        for (PColumn column : table.getPKColumns()) {
+            String name = column.getName().getString();
+            aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));
+        }
+        SelectStatement select = FACTORY.select(
+                Collections.singletonList(delete.getTable()), 
+                hint, false, aliasedNodes, delete.getWhere(), 
+                Collections.<ParseNode>emptyList(), null, 
+                delete.getOrderBy(), delete.getLimit(),
+                delete.getBindCount(), false);
+        DeletingParallelIteratorFactory parallelIteratorFactory = hasLimit ? null : new DeletingParallelIteratorFactory(connection, tableRef);
+        final QueryPlan plan = new QueryOptimizer(services).optimize(select, statement, Collections.<PColumn>emptyList(), parallelIteratorFactory);
+        runOnServer &= plan.getTableRef().equals(tableRef);
+        
+        final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
+ 
+        if (hasImmutableIndexWithKeyValueColumns(tableRef)) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX).setSchemaName(tableRef.getTable().getSchemaName().getString())
+            .setTableName(tableRef.getTable().getTableName().getString()).build().buildException();
+        }
+        
+        final StatementContext context = plan.getContext();
+        // If we're doing a query for a single row with no where clause, then we don't need to contact the server at all.
+        // A simple check of the none existence of a where clause in the parse node is not sufficient, as the where clause
+        // may have been optimized out.
+        if (runOnServer && context.isSingleRowScan()) {
+            final ImmutableBytesPtr key = new ImmutableBytesPtr(context.getScan().getStartRow());
             return new MutationPlan() {
 
                 @Override
@@ -160,15 +242,17 @@ public class DeleteCompiler {
                     return connection;
                 }
             };
-        } else if (isAutoCommit && limit == null) {
-            // TODO: better abstraction - DeletePlan ?
+        } else if (runOnServer) {
+            // TODO: better abstraction
+            Scan scan = context.getScan();
             scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+
             // Build an ungrouped aggregate query: select COUNT(*) from <table> where <where>
             // The coprocessor will delete each row returned from the scan
             // Ignoring ORDER BY, since with auto commit on and no limit makes no difference
-            SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, statement.getHint());
-            final RowProjector projector = ProjectionCompiler.compile(context, select, GroupBy.EMPTY_GROUP_BY);
-            final QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
+            SelectStatement aggSelect = SelectStatement.create(SelectStatement.COUNT_ONE, delete.getHint());
+            final RowProjector projector = ProjectionCompiler.compile(context, aggSelect, GroupBy.EMPTY_GROUP_BY);
+            final QueryPlan aggPlan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
             return new MutationPlan() {
 
                 @Override
@@ -183,26 +267,41 @@ public class DeleteCompiler {
 
                 @Override
                 public MutationState execute() throws SQLException {
-                    Scanner scanner = plan.getScanner();
-                    ResultIterator iterator = scanner.iterator();
+                    // TODO: share this block of code with UPSERT SELECT
+                    ImmutableBytesWritable ptr = context.getTempPtr();
+                    tableRef.getTable().getIndexMaintainers(ptr);
+                    ServerCache cache = null;
                     try {
-                        Tuple row = iterator.next();
-                        ImmutableBytesWritable ptr = context.getTempPtr();
-                        final long mutationCount = (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                        return new MutationState(maxSize, connection) {
-                            @Override
-                            public long getUpdateCount() {
-                                return mutationCount;
-                            }
-                        };
+                        if (ptr.getLength() > 0) {
+                            IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
+                            cache = client.addIndexMetadataCache(context.getScanRanges(), ptr);
+                            byte[] uuidValue = cache.getId();
+                            context.getScan().setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                        }
+                        Scanner scanner = aggPlan.getScanner();
+                        ResultIterator iterator = scanner.iterator();
+                        try {
+                            Tuple row = iterator.next();
+                            final long mutationCount = (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                            return new MutationState(maxSize, connection) {
+                                @Override
+                                public long getUpdateCount() {
+                                    return mutationCount;
+                                }
+                            };
+                        } finally {
+                            iterator.close();
+                        }
                     } finally {
-                        iterator.close();
+                        if (cache != null) {
+                            cache.close();
+                        }
                     }
                 }
 
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
-                    List<String> queryPlanSteps =  plan.getExplainPlan().getPlanSteps();
+                    List<String> queryPlanSteps =  aggPlan.getExplainPlan().getPlanSteps();
                     List<String> planSteps = Lists.newArrayListWithExpectedSize(queryPlanSteps.size()+1);
                     planSteps.add("DELETE ROWS");
                     planSteps.addAll(queryPlanSteps);
@@ -210,11 +309,9 @@ public class DeleteCompiler {
                 }
             };
         } else {
-            final RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.SELECT_ONE, GroupBy.EMPTY_GROUP_BY);
-            // If there's no post processing (i.e. no limit), then we can issue the deletes in parallel as we get results back for the scan
-            // Otherwise, we need to buffer the results and process afterwards.
-            ParallelIteratorFactory parallelIteratorFactory = limit == null ? new DeletingParallelIteratorFactory(connection, tableRef) : new SpoolingResultIteratorFactory(services);
-            final QueryPlan plan = new ScanPlan(context, statement, tableRef, projector, limit, orderBy, parallelIteratorFactory);
+            if (parallelIteratorFactory != null) {
+                parallelIteratorFactory.setRowProjector(plan.getProjector());
+            }
             return new MutationPlan() {
 
                 @Override
@@ -231,7 +328,7 @@ public class DeleteCompiler {
                 public MutationState execute() throws SQLException {
                     Scanner scanner = plan.getScanner();
                     ResultIterator iterator = scanner.iterator();
-                    if (limit == null) {
+                    if (!hasLimit) {
                         Tuple tuple;
                         long totalRowCount = 0;
                         while ((tuple=iterator.next()) != null) {// Runs query
@@ -242,7 +339,7 @@ public class DeleteCompiler {
                         // the mutations will all be in the mutation state of the current connection.
                         return new MutationState(maxSize, connection, totalRowCount);
                     } else {
-                        return deleteRows(connection, tableRef, iterator);
+                        return deleteRows(statement, tableRef, iterator, plan.getProjector());
                     }
                 }
 

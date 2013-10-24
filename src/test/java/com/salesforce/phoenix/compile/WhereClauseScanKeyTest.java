@@ -73,7 +73,7 @@ import com.salesforce.phoenix.util.TestUtil;
 
 
 public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
-
+    
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds) throws SQLException {
         return compileStatement(query, scan, binds, null, null);
     }
@@ -1193,9 +1193,10 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         String query = "select * from atable where (organization_id,entity_id) >= (?,?)";
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId, entityId);
-        compileStatement(query, scan, binds);
-
-        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.CHAR.toBytes(tenantId), PDataType.CHAR.toBytes(entityId));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
@@ -1210,43 +1211,206 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         String query = "select * from atable where (organization_id,entity_id) >= (?,?) and organization_id = ? and  (entity_id = ? or entity_id = ?)";
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId, entityId, tenantId, entityId1, entityId2);
-        compileStatement(query, scan, binds);
-
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 3);
         byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId));
         byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(entityId2)));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(expectedStopRow, scan.getStopRow());
     }
     
+    /**
+     * With only a subset of row key cols present (which includes the leading key), 
+     * Phoenix should have optimized the start row for the scan to include the 
+     * row keys cols that occur contiguously in the RVC.
+     * 
+     * Table entity_history has the row key defined as (organization_id, parent_id, created_date, entity_history_id). 
+     * This test uses (organization_id, parent_id, entity_id) in RVC. So the start row should be comprised of
+     * organization_id and parent_id.
+     * @throws SQLException
+     */
     @Test
     public void testRVCExpressionWithSubsetOfPKCols() throws SQLException {
         String tenantId = "000000000000001";
-        String aString = "002";
-        String query = "select * from atable where (organization_id, a_string) >= (?,?)";
+        String parentId = "000000000000002";
+        String entityHistId = "000000000000003";
+        
+        String query = "select * from entity_history where (organization_id, parent_id, entity_history_id) >= (?,?,?)";
         Scan scan = new Scan();
-        List<Object> binds = Arrays.<Object>asList(tenantId, aString);
-        compileStatement(query, scan, binds);
-
-        byte[] expectedStartRow = PDataType.VARCHAR.toBytes(tenantId);
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId, entityHistId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(parentId));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    /**
+     * With the leading row key col missing Phoenix won't be able to optimize
+     * and provide the start row for the scan.
+     * 
+     * Table entity_history has the row key defined as (organization_id, parent_id, created_date, entity_history_id). 
+     * This test uses (parent_id, entity_id) in RVC. Start row should be empty.
+     * @throws SQLException
+     */
+    
+    @Test
+    public void testRVCExpressionWithoutLeadingColOfRowKey() throws SQLException {
+        
+        String parentId = "000000000000002";
+        String entityHistId = "000000000000003";
+        
+        String query = "select * from entity_history where (parent_id, entity_history_id) >= (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(parentId, entityHistId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testMultiRVCExpressionsCombinedWithAnd() throws SQLException {
+        String lowerTenantId = "000000000000001";
+        String lowerParentId = "000000000000002";
+        Date lowerCreatedDate = new Date(System.currentTimeMillis());
+        String upperTenantId = "000000000000008";
+        String upperParentId = "000000000000009";
+        
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?, ?, ?) AND (organization_id, parent_id) <= (?, ?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(lowerTenantId, lowerParentId, lowerCreatedDate, upperTenantId, upperParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 2);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(lowerTenantId), PDataType.VARCHAR.toBytes(lowerParentId), PDataType.DATE.toBytes(lowerCreatedDate));
+        byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(upperTenantId), PDataType.VARCHAR.toBytes(upperParentId)));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
+    }
+    
+    @Test
+    public void testMultiRVCExpressionsCombinedUsingLiteralExpressions() throws SQLException {
+        String lowerTenantId = "000000000000001";
+        String lowerParentId = "000000000000002";
+        Date lowerCreatedDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?, ?, ?) AND (organization_id, parent_id) <= ('7', '7')";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(lowerTenantId, lowerParentId, lowerCreatedDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 2);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(lowerTenantId), PDataType.VARCHAR.toBytes(lowerParentId), PDataType.DATE.toBytes(lowerCreatedDate));
+        byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(ByteUtil.fillKey(PDataType.VARCHAR.toBytes("7"),15), ByteUtil.fillKey(PDataType.VARCHAR.toBytes("7"), 15)));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
     }
     
     @Test
     public void testUseOfFunctionOnLHSInRVC() throws SQLException {
         String tenantId = "000000000000001";
-        String subStringTenantId = tenantId.substring(0,3);
+        String subStringTenantId = tenantId.substring(0, 3);
         String parentId = "000000000000002";
         Date createdDate = new Date(System.currentTimeMillis());
-        ensureTableCreated(getUrl(),TestUtil.ENTITY_HISTORY_TABLE_NAME);
         
         String query = "select * from entity_history where (substr(organization_id, 1, 3), parent_id, created_date) >= (?,?,?)";
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(subStringTenantId, parentId, createdDate);
-        Set<Expression> expectedFilters = new HashSet<Expression>(2);
-        compileStatement(query, scan, binds, expectedFilters);
-        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(subStringTenantId));
-        assertTrue(expectedFilters.size() == 0);
+        Set<Expression> extractedFilters = new HashSet<Expression>(2);
+        compileStatement(query, scan, binds, extractedFilters);
+        byte[] expectedStartRow = PDataType.VARCHAR.toBytes(subStringTenantId);
+        assertTrue(extractedFilters.size() == 0);
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testUseOfFunctionOnLHSInMiddleOfRVC() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000002";
+        String subStringParentId = parentId.substring(0, 3);
+        Date createdDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, substr(parent_id, 1, 3), created_date) >= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, subStringParentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(subStringParentId));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testUseOfFunctionOnLHSInMiddleOfRVCForLTE() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000002";
+        String subStringParentId = parentId.substring(0, 3);
+        Date createdDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, substr(parent_id, 1, 3), created_date) <= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, subStringParentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        byte[] expectedStopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(subStringParentId)));
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStartRow());
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
+    }
+    
+    @Test
+    public void testNullAtEndOfRVC() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000002";
+        Date createdDate = null;
+        
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(parentId));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testNullInMiddleOfRVC() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = null;
+        Date createdDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        byte[] expectedStartRow = ByteUtil.concat(PDataType.CHAR.toBytes(tenantId), new byte[15], ByteUtil.previousKey(PDataType.DATE.toBytes(createdDate)));
+        assertArrayEquals(expectedStartRow, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testNullAtStartOfRVC() throws SQLException {
+        String tenantId = null;
+        String parentId = "000000000000002";
+        Date createdDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        byte[] expectedStartRow = ByteUtil.concat(new byte[15], ByteUtil.previousKey(PDataType.CHAR.toBytes(parentId)), PDataType.DATE.toBytes(createdDate));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
     }
@@ -1258,8 +1422,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         
         String parentId = "000000000000002";
         Date createdDate = new Date(System.currentTimeMillis());
-        ensureTableCreated(getUrl(),TestUtil.ENTITY_HISTORY_TABLE_NAME);
-       
+        
         String query = "select * from entity_history where (organization_id, parent_id, created_date) >= (?,?,?) AND organization_id <= ?";
         Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(firstOrgId, parentId, createdDate, secondOrgId);
@@ -1268,4 +1431,182 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertTrue(extractedFilters.size() == 2);
         assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstOrgId), PDataType.VARCHAR.toBytes(parentId), PDataType.DATE.toBytes(createdDate)), scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(secondOrgId)), scan.getStopRow());
-    }}
+    }
+    
+    @Test
+    public void testGreaterThanEqualTo_NonRVCOnLHSAndRVCOnRHS_WithNonNullBindParams() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000008";
+        
+        String query = "select * from entity_history where organization_id >= (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testGreaterThan_NonRVCOnLHSAndRVCOnRHS_WithNonNullBindParams() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000008";
+        
+        String query = "select * from entity_history where organization_id > (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testLessThanEqualTo_NonRVCOnLHSAndRVCOnRHS_WithNonNullBindParams() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000008";
+        
+        String query = "select * from entity_history where organization_id <= (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
+    }
+    
+    @Test
+    public void testLessThan_NonRVCOnLHSAndRVCOnRHS_WithNonNullBindParams() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000008";
+        
+        String query = "select * from entity_history where organization_id < (?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, parentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStopRow());
+    }
+    
+    @Test
+    public void testCombiningRVCUsingOr() throws SQLException {
+        String firstTenantId = "000000000000001";
+        String secondTenantId = "000000000000005";
+        String firstParentId = "000000000000011";
+        String secondParentId = "000000000000015";
+        
+        String query = "select * from entity_history where (organization_id, parent_id) >= (?,?) OR (organization_id, parent_id) <= (?, ?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId, secondParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1); // extracts the entire OR
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testCombiningRVCUsingOr2() throws SQLException {
+        String firstTenantId = "000000000000001";
+        String secondTenantId = "000000000000005";
+        String firstParentId = "000000000000011";
+        String secondParentId = "000000000000015";
+        
+        String query = "select * from entity_history where (organization_id, parent_id) >= (?,?) OR (organization_id, parent_id) >= (?, ?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId, secondParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstTenantId), PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testCombiningRVCWithNonRVCUsingOr() throws SQLException {
+        String firstTenantId = "000000000000001";
+        String secondTenantId = "000000000000005";
+        String firstParentId = "000000000000011";
+        
+        String query = "select * from entity_history where (organization_id, parent_id) >= (?,?) OR organization_id  >= ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstTenantId), PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testCombiningRVCWithNonRVCUsingOr2() throws SQLException {
+        String firstTenantId = "000000000000001";
+        String secondTenantId = "000000000000005";
+        String firstParentId = "000000000000011";
+        
+        String query = "select * from entity_history where (organization_id, parent_id) >= (?,?) OR organization_id  <= ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testCombiningRVCWithNonRVCUsingOr3() throws SQLException {
+        String firstTenantId = "000000000000005";
+        String secondTenantId = "000000000000001";
+        String firstParentId = "000000000000011";
+        String query = "select * from entity_history where (organization_id, parent_id) >= (?,?) OR organization_id  <= ?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstTenantId, firstParentId, secondTenantId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        assertArrayEquals(HConstants.EMPTY_START_ROW, scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testUsingRVCNonFullyQualifiedInClause() throws Exception {
+        String firstOrgId = "000000000000001";
+        String secondOrgId = "000000000000009";
+        String firstParentId = "000000000000011";
+        String secondParentId = "000000000000021";
+        String query = "select * from entity_history where (organization_id, parent_id) IN ((?, ?), (?, ?))";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstOrgId, firstParentId, secondOrgId, secondParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        assertArrayEquals(ByteUtil.concat(PDataType.VARCHAR.toBytes(firstOrgId), PDataType.VARCHAR.toBytes(firstParentId)), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes(secondOrgId), PDataType.VARCHAR.toBytes(secondParentId))), scan.getStopRow());
+    }
+    
+    @Test
+    public void testUsingRVCFullyQualifiedInClause() throws Exception {
+        String firstOrgId = "000000000000001";
+        String secondOrgId = "000000000000009";
+        String firstParentId = "000000000000011";
+        String secondParentId = "000000000000021";
+        String query = "select * from atable where (organization_id, entity_id) IN ((?, ?), (?, ?))";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(firstOrgId, firstParentId, secondOrgId, secondParentId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        StatementContext context = compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        List<List<KeyRange>> skipScanRanges = Collections.singletonList(Arrays.asList(
+                KeyRange.getKeyRange(ByteUtil.concat(PDataType.CHAR.toBytes(firstOrgId), PDataType.CHAR.toBytes(firstParentId))), 
+                KeyRange.getKeyRange(ByteUtil.concat(PDataType.CHAR.toBytes(secondOrgId), PDataType.CHAR.toBytes(secondParentId)))));
+        assertEquals(skipScanRanges, context.getScanRanges().getRanges());
+        assertArrayEquals(ByteUtil.concat(PDataType.CHAR.toBytes(firstOrgId), PDataType.CHAR.toBytes(firstParentId)), scan.getStartRow());
+        assertArrayEquals(ByteUtil.nextKey(ByteUtil.concat(PDataType.CHAR.toBytes(secondOrgId), PDataType.CHAR.toBytes(secondParentId), QueryConstants.SEPARATOR_BYTE_ARRAY)), scan.getStopRow());
+    }
+}

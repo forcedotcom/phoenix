@@ -224,7 +224,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         String indexName = Bytes.toString(rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
         String indexTableName = SchemaUtil.getTableName(schemaName, indexName);
         PTable index = metaData.getTable(indexTableName);
-        index = PTableImpl.makePTable(index,newState == PIndexState.ENABLE ? PIndexState.ACTIVE : newState == PIndexState.DISABLE ? PIndexState.INACTIVE : newState);
+        index = PTableImpl.makePTable(index,newState == PIndexState.USABLE ? PIndexState.ACTIVE : newState == PIndexState.UNUSABLE ? PIndexState.INACTIVE : newState);
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, index);
     }
 
@@ -235,5 +235,10 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public void clearTableRegionCache(byte[] tableName) throws SQLException {
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return false;
     }
 }

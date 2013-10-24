@@ -135,7 +135,7 @@ public class PhoenixRuntime {
         if (args.length < 2) {
             usageError();
         }
-        
+        PhoenixConnection conn = null;
         try {
             String tableName = null;
             List<String> columns = null;
@@ -180,7 +180,7 @@ public class PhoenixRuntime {
                 props.setProperty(SchemaUtil.UPGRADE_TO_2_0, Integer.toString(SchemaUtil.SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS));
             }
             String connectionUrl = JDBC_PROTOCOL + JDBC_PROTOCOL_SEPARATOR + args[i++];
-            PhoenixConnection conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
+            conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
             
             if (SchemaUtil.upgradeColumnCount(connectionUrl, props) > 0) {
                 SchemaUtil.upgradeTo2(conn);
@@ -213,6 +213,13 @@ public class PhoenixRuntime {
         } catch (Throwable t) {
             t.printStackTrace();
         } finally {
+            if(conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    //going to shut jvm down anyway. So might as well feast on it.
+                }
+            }
             System.exit(0);
         }
     }

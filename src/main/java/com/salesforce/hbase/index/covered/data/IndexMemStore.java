@@ -93,7 +93,7 @@ public class IndexMemStore implements KeyValueStore {
    * {@link KeyValue#COMPARATOR}, but doesn't take into consideration the memstore timestamps. We
    * instead manage which KeyValue to retain based on how its loaded here
    */
-  public static Comparator<KeyValue> COMPARATOR = new Comparator<KeyValue>() {
+  public static final Comparator<KeyValue> COMPARATOR = new Comparator<KeyValue>() {
 
     private final KeyComparator rawcomparator = new KeyComparator();
 
@@ -105,12 +105,18 @@ public class IndexMemStore implements KeyValueStore {
     }
   };
 
+  public IndexMemStore() {
+    this(COMPARATOR);
+  }
+
   /**
    * Create a store with the given comparator. This comparator is used to determine both sort order
    * <b>as well as equality of {@link KeyValue}s</b>.
+   * <p>
+   * Exposed for subclassing/testing.
    * @param comparator to use
    */
-  public IndexMemStore(Comparator<KeyValue> comparator) {
+  IndexMemStore(Comparator<KeyValue> comparator) {
     this.comparator = comparator;
     this.kvset = IndexKeyValueSkipListSet.create(comparator);
   }
@@ -128,17 +134,17 @@ public class IndexMemStore implements KeyValueStore {
       kvset.add(kv);
     }
 
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isTraceEnabled()) {
       dump();
     }
   }
 
   private void dump() {
-    LOG.debug("Current kv state:\n");
+    LOG.trace("Current kv state:\n");
     for (KeyValue kv : this.kvset) {
-      LOG.debug("KV: " + toString(kv));
+      LOG.trace("KV: " + toString(kv));
     }
-    LOG.debug("========== END MemStore Dump ==================\n");
+    LOG.trace("========== END MemStore Dump ==================\n");
   }
 
   private String toString(KeyValue kv) {
@@ -152,7 +158,7 @@ public class IndexMemStore implements KeyValueStore {
     }
     // If the key is in the store, delete it
     this.kvset.remove(kv);
-    if (LOG.isDebugEnabled()) {
+    if (LOG.isTraceEnabled()) {
       dump();
     }
   }

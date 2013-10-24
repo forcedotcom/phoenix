@@ -53,9 +53,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.CountAggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.SQLParser;
-import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.jdbc.PhoenixPreparedStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -344,16 +342,68 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         DriverManager.getConnection(getUrl(), props);
     }
     
-    private QueryPlan compileQuery(String query, List<Object> binds, Scan scan) throws SQLException {
-        SQLParser parser = new SQLParser(query);
-        SelectStatement statement = parser.parseQuery();
+
+    @Test
+    public void testPercentileWrongQueryWithMixOfAggrAndNonAggrExps() throws Exception {
+        String query = "select a_integer, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
+        try {
+            compileQuery(query, Collections.emptyList());
+            fail();
+        } catch (SQLException e) {
+            assertEquals("ERROR 1018 (42Y27): Aggregate may not contain columns not in GROUP BY. A_INTEGER",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery1() throws Exception {
+        String query = "select PERCENTILE_CONT('*') WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
+        try {
+            compileQuery(query, Collections.emptyList());
+            fail();
+        } catch (SQLException e) {
+            assertEquals(
+                    "ERROR 203 (22005): Type mismatch. expected: [DECIMAL] but was: VARCHAR at PERCENTILE_CONT argument 3",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery2() throws Exception {
+        String query = "select PERCENTILE_CONT(1.1) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
+        try {
+            compileQuery(query, Collections.emptyList());
+            fail();
+        } catch (SQLException e) {
+            assertEquals(
+                    "ERROR 213 (22003): Value outside range. expected: [0 , 1] but was: 1.1 at PERCENTILE_CONT argument 3",
+                    e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPercentileWrongQuery3() throws Exception {
+        String query = "select PERCENTILE_CONT(-1) WITHIN GROUP (ORDER BY a_integer ASC) from ATABLE";
+        try {
+            compileQuery(query, Collections.emptyList());
+            fail();
+        } catch (Exception e) {
+            assertEquals(
+                    "ERROR 213 (22003): Value outside range. expected: [0 , 1] but was: -1 at PERCENTILE_CONT argument 3",
+                    e.getMessage());
+        }
+    }
+
+    private Scan compileQuery(String query, List<Object> binds) throws SQLException {
         Properties props = new Properties(TestUtil.TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
-            PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-            QueryCompiler compiler = new QueryCompiler(pconn, 0, scan);
-            QueryPlan plan = compiler.compile(statement, binds);
-            return plan;
+            PhoenixPreparedStatement statement = conn.prepareStatement(query).unwrap(PhoenixPreparedStatement.class);
+            for (Object bind : binds) {
+                statement.setObject(1, bind);
+            }
+            QueryPlan plan = statement.compileQuery(query);
+            return plan.getContext().getScan();
         } finally {
             conn.close();
         }
@@ -372,8 +422,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         };
         List<Object> binds = Collections.emptyList();
         for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
+            Scan scan = compileQuery(query, binds);
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.KEY_ORDERED_GROUP_BY_EXPRESSIONS) != null);
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.UNORDERED_GROUP_BY_EXPRESSIONS) == null);
         }
@@ -384,8 +433,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Select columns in PK
         String query = "select val from ptsdb where inst is null and host='a'";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         // Projects column family with not null column
         assertNull(scan.getFilter());
         assertEquals(1,scan.getFamilyMap().keySet().size());
@@ -397,8 +445,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Select columns in PK
         String query = "select val from ptsdb where inst is null";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         // Projects column family with not null column
         assertEquals(1,scan.getFamilyMap().keySet().size());
         assertArrayEquals(Bytes.toBytes(SchemaUtil.normalizeIdentifier(QueryConstants.DEFAULT_COLUMN_FAMILY)), scan.getFamilyMap().keySet().iterator().next());
@@ -409,8 +456,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Select columns in PK
         String query = "select a_string from atable where entity_id is null";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         assertDegenerate(scan);
     }
 
@@ -419,8 +465,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Select columns in PK
         String query = "select a_string from atable where entity_id is not null";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         assertNull(scan.getFilter());
         assertTrue(scan.getStartRow().length == 0);
         assertTrue(scan.getStopRow().length == 0);
@@ -560,8 +605,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         };
         List<Object> binds = Collections.emptyList();
         for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
+            Scan scan = compileQuery(query, binds);
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.KEY_ORDERED_GROUP_BY_EXPRESSIONS) == null);
             assertTrue(query, scan.getAttribute(GroupedAggregateRegionObserver.UNORDERED_GROUP_BY_EXPRESSIONS) != null);
         }
@@ -576,8 +620,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         };
         List<Object> binds = Collections.emptyList();
         for (String query : queries) {
-            Scan scan = new Scan();
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
         }
     }
     
@@ -600,8 +643,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         try {
             for (int i = 0; i < queries.length; i++) {
                 query = queries[i];
-                Scan scan = new Scan();
-                compileQuery(query, binds, scan);
+                Scan scan = compileQuery(query, binds);
                 ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), null);
                 Aggregator aggregator = aggregators.getAggregators()[0];
                 assertTrue(aggregator instanceof CountAggregator);
@@ -777,16 +819,14 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // First test scan keys are set when the offset is 0 or 1. 
         String query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+') = 'abc'";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
 
         query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+', 0) = 'abc'";
         binds = Collections.emptyList();
-        scan = new Scan();
-        compileQuery(query, binds, scan);
+        scan = compileQuery(query, binds);
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() != null);
@@ -794,8 +834,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         // Test scan keys are not set when the offset is not 0 or 1.
         query = "SELECT host FROM ptsdb WHERE regexp_substr(inst, '[a-zA-Z]+', 3) = 'abc'";
         binds = Collections.emptyList();
-        scan = new Scan();
-        compileQuery(query, binds, scan);
+        scan = compileQuery(query, binds);
         assertTrue(scan.getStartRow().length == 0);
         assertTrue(scan.getStopRow().length == 0);
         assertTrue(scan.getFilter() != null);
@@ -889,8 +928,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testSubstrSetScanKey() throws Exception {
         String query = "SELECT inst FROM ptsdb WHERE substr(inst, 0, 3) = 'abc'";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abd"),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertTrue(scan.getFilter() == null); // Extracted.
@@ -900,8 +938,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testRTrimSetScanKey() throws Exception {
         String query = "SELECT inst FROM ptsdb WHERE rtrim(inst) = 'abc'";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        Scan scan = compileQuery(query, binds);
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes("abc")), scan.getStartRow());
         assertArrayEquals(ByteUtil.concat(ByteUtil.nextKey(Bytes.toBytes("abc ")),QueryConstants.SEPARATOR_BYTE_ARRAY), scan.getStopRow());
         assertNotNull(scan.getFilter());
@@ -911,17 +948,15 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testCastingIntegerToDecimalInSelect() throws Exception {
         String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
-        compileQuery(query, binds, scan);
+        compileQuery(query, binds);
     }
     
     @Test
     public void testCastingStringToDecimalInSelect() throws Exception {
         String query = "SELECT CAST b_string AS DECIMAL/2 FROM aTable WHERE 5=a_integer";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a string to decimal isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -932,9 +967,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testCastingDecimalToIntegerInSelect() throws Exception {
         String query = "SELECT CAST x_decimal AS INTEGER FROM aTable WHERE 5=a_integer";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a decimal to integer isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -945,9 +979,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testCastingStringToDecimalInWhere() throws Exception {
         String query = "SELECT a_integer FROM aTable WHERE 2.5=CAST b_string AS DECIMAL/2 ";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a string to decimal isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -958,9 +991,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testUsingNonComparableDataTypesInRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) > (2, 'abc')";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a integer to string isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -971,9 +1003,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testUsingNonComparableDataTypesOfColumnRefOnLHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE a_integer > ('abc', 2)";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a integer to string isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -984,9 +1015,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testUsingNonComparableDataTypesOfLiteralOnLHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE 'abc' > (a_integer, x_integer)";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a integer to string isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -997,9 +1027,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testUsingNonComparableDataTypesOfColumnRefOnRHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE ('abc', 2) < a_integer ";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a integer to string isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -1010,9 +1039,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     public void testUsingNonComparableDataTypesOfLiteralOnRHSAndRowValueConstructorFails() throws Exception {
         String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) < 'abc'";
         List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         try {
-            compileQuery(query, binds, scan);
+            compileQuery(query, binds);
             fail("Compilation should have failed since casting a integer to string isn't supported");
         } catch (SQLException e) {
             assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
@@ -1066,6 +1094,21 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             fail();
         } catch (ColumnAlreadyExistsException e) {
             assertEquals("V1",e.getColumnName());
+        }
+    }
+    
+    @Test
+    public void testDeleteFromImmutableWithKV() throws Exception {
+        String ddl = "CREATE TABLE t (k1 VARCHAR, v1 VARCHAR, v2 VARCHAR CONSTRAINT pk PRIMARY KEY(k1)) immutable_rows=true";
+        String indexDDL = "CREATE INDEX i ON t (v1)";
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(ddl);
+            conn.createStatement().execute(indexDDL);
+            conn.createStatement().execute("DELETE FROM t");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
         }
     }
 }

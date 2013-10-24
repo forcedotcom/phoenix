@@ -27,11 +27,26 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.MILLIS_IN_DAY;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB2_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
+import java.sql.Types;
 import java.text.Format;
 import java.text.ParseException;
 import java.util.Properties;
@@ -1358,6 +1373,44 @@ public class VariableLengthPKTest extends BaseClientMangedTimeTest {
             }
         } finally {
             conn.close();
+        }
+    }
+
+    @Test
+    public void testRegexpSubstrFunction2() throws Exception {
+        long ts = nextTimestamp();
+        String url = getUrl();
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = DriverManager.getConnection(url, props);
+        String ddl = "create table t (k INTEGER NOT NULL PRIMARY KEY, name VARCHAR)";
+        conn.createStatement().execute(ddl);
+        conn.close();
+        
+        String dml = "upsert into t values(?,?)";
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+2));
+        conn = DriverManager.getConnection(url, props);
+        PreparedStatement stmt = conn.prepareStatement(dml);
+        String[] values = new String[] {"satax","jruls","hrjcu","yqtrv","jjcvw"};
+        for (int i = 0; i < values.length; i++) {
+            stmt.setInt(1, i+1);
+            stmt.setString(2, values[i]);
+            stmt.execute();
+        }
+        conn.commit();
+        conn.close();
+        
+        // This matches what Oracle returns for regexp_substr, even through
+        // it seems oke for "satax", it should return null.
+        String query = "select regexp_substr(name,'[^s]+',1) from t limit 5";
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        conn = DriverManager.getConnection(url, props);
+        ResultSet rs = conn.createStatement().executeQuery(query);
+        int count = 0;
+        String[] results = new String[] {"atax","jrul","hrjcu","yqtrv","jjcvw"};
+        while (rs.next()) {
+            assertEquals(results[count],rs.getString(1));
+            count++;
         }
     }
 

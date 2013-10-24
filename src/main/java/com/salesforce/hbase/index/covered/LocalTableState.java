@@ -78,7 +78,7 @@ public class LocalTableState implements TableState {
     this.env = environment;
     this.table = table;
     this.update = update;
-    this.memstore = new IndexMemStore(IndexMemStore.COMPARATOR);
+    this.memstore = new IndexMemStore();
     this.scannerBuilder = new ScannerBuilder(memstore, update);
     this.columnSet = new CoveredColumns();
   }
@@ -142,22 +142,9 @@ public class LocalTableState implements TableState {
     }
 
     Scanner scanner =
-        this.scannerBuilder.buildIndexedColumnScanner(kvs, indexedColumns, tracker, ts);
+        this.scannerBuilder.buildIndexedColumnScanner(indexedColumns, tracker, ts);
 
     return new Pair<Scanner, IndexUpdate>(scanner, new IndexUpdate(tracker));
-  }
-
-  /**
-   * Similar to {@link #getIndexedColumnsTableState(Collection)}, but doesn't update any
-   * columnTrackers.
-   * @param columns columns to scan
-   * @return iterator over the requested columns
-   * @throws IOException on failure to read the underlying state
-   */
-  public Scanner getNonIndexedColumnsTableState(List<? extends ColumnReference> columns)
-      throws IOException {
-    ensureLocalStateInitialized(columns);
-    return this.scannerBuilder.buildNonIndexedColumnsScanner(columns, ts);
   }
 
   /**

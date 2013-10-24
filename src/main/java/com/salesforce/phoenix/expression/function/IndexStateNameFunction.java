@@ -25,33 +25,65 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
+package com.salesforce.phoenix.expression.function;
 
-package com.salesforce.phoenix.parse;
+import java.sql.SQLException;
+import java.util.List;
+
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PIndexState;
+import com.salesforce.phoenix.schema.tuple.Tuple;
+
 
 /**
  * 
- * Node representing a dynamic definition to a column in a SQL expression
- *
- * @author nmaillard
- * @since 1.3
+ * Function used to get the index state name from the serialized byte value
+ * Usage:
+ * IndexStateName('a')
+ * will return 'ACTIVE'
+ * 
+ * @author jtaylor
+ * @since 2.1
  */
+@BuiltInFunction(name=IndexStateNameFunction.NAME, args= {
+    @Argument(allowedTypes=PDataType.CHAR)} )
+public class IndexStateNameFunction extends ScalarFunction {
+    public static final String NAME = "IndexStateName";
 
-public class DynamicColumnParseNode extends ColumnParseNode {
-    protected final String fullName;
-    private final ColumnDef columnDef;
-  
-    DynamicColumnParseNode(ColumnDef node) {
-        super(node.getColumnDefName().getColumnName());
-        columnDef = node;
-        fullName = getName();
+    public IndexStateNameFunction() {
     }
-  
+    
+    public IndexStateNameFunction(List<Expression> children) throws SQLException {
+        super(children);
+    }
+    
     @Override
-    public String getFullName() {
-        return fullName;
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child = children.get(0);
+        if (!child.evaluate(tuple, ptr)) {
+            return false;
+        }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
+        byte serializedByte = ptr.get()[ptr.getOffset()];
+        PIndexState indexState = PIndexState.fromSerializedValue(serializedByte);
+        ptr.set(indexState.toBytes());
+        return true;
     }
-  
-    public ColumnDef getColumnDef(){
-        return columnDef;
+
+    @Override
+    public PDataType getDataType() {
+        return PDataType.VARCHAR;
+    }
+    
+    @Override
+    public String getName() {
+        return NAME;
     }
 }

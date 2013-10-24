@@ -232,4 +232,22 @@ public class StringUtil {
         }
         return newValue;
     }
+    
+    /**
+     * Lame - StringBuilder.equals is retarded.
+     * @param b1
+     * @param b2
+     * @return whether or not the two builders consist the same sequence of characters
+     */
+    public static boolean equals(StringBuilder b1, StringBuilder b2) {
+        if (b1.length() != b2.length()) {
+            return false;
+        }
+        for (int i = 0; i < b1.length(); i++) {
+            if (b1.charAt(i) != b2.charAt(i)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

@@ -30,19 +30,39 @@ package com.salesforce.phoenix.map.reduce;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.sql.*;
-import java.util.*;
-
-import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Pair;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import au.com.bytecode.opencsv.CSVReader;
 
+import org.apache.commons.lang.StringUtils;
+<<<<<<< HEAD
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+=======
+>>>>>>> 6dd198a61419797359d9e291fd05d48202876045
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
+
+<<<<<<< HEAD
+import au.com.bytecode.opencsv.CSVReader;
+
+=======
+>>>>>>> 6dd198a61419797359d9e291fd05d48202876045
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.QueryUtil;
@@ -150,9 +170,14 @@ public class MapReduceJob {
 		@Override
 		public void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException{
 			
+<<<<<<< HEAD
 			CSVReader reader = null;
 			try {
 				reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');
+=======
+            CSVReader reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');
+			try {
+>>>>>>> 6dd198a61419797359d9e291fd05d48202876045
 				String[] tokens = reader.readNext();
 				
 				PreparedStatement upsertStatement;
@@ -165,7 +190,7 @@ public class MapReduceJob {
 				}
 
 				for(int i = 0 ; i < tokens.length && i < colDetails.size() ;i++){
-					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(new Integer(i+1))));
+					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(Integer.valueOf(i+1))));
 				}
 				
 				upsertStatement.execute();
@@ -185,6 +210,8 @@ public class MapReduceJob {
 				dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn_none);
 			} catch (SQLException e) {
 				System.err.println("Failed to retrieve the data iterator for Phoenix table :: " + e.getMessage());
+			} finally {
+			    reader.close();
 			}
 			
 			while(dataIterator != null && dataIterator.hasNext()){

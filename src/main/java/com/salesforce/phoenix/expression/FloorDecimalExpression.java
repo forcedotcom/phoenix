@@ -25,20 +25,35 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.expression;
 
-import com.salesforce.phoenix.schema.ColumnModifier;
+import java.math.MathContext;
+import java.math.RoundingMode;
 
-public class IndexColumnParseNode extends ColumnParseNode {
-    private final ColumnModifier modifier;
 
-    IndexColumnParseNode(String name, ColumnModifier modifier) {
-        super(name);
-        this.modifier = modifier;
+public class FloorDecimalExpression extends CeilingDecimalExpression {
+    private static final MathContext FLOOR_CONTEXT = new MathContext(0, RoundingMode.FLOOR);
+    
+    public FloorDecimalExpression() {
     }
-
-    public ColumnModifier getModifier() {
-        return modifier;
+    
+    public FloorDecimalExpression(Expression child) {
+        super(child);
     }
-
+    
+    @Override
+    protected MathContext getMathContext() {
+        return FLOOR_CONTEXT;
+    }
+    
+    
+    @Override
+    public final String toString() {
+        StringBuilder buf = new StringBuilder("FLOOR(");
+        for (int i = 0; i < children.size() - 1; i++) {
+            buf.append(getChild().toString());
+        }
+        buf.append(")");
+        return buf.toString();
+    }
 }

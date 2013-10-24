@@ -71,7 +71,7 @@ public abstract class BaseExpression implements Expression {
     
     @Override
     public ColumnModifier getColumnModifier() {
-    	return null;
+    	    return null;
     }    
 
     @Override

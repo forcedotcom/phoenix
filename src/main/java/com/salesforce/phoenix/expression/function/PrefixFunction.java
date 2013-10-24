@@ -53,7 +53,7 @@ abstract public class PrefixFunction extends ScalarFunction {
             }
 
             @Override
-            public KeyRange getKeyRange(CompareOp op, Expression rhs, int span) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
                 byte[] key;
                 KeyRange range;
                 PDataType type = getColumn().getDataType();
@@ -71,7 +71,7 @@ abstract public class PrefixFunction extends ScalarFunction {
                     range = type.getKeyRange(KeyRange.UNBOUND, false, ByteUtil.nextKey(key), false);
                     break;
                 default:
-                    return childPart.getKeyRange(op, rhs, 1);
+                    return childPart.getKeyRange(op, rhs);
                 }
                 Integer length = getColumn().getByteSize();
                 return length == null ? range : range.fill(length);

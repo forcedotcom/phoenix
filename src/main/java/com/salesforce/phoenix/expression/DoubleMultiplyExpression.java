@@ -56,7 +56,7 @@ public class DoubleMultiplyExpression extends MultiplyExpression {
             }
             double childvalue = child.getDataType().getCodec()
                     .decodeDouble(ptr, child.getColumnModifier());
-            if (childvalue != Double.NaN
+            if (!Double.isNaN(childvalue)
                     && childvalue != Double.NEGATIVE_INFINITY
                     && childvalue != Double.POSITIVE_INFINITY) {
                 result *= childvalue;

@@ -33,6 +33,8 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.expression.function.CoalesceFunction;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
+import com.salesforce.phoenix.expression.function.IndexStateNameFunction;
+import com.salesforce.phoenix.expression.function.InvertFunction;
 import com.salesforce.phoenix.expression.function.LTrimFunction;
 import com.salesforce.phoenix.expression.function.LengthFunction;
 import com.salesforce.phoenix.expression.function.LowerFunction;
@@ -127,7 +129,14 @@ public enum ExpressionType {
     RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
-    IndexKeyValue(IndexKeyValueColumnExpression.class);
+    CeilingDecimalExpression(CeilingDecimalExpression.class),
+    CeilingTimestampExpression(CeilingTimestampExpression.class),
+    FloorDecimalExpression(FloorDecimalExpression.class),
+    FloorTimestampExpression(FloorTimestampExpression.class),
+    IndexKeyValue(IndexKeyValueColumnExpression.class),
+    IndexStateName(IndexStateNameFunction.class),
+    InvertFunction(InvertFunction.class),
+    ;
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

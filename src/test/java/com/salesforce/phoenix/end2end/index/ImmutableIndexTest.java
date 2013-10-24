@@ -1,3 +1,30 @@
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     Redistributions of source code must retain the above copyright notice,
+ *     this list of conditions and the following disclaimer.
+ *     Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *     Neither the name of Salesforce.com nor the names of its contributors may 
+ *     be used to endorse or promote products derived from this software without 
+ *     specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
 package com.salesforce.phoenix.end2end.index;
 
 import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
@@ -6,6 +33,7 @@ import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -22,6 +50,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -183,8 +212,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         String expectedPlan;
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
         expectedPlan = indexSaltBuckets == null ? 
-             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I 'y'" : 
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I 0...3,'y'\n" + 
+             "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [~'y']" : 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 KEYS OVER I [0,~'y'] - [3,~'y']\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
 
@@ -202,8 +231,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertFalse(rs.next());
         rs = conn.createStatement().executeQuery("EXPLAIN " + query);
         expectedPlan = indexSaltBuckets == null ? 
-            "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']" :
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
+            "CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [*] - [~'x']" :
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I [0,*] - [3,~'x']\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
@@ -222,11 +251,11 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         // being returned. Without stats we don't know. The alternative
         // would be a full table scan.
         expectedPlan = indexSaltBuckets == null ? 
-            ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I (*-'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+            ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [*] - [~'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT") :
-            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I 0...3,(*-'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+            ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I [0,*] - [3,~'x']\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
@@ -310,5 +339,92 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
 
+    }
+    
+    @Test
+    public void testDeleteFromAllPKColumnIndex() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (long_pk, varchar_pk)"
+                + " INCLUDE (long_col1, long_col2)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX");
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        
+        String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
+                " WHERE long_col2 = 4";
+        assertEquals(1,conn.createStatement().executeUpdate(dml));
+        conn.commit();
+        
+        String query = "SELECT /*+ NO_INDEX */ long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+        
+        query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+        
+        query = "SELECT * FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX" ;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+    }
+    
+    
+    @Test
+    public void testDropIfImmutableKeyValueColumn() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (long_col1)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        rs = conn.createStatement().executeQuery("SELECT COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + "IDX");
+        assertTrue(rs.next());
+        assertEquals(3,rs.getInt(1));
+        
+        conn.setAutoCommit(true);
+        String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
+                " WHERE long_col2 = 4";
+        try {
+            conn.createStatement().execute(dml);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
+        }
+            
+        conn.createStatement().execute("DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
 }

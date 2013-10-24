@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.CoprocessorEnvironment;
 
 import com.salesforce.hbase.index.table.CoprocessorHTableFactory;
 import com.salesforce.hbase.index.table.HTableFactory;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 
 public class IndexWriterUtils {
 
@@ -50,11 +51,20 @@ public class IndexWriterUtils {
    * For tables to which there are not a lot of writes, the thread pool automatically will decrease
    * the number of threads to one (though it can burst up to the specified max for any given table),
    * so increasing this to meet the max case is reasonable.
+   * <p>
+   * Setting this value too small can cause <b>catastrophic cluster failure</b>. The way HTable's
+   * underlying pool works is such that is does direct hand-off of tasks to threads. This works fine
+   * because HTables are assumed to work in a single-threaded context, so we never get more threads
+   * than regionservers. In a multi-threaded context, we can easily grow to more than that number of
+   * threads. Currently, HBase doesn't support a custom thread-pool to back the HTable via the
+   * coprocesor hooks, so we can't modify this behavior.
    */
   private static final String INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY =
       "index.writer.threads.pertable.max";
-  private static final int DEFAULT_NUM_PER_TABLE_THREADS = 1;
+  private static final int DEFAULT_NUM_PER_TABLE_THREADS = Integer.MAX_VALUE;
 
+  /** Configuration key that HBase uses to set the max number of threads for an HTable */
+  public static final String HTABLE_THREAD_KEY = "hbase.htable.threads.max";
   private IndexWriterUtils() {
     // private ctor for utilites
   }
@@ -65,8 +75,8 @@ public class IndexWriterUtils {
     // set the number of threads allowed per table.
     int htableThreads =
         conf.getInt(IndexWriterUtils.INDEX_WRITER_PER_TABLE_THREADS_CONF_KEY, IndexWriterUtils.DEFAULT_NUM_PER_TABLE_THREADS);
-    LOG.info("Starting index writer with " + htableThreads + " threads for each HTable.");
-    conf.setInt("hbase.htable.threads.max", htableThreads);
+    LOG.trace("Creating HTableFactory with " + htableThreads + " threads for each HTable.");
+    IndexManagementUtil.setIfNotSet(conf, HTABLE_THREAD_KEY, htableThreads);
     return new CoprocessorHTableFactory(env);
   }
 }

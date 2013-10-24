@@ -33,6 +33,7 @@ import java.util.List;
 import com.salesforce.phoenix.expression.AddExpression;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.DivideExpression;
 import com.salesforce.phoenix.expression.Expression;
@@ -53,6 +54,21 @@ import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 
 
 public abstract class BaseExpressionVisitor<E> implements ExpressionVisitor<E> {
+    @Override
+    public E visit(Expression node) {
+        return null;
+    }
+
+    @Override
+    public Iterator<Expression> visitEnter(Expression node) {
+        return null;
+    }
+
+    @Override
+    public E visitLeave(Expression node, List<E> l) {
+        return null;
+    }
+
     @Override
     public E defaultReturn(Expression node, List<E> l) {
         return null;
@@ -224,6 +240,16 @@ public abstract class BaseExpressionVisitor<E> implements ExpressionVisitor<E> {
     }
     @Override
     public E visitLeave(RowValueConstructorExpression node, List<E> l) {
+        return null;
+    }
+    
+    @Override
+    public Iterator<Expression> visitEnter(CoerceExpression node) {
+        return null;
+    }
+    
+    @Override
+    public E visitLeave(CoerceExpression node, List<E> l) {
         return null;
     }
 }
