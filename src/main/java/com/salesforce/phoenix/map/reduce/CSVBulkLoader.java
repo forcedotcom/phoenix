@@ -209,13 +209,12 @@ public class CSVBulkLoader {
                 job.setMapOutputValueClass(KeyValue.class);
                 
                 SchemaMetrics.configureGlobally(conf);
-                
-                String dataTable = "";
-                if(schemaName != null && schemaName.trim().length() > 0){
+
+                String dataTable = ""; 
+                if(schemaName != null && schemaName.trim().length() > 0)
                 	dataTable = schemaName.toUpperCase() + "." + tableName.toUpperCase();
-                } else{
+                else
                 	dataTable = tableName.toUpperCase();
-                }
                 HTable hDataTable = new HTable(conf, dataTable);
                 
                 // Auto configure partitioner and reducer according to the Main Data table
@@ -265,7 +264,7 @@ public class CSVBulkLoader {
         
         private static String getUrl() {
                 return PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + zookeeperIP;
-        }
+            }
         
         private static void loadMapRedConfigs(Configuration conf){
 
