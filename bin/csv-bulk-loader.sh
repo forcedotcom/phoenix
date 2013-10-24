@@ -40,8 +40,6 @@
 # -error                         Ignore error while reading rows from CSV ? (1 - YES | 0 - NO, defaults to 1) (optional)
 # -help                          Print all options (optional)
 
-current_dir=$(cd $(dirname $0);pwd)
-phoenix_jar_path="$current_dir/../target"
-phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
+phoenix_client_jar=$(find $HADOOP_HOME/lib/phoenix-*-client.jar)
 
 "$HADOOP_HOME"/bin/hadoop -cp "$phoenix_client_jar" com.salesforce.phoenix.map.reduce.CSVBulkLoader "$@"
