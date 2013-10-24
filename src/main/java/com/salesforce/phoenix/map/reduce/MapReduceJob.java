@@ -30,27 +30,18 @@ package com.salesforce.phoenix.map.reduce;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import au.com.bytecode.opencsv.CSVReader;
+import java.sql.*;
+import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Pair;
+
+import au.com.bytecode.opencsv.CSVReader;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -98,14 +89,11 @@ public class MapReduceJob {
 				
 				schemaName			= context.getConfiguration().get("schemaName");
 				tableName 			= context.getConfiguration().get("tableName");
-				createDDL[0]		= context.getConfiguration().get("createTableSQL");
-				createDDL[1]		= context.getConfiguration().get("createIndexSQL");
+				createDDL[0]		= context.getConfiguration().get("createTableDDL");
+				createDDL[1]		= context.getConfiguration().get("createIndexDDL");
 				ignoreUpsertError 	= context.getConfiguration().get("IGNORE.INVALID.ROW").equalsIgnoreCase("0") ? false : true;
 				
 				for(String s : createDDL){
-					if(s == null || s.trim().length() == 0)
-						continue;
-
 					try {
 						PreparedStatement prepStmt = conn_none.prepareStatement(s);
 						prepStmt.execute();
@@ -128,7 +116,11 @@ public class MapReduceJob {
 				for(i = 0 ; i < colDetails.size() ; i++){
 					cols.add("?");
 					String prepValues = StringUtils.join(cols, ",");
-					String upsertStmt = "upsert into " + schemaName + "." + tableName + " values (" + prepValues + ")";
+					String upsertStmt = ""; 
+					if(schemaName != null && schemaName.trim().length() > 0)
+						upsertStmt = "upsert into " + schemaName + "." + tableName + " values (" + prepValues + ")";
+					else
+						upsertStmt = "upsert into " + tableName + " values (" + prepValues + ")";
 					try {
 						stmtCache[i] = conn_none.prepareStatement(upsertStmt);
 					} catch (SQLException e) {
@@ -155,7 +147,7 @@ public class MapReduceJob {
 		@Override
 		public void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException{
 			
-            CSVReader reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');
+			CSVReader reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');			
 			try {
 				String[] tokens = reader.readNext();
 				
@@ -169,7 +161,7 @@ public class MapReduceJob {
 				}
 
 				for(int i = 0 ; i < tokens.length && i < colDetails.size() ;i++){
-					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(Integer.valueOf(i+1))));
+					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(new Integer(i+1))));
 				}
 				
 				upsertStatement.execute();
@@ -180,15 +172,15 @@ public class MapReduceJob {
 				}
 			} catch (Exception e) {
 				System.err.println("Failed to upsert data in the Phoenix :: " + e.getMessage());
-			}
+			}finally {
+				reader.close();
+       			} 
 			
 			Iterator<Pair<byte[],List<KeyValue>>> dataIterator = null;
 			try {
 				dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn_none);
 			} catch (SQLException e) {
 				System.err.println("Failed to retrieve the data iterator for Phoenix table :: " + e.getMessage());
-			} finally {
-			    reader.close();
 			}
 			
 			while(dataIterator != null && dataIterator.hasNext()){
