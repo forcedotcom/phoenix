@@ -1025,6 +1025,18 @@ public class MetaDataClient {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.SET_UNSUPPORTED_PROP_ON_ALTER_TABLE)
                         .setTableName(table.getName().getString()).build().buildException();
                     }
+                    // Check that HBase configured properly for mutable secondary indexing
+                    // if we're changing from an immutable table to a mutable table and we
+                    // have existing indexes.
+                    if (isImmutableRowsProp != null && !isImmutableRows && table.isImmutableRows() && !table.getIndexes().isEmpty()) {
+                        int hbaseVersion = connection.getQueryServices().getLowestClusterHBaseVersion();
+                        if (hbaseVersion < PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NO_MUTABLE_INDEXES).setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                        }
+                        if (connection.getQueryServices().hasInvalidIndexConfiguration()) {
+                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_MUTABLE_INDEX_CONFIG).setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                        }
+                    }
                 }
                 
                 if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
