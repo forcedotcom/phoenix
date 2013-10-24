@@ -60,6 +60,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.map.reduce.util.ConfigReader;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class CSVBulkLoader {
 	
@@ -108,7 +109,7 @@ public class CSVBulkLoader {
 	 */
 
 	@SuppressWarnings("deprecation")
-    public static void main(String[] args) throws Exception{
+    	public static void main(String[] args) throws Exception{
 		
 		String inputFile = null;
 		String outFile = null;
@@ -211,10 +212,10 @@ public class CSVBulkLoader {
 		SchemaMetrics.configureGlobally(conf);
 
 		String dataTable = ""; 
-        if(schemaName != null && schemaName.trim().length() > 0)
-        	dataTable = schemaName.toUpperCase() + "." + tableName.toUpperCase();
-        else
-        	dataTable = tableName.toUpperCase();
+        	if(schemaName != null && schemaName.trim().length() > 0)
+        		dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
+        	else
+        		dataTable = SchemaUtil.normalizeIdentifier(tableName);
 		HTable hDataTable = new HTable(conf, dataTable);
 		
 		// Auto configure partitioner and reducer according to the Main Data table
