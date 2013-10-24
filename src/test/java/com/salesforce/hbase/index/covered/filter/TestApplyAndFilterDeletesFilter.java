@@ -182,6 +182,34 @@ public class TestApplyAndFilterDeletesFilter {
     assertEquals(KeyValue.LOWESTKEY, filter.getNextKeyHint(put));
   }
 
+  /**
+   * Test that we don't cover other columns when we have a delete column.
+   */
+  @Test
+  public void testDeleteColumnCorrectlyCoversColumns() {
+    ApplyAndFilterDeletesFilter filter = new ApplyAndFilterDeletesFilter(EMPTY_SET);
+    KeyValue d = createKvForType(Type.DeleteColumn, 12);
+    byte[] qual2 = Bytes.add(qualifier, Bytes.toBytes("-other"));
+    KeyValue put =
+        new KeyValue(row, family, qual2, 0, qual2.length, 11, Type.Put, value, 0,
+            value.length);
+
+    assertEquals("Didn't filter out delete column", ReturnCode.SKIP, filter.filterKeyValue(d));
+    // different column put should still be visible
+    assertEquals("Filtered out put with different column than the delete", ReturnCode.INCLUDE,
+      filter.filterKeyValue(put));
+
+    // set a delete family, but in the past
+    d = createKvForType(Type.DeleteFamily, 10);
+    assertEquals("Didn't filter out delete column", ReturnCode.SKIP, filter.filterKeyValue(d));
+    // add back in the original delete column
+    d = createKvForType(Type.DeleteColumn, 11);
+    assertEquals("Didn't filter out delete column", ReturnCode.SKIP, filter.filterKeyValue(d));
+    // onto a different family, so that must be visible too
+    assertEquals("Filtered out put with different column than the delete", ReturnCode.INCLUDE,
+      filter.filterKeyValue(put));
+  }
+
   private static Set<ImmutableBytesPtr> asSet(byte[]... strings) {
     Set<ImmutableBytesPtr> set = new HashSet<ImmutableBytesPtr>();
     for (byte[] s : strings) {

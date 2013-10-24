@@ -157,8 +157,8 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   /**
-   * @param recoveryFailurePolicyKeyForTesting
-   * @param class1
+   * @param key
+   * @param value
    */
   public void addArbitraryConfigForTesting(String key, String value) {
     this.specs.put(key, value);

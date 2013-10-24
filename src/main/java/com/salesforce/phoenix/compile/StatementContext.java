@@ -32,6 +32,7 @@ import java.text.Format;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -227,5 +228,9 @@ public class StatementContext {
      */
     public KeyRange getMinMaxRange () {
         return minMaxRange;
+    }
+    
+    public boolean isSingleRowScan() {
+        return this.getScanRanges().isSingleRowScan() && ! (this.getScan().getFilter() instanceof FilterList);
     }
 }

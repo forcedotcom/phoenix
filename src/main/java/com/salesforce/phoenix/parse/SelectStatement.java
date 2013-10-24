@@ -63,7 +63,7 @@ public class SelectStatement implements FilterableStatement {
                     null, Collections.<OrderByNode>emptyList(), 
                     null, 0, true);
     public static SelectStatement create(SelectStatement select, HintNode hint) {
-        if (select.getHint() == hint) {
+        if (select.getHint() == hint || hint.isEmpty()) {
             return select;
         }
         return new SelectStatement(select.getFrom(), hint, select.isDistinct(), 

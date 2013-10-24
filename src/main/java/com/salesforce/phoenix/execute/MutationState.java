@@ -309,10 +309,14 @@ public class MutationState implements SQLCloseable {
         long byteSize = 0;
         int keyValueCount = 0;
         for (Mutation mutation : mutations) {
-            for (Entry<byte[], List<KeyValue>> entry : mutation.getFamilyMap().entrySet()) {
-                for (KeyValue kv : entry.getValue()) {
-                    byteSize += kv.getBuffer().length;
-                    keyValueCount++;
+            if (mutation.getFamilyMap() != null) { // Not a Delete of the row
+                for (Entry<byte[], List<KeyValue>> entry : mutation.getFamilyMap().entrySet()) {
+                    if (entry.getValue() != null) {
+                        for (KeyValue kv : entry.getValue()) {
+                            byteSize += kv.getBuffer().length;
+                            keyValueCount++;
+                        }
+                    }
                 }
             }
         }

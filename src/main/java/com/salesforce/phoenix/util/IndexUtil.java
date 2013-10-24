@@ -45,6 +45,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.index.IndexMaintainer;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
@@ -98,6 +99,14 @@ public class IndexUtil {
         return name.substring(0,name.indexOf(INDEX_COLUMN_NAME_SEP));
     }
 
+    public static String getDataColumnFullName(String name) {
+        int index = name.indexOf(INDEX_COLUMN_NAME_SEP) ;
+        if (index == 0) {
+            return name.substring(index+1);
+        }
+        return SchemaUtil.getColumnDisplayName(name.substring(0, index), name.substring(index+1));
+    }
+
     public static String getIndexColumnName(String dataColumnFamilyName, String dataColumnName) {
         return (dataColumnFamilyName == null ? "" : dataColumnFamilyName) + INDEX_COLUMN_NAME_SEP + dataColumnName;
     }
@@ -136,7 +145,12 @@ public class IndexUtil {
         }
     }
 
-    public static List<Mutation> generateIndexData(PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+    private static boolean isEmptyKeyValue(PTable table, ColumnReference ref) {
+        byte[] emptyKeyValueCF = SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies());
+        return (Bytes.compareTo(emptyKeyValueCF, ref.getFamily()) == 0 &&
+                Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, ref.getQualifier()) == 0);
+    }
+    public static List<Mutation> generateIndexData(final PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
         try {
             IndexMaintainer maintainer = index.getIndexMaintainer(table);
             List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
@@ -150,6 +164,11 @@ public class IndexUtil {
         
                         @Override
                         public ImmutableBytesPtr getLatestValue(ColumnReference ref) {
+                            // Always return null for our empty key value, as this will cause the index
+                            // maintainer to always treat this Put as a new row.
+                            if (isEmptyKeyValue(table, ref)) {
+                                return null;
+                            }
                             Map<byte [], List<KeyValue>> familyMap = dataMutation.getFamilyMap();
                             byte[] family = ref.getFamily();
                             List<KeyValue> kvs = familyMap.get(family);

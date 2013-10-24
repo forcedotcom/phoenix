@@ -75,7 +75,7 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             
-            String query = "SELECT char_col1, int_col1 from " + DATA_TABLE_FULL_NAME;
+            String query = "SELECT d.char_col1, int_col1 from " + DATA_TABLE_FULL_NAME + " as d";
             ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
             assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
             
@@ -448,6 +448,45 @@ public class MutableIndexTest extends BaseMutableIndexTest {
         assertEquals("y",rs.getString(2));
         assertNull(rs.getString(3));
         assertFalse(rs.next());
+        
+        // Upsert new row with null leading index column
+        stmt.setString(1,"b");
+        stmt.setString(2, null);
+        stmt.setString(3, "3");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(null,rs.getString(1));
+        assertEquals("3",rs.getString(2));
+        assertEquals("b",rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("y",rs.getString(1));
+        assertNull(rs.getString(2));
+        assertEquals("a",rs.getString(3));
+        assertFalse(rs.next());
+
+        // Update row with null leading index column to have a value
+        stmt = conn.prepareStatement("UPSERT INTO " + DATA_TABLE_FULL_NAME + " VALUES(?,?)");
+        stmt.setString(1,"b");
+        stmt.setString(2, "z");
+        stmt.execute();
+        conn.commit();
+        
+        query = "SELECT * FROM " + INDEX_TABLE_FULL_NAME;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals("y",rs.getString(1));
+        assertNull(rs.getString(2));
+        assertEquals("a",rs.getString(3));
+        assertTrue(rs.next());
+        assertEquals("z",rs.getString(1));
+        assertEquals("3",rs.getString(2));
+        assertEquals("b",rs.getString(3));
+        assertFalse(rs.next());
+
     }
  
     /**

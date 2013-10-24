@@ -249,6 +249,9 @@ public class LikeExpression extends BaseCompoundExpression {
             }
             return false;
         }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
         
         String value = (String)PDataType.VARCHAR.toObject(ptr, getStrExpression().getColumnModifier());
         boolean matched = pattern.matcher(value).matches();

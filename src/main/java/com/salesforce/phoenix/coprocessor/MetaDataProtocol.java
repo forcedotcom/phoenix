@@ -190,16 +190,12 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     /**
      * Clears the server-side cache of table meta data. Used between test runs to
      * ensure no side effects.
-     * 
-     * @throws IOException
      */
     void clearCache();
     
     /**
      * Get the version of the server-side HBase and phoenix.jar. Used when initially connecting
      * to a cluster to ensure that the client and server jars are compatible.
-     * 
-     * @throws IOException
      */
     long getVersion();
 }

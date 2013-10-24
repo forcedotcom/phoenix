@@ -175,10 +175,10 @@ public class MutableSaltedIndexTest extends BaseMutableIndexTest{
         // would be a full table scan.
         expectedPlan = indexSaltBuckets == null ? 
             ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER " + INDEX_TABLE_FULL_NAME + " [*] - [~'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT") :
             ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER " + INDEX_TABLE_FULL_NAME + " [0,*] - [3,~'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         

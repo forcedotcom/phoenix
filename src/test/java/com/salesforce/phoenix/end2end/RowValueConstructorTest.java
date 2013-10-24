@@ -57,8 +57,11 @@ import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -398,62 +401,6 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testQueryMoreFunctionalityUsingAllPKColsInRowValueConstructor() throws Exception {
-        long ts = nextTimestamp();
-        String tenantId = getOrganizationId();
-        Date date = new Date(System.currentTimeMillis());
-        initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts);
-        Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        
-        String startingOrgId = tenantId;
-        String startingParentId = PARENTID1;
-        Date startingDate = date;
-        String startingEntityHistId = ENTITYHISTID1;
-        PreparedStatement statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
-                     " WHERE (organization_id, parent_id, created_date, entity_history_id) > (?, ?, ?, ?) ORDER BY organization_id, parent_id, created_date, entity_history_id LIMIT 3 ");
-        statement.setString(1, startingOrgId);
-        statement.setString(2, startingParentId);
-        statement.setDate(3, startingDate);
-        statement.setString(4, startingEntityHistId);
-        ResultSet rs = statement.executeQuery();
-        
-        int count = 0;
-        int i = 1;
-        //this loop should work on rows 2, 3, 4.
-        while(rs.next()) {
-            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
-            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
-            count++;
-            i++;
-            if(count == 3) {
-                startingOrgId = rs.getString(1);
-                startingParentId = rs.getString(2);
-                date = rs.getDate(3);
-                startingEntityHistId = rs.getString(4);
-            }
-        }
-        
-        assertTrue("Number of rows returned: ", count == 3);
-        //We will now use the row 4's pk values for bind variables. 
-        statement.setString(1, startingOrgId);
-        statement.setString(2, startingParentId);
-        statement.setDate(3, startingDate);
-        statement.setString(4, startingEntityHistId);
-        rs = statement.executeQuery();
-        //this loop now should work on rows 5, 6, 7.
-        while(rs.next()) {
-            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
-            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
-            i++;
-            count++;
-        }
-        assertTrue("Number of rows returned: ", count == 6);
-    }
-    
-    @Test
     public void testQueryMoreWithInListRowValueConstructor() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -462,7 +409,6 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         
         PreparedStatement statement = conn.prepareStatement("select parent_id from " + ENTITY_HISTORY_TABLE_NAME + 
                      " WHERE (organization_id, parent_id, created_date, entity_history_id) IN ((?, ?, ?, ?),(?,?,?,?))");
@@ -482,7 +428,90 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         assertEquals(PARENTID7, rs.getString(1));
         assertFalse(rs.next());
      }
-    
+    @Test
+    public void testQueryMoreFunctionalityUsingAllPKColsInRowValueConstructor() throws Exception {
+        _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(false);
+    }
+
+    @Test
+    public void testQueryMoreFunctionalityUsingAllPKColsInRowValueConstructor_Salted() throws Exception {
+        _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(true);
+    }
+
+    private void _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(boolean salted) throws Exception, SQLException {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        Date date = new Date(System.currentTimeMillis());
+        if(salted) {
+            initSaltedEntityHistoryTableValues(tenantId, null, date, ts - 1);
+        } else {
+            initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts - 1);
+        }
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        
+        String startingOrgId = tenantId;
+        String startingParentId = PARENTID1;
+        Date startingDate = date;
+        String startingEntityHistId = ENTITYHISTID1;
+        PreparedStatement statement = null;
+        if(salted) {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_SALTED_TABLE_NAME + 
+                    " WHERE (organization_id, parent_id, created_date, entity_history_id) > (?, ?, ?, ?) ORDER BY organization_id, parent_id, created_date, entity_history_id LIMIT 3 ");
+        } else {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
+                    " WHERE (organization_id, parent_id, created_date, entity_history_id) > (?, ?, ?, ?) ORDER BY organization_id, parent_id, created_date, entity_history_id LIMIT 3 ");
+        }
+        statement.setString(1, startingOrgId);
+        statement.setString(2, startingParentId);
+        statement.setDate(3, startingDate);
+        statement.setString(4, startingEntityHistId);
+        ResultSet rs = statement.executeQuery();
+
+        int count = 0;
+        int i = 1;
+        //this loop should work on rows 2, 3, 4.
+        while(rs.next()) {
+            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
+            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
+            count++;
+            i++;
+            if(count == 3) {
+                startingOrgId = rs.getString(1);
+                startingParentId = rs.getString(2);
+                startingDate = rs.getDate(3);
+                startingEntityHistId = rs.getString(4);
+            }
+        }
+
+        assertTrue("Number of rows returned: ", count == 3);
+        //We will now use the row 4's pk values for bind variables. 
+        statement.setString(1, startingOrgId);
+        statement.setString(2, startingParentId);
+        statement.setDate(3, startingDate);
+        statement.setString(4, startingEntityHistId);
+        rs = statement.executeQuery();
+        //this loop now should work on rows 5, 6, 7.
+        while(rs.next()) {
+            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
+            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
+            i++;
+            count++;
+        }
+        assertTrue("Number of rows returned: ", count == 6);
+    }
+
+    @Test
+    public void testQueryMoreWithSubsetofPKColsInRowValueConstructor() throws Exception {
+        _testQueryMoreWithSubsetofPKColsInRowValueConstructor(false);
+    }
+
+    @Test
+    public void testQueryMoreWithSubsetofPKColsInRowValueConstructor_salted() throws Exception {
+        _testQueryMoreWithSubsetofPKColsInRowValueConstructor(true);
+    }
+
     /**
      * Entity History table has primary keys defined in the order
      * PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id). 
@@ -490,25 +519,33 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
      * still works. 
      * @throws Exception
      */
-    @Test
-    public void testQueryMoreWithSubsetofPKColsInRowValueConstructor() throws Exception {
+    private void _testQueryMoreWithSubsetofPKColsInRowValueConstructor(boolean salted) throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         Date date = new Date(System.currentTimeMillis());
-        initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts - 1);
+        if(salted) {
+            initSaltedEntityHistoryTableValues(tenantId, null, date, ts - 1);
+        } else {
+            initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts - 1);
+        }
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        
+
         //initial values of pk.
         String startingOrgId = tenantId;
         String startingParentId = PARENTID1;
-        
+
         String startingEntityHistId = ENTITYHISTID1;
-        
-        PreparedStatement statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
-                     " WHERE (organization_id, parent_id, entity_history_id) > (?, ?, ?) ORDER BY organization_id, parent_id, entity_history_id LIMIT 3 ");
+
+        PreparedStatement statement = null;
+        if(salted) {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_SALTED_TABLE_NAME + 
+                    " WHERE (organization_id, parent_id, entity_history_id) > (?, ?, ?) ORDER BY organization_id, parent_id, entity_history_id LIMIT 3 ");
+        } else {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
+                    " WHERE (organization_id, parent_id, entity_history_id) > (?, ?, ?) ORDER BY organization_id, parent_id, entity_history_id LIMIT 3 ");
+        }
         statement.setString(1, startingOrgId);
         statement.setString(2, startingParentId);
         statement.setString(3, startingEntityHistId);
@@ -542,7 +579,17 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         }
         assertTrue("Number of rows returned: " + count, count == 6);
     }
-    
+
+    @Test
+    public void testQueryMoreWithLeadingPKColSkippedInRowValueConstructor() throws Exception {
+        _testQueryMoreWithLeadingPKColSkippedInRowValueConstructor(false);
+    }
+
+    @Test
+    public void testQueryMoreWithLeadingPKColSkippedInRowValueConstructor_salted() throws Exception {
+        _testQueryMoreWithLeadingPKColSkippedInRowValueConstructor(true);
+    }
+
     /**
      * Entity History table has primary keys defined in the order
      * PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id). 
@@ -551,22 +598,29 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
      * should still work. 
      * @throws Exception
      */
-    @Test
-    public void testQueryMoreWithLeadingPKColSkippedInRowValueConstructor() throws Exception {
+    private void _testQueryMoreWithLeadingPKColSkippedInRowValueConstructor(boolean salted) throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         Date date = new Date(System.currentTimeMillis());
-        initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts - 1);
+        if(salted) {
+            initSaltedEntityHistoryTableValues(tenantId, null, date, ts - 1);
+        } else {
+            initEntityHistoryTableValues(tenantId, getDefaultSplits(tenantId), date, ts - 1);
+        }
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        
         String startingParentId = PARENTID1;
         Date startingDate = date;
         String startingEntityHistId = ENTITYHISTID1;
-        PreparedStatement statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
-                     " WHERE (parent_id, created_date, entity_history_id) > (?, ?, ?) ORDER BY parent_id, created_date, entity_history_id LIMIT 3 ");
+        PreparedStatement statement = null;
+        if(salted) {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_SALTED_TABLE_NAME + 
+                    " WHERE (parent_id, created_date, entity_history_id) > (?, ?, ?) ORDER BY parent_id, created_date, entity_history_id LIMIT 3 ");
+        } else {
+            statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_TABLE_NAME + 
+                    " WHERE (parent_id, created_date, entity_history_id) > (?, ?, ?) ORDER BY parent_id, created_date, entity_history_id LIMIT 3 ");
+        }
         statement.setString(1, startingParentId);
         statement.setDate(2, startingDate);
         statement.setString(3, startingEntityHistId);
@@ -599,61 +653,104 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
             count++;
         }
         assertTrue("Number of rows returned: " + count, count == 6);
+    } 
+    
+    @Test
+    public void testRVCWithNonLeadingPkColsOfTypesIntegerAndString() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, a_string FROM aTable WHERE ?=organization_id  AND (a_integer, a_string) <= (5, 'a')";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            //we have 4 rows present in a table with (a_integer, a_string) <= (5, 'a'). All have a_string set to "a".
+            while(rs.next()) {
+                assertTrue(rs.getInt(1) <= 5);
+                assertTrue(rs.getString(2).compareTo("a") == 0);
+                count++;
+            }
+            assertTrue(count == 4);
+        } finally {
+            conn.close();
+        }
     }
     
     @Test
-    public void testQueryMoreFunctionalityUsingAllPKColsInRowValueConstructor_Salted() throws Exception {
+    public void testRVCWithNonLeadingPkColsOfTypesTimeStampAndString() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        Date date = new Date(System.currentTimeMillis());
-        initSaltedEntityHistoryTableValues(tenantId, null, date, ts);
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String updateStmt = 
+            "upsert into " +
+            "ATABLE(" +
+            "    ORGANIZATION_ID, " +
+            "    ENTITY_ID, " +
+            "    A_TIMESTAMP) " +
+            "VALUES (?, ?, ?)";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 1);
         Properties props = new Properties(TEST_PROPERTIES);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        Connection upsertConn = DriverManager.getConnection(url, props);
+        upsertConn.setAutoCommit(true);
+        PreparedStatement stmt = upsertConn.prepareStatement(updateStmt);
+        stmt.setString(1, tenantId);
+        stmt.setString(2, ROW4);
+        Timestamp tsValue = new Timestamp(System.nanoTime());
+        stmt.setTimestamp(3, tsValue);
+        stmt.execute();
+        
+        String query = "SELECT a_timestamp, a_string FROM aTable WHERE ?=organization_id  AND (a_timestamp, a_string) = (?, 'a')";
+        props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        
-        String startingOrgId = tenantId;
-        String startingParentId = PARENTID1;
-        Date startingDate = date;
-        String startingEntityHistId = ENTITYHISTID1;
-        PreparedStatement statement = conn.prepareStatement("select organization_id, parent_id, created_date, entity_history_id, old_value, new_value from " + ENTITY_HISTORY_SALTED_TABLE_NAME + 
-                     " WHERE (organization_id, parent_id, created_date, entity_history_id) > (?, ?, ?, ?) ORDER BY organization_id, parent_id, created_date, entity_history_id LIMIT 3 ");
-        statement.setString(1, startingOrgId);
-        statement.setString(2, startingParentId);
-        statement.setDate(3, startingDate);
-        statement.setString(4, startingEntityHistId);
-        ResultSet rs = statement.executeQuery();
-        
-        int count = 0;
-        int i = 1;
-        //this loop should work on rows 2, 3, 4.
-        while(rs.next()) {
-            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
-            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
-            count++;
-            i++;
-            if(count == 3) {
-                startingOrgId = rs.getString(1);
-                startingParentId = rs.getString(2);
-                date = rs.getDate(3);
-                startingEntityHistId = rs.getString(4);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setTimestamp(2, tsValue);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                assertTrue(rs.getTimestamp(1).equals(tsValue));
+                assertTrue(rs.getString(2).compareTo("a") == 0);
+                count++;
             }
+            assertTrue(count == 1);
+        } finally {
+            conn.close();
         }
-        
-        assertTrue("Number of rows returned: " + count, count == 3);
-        //We will now use the row 4's pk values for bind variables. 
-        statement.setString(1, startingOrgId);
-        statement.setString(2, startingParentId);
-        statement.setDate(3, startingDate);
-        statement.setString(4, startingEntityHistId);
-        rs = statement.executeQuery();
-        //this loop now should work on rows 5, 6, 7.
-        while(rs.next()) {
-            assertTrue(rs.getString(2).equals(PARENTIDS.get(i)));
-            assertTrue(rs.getString(4).equals(ENTITYHISTIDS.get(i)));
-            i++;
-            count++;
-        }
-        assertTrue("Number of rows returned: " + count, count == 6);
     }
+    
+    //Keeping this test disabled. There is some bug in nested RVC. For some reason (organization_id, (entity_id, a_string)) is not 
+    //returning the same rows as (organization_id, entity_id, a_string) and ((organization_id, entity_id), a_string)
+    @Ignore // FIXME
+    @Test
+    public void testNestedRVCBasic() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, (entity_id, a_string)) >= (?, (?, ?))";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            statement.setString(2, ROW1);
+            statement.setString(3, "a");
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            assertEquals(9, count);
+        } finally {
+            conn.close();
+        }
+    }
+
 }

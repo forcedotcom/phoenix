@@ -30,10 +30,6 @@ public class ColumnParseNode extends NamedParseNode {
     private final String fullName;
     private final String alias;
 
-    ColumnParseNode(String name) {
-        this(null, name, null);
-    }
-
     public ColumnParseNode(TableName tableName, String name, String alias) {
         // Upper case here so our Maps can depend on this (and we don't have to upper case and create a string on every
         // lookup
@@ -65,8 +61,13 @@ public class ColumnParseNode extends NamedParseNode {
     }
 
     @Override
+    public String getAlias() {
+        return alias;
+    }
+
+    @Override
     public String toString() {
-        return alias == null ? getName() : alias;
+        return fullName;
     }
 
     @Override

@@ -59,7 +59,7 @@ public class IndexManagementUtil {
   }
 
   private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
-  public static String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+  public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
   public static boolean isWALEditCodecSet(Configuration conf) {
       // check to see if the WALEditCodec is installed
@@ -187,7 +187,7 @@ public class IndexManagementUtil {
    * assumes that for any index, there are going to small number of kvs, versus the number of
    * columns in any one batch.
    * <p>
-   * This employs the same logic as {@link #updateMatchesColumns(List, List)}, but is flips the
+   * This employs the same logic as {@link #updateMatchesColumns(Collection, List)}, but is flips the
    * iteration logic to search columns before kvs.
    */
   public static boolean columnMatchesUpdate(

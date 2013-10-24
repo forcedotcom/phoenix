@@ -46,8 +46,8 @@ public class PrimaryKeyConstraint extends NamedNode {
     PrimaryKeyConstraint(String name, List<Pair<ColumnName, ColumnModifier>> columns) {
         super(name);
         this.columns = columns == null ? Collections.<Pair<ColumnName, ColumnModifier>>emptyList() : ImmutableList.copyOf(columns);
-        this.columnNameToModifier = Maps.newHashMapWithExpectedSize(columns.size());
-        for (Pair<ColumnName, ColumnModifier> p : columns) {
+        this.columnNameToModifier = Maps.newHashMapWithExpectedSize(this.columns.size());
+        for (Pair<ColumnName, ColumnModifier> p : this.columns) {
             this.columnNameToModifier.put(p.getFirst(), p);
         }
     }
@@ -63,4 +63,15 @@ public class PrimaryKeyConstraint extends NamedNode {
     public boolean contains(ColumnName columnName) {
         return columnNameToModifier.containsKey(columnName);
     }
+    
+    @Override
+    public int hashCode() {
+        return super.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return super.equals(obj);
+    }
+    
 }

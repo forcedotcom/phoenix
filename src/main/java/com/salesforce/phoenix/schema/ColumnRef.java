@@ -36,6 +36,7 @@ import com.salesforce.phoenix.expression.IndexKeyValueColumnExpression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
 import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -101,18 +102,24 @@ public final class ColumnRef {
     }
 
     public ColumnExpression newColumnExpression() throws SQLException {
-        if (SchemaUtil.isPKColumn(this.getColumn())) {            
-            return new RowKeyColumnExpression(getColumn(), new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition));
+        boolean isIndex = tableRef.getTable().getType() == PTableType.INDEX;
+        if (SchemaUtil.isPKColumn(this.getColumn())) {
+            String name = this.getColumn().getName().getString();
+            if (isIndex) {
+                name = IndexUtil.getDataColumnName(name);
+            }
+            return new RowKeyColumnExpression(
+                    getColumn(), 
+                    new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition),
+                    name);
         }
         
-        if (tableRef.getTable().getType() == PTableType.INDEX) {
-            return new IndexKeyValueColumnExpression(getColumn());
-        }
+        if (isIndex)
+        	return new IndexKeyValueColumnExpression(getColumn());
         
-        if (tableRef.getTable().getType() == PTableType.JOIN) {
+        if (tableRef.getTable().getType() == PTableType.JOIN)
         	return new ProjectedColumnExpression(getColumn(), tableRef.getTable());
-        }
-        
+       
         return new KeyValueColumnExpression(getColumn());
     }
 

@@ -128,12 +128,15 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
     case DeleteFamily:
       // track the family to delete. If we are updating the delete, that means we have passed all
       // kvs in the last column, so we can safely ignore the last deleteFamily, and just use this
-      // one
+      // one. In fact, it means that all the previous deletes can be ignored because the family must
+      // not match anymore.
+      this.coveringDelete.reset();
       this.coveringDelete.deleteFamily = next;
       return ReturnCode.SKIP;
     case DeleteColumn:
       // similar to deleteFamily, all the newer deletes/puts would have been seen at this point, so
       // we can safely replace the more recent delete column with the more recent one
+      this.coveringDelete.pointDelete = null;
       this.coveringDelete.deleteColumn = next;
       return ReturnCode.SKIP;
     case Delete:
@@ -144,40 +147,24 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       this.coveringDelete.pointDelete = next;
       return ReturnCode.SKIP;
     default:
-      // no covering delete or it doesn't match this family.
-      if (coveringDelete.empty() || !coveringDelete.matchingFamily(next)) {
-        // we must be onto a new column family, so all the old markers are now defunct - we can
-        // throw them out and track the next ones we find instead
-        this.coveringDelete.reset();
+      // no covering deletes
+      if (coveringDelete.empty()) {
         return ReturnCode.INCLUDE;
       }
 
-      long nextTs = next.getTimestamp();
-      // delete family applies, so we can skip everything else in the family after this
-      if (coveringDelete.deleteFamily != null
-          && coveringDelete.deleteFamily.getTimestamp() >= nextTs) {
-        // hint to the next family
+      if (coveringDelete.matchesFamily(next)) {
         this.currentHint = familyHint;
         return ReturnCode.SEEK_NEXT_USING_HINT;
       }
 
-      if (coveringDelete.deleteColumn != null
-          && coveringDelete.deleteColumn.getTimestamp() >= nextTs) {
+      if (coveringDelete.matchesColumn(next)) {
         // hint to the next column
         this.currentHint = columnHint;
         return ReturnCode.SEEK_NEXT_USING_HINT;
       }
 
-      // point deletes only apply to the exact KV that they reference, so we only need to ensure
-      // that the timestamp matches exactly. Because we sort by timestamp first, either the next
-      // keyvalue has the exact timestamp or is an older (smaller) timestamp, and we can allow that
-      // one.
-      if (coveringDelete.pointDelete != null) {
-        if (coveringDelete.pointDelete.getTimestamp() == nextTs) {
-          return ReturnCode.SKIP;
-        }
-        // clear the point delete since the TS must not be matching
-        coveringDelete.pointDelete = null;
+      if (coveringDelete.matchesPoint(next)) {
+        return ReturnCode.SKIP;
       }
 
     }
@@ -256,19 +243,67 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
     }
 
     /**
-     * Check to see if any of the deletes match the family of the keyvalue
+     * Check to see if we should skip this {@link KeyValue} based on the family.
+     * <p>
+     * Internally, also resets the currently tracked "Delete Family" marker we are tracking if the
+     * keyvalue is into another family (since CFs sort lexicographically, we can discard the current
+     * marker since it must not be applicable to any more kvs in a linear scan).
      * @param next
-     * @return <tt>true</tt> if any of current delete applies to this family
+     * @return <tt>true</tt> if this {@link KeyValue} matches a delete.
      */
-    public boolean matchingFamily(KeyValue next) {
-      if (deleteFamily != null && deleteFamily.matchingFamily(next)) {
-        return true;
+    public boolean matchesFamily(KeyValue next) {
+      if (deleteFamily == null) {
+        return false;
       }
-      if (deleteColumn != null && deleteColumn.matchingFamily(next)) {
-        return true;
+      if (deleteFamily.matchingFamily(next)) {
+        // falls within the timestamp range
+        if (deleteFamily.getTimestamp() >= next.getTimestamp()) {
+          return true;
+        }
+      } else {
+        // only can reset the delete family because we are on to another family
+        deleteFamily = null;
       }
-      if (pointDelete != null && pointDelete.matchingFamily(next)) {
-        return true;
+
+      return false;
+    }
+
+
+    /**
+     * @param next
+     * @return
+     */
+    public boolean matchesColumn(KeyValue next) {
+      if (deleteColumn == null) {
+        return false;
+      }
+      if (deleteColumn.matchingFamily(next) && deleteColumn.matchingQualifier(next)) {
+        // falls within the timestamp range
+        if (deleteColumn.getTimestamp() >= next.getTimestamp()) {
+          return true;
+        }
+      } else {
+        deleteColumn = null;
+      }
+      return false;
+    }
+
+    /**
+     * @param next
+     * @return
+     */
+    public boolean matchesPoint(KeyValue next) {
+      // point deletes only apply to the exact KV that they reference, so we only need to ensure
+      // that the timestamp matches exactly. Because we sort by timestamp first, either the next
+      // keyvalue has the exact timestamp or is an older (smaller) timestamp, and we can allow that
+      // one.
+      if (pointDelete != null && pointDelete.matchingFamily(next)
+          && pointDelete.matchingQualifier(next)) {
+        if (pointDelete.getTimestamp() == next.getTimestamp()) {
+          return true;
+        }
+        // clear the point delete since the TS must not be matching
+        coveringDelete.pointDelete = null;
       }
       return false;
     }

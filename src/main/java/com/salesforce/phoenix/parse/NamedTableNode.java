@@ -30,23 +30,23 @@ import com.google.common.collect.ImmutableList;
  */
 public class NamedTableNode extends ConcreteTableNode {
 
-    private final List<ColumnDef> dyncolumns;
+    private final List<ColumnDef> dynColumns;
 
-    public static NamedTableNode create (String alias, TableName name) {
-        return new NamedTableNode(alias, name);
+    public static NamedTableNode create (String alias, TableName name, List<ColumnDef> dynColumns) {
+        return new NamedTableNode(alias, name, dynColumns);
     }
     
     NamedTableNode(String alias, TableName name) {
         super(alias, name);
-        dyncolumns = Collections.<ColumnDef> emptyList();
+        dynColumns = Collections.<ColumnDef> emptyList();
     }
 
-    NamedTableNode(String alias, TableName name, List<ColumnDef> dyn_columns) {
+    NamedTableNode(String alias, TableName name, List<ColumnDef> dynColumns) {
         super(alias, name);
-        if (dyn_columns != null) {
-            this.dyncolumns = ImmutableList.copyOf(dyn_columns);
+        if (dynColumns != null) {
+            this.dynColumns = ImmutableList.copyOf(dynColumns);
         } else {
-            this.dyncolumns = Collections.<ColumnDef> emptyList();
+            this.dynColumns = Collections.<ColumnDef> emptyList();
         }
     }
 
@@ -56,6 +56,6 @@ public class NamedTableNode extends ConcreteTableNode {
     }
 
     public List<ColumnDef> getDynamicColumns() {
-        return dyncolumns;
+        return dynColumns;
     }
 }

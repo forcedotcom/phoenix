@@ -107,6 +107,10 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
         // TODO: state.getCurrentRowKey() should take an ImmutableBytesWritable arg to prevent byte copy
         byte[] dataRowKey = state.getCurrentRowKey();
         for (IndexMaintainer maintainer : indexMaintainers) {
+            // Short-circuit building state when we know it's a row deletion
+            if (maintainer.isRowDeleted(state.getPendingUpdate())) {
+                continue;
+            }
             // TODO: if more efficient, I could do this just once with all columns in all indexes
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();

@@ -1305,7 +1305,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         compileStatement(query, scan, binds, extractedFilters);
         assertTrue(extractedFilters.size() == 2);
         byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(lowerTenantId), PDataType.VARCHAR.toBytes(lowerParentId), PDataType.DATE.toBytes(lowerCreatedDate));
-        byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(PDataType.VARCHAR.toBytes("7"), PDataType.VARCHAR.toBytes("7")));
+        byte[] expectedStopRow = ByteUtil.nextKey(ByteUtil.concat(ByteUtil.fillKey(PDataType.VARCHAR.toBytes("7"),15), ByteUtil.fillKey(PDataType.VARCHAR.toBytes("7"), 15)));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(expectedStopRow, scan.getStopRow());
     }
@@ -1344,6 +1344,24 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         byte[] expectedStartRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), PDataType.VARCHAR.toBytes(subStringParentId));
         assertArrayEquals(expectedStartRow, scan.getStartRow());
         assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
+    public void testUseOfFunctionOnLHSInMiddleOfRVCForLTE() throws SQLException {
+        String tenantId = "000000000000001";
+        String parentId = "000000000000002";
+        String subStringParentId = parentId.substring(0, 3);
+        Date createdDate = new Date(System.currentTimeMillis());
+        
+        String query = "select * from entity_history where (organization_id, substr(parent_id, 1, 3), created_date) <= (?,?,?)";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId, subStringParentId, createdDate);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 0);
+        byte[] expectedStopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId), ByteUtil.nextKey(PDataType.VARCHAR.toBytes(subStringParentId)));
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStartRow());
+        assertArrayEquals(expectedStopRow, scan.getStopRow());
     }
     
     @Test
