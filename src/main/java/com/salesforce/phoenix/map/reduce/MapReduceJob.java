@@ -34,21 +34,15 @@ import java.sql.*;
 import java.util.*;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
-import org.apache.hadoop.mapreduce.Mapper.Context;
-import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
 import au.com.bytecode.opencsv.CSVReader;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.jdbc.PhoenixDriver;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.QueryUtil;
@@ -125,7 +119,11 @@ public class MapReduceJob {
 				for(i = 0 ; i < colDetails.size() ; i++){
 					cols.add("?");
 					String prepValues = StringUtils.join(cols, ",");
-					String upsertStmt = "upsert into " + schemaName + "." + tableName + " values (" + prepValues + ")";
+					String upsertStmt = "";
+					if(schemaName != null && schemaName.trim().length() > 0)
+						upsertStmt = "upsert into " + schemaName + "." + tableName + " values (" + prepValues + ")";
+					else
+						upsertStmt = "upsert into " + tableName + " values (" + prepValues + ")";
 					try {
 						stmtCache[i] = conn_none.prepareStatement(upsertStmt);
 					} catch (SQLException e) {
@@ -152,8 +150,9 @@ public class MapReduceJob {
 		@Override
 		public void map(LongWritable key, Text line, Context context) throws IOException, InterruptedException{
 			
+			CSVReader reader = null;
 			try {
-				CSVReader reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');
+				reader = new CSVReader(new InputStreamReader(new ByteArrayInputStream(line.toString().getBytes())), ',');
 				String[] tokens = reader.readNext();
 				
 				PreparedStatement upsertStatement;
@@ -177,6 +176,8 @@ public class MapReduceJob {
 				}
 			} catch (Exception e) {
 				System.err.println("Failed to upsert data in the Phoenix :: " + e.getMessage());
+			} finally{
+				if(reader != null) reader.close();
 			}
 			
 			Iterator<Pair<byte[],List<KeyValue>>> dataIterator = null;
