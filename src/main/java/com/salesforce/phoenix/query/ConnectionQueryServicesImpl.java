@@ -1078,7 +1078,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
+    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families) throws SQLException {
         byte[][] rowKeyMetaData = new byte[2][];
         byte[] rowKey = tableMetaData.get(0).getRow();
         SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
@@ -1086,7 +1086,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-        if (family != null) {
+        for ( Pair<byte[],Map<String,Object>>  family : families) {
+            
             ensureFamilyCreated(tableName, tableType, family);
         }
         // Special case for call during drop table to ensure that the empty column family exists.
