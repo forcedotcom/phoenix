@@ -61,9 +61,14 @@ For more information, see the [manual](http://www.hydromatic.net/sqlline/manual.
 
 <h5>Loading Data</h5>
 
-In addition, you can use the bin/psql.sh to execute to load CSV data or execute SQL scripts. For example:
+In addition, you can use the bin/psql.sh to load CSV data or execute SQL scripts. For example:
 
         $ psql.sh localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
+
+Other alternatives include:
+* Using our [map-reduce based CSV loader](https://github.com/forcedotcom/phoenix/wiki/Bulk-CSV-loading-through-map-reduce) for bigger data sets
+* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
+* Populating the table through our [UPSERT VALUES](http://forcedotcom.github.io/phoenix/#upsert_values) command.
 
 <h4>SQL Client</h4>
 
