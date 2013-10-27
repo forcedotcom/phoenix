@@ -457,13 +457,13 @@ drop_index_node returns [DropIndexStatement ret]
 // Parse a alter index statement
 alter_index_node returns [AlterIndexStatement ret]
     : ALTER INDEX (IF ex=EXISTS)? i=index_name ON t=from_table_name s=(USABLE | UNUSABLE | REBUILD | DISABLE)
-      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, PIndexState.valueOf(s.getText())); }
+      {ret = factory.alterIndex(factory.namedTable(null,factory.table(t.getSchemaName(),i.getName())), t.getTableName(), ex!=null, PIndexState.valueOf(SchemaUtil.normalizeIdentifier(s.getText()))); }
     ;
 
 // Parse an alter table statement.
 alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
-        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) | (SET (p=properties)) )
+        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_defs) (p=properties)?) | (SET (p=properties)) )
         {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
     ;
 

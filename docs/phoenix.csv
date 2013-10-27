@@ -135,7 +135,7 @@ ON tableRef ( columnRef [ASC | DESC] [,...] )
 Creates a new secondary index on a table or view. The index will be automatically kept in sync with the table as the data changes.
 At query time, the optimizer will use the index if it contains all columns referenced in the query and produces the most efficient
 execution plan.
-If a table has rows that are write-once and append-only, then the table may set the IMMUTABLE_ROWS property to true (either upfront
+If a table has rows that are write-once and append-only, then the table may set the IMMUTABLE_ROWS property to true (either up-front
 in the CREATE TABLE statement or afterwards in an ALTER TABLE statement). This reduces the overhead at write time to maintain the index.
 Otherwise, if this property is not set on the table, then incremental index maintenance will be performed on the server side when
 the data changes.
@@ -401,7 +401,7 @@ A value.
 
 
 "Other Grammar","Row Value Constructor","
-( term, term... )
+( term { ,term } [...] )
 ","
 A row value constructor is a list of other terms which are treated together as
 a kind of composite structure. They may be compared to each other or to other

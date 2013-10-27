@@ -32,6 +32,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -42,7 +43,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.QueryUtil;
@@ -191,27 +191,61 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
         testDeleteRange(true, true);
     }
     
-    @Ignore("Generate and execute multiple Delete mutation plans and only error if not able to optimize")
     @Test
-    public void testDeleteAllFromTableWithIndex() throws SQLException {
+    public void testDeleteAllFromTableWithIndexAutoCommit() throws SQLException {
+        testDeleteAllFromTableWithIndex(true);
+    }
+    @Test
+    public void testDeleteAllFromTableWithIndexNoAutoCommit() throws SQLException {
+        testDeleteAllFromTableWithIndex(false);
+    }
+    
+    private void testDeleteAllFromTableWithIndex(boolean autoCommit) throws SQLException {
         Connection con = null;
         try {
             con = DriverManager.getConnection(getUrl());
-            con.setAutoCommit(true);
+            con.setAutoCommit(autoCommit);
 
             Statement stm = con.createStatement();
-            stm.execute("DROP TABLE IF EXISTS test.date2");
-            stm.execute("CREATE TABLE test.date2(id BIGINT NOT NULL PRIMARY KEY, d DATE NOT NULL) IMMUTABLE_ROWS=true");
-            stm.execute("CREATE INDEX idx_d ON test.date2(d)");
-            stm.execute("DELETE FROM test.date2");
+            stm.execute("CREATE TABLE IF NOT EXISTS web_stats (" +
+            		"HOST CHAR(2) NOT NULL," +
+            		"DOMAIN VARCHAR NOT NULL, " +
+            		"FEATURE VARCHAR NOT NULL, " +
+            		"DATE DATE NOT NULL, \n" + 
+            		"USAGE.CORE BIGINT," +
+            		"USAGE.DB BIGINT," +
+            		"STATS.ACTIVE_VISITOR INTEGER " +
+            		"CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))");
+            stm.execute("CREATE INDEX web_stats_idx ON web_stats (CORE,DB,ACTIVE_VISITOR)");
             stm.close();
 
             PreparedStatement psInsert = con
-                    .prepareStatement("UPSERT INTO test.date2 VALUES(?,?)");
-            psInsert.setLong(1, 1);
-            psInsert.setDate(2, new java.sql.Date(Long.MAX_VALUE));
+                    .prepareStatement("UPSERT INTO web_stats(HOST, DOMAIN, FEATURE, DATE, CORE, DB, ACTIVE_VISITOR) VALUES(?,?, ? , ?, ?, ?, ?)");
+            psInsert.setString(1, "AA");
+            psInsert.setString(2, "BB");
+            psInsert.setString(3, "CC");
+            psInsert.setDate(4, new Date(0));
+            psInsert.setLong(5, 1L);
+            psInsert.setLong(6, 2L);
+            psInsert.setLong(7, 3);
             psInsert.execute();
             psInsert.close();
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            con.createStatement().execute("DELETE FROM web_stats");
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            ResultSet rs = con.createStatement().executeQuery("SELECT /*+ NO_INDEX */ count(*) FROM web_stats");
+            assertTrue(rs.next());
+            assertEquals(0, rs.getLong(1));
+
+            rs = con.createStatement().executeQuery("SELECT count(*) FROM web_stats_idx");
+            assertTrue(rs.next());
+            assertEquals(0, rs.getLong(1));
 
         } finally {
             try {
@@ -219,4 +253,67 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
             } catch (Exception ex) {
             }
         }
-    }}
+    }
+    
+    
+    @Test
+    public void testDeleteAllFromTableNoAutoCommit() throws SQLException {
+        testDeleteAllFromTable(false);
+    }
+
+    @Test
+    public void testDeleteAllFromTableAutoCommit() throws SQLException {
+        testDeleteAllFromTable(true);
+    }
+    
+    private void testDeleteAllFromTable(boolean autoCommit) throws SQLException {
+        Connection con = null;
+        try {
+            con = DriverManager.getConnection(getUrl());
+            con.setAutoCommit(autoCommit);
+
+            Statement stm = con.createStatement();
+            stm.execute("CREATE TABLE IF NOT EXISTS web_stats (" +
+                    "HOST CHAR(2) NOT NULL," +
+                    "DOMAIN VARCHAR NOT NULL, " +
+                    "FEATURE VARCHAR NOT NULL, " +
+                    "DATE DATE NOT NULL, \n" + 
+                    "USAGE.CORE BIGINT," +
+                    "USAGE.DB BIGINT," +
+                    "STATS.ACTIVE_VISITOR INTEGER " +
+                    "CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))");
+            stm.close();
+
+            PreparedStatement psInsert = con
+                    .prepareStatement("UPSERT INTO web_stats(HOST, DOMAIN, FEATURE, DATE, CORE, DB, ACTIVE_VISITOR) VALUES(?,?, ? , ?, ?, ?, ?)");
+            psInsert.setString(1, "AA");
+            psInsert.setString(2, "BB");
+            psInsert.setString(3, "CC");
+            psInsert.setDate(4, new Date(0));
+            psInsert.setLong(5, 1L);
+            psInsert.setLong(6, 2L);
+            psInsert.setLong(7, 3);
+            psInsert.execute();
+            psInsert.close();
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            con.createStatement().execute("DELETE FROM web_stats");
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            ResultSet rs = con.createStatement().executeQuery("SELECT /*+ NO_INDEX */ count(*) FROM web_stats");
+            assertTrue(rs.next());
+            assertEquals(0, rs.getLong(1));
+        } finally {
+            try {
+                con.close();
+            } catch (Exception ex) {
+            }
+        }
+    }
+}
+
+
