@@ -34,6 +34,7 @@ import org.apache.http.annotation.Immutable;
 import com.salesforce.phoenix.expression.ColumnExpression;
 import com.salesforce.phoenix.expression.IndexKeyValueColumnExpression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -111,11 +112,15 @@ public final class ColumnRef {
                     getColumn(), 
                     new RowKeyValueAccessor(this.getTable().getPKColumns(), pkSlotPosition),
                     name);
-        } else {
-            return isIndex 
-                    ? new IndexKeyValueColumnExpression(getColumn()) 
-                    :  new KeyValueColumnExpression(getColumn());
         }
+        
+        if (isIndex)
+        	return new IndexKeyValueColumnExpression(getColumn());
+        
+        if (tableRef.getTable().getType() == PTableType.JOIN)
+        	return new ProjectedColumnExpression(getColumn(), tableRef.getTable());
+       
+        return new KeyValueColumnExpression(getColumn());
     }
 
     public int getColumnPosition() {

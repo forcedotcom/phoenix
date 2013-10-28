@@ -136,7 +136,7 @@ public class WhereCompiler {
                 disambiguateWithFamily = true;
             }
             return ref;
-        }
+         }
     }
 
     private static final class Counter {

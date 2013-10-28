@@ -100,10 +100,20 @@ public class FromCompiler {
      *             if table name not found in schema
      */
     public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection)
+    		throws SQLException {
+    	List<TableNode> fromNodes = statement.getFrom();
+    	if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
+    	SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, (NamedTableNode)fromNodes.get(0), false);
+    	return visitor;
+    }
+    
+    public static ColumnResolver getMultiTableResolver(SelectStatement statement, PhoenixConnection connection)
             throws SQLException {
         List<TableNode> fromNodes = statement.getFrom();
-        if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
-        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, (NamedTableNode)fromNodes.get(0), false);
+        MultiTableColumnResolver visitor = new MultiTableColumnResolver(connection);
+        for (TableNode node : fromNodes) {
+            node.accept(visitor);
+        }
         return visitor;
     }
 
@@ -257,7 +267,7 @@ public class FromCompiler {
 
         @Override
         public void visit(JoinTableNode joinNode) throws SQLException {
-            throw new SQLFeatureNotSupportedException();
+            joinNode.getTable().accept(this);
         }
 
         private TableRef createTableRef(String alias, String schemaName, String tableName,
@@ -289,7 +299,11 @@ public class FromCompiler {
                 tableMap.put(alias, tableRef);
             }
 
-            tableMap.put( theTable.getName().getString(), tableRef);
+            String name = theTable.getName().getString();
+            //avoid having one name mapped to two identical TableRef.
+            if (alias == null || !alias.equals(name)) {
+            	tableMap.put(name, tableRef);
+            }
             tables.add(tableRef);
         }
 

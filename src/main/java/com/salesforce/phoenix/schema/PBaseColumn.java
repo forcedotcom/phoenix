@@ -57,4 +57,4 @@ public abstract class PBaseColumn implements PColumn {
     public boolean isNullable() {
         return false;
     }
-}
+ }

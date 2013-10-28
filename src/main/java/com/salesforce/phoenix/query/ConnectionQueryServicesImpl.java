@@ -99,7 +99,6 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -499,9 +498,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (!descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName())) {
                 descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
             }
-            if (!descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName())) {
-                descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
-            }
             if (!descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName())) {
                 descriptor.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
             }
@@ -755,11 +751,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(ServerCachingEndpointImpl.class.getName());                    
                     existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
                     boolean wasEnabled = admin.isTableEnabled(tableName);
                     if (wasEnabled) {
                         admin.disableTable(tableName);

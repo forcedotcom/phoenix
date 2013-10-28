@@ -45,6 +45,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.MultiplyExpression;
 import com.salesforce.phoenix.expression.NotExpression;
 import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
@@ -188,6 +189,12 @@ public abstract class BaseExpressionVisitor<E> implements ExpressionVisitor<E> {
     public E visit(KeyValueColumnExpression node) {
         return null;
     }
+    
+    @Override
+    public E visit(ProjectedColumnExpression node) {
+        return null;
+    }
+
     @Override
     public Iterator<Expression> visitEnter(SubtractExpression node) {
         return null;

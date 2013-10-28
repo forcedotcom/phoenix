@@ -36,7 +36,8 @@ public enum PTableType {
     SYSTEM("s", "SYSTEM TABLE"), 
     USER("u", "TABLE"),
     VIEW("v", "VIEW"),
-    INDEX("i", "INDEX"); 
+    INDEX("i", "INDEX"),
+    JOIN("j", "JOIN"); 
 
     private final PName value;
     private final String serializedValue;

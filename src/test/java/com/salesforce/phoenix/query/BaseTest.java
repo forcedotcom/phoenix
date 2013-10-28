@@ -38,6 +38,10 @@ import static com.salesforce.phoenix.util.TestUtil.HBASE_DYNAMIC_COLUMNS;
 import static com.salesforce.phoenix.util.TestUtil.HBASE_NATIVE;
 import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
 import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_CUSTOMER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ITEM_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_ORDER_TABLE;
+import static com.salesforce.phoenix.util.TestUtil.JOIN_SUPPLIER_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.KEYONLY_NAME;
 import static com.salesforce.phoenix.util.TestUtil.MDTEST_NAME;
 import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
@@ -302,6 +306,30 @@ public abstract class BaseTest {
                 );
         builder.put("SumDoubleTest","create table SumDoubleTest" +
                 "   (id varchar not null primary key, d DOUBLE, f FLOAT, ud UNSIGNED_DOUBLE, uf UNSIGNED_FLOAT, i integer, de decimal)");
+        builder.put(JOIN_ORDER_TABLE, "create table " + JOIN_ORDER_TABLE +
+                "   (order_id char(15) not null primary key, " +
+                "    customer_id char(10) not null, " +
+                "    item_id char(10) not null, " +
+                "    quantity integer not null, " +
+                "    date date not null)");
+        builder.put(JOIN_CUSTOMER_TABLE, "create table " + JOIN_CUSTOMER_TABLE +
+                "   (customer_id char(10) not null primary key, " +
+                "    name varchar not null, " +
+                "    phone char(12), " +
+                "    address varchar, " +
+                "    loc_id char(5))");
+        builder.put(JOIN_ITEM_TABLE, "create table " + JOIN_ITEM_TABLE +
+                "   (item_id char(10) not null primary key, " +
+                "    name varchar not null, " +
+                "    price integer not null, " +
+                "    supplier_id char(10) not null, " +
+                "    description varchar)");
+        builder.put(JOIN_SUPPLIER_TABLE, "create table " + JOIN_SUPPLIER_TABLE +
+                "   (supplier_id char(10) not null primary key, " +
+                "    name varchar not null, " +
+                "    phone char(12), " +
+                "    address varchar, " +
+    			"    loc_id char(5))");
         tableDDLMap = builder.build();
     }
 

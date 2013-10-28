@@ -36,6 +36,7 @@ import com.salesforce.phoenix.util.ScanUtil;
 public class IndexMetaDataCacheClient {
 
     private final ServerCacheClient serverCache;
+    private TableRef cacheUsingTableRef;
     
     /**
      * Construct client used to send index metadata to each region server
@@ -44,7 +45,8 @@ public class IndexMetaDataCacheClient {
      * @param cacheUsingTableRef table ref to table that will use the cache during its scan
      */
     public IndexMetaDataCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
-        serverCache = new ServerCacheClient(connection, cacheUsingTableRef);
+        serverCache = new ServerCacheClient(connection);
+        this.cacheUsingTableRef = cacheUsingTableRef;
     }
 
     /**
@@ -72,7 +74,7 @@ public class IndexMetaDataCacheClient {
         /**
          * Serialize and compress hashCacheTable
          */
-        return serverCache.addServerCache(ScanUtil.newScanRanges(mutations), ptr, new IndexMetaDataCacheFactory());
+        return serverCache.addServerCache(ScanUtil.newScanRanges(mutations), ptr, new IndexMetaDataCacheFactory(), cacheUsingTableRef);
     }
     
     
@@ -87,6 +89,6 @@ public class IndexMetaDataCacheClient {
         /**
          * Serialize and compress hashCacheTable
          */
-        return serverCache.addServerCache(ranges, ptr, new IndexMetaDataCacheFactory());
+        return serverCache.addServerCache(ranges, ptr, new IndexMetaDataCacheFactory(), cacheUsingTableRef);
     }
 }

@@ -27,6 +27,9 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.util;
 
+import java.io.DataInput;
+import java.io.IOException;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -91,6 +94,12 @@ public class ImmutableBytesPtr extends ImmutableBytesWritable {
         hashCode = super.hashCode();
     }
 
+    @Override
+    public void readFields(final DataInput in) throws IOException {
+        super.readFields(in);
+        hashCode = super.hashCode();
+    }
+    
     /**
      * @return the backing byte array, copying only if necessary
      */

@@ -188,12 +188,13 @@ public class ProjectionCompiler {
                 }
                 isWildcard = true;
                 if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
-                   projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
+                	projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
                 } else {
                     projectAllTableColumns(context, tableRef, projectedExpressions, projectedColumns);
                 }
             } else if (node instanceof  FamilyWildcardParseNode){
                 // Project everything for SELECT cf.*
+                // TODO: support cf.* expressions for multiple tables the same way with *.
                 String cfName = ((FamilyWildcardParseNode) node).getName();
                 // Delay projecting to scan, as when any other column in the column family gets
                 // added to the scan, it overwrites that we want to project the entire column
@@ -201,9 +202,9 @@ public class ProjectionCompiler {
                 // TODO: consider having a ScanUtil.addColumn and ScanUtil.addFamily to work
                 // around this, as this code depends on this function being the last place where
                 // columns are projected (which is currently true, but could change).
-               projectedFamilies.add(Bytes.toBytes(cfName));
-               if (tableRef.getTable().getType() == PTableType.INDEX && ((FamilyWildcardParseNode)node).isRewrite()) {
-                   projectIndexColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
+                projectedFamilies.add(Bytes.toBytes(cfName));
+                if (tableRef.getTable().getType() == PTableType.INDEX && ((FamilyWildcardParseNode)node).isRewrite()) {
+                    projectIndexColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
                 } else {
                     projectTableColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
                 }
@@ -240,6 +241,8 @@ public class ProjectionCompiler {
             index++;
         }
 
+        table = context.getCurrentTable().getTable(); // switch to current table for scan projection
+        // TODO make estimatedByteSize more accurate by counting the joined columns.
         int estimatedKeySize = table.getRowKeySchema().getEstimatedValueLength();
         int estimatedByteSize = 0;
         for (Map.Entry<byte[],NavigableSet<byte[]>> entry : scan.getFamilyMap().entrySet()) {

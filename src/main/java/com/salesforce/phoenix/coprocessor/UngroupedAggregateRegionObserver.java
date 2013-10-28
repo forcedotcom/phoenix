@@ -72,6 +72,7 @@ import com.salesforce.phoenix.expression.aggregator.Aggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnModifier;

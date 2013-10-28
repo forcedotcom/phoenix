@@ -136,6 +136,7 @@ public enum ExpressionType {
     IndexKeyValue(IndexKeyValueColumnExpression.class),
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),
+    ProjectedColumnExpression(ProjectedColumnExpression.class),
     ;
     
     ExpressionType(Class<? extends Expression> clazz) {
