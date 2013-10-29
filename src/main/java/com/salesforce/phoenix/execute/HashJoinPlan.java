@@ -31,16 +31,10 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Threads;
-
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.ExplainPlan;
@@ -51,22 +45,16 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.FilterableStatement;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 
 public class HashJoinPlan implements QueryPlan {
-	
-	private static final ThreadPoolExecutor pool = new ThreadPoolExecutor(
-			Runtime.getRuntime().availableProcessors(),
-            Integer.MAX_VALUE, 60, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(),
-            Threads.newDaemonThreadFactory("hashjoin-plan-shared-executor"));
-	static {
-        ((ThreadPoolExecutor) pool).allowCoreThreadTimeOut(true);
-	}
     
     private BasicQueryPlan plan;
     private HashJoinInfo joinInfo;
@@ -106,14 +94,22 @@ public class HashJoinPlan implements QueryPlan {
         final ScanRanges ranges = plan.getContext().getScanRanges();
         
         int count = joinIds.length;
+        final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
+        ExecutorService executor = services.getExecutor();
         List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
         for (int i = 0; i < count; i++) {
         	final int index = i;
-        	futures.add(pool.submit(new Callable<ServerCache>() {
+        	futures.add(executor.submit(new JobCallable<ServerCache>() {
+        		
 				@Override
 				public ServerCache call() throws Exception {
 					return hashClient.addHashCache(ranges, hashPlans[index].getScanner(), 
 							hashExpressions[index], plan.getTableRef());
+				}
+
+				@Override
+				public Object getJobId() {
+					return HashJoinPlan.this;
 				}
         	}));
         }
