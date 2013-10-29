@@ -45,7 +45,9 @@ import java.util.concurrent.TimeUnit;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -82,7 +84,6 @@ public class ServerCacheClient {
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
      * @param connection the client connection
-     * @param cacheUsingTableRef table name
      * 
      * TODO: instead of minMaxKeyRange, have an interface for iterating through ranges as we may be sending to
      * servers when we don't have to if the min is in first region and max is in last region, especially for point queries.

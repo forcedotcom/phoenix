@@ -66,7 +66,6 @@ public class HashCacheClient  {
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
      * @param connection the client connection
-     * @param cacheUsingTableRef table ref to table that will use the cache during its scan
      */
     public HashCacheClient(PhoenixConnection connection) {
         serverCache = new ServerCacheClient(connection);
