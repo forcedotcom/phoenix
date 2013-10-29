@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
@@ -67,6 +66,7 @@ import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 
@@ -103,11 +103,7 @@ public class QueryCompiler {
         if (statement.getConnection().getQueryServices().getLowestClusterHBaseVersion() >= PhoenixDatabaseMetaData.ESSENTIAL_FAMILY_VERSION_THRESHOLD) {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
         }
-        try {
-            this.scanCopy = new Scan(scan);
-        } catch (IOException e) {
-            throw new SQLException(e);
-        }
+        this.scanCopy = ScanUtil.newScan(scan);
     }
 
     /**
@@ -176,16 +172,12 @@ public class QueryCompiler {
                 ProjectedPTableWrapper subProjTable = join.createProjectedTable(joinTable.getTable(), false);
                 tables[i] = subProjTable.getTable();
                 ColumnResolver resolver = JoinCompiler.getColumnResolver(subProjTable);
-                try {
-                    Scan subScan = new Scan(scanCopy);
-                    ScanProjector.serializeProjectorIntoScan(subScan, JoinCompiler.getScanProjector(subProjTable));
-                    StatementContext subContext = new StatementContext(subStatement, connection, resolver, binds, subScan);
-                    subContext.setCurrentTable(joinTable.getTable());
-                    join.projectColumns(subScan, joinTable.getTable());
-                    joinPlans[i] = compileSingleQuery(subContext, subStatement, binds);
-                } catch (IOException e) {
-                    throw new SQLException(e);
-                }
+                Scan subScan = ScanUtil.newScan(scanCopy);
+                ScanProjector.serializeProjectorIntoScan(subScan, JoinCompiler.getScanProjector(subProjTable));
+                StatementContext subContext = new StatementContext(subStatement, connection, resolver, binds, subScan);
+                subContext.setCurrentTable(joinTable.getTable());
+                join.projectColumns(subScan, joinTable.getTable());
+                joinPlans[i] = compileSingleQuery(subContext, subStatement, binds);
                 projectedTable = JoinCompiler.mergeProjectedTables(projectedTable, subProjTable, joinTable.getType() == JoinType.Inner);
                 ColumnResolver leftResolver = JoinCompiler.getColumnResolver(starJoinVector[i] ? initialProjectedTable : projectedTable);
                 joinIds[i] = new ImmutableBytesPtr(emptyByteArray); // place-holder
@@ -216,12 +208,7 @@ public class QueryCompiler {
             SelectStatement lhs = JoinCompiler.getSubQueryWithoutLastJoin(select, join);
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(select, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpecWithoutPostFilters(join);
-            Scan subScan;
-            try {
-                subScan = new Scan(scanCopy);
-            } catch (IOException e) {
-                throw new SQLException(e);
-            }
+            Scan subScan = ScanUtil.newScan(scanCopy);
             StatementContext lhsCtx = new StatementContext(select, connection, context.getResolver(), binds, subScan, context.getHashClient());
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin, true);
             ColumnResolver lhsResolver = lhsCtx.getResolver();
