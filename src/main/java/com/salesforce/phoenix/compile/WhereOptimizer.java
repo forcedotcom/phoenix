@@ -1060,12 +1060,12 @@ public class WhereOptimizer {
 
                                 @Override
                                 public PDataType getDataType() {
-                                    return childPart.getColumn().getDataType();
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getDataType();
                                 }
                                 
                                 @Override
                                 public boolean isNullable() {
-                                    return childPart.getColumn().isNullable();
+                                    return isChildPartNull(childPart) ? true : childPart.getColumn().isNullable();
                                 }
 
                                 @Override
@@ -1080,12 +1080,16 @@ public class WhereOptimizer {
 
                                 @Override
                                 public Integer getScale() {
-                                    return childPart.getColumn().getScale();
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getScale();
+                                }
+
+                                private boolean isChildPartNull(final KeyPart childPart) {
+                                    return childPart == null || childPart.getColumn() == null;
                                 }
                                 
                                 @Override
                                 public ColumnModifier getColumnModifier() {
-                                    return childPart.getColumn().getColumnModifier();
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getColumnModifier();
                                 }
                             };
                         }
