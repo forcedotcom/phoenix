@@ -61,7 +61,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Properties;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -725,29 +724,39 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         }
     }
     
-    //Keeping this test disabled. There is some bug in nested RVC. For some reason (organization_id, (entity_id, a_string)) is not 
-    //returning the same rows as (organization_id, entity_id, a_string) and ((organization_id, entity_id), a_string)
-    @Ignore // FIXME
     @Test
     public void testNestedRVCBasic() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
-        String query = "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, (entity_id, a_string)) >= (?, (?, ?))";
+        //all the three queries should return the same rows.
+        String[] queries = {"SELECT organization_id, entity_id, a_string FROM aTable WHERE ((organization_id, entity_id), a_string) >= ((?, ?), ?)",
+                            "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, entity_id, a_string) >= (?, ?, ?)",
+                            "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, (entity_id, a_string)) >= (?, (?, ?))"
+                           };
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        PreparedStatement statement = null;
         try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            statement.setString(1, tenantId);
-            statement.setString(2, ROW1);
-            statement.setString(3, "a");
-            ResultSet rs = statement.executeQuery();
-            int count = 0;
-            while(rs.next()) {
-                count++;
+            try {
+                for (int i = 0; i <=2; i++) {
+                    statement = conn.prepareStatement(queries[i]);
+                    statement.setString(1, tenantId);
+                    statement.setString(2, ROW1);
+                    statement.setString(3, "a");
+                    ResultSet rs = statement.executeQuery();
+                    int count = 0;
+                    while(rs.next()) {
+                        count++;
+                    }
+                    assertEquals(9, count);
+                } 
+            } finally {
+                if(statement != null) {
+                    statement.close();
+                }
             }
-            assertEquals(9, count);
         } finally {
             conn.close();
         }

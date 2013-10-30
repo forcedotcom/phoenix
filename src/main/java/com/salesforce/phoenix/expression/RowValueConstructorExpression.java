@@ -275,7 +275,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                         expressionCount = j+1;
                         ptrs[j] = new ImmutableBytesWritable();
                         ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
-                        estimatedByteSize += ptr.getLength() + (expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
+                        estimatedByteSize += ptr.getLength() + (expression.getDataType() == null || expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
                     }
                     counter++;
                 } else if (tuple == null || tuple.isImmutable()) {
@@ -314,7 +314,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                             }
                         } else {
                             output.write(tempPtr.get(), tempPtr.getOffset(), tempPtr.getLength());
-                            if (!childType.isFixedWidth()) {
+                            if (childType != null && !childType.isFixedWidth()) {
                                 output.write(QueryConstants.SEPARATOR_BYTE);
                             }
                             if (previousCarryOver) {
