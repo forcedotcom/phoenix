@@ -159,7 +159,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, PTableType tableType) throws SQLException {
+    public MetaDataMutationResult dropTables(List<Mutation> tableMetadata, PTableType tableType, List<byte[]> tableNamesToDelete) throws SQLException {
         return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 

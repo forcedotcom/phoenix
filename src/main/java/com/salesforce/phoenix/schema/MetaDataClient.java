@@ -47,6 +47,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -822,59 +824,90 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
-            Long scn = connection.getSCN();
-            long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
-            List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
-            @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-            Delete tableDelete = new Delete(key, clientTimeStamp, null);
-            tableMetaData.add(tableDelete);
-            if (parentTableName != null) {
-                byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, parentTableName, tableName);
+            boolean retried = false;
+            while (true) {
+                byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+                Long scn = connection.getSCN();
+                long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+                List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
                 @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
-                Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
-                tableMetaData.add(linkDelete);
-            }
-            
-            MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, tableType);
-            MutationCode code = result.getMutationCode();
-            switch(code) {
-            case TABLE_NOT_FOUND:
-                if (!ifExists) {
-                    throw new TableNotFoundException(schemaName, tableName);
+                Delete tableDelete = new Delete(key, clientTimeStamp, null);
+                tableMetaData.add(tableDelete);
+                if (parentTableName != null) {
+                    byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, parentTableName, tableName);
+                    @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
+                    Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
+                    tableMetaData.add(linkDelete);
                 }
-                break;
-            case NEWER_TABLE_FOUND:
-                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
-            case UNALLOWED_TABLE_MUTATION:
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
-                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
-            default:
-                try {
-                    // TODO: should we update the parent table by removing the index?
-                    connection.removeTable(tableName);
-                } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
-                if (result.getTable() != null && tableType != PTableType.VIEW) {
-                    connection.setAutoCommit(true);
-                    // Delete everything in the column. You'll still be able to do queries at earlier timestamps
-                    long ts = (scn == null ? result.getMutationTime() : scn);
-                    // Create empty table and schema - they're only used to get the name from
-                    // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
-                    PTable table = result.getTable();
-                    List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
-                    tableRefs.add(new TableRef(null, table, ts, false));
-                    // Let the standard mutable secondary index maintenance handle this
-                    /* TODO if (table.isImmutableRows()) */ {
-                        for (PTable index: table.getIndexes()) {
-                            tableRefs.add(new TableRef(null, index, ts, false));
+                
+                final NamedTableNode dataTableNode = NamedTableNode.create(null, TableName.create(schemaName, tableName), Collections.<ColumnDef>emptyList());
+                final ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, connection);
+                PTable table = resolver.getTables().get(0).getTable();
+                
+                List<byte[]> tableNamesToDelete = Lists.newArrayList();
+                tableNamesToDelete.add(table.getName().getBytes());
+                if (!PTableType.INDEX.equals(tableType)) {
+                    List<PTable> indexTables = table.getIndexes();
+                    if (indexTables != null) {
+                        for (PTable indexTable : indexTables) {
+                            tableNamesToDelete.add(indexTable.getName().getBytes());
                         }
                     }
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
-                    return connection.getQueryServices().updateData(plan);
                 }
-                break;
+                
+                MetaDataMutationResult result = connection.getQueryServices().dropTables(tableMetaData, tableType, tableNamesToDelete);
+                try{
+                    MutationCode code = result.getMutationCode();
+                    switch(code) {
+                    case TABLE_NOT_FOUND:
+                        if (!ifExists) {
+                            throw new TableNotFoundException(schemaName, tableName);
+                        }
+                        break;
+                    case NEWER_TABLE_FOUND:
+                        throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+                    case UNALLOWED_TABLE_MUTATION:
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                            .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                    case CONCURRENT_TABLE_MUTATION:
+                        throw new ConcurrentTableMutationException(schemaName, tableName);
+                    default:
+                        try {
+                            // TODO: should we update the parent table by removing the index?
+                            connection.removeTable(tableName);
+                        } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
+                        final boolean dropMetaData = connection.getQueryServices().getProps().getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+                        if (dropMetaData == false) {
+                            if (result.getTable() != null && tableType != PTableType.VIEW) {
+                                connection.setAutoCommit(true);
+                                // Delete everything in the column. You'll still be able to do queries at earlier timestamps
+                                long ts = (scn == null ? result.getMutationTime() : scn);
+                                // Create empty table and schema - they're only used to get the name from
+                                // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
+                                PTable tbl = result.getTable();
+                                List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + tbl.getIndexes().size());
+                                tableRefs.add(new TableRef(null, tbl, ts, false));
+                                // Let the standard mutable secondary index maintenance handle this
+                                /* TODO if (table.isImmutableRows()) */ {
+                                    for (PTable index: tbl.getIndexes()) {
+                                        tableRefs.add(new TableRef(null, index, ts, false));
+                                    }
+                                }
+                                MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
+                                return connection.getQueryServices().updateData(plan);
+                            }
+                        }
+                        break;
+                    }
+                     return new MutationState(0,connection);
+                }  catch (ConcurrentTableMutationException e) {
+                    if (retried) {
+                        throw e;
+                    }
+                    table = connection.getPMetaData().getTable(tableName);
+                    retried = true;
+                }
             }
-            return new MutationState(0,connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }

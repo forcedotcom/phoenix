@@ -122,8 +122,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult dropTable(List<Mutation> tabeMetaData, PTableType tableType) throws SQLException {
-        return getDelegate().dropTable(tabeMetaData, tableType);
+    public MetaDataMutationResult dropTables(List<Mutation> tabeMetaData, PTableType tableType, List<byte[]> tableNamesToDelete) throws SQLException {
+        return getDelegate().dropTables(tabeMetaData, tableType, tableNamesToDelete);
     }
 
     @Override

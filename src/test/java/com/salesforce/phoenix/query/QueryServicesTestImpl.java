@@ -54,6 +54,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
     private static final long DEFAULT_MAX_HASH_CACHE_SIZE = 1024*1024*10;  // 10 Mb
     private static final int DEFAULT_TARGET_QUERY_CONCURRENCY = 4;
     private static final int DEFAULT_MAX_QUERY_CONCURRENCY = 8;
+    private static final boolean DEFAULT_DROP_METADATA = false;
     
     private static final int DEFAULT_MASTER_INFO_PORT = -1;
     private static final int DEFAULT_REGIONSERVER_INFO_PORT = -1;
@@ -84,6 +85,7 @@ public final class QueryServicesTestImpl extends BaseQueryServicesImpl {
                 .setRegionServerLeasePeriodMs(DEFAULT_REGIONSERVER_LEASE_PERIOD_MS)
                 .setRpcTimeoutMs(DEFAULT_RPC_TIMEOUT_MS)
                 .setWALEditCodec(DEFAULT_WAL_EDIT_CODEC)
+                .setDropMetaData(DEFAULT_DROP_METADATA)
                 .setAll(overrideProps)
         );
     }    
