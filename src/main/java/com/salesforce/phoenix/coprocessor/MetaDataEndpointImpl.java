@@ -803,7 +803,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetaData) throws IOException {
         final long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetaData);
         final List<byte[]> tableNamesToDelete = Lists.newArrayList();
-        MetaDataMutationResult result =  mutateColumn(tableMetaData, new ColumnMutator() {
+        return mutateColumn(tableMetaData, new ColumnMutator() {
             @SuppressWarnings("deprecation")
             @Override
             public MetaDataMutationResult updateMutation(PTable table, byte[][] rowKeyMetaData, List<Mutation> tableMetaData, HRegion region, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
@@ -873,7 +873,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             }
         });
         
-        return result;
     }
     
     private static MetaDataMutationResult checkTableKeyInRegion(byte[] key, HRegion region) {

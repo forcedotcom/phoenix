@@ -337,24 +337,24 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         conn.setAutoCommit(false);
 
         conn.createStatement().execute(
-            "CREATE TABLE ty (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  ");
+            "CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  ");
         
-        query = "SELECT * FROM ty";
+        query = "SELECT * FROM t";
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());
 
-        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
 
-        conn.createStatement().execute("ALTER TABLE ty SET IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
 
-        assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
+        assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
         
         
-        conn.createStatement().execute("ALTER TABLE ty SET immutable_rows=false");
+        conn.createStatement().execute("ALTER TABLE t SET immutable_rows=false");
 
-        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
         
        
