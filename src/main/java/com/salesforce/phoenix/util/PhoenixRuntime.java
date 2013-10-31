@@ -27,6 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Pair;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -34,18 +40,7 @@ import java.io.Reader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Properties;
-import java.util.StringTokenizer;
-
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.util.Pair;
-
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import java.util.*;
 
 /**
  * 
@@ -102,12 +97,13 @@ public class PhoenixRuntime {
     private static final String TABLE_OPTION = "-t";
     private static final String HEADER_OPTION = "-h";
     private static final String STRICT_OPTION = "-s";
+    private static final String CSV_OPTION = "-d";
     private static final String HEADER_IN_LINE = "in-line";
     private static final String SQL_FILE_EXT = ".sql";
     private static final String CSV_FILE_EXT = ".csv";
     
     private static void usageError() {
-        System.err.println("Usage: psql [-t table-name] [-h comma-separated-column-names | in-line] <zookeeper>  <path-to-sql-or-csv-file>...\n" +
+        System.err.println("Usage: psql [-t table-name] [-h comma-separated-column-names | in-line] [-d field-delimiter-char quote-char escape-char]<zookeeper>  <path-to-sql-or-csv-file>...\n" +
                 "  By default, the name of the CSV file is used to determine the Phoenix table into which the CSV data is loaded\n" +
                 "  and the ordinal value of the columns determines the mapping.\n" +
                 "  -t overrides the table into which the CSV data is loaded\n" +
@@ -115,11 +111,13 @@ public class PhoenixRuntime {
                 "     A special value of in-line indicating that the first line of the CSV file\n" +
                 "     determines the column to which the data maps.\n" +
                 "  -s uses strict mode by throwing an exception if a column name doesn't match during CSV loading.\n" +
+                "  -d uses custom delimiters for CSV loader, need to specify single char for field delimiter, phrase delimiter, and escape char.\n" +
+                "     number is NOT usually a delimiter and shall be taken as 1 -> ctrl A, 2 -> ctrl B ... 9 -> ctrl I. \n" +
                 "Examples:\n" +
                 "  psql localhost my_ddl.sql\n" +
                 "  psql localhost my_ddl.sql my_table.csv\n" +
-                "  psql -t my_table my_cluster:1825 my_table2012-Q3.csv\n" +
-                "  psql -t my_table -h col1,col2,col3 my_cluster:1825 my_table2012-Q3.csv\n"
+                "  psql my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
+                "  psql my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
         );
         System.exit(-1);
     }
@@ -141,6 +139,7 @@ public class PhoenixRuntime {
             List<String> columns = null;
             boolean isStrict = false;
             boolean isUpgrade = false;
+            List<String> delimiter = new ArrayList<String>();
 
             int i = 0;
             for (; i < args.length; i++) {
@@ -167,6 +166,14 @@ public class PhoenixRuntime {
                     isStrict = true;
                 } else if (UPGRADE_OPTION.equals(args[i])) {
                     isUpgrade = true;
+                } else if (CSV_OPTION.equals(args[i])) {
+                    for(int j=0; j < 3; j++) {
+                        if(args[++i].length()==1){
+                            delimiter.add(args[i]);
+                        } else {
+                            usageError();
+                        }
+                    }
                 } else {
                     break;
                 }
@@ -195,7 +202,7 @@ public class PhoenixRuntime {
                     if (tableName == null) {
                         tableName = fileName.substring(fileName.lastIndexOf(File.separatorChar) + 1, fileName.length()-CSV_FILE_EXT.length());
                     }
-                    CSVLoader csvLoader = new CSVLoader(conn, tableName, columns, isStrict);
+                    CSVLoader csvLoader = new CSVLoader(conn, tableName, columns, isStrict, delimiter);
                     csvLoader.upsert(fileName);
                 } else {
                     usageError();
