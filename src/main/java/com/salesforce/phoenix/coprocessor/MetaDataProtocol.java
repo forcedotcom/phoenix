@@ -30,6 +30,7 @@ package com.salesforce.phoenix.coprocessor;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
@@ -95,14 +96,20 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         private MutationCode returnCode;
         private long mutationTime;
         private PTable table;
+        private List<byte[]> tableNamesToDelete;
         
         public MetaDataMutationResult() {
         }
 
         public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table) {
+           this(returnCode, currentTime, table, Collections.<byte[]> emptyList());
+        }
+        
+        public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table, List<byte[]> tableNamesToDelete) {
             this.returnCode = returnCode;
             this.mutationTime = currentTime;
             this.table = table;
+            this.tableNamesToDelete = tableNamesToDelete;
         }
         
         public MutationCode getMutationCode() {
@@ -115,6 +122,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         
         public PTable getTable() {
             return table;
+        }
+        
+        public List<byte[]> getTableNamesToDelete() {
+            return tableNamesToDelete;
         }
 
         @Override
@@ -136,6 +147,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             if (table != null) {
                 table.write(output);
             }
+            
         }
     }
     

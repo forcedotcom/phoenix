@@ -824,8 +824,6 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            boolean retried = false;
-            while (true) {
                 byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
                 Long scn = connection.getSCN();
                 long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
@@ -856,9 +854,8 @@ public class MetaDataClient {
                 }
                 
                 MetaDataMutationResult result = connection.getQueryServices().dropTables(tableMetaData, tableType, tableNamesToDelete);
-                try{
-                    MutationCode code = result.getMutationCode();
-                    switch(code) {
+                MutationCode code = result.getMutationCode();
+                switch(code) {
                     case TABLE_NOT_FOUND:
                         if (!ifExists) {
                             throw new TableNotFoundException(schemaName, tableName);
@@ -869,15 +866,13 @@ public class MetaDataClient {
                     case UNALLOWED_TABLE_MUTATION:
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                             .setSchemaName(schemaName).setTableName(tableName).build().buildException();
-                    case CONCURRENT_TABLE_MUTATION:
-                        throw new ConcurrentTableMutationException(schemaName, tableName);
                     default:
                         try {
                             // TODO: should we update the parent table by removing the index?
                             connection.removeTable(tableName);
                         } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
                         final boolean dropMetaData = connection.getQueryServices().getProps().getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
-                        if (dropMetaData == false) {
+                        if (!dropMetaData) {
                             if (result.getTable() != null && tableType != PTableType.VIEW) {
                                 connection.setAutoCommit(true);
                                 // Delete everything in the column. You'll still be able to do queries at earlier timestamps
@@ -898,16 +893,8 @@ public class MetaDataClient {
                             }
                         }
                         break;
-                    }
-                     return new MutationState(0,connection);
-                }  catch (ConcurrentTableMutationException e) {
-                    if (retried) {
-                        throw e;
-                    }
-                    table = connection.getPMetaData().getTable(tableName);
-                    retried = true;
                 }
-            }
+                 return new MutationState(0,connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
@@ -1316,39 +1303,42 @@ public class MetaDataClient {
                     if (columnsToDrop.size() == 1 && indexesToDrop.isEmpty()) {
                         connection.removeColumn(SchemaUtil.getTableName(schemaName, tableName), familyName, columnToDrop.getName().getString(), result.getMutationTime(), seqNum);
                     }
-                    // If we have a VIEW, then only delete the metadata, and leave the table data alone
-                    if (table.getType() != PTableType.VIEW) {
-                        MutationState state = null;
-                        connection.setAutoCommit(true);
-                        Long scn = connection.getSCN();
-                        // Delete everything in the column. You'll still be able to do queries at earlier timestamps
-                        long ts = (scn == null ? result.getMutationTime() : scn);
-                        PostDDLCompiler compiler = new PostDDLCompiler(connection);
-                        // Drop any index tables that had the dropped column in the PK
-                        connection.getQueryServices().updateData(compiler.compile(indexesToDrop, null, null, Collections.<PColumn>emptyList(), ts));
-                        // Update empty key value column if necessary
-                        for (ColumnRef droppedColumnRef : columnsToDrop) {
-                            // Painful, but we need a TableRef with a pre-set timestamp to prevent attempts
-                            // to get any updates from the region server.
-                            // TODO: move this into PostDDLCompiler
-                            // TODO: consider filtering mutable indexes here, but then the issue is that
-                            // we'd need to force an update of the data row empty key value if a mutable
-                            // secondary index is changing its empty key value family.
-                            droppedColumnRef = new ColumnRef(droppedColumnRef, ts);
-                            TableRef droppedColumnTableRef = droppedColumnRef.getTableRef();
-                            PColumn droppedColumn = droppedColumnRef.getColumn();
-                            MutationPlan plan = compiler.compile(
-                                    Collections.singletonList(droppedColumnTableRef), 
-                                    getNewEmptyColumnFamilyOrNull(droppedColumnTableRef.getTable(), droppedColumn), 
-                                    null, 
-                                    Collections.singletonList(droppedColumn), 
-                                    ts);
-                            state = connection.getQueryServices().updateData(plan);
+                    final boolean dropMetaData = connection.getQueryServices().getProps().getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+                    if(!dropMetaData){
+                       // If we have a VIEW, then only delete the metadata, and leave the table data alone
+                        if (table.getType() != PTableType.VIEW) {
+                            MutationState state = null;
+                            connection.setAutoCommit(true);
+                            Long scn = connection.getSCN();
+                            // Delete everything in the column. You'll still be able to do queries at earlier timestamps
+                            long ts = (scn == null ? result.getMutationTime() : scn);
+                            PostDDLCompiler compiler = new PostDDLCompiler(connection);
+                            // Drop any index tables that had the dropped column in the PK
+                            connection.getQueryServices().updateData(compiler.compile(indexesToDrop, null, null, Collections.<PColumn>emptyList(), ts));
+                            // Update empty key value column if necessary
+                            for (ColumnRef droppedColumnRef : columnsToDrop) {
+                                // Painful, but we need a TableRef with a pre-set timestamp to prevent attempts
+                                // to get any updates from the region server.
+                                // TODO: move this into PostDDLCompiler
+                                // TODO: consider filtering mutable indexes here, but then the issue is that
+                                // we'd need to force an update of the data row empty key value if a mutable
+                                // secondary index is changing its empty key value family.
+                                droppedColumnRef = new ColumnRef(droppedColumnRef, ts);
+                                TableRef droppedColumnTableRef = droppedColumnRef.getTableRef();
+                                PColumn droppedColumn = droppedColumnRef.getColumn();
+                                MutationPlan plan = compiler.compile(
+                                        Collections.singletonList(droppedColumnTableRef), 
+                                        getNewEmptyColumnFamilyOrNull(droppedColumnTableRef.getTable(), droppedColumn), 
+                                        null, 
+                                        Collections.singletonList(droppedColumn), 
+                                        ts);
+                                state = connection.getQueryServices().updateData(plan);
+                            }
+                            // Return the last MutationState
+                            return state;
                         }
-                        // Return the last MutationState
-                        return state;
                     }
-                    return new MutationState(0, connection);
+                     return new MutationState(0, connection);
                 } catch (ConcurrentTableMutationException e) {
                     if (retried) {
                         throw e;

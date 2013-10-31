@@ -41,20 +41,25 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -127,6 +132,16 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         } finally {
             conn.close();
         }
+    }
+    
+   // @BeforeClass 
+    public static void doSetup() throws Exception {
+        
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        // Drop the HBase table metadata for this test
+        props.put(QueryServices.DROP_METADATA_ATTRIB, Boolean.toString(true));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
     
     @Before

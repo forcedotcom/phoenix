@@ -1079,7 +1079,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             final ReadOnlyProps props = this.getProps();
             final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
             if (dropMetadata) {
-                dropTables(tableNamesToDelete);
+                dropTables(result.getTableNamesToDelete());
             }
             break;
         default:
@@ -1165,7 +1165,20 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return instance.dropColumn(tableMetaData);
                 }
             });
+        final MutationCode code = result.getMutationCode();
+        switch(code) {
+        case TABLE_ALREADY_EXISTS:
+            final ReadOnlyProps props = this.getProps();
+            final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+            if (dropMetadata) {
+                dropTables(result.getTableNamesToDelete());
+            }
+            break;
+        default:
+            break;
+        }
         return result;
+       
     }
 
     @Override
