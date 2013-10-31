@@ -57,29 +57,33 @@ public class CSVLoader {
     private final List<String> columns;
     private final boolean isStrict;
     private final List<String> delimiter;
-    private final Map<String,Character> ctrlTable;
+    private final Map<String,Character> ctrlTable = new HashMap<String,Character>() {
+        {   put("1",'\u0001');
+            put("2",'\u0002');
+            put("3",'\u0003');
+            put("4",'\u0004');
+            put("5",'\u0005');
+            put("6",'\u0006');
+            put("7",'\u0007');
+            put("8",'\u0008');
+            put("9",'\u0009');}};
     
     private int unfoundColumnCount;
 
-	public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict, List<String> delimiter) {
-		this.conn = conn;
-		this.tableName = tableName;
-		this.columns = columns;
-		this.isStrict = isStrict;
+    public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict,List<String> delimiter) {
+        this.conn = conn;
+        this.tableName = tableName;
+        this.columns = columns;
+        this.isStrict = isStrict;
         this.delimiter = delimiter;
-        this.ctrlTable = new HashMap<String,Character>() {
-            { put("1",'\u0001');
-              put("2",'\u0002');
-              put("3",'\u0003');
-              put("4",'\u0004');
-              put("5",'\u0005');
-              put("6",'\u0006');
-              put("7",'\u0007');
-              put("8",'\u0008');
-              put("9",'\u0009');}};
-	}
+    }
 
-	/**
+	public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict) {
+       this(conn,tableName,columns,isStrict,null);
+    }
+
+
+    /**
 	 * Upserts data from CSV file. Data is batched up based on connection batch
 	 * size. Column PDataType is read from metadata and is used to convert
 	 * column value to correct type before upsert. Note: Column Names are
@@ -89,11 +93,9 @@ public class CSVLoader {
 	 * @throws Exception
 	 */
 	public void upsert(String fileName) throws Exception {
-        //Changing separator to Ctrl A, quote char to Ctrl B, and Ctrl C as an escape
-        //CSVReader reader = new CSVReader(new FileReader(fileName),'\u0001','\u0002','\u0003');
         List<String> delimiter = this.delimiter;
         CSVReader reader;
-        if (delimiter.size() == 3) {
+        if ((delimiter != null) && (delimiter.size() == 3)) {
             reader = new CSVReader(new FileReader(fileName),
                 getCSVCustomField(this.delimiter.get(0)),
                 getCSVCustomField(this.delimiter.get(1)),
