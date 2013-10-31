@@ -70,10 +70,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
+import com.salesforce.phoenix.coprocessor.ServerCachingEndpointImpl;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTableType;
@@ -555,7 +555,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertFalse(SchemaUtil.DEFAULT_DATA_BLOCK_ENCODING == cdC.getDataBlockEncoding());
         assertTrue(descriptor.hasCoprocessor(UngroupedAggregateRegionObserver.class.getName()));
         assertTrue(descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName()));
-        assertTrue(descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName()));
+        assertTrue(descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName()));
         admin.close();
          
         int rowCount = 5;

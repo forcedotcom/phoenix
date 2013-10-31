@@ -27,6 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
+import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
+
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.MetaDataUtil;
@@ -73,7 +76,7 @@ public enum SQLExceptionCode {
     /**
      * Invalid Cursor State (errorcode 04, sqlstate 24)
      */
-    CURSOR_BEFORE_FIRST_ROW(401, "24015","Cursor before first tow."),
+    CURSOR_BEFORE_FIRST_ROW(401, "24015","Cursor before first row."),
     CURSOR_PAST_LAST_ROW(401, "24016", "Cursor past last row."),
     
     /**
@@ -91,6 +94,7 @@ public enum SQLExceptionCode {
     PRIMARY_KEY_MISSING(509, "42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS(510, "42889", "The table already has a primary key."),
     ORDER_BY_NOT_IN_SELECT_DISTINCT(511, "42890", "All ORDER BY expressions must appear in SELECT DISTINCT:"),
+    INVALID_PRIMARY_KEY_CONSTRAINT(512, "42891", "Invalid column reference in primary key constraint"),
     
     /** 
      * HBase and Phoenix specific implementation defined sub-classes.
@@ -101,7 +105,7 @@ public enum SQLExceptionCode {
     COLUMN_FAMILY_NOT_FOUND(1001, "42I01", "Undefined column family."),
     PROPERTIES_FOR_FAMILY(1002, "42I02","Properties may not be defined for an unused family name."),
     // Primary/row key related exceptions.
-    PRIMARY_KEY_WITH_FAMILY_NAME(1003, "42J01", "Primary key should not have a family name."),
+    PRIMARY_KEY_WITH_FAMILY_NAME(1003, "42J01", "Primary key columns must not have a family name."),
     PRIMARY_KEY_OUT_OF_ORDER(1004, "42J02", "Order of columns in primary key constraint must match the order in which they're declared."),
     VARBINARY_IN_ROW_KEY(1005, "42J03", "The VARBINARY type can only be used as the last part of a multi-part row key."),
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
@@ -134,6 +138,11 @@ public enum SQLExceptionCode {
     SALT_ONLY_ON_CREATE_TABLE(1024, "42Y83", "Salt bucket number may only be specified when creating a table."),
     SET_UNSUPPORTED_PROP_ON_ALTER_TABLE(1025, "42Y84", "Unsupported property set in ALTER TABLE command."),
     NO_MUTABLE_INDEXES(1026, "42Y85", "Mutable secondary indexes are only supported for HBase version " + MetaDataUtil.decodeHBaseVersionAsString(PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) + " and above."),
+    NO_DELETE_IF_IMMUTABLE_INDEX(1027, "42Y86", "Delete not allowed on a table with IMMUTABLE_ROW with non PK column in index."),
+    INVALID_INDEX_STATE_TRANSITION(1028, "42Y87", "Invalid index state transition."),
+    INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
+            + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
+            +  IndexedWALEditCodec.class.getName() + " in the hbase-sites.xml of every region server"),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),
@@ -161,6 +170,7 @@ public enum SQLExceptionCode {
     INTERRUPTED_EXCEPTION(2005, "INT07", "Interrupted exception."),
     INCOMPATIBLE_CLIENT_SERVER_JAR(2006, "INT08", "Incompatible jars detected between client and server."),
     OUTDATED_JARS(2007, "INT09", "Outdated jars."),
+    INDEX_METADATA_NOT_FOUND(2008, "INT10", "Unable to find cached index metadata. "),
     ;
 
     private final int errorCode;

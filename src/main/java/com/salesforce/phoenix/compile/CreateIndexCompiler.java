@@ -39,23 +39,25 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
 
 public class CreateIndexCompiler {
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
 
-    public CreateIndexCompiler(PhoenixConnection connection) {
-        this.connection = connection;
+    public CreateIndexCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
 
-    public MutationPlan compile(final CreateIndexStatement statement, List<Object> binds) throws SQLException {
-        final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+    public MutationPlan compile(final CreateIndexStatement create) throws SQLException {
+        final PhoenixConnection connection = statement.getConnection();
+        final ColumnResolver resolver = FromCompiler.getResolver(create, connection);
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
+        final StatementContext context = new StatementContext(create, connection, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
-        List<ParseNode> splitNodes = statement.getSplitNodes();
+        List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
@@ -82,7 +84,7 @@ public class CreateIndexCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createIndex(statement, splits);
+                return client.createIndex(create, splits);
             }
 
             @Override

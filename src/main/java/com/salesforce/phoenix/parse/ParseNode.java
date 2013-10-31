@@ -47,4 +47,14 @@ public abstract class ParseNode {
     public boolean isConstant() {
         return false;
     }
+    
+    /**
+     * Allows node to override what the alias is for a given node.
+     * Useful for a column reference, as JDBC says that the alias
+     * name for "a.b" should be "b"
+     * @return the alias to use for this node or null for no alias
+     */
+    public String getAlias() {
+        return null;
+    }
 }

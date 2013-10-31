@@ -28,10 +28,13 @@
 package com.salesforce.hbase.index.covered.data;
 
 import java.io.IOException;
+import java.util.Collection;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
+
+import com.salesforce.hbase.index.covered.update.ColumnReference;
 
 /**
  * Access the current state of the row in the local HBase table, given a mutation
@@ -40,12 +43,15 @@ public interface LocalHBaseState {
 
   /**
    * @param m mutation for which we should get the current table state
+   * @param toCover all the columns the current row state needs to cover; hint the underlying lookup
+   *          to save getting all the columns for the row
    * @return the full state of the given row. Includes all current versions (even if they are not
    *         usually visible to the client (unless they are also doing a raw scan)). Never returns a
    *         <tt>null</tt> {@link Result} - instead, when there is not data for the row, returns a
    *         {@link Result} with no stored {@link KeyValue}s.
    * @throws IOException if there is an issue reading the row
    */
-  public Result getCurrentRowState(Mutation m) throws IOException;
+  public Result getCurrentRowState(Mutation m, Collection<? extends ColumnReference> toCover)
+      throws IOException;
 
 }

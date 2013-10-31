@@ -36,19 +36,23 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.execute.AggregatePlan;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.iterate.ResultIterator;
-import com.salesforce.phoenix.iterate.SpoolingResultIterator.SpoolingResultIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnRef;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PColumnFamily;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ScanUtil;
 
@@ -58,6 +62,10 @@ import com.salesforce.phoenix.util.ScanUtil;
  * Class that compiles plan to update data values after a DDL command
  * executes.
  *
+ * TODO: get rid of this ugly code and just go through the standard APIs.
+ * The only time we may still need this is to manage updating the empty
+ * key value, as we sometimes need to "go back through time" to adjust
+ * this.
  * @author jtaylor
  * @since 0.1
  */
@@ -90,6 +98,9 @@ public class PostDDLCompiler {
             
             @Override
             public MutationState execute() throws SQLException {
+                if (tableRefs.isEmpty()) {
+                    return null;
+                }
                 boolean wasAutoCommit = connection.getAutoCommit();
                 try {
                     connection.setAutoCommit(true);
@@ -122,61 +133,84 @@ public class PostDDLCompiler {
                         if (emptyCF != null) {
                             scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);
                         }
-                        if (deleteList != null) {
-                            if (deleteList.isEmpty()) {
-                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
-                            } else {
-                                PColumn column = deleteList.get(0);
-                                if (emptyCF == null) {
-                                    scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
-                                }
-                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
-                                scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
-                            }
-                        }
-                        List<byte[]> columnFamilies = Lists.newArrayListWithExpectedSize(tableRef.getTable().getColumnFamilies().size());
-                        if (projectCF == null) {
-                            for (PColumnFamily family : tableRef.getTable().getColumnFamilies()) {
-                                columnFamilies.add(family.getName().getBytes());
-                            }
-                        } else {
-                            columnFamilies.add(projectCF);
-                        }
-                        // Need to project all column families into the scan, since we haven't yet created our empty key value
-                        RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY);
-                        // Explicitly project these column families and don't project the empty key value,
-                        // since at this point we haven't added the empty key value everywhere.
-                        if (columnFamilies != null) {
-                            scan.getFamilyMap().clear();
-                            for (byte[] family : columnFamilies) {
-                                scan.addFamily(family);
-                            }
-                            projector = new RowProjector(projector,false);
-                        }
-                        QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, new SpoolingResultIteratorFactory(connection.getQueryServices()), GroupBy.EMPTY_GROUP_BY, null);
-                        Scanner scanner = plan.getScanner();
-                        ResultIterator iterator = scanner.iterator();
+                        ServerCache cache = null;
                         try {
-                            Tuple row = iterator.next();
-                            ImmutableBytesWritable ptr = context.getTempPtr();
-                            totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
-                        } catch (SQLException e) {
-                            sqlE = e;
-                        } finally {
-                            try {
-                                iterator.close();
-                            } catch (SQLException e) {
-                                if (sqlE == null) {
-                                    sqlE = e;
+                            if (deleteList != null) {
+                                if (deleteList.isEmpty()) {
+                                    scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_AGG, QueryConstants.TRUE);
+                                    // In the case of a row deletion, add index metadata so mutable secondary indexing works
+                                    /* TODO
+                                    ImmutableBytesWritable ptr = context.getTempPtr();
+                                    tableRef.getTable().getIndexMaintainers(ptr);
+                                    if (ptr.getLength() > 0) {
+                                        IndexMetaDataCacheClient client = new IndexMetaDataCacheClient(connection, tableRef);
+                                        cache = client.addIndexMetadataCache(context.getScanRanges(), ptr);
+                                        byte[] uuidValue = cache.getId();
+                                        scan.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
+                                    }
+                                    */
                                 } else {
-                                    sqlE.setNextException(e);
-                                }
-                            } finally {
-                                if (sqlE != null) {
-                                    throw sqlE;
+                                    // In the case of the empty key value column family changing, do not send the index
+                                    // metadata, as we're currently managing this from the client. It's possible for the
+                                    // data empty column family to stay the same, while the index empty column family
+                                    // changes.
+                                    PColumn column = deleteList.get(0);
+                                    if (emptyCF == null) {
+                                        scan.addColumn(column.getFamilyName().getBytes(), column.getName().getBytes());
+                                    }
+                                    scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CF, column.getFamilyName().getBytes());
+                                    scan.setAttribute(UngroupedAggregateRegionObserver.DELETE_CQ, column.getName().getBytes());
                                 }
                             }
+                            List<byte[]> columnFamilies = Lists.newArrayListWithExpectedSize(tableRef.getTable().getColumnFamilies().size());
+                            if (projectCF == null) {
+                                for (PColumnFamily family : tableRef.getTable().getColumnFamilies()) {
+                                    columnFamilies.add(family.getName().getBytes());
+                                }
+                            } else {
+                                columnFamilies.add(projectCF);
+                            }
+                            // Need to project all column families into the scan, since we haven't yet created our empty key value
+                            RowProjector projector = ProjectionCompiler.compile(context, SelectStatement.COUNT_ONE, GroupBy.EMPTY_GROUP_BY);
+                            // Explicitly project these column families and don't project the empty key value,
+                            // since at this point we haven't added the empty key value everywhere.
+                            if (columnFamilies != null) {
+                                scan.getFamilyMap().clear();
+                                for (byte[] family : columnFamilies) {
+                                    scan.addFamily(family);
+                                }
+                                projector = new RowProjector(projector,false);
+                            }
+                            QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
+                            Scanner scanner = plan.getScanner();
+                            ResultIterator iterator = scanner.iterator();
+                            try {
+                                Tuple row = iterator.next();
+                                ImmutableBytesWritable ptr = context.getTempPtr();
+                                totalMutationCount += (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
+                            } catch (SQLException e) {
+                                sqlE = e;
+                            } finally {
+                                try {
+                                    iterator.close();
+                                } catch (SQLException e) {
+                                    if (sqlE == null) {
+                                        sqlE = e;
+                                    } else {
+                                        sqlE.setNextException(e);
+                                    }
+                                } finally {
+                                    if (sqlE != null) {
+                                        throw sqlE;
+                                    }
+                                }
+                            }
+                        } finally {
+                            if (cache != null) { // Remove server cache if there is one
+                                cache.close();
+                            }
                         }
+                        
                     }
                     final long count = totalMutationCount;
                     return new MutationState(1, connection) {

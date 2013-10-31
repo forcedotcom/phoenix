@@ -29,6 +29,8 @@ package com.salesforce.hbase.index.builder;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.regionserver.MiniBatchOperationInProgress;
@@ -47,6 +49,9 @@ import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
  * up-to-date.
  */
 public abstract class BaseIndexBuilder implements IndexBuilder {
+
+  private static final Log LOG = LogFactory.getLog(BaseIndexBuilder.class);
+  protected boolean stopped;
 
   @Override
   public void extendBaseIndexBuilderInstead() { }
@@ -70,9 +75,33 @@ public abstract class BaseIndexBuilder implements IndexBuilder {
    * By default, we always attempt to index the mutation. Commonly this can be slow (because the
    * framework spends the time to do the indexing, only to realize that you don't need it) or not
    * ideal (if you want to turn on/off indexing on a table without completely reloading it).
+ * @throws IOException 
    */
   @Override
-  public boolean isEnabled(Mutation m) {
+  public boolean isEnabled(Mutation m) throws IOException {
     return true; 
+  }
+
+  /**
+   * {@inheritDoc}
+   * <p>
+   * By default, assumes that all mutations should <b>not be batched</b>. That is to say, each
+   * mutation always applies to different rows, even if they are in the same batch, or are
+   * independent updates.
+   */
+  @Override
+  public byte[] getBatchId(Mutation m) {
+    return null;
+  }
+
+  @Override
+  public void stop(String why) {
+    LOG.debug("Stopping because: " + why);
+    this.stopped = true;
+  }
+
+  @Override
+  public boolean isStopped() {
+    return this.stopped;
   }
 }

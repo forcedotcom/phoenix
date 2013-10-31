@@ -31,7 +31,12 @@ import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static org.junit.Assert.assertEquals;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSetMetaData;
 
 import org.junit.Test;
 
@@ -212,11 +217,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
     
     @Test
     public void testDateSubstractExpressionMetaData1() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where a_date-2.5-?=a_date";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         assertEquals(BigDecimal.class.getName(), pmd.getParameterClassName(1));
@@ -224,11 +227,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testDateSubstractExpressionMetaData2() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where a_date-?=a_date";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         // FIXME: Should really be Date, but we currently don't know if we're 
@@ -239,11 +240,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testDateSubstractExpressionMetaData3() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where a_date-?=a_integer";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         // FIXME: Should really be Integer, but we currently don't know if we're 
@@ -254,11 +253,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testTwoDateSubstractExpressionMetaData() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where ?-a_date=1";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         // We know this must be date - anything else would be an error
@@ -267,11 +264,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testDateAdditionExpressionMetaData1() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where 1+a_date+?>a_date";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         assertEquals(BigDecimal.class.getName(), pmd.getParameterClassName(1));
@@ -279,11 +274,9 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testDateAdditionExpressionMetaData2() throws Exception {
-        final String DS4 = "1970-01-01 01:45:00";
         String query = "SELECT entity_id,a_string FROM atable where ?+a_date>a_date";
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
-        statement.setString(1, DS4);
         ParameterMetaData pmd = statement.getParameterMetaData();
         assertEquals(1, pmd.getParameterCount());
         assertEquals(BigDecimal.class.getName(), pmd.getParameterClassName(1));
@@ -356,5 +349,107 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
     	assertEquals(1, pmd.getParameterCount());
     	assertEquals(String.class.getName(), pmd.getParameterClassName(1));
 
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaData() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer, a_string) = (?, ?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(3, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
+        assertEquals(String.class.getName(), pmd.getParameterClassName(3));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithMoreNumberOfBindArgs() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer) = (?, ?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(3, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
+        assertEquals(null, pmd.getParameterClassName(3));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithLessNumberOfBindArgs() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, x_integer, a_string) = (?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsAtSamePlacesOnLHSRHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, ?) = (a_integer, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(null, pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsAtDiffPlacesOnLHSRHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (a_integer, ?) = (?, a_integer)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
+    }
+    
+    // @Test broken currently, as we'll end up with null = 7 which is never true
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsOnLHSAndLiteralExprOnRHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE (?, ?) = 7";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testRowValueConstructorBindParamMetaDataWithBindArgsOnRHSAndLiteralExprOnLHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE 7 = (?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testNonEqualityRowValueConstructorBindParamMetaDataWithBindArgsOnRHSAndLiteralExprOnLHS() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE 7 >= (?, ?)";
+        Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(null, pmd.getParameterClassName(2));
+    }
+    
+    @Test
+    public void testBindParamMetaDataForNestedRVC() throws Exception {
+        String query = "SELECT organization_id, entity_id, a_string FROM aTable WHERE (organization_id, (entity_id, a_string)) >= (?, (?, ?))";
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, TestUtil.TEST_PROPERTIES);
+        PreparedStatement statement = conn.prepareStatement(query);
+        ParameterMetaData pmd = statement.getParameterMetaData();
+        assertEquals(3, pmd.getParameterCount());
+        assertEquals(String.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(String.class.getName(), pmd.getParameterClassName(2));
+        assertEquals(String.class.getName(), pmd.getParameterClassName(3));
     }
 }

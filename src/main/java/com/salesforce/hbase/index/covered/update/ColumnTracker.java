@@ -46,11 +46,17 @@ public class ColumnTracker implements IndexedColumnGroup {
   public static final long GUARANTEED_NEWER_UPDATES = Long.MIN_VALUE;
   private final List<ColumnReference> columns;
   private long ts = NO_NEWER_PRIMARY_TABLE_ENTRY_TIMESTAMP;
+  private final int hashCode;
+
+  private static int calcHashCode(List<ColumnReference> columns) {
+      return columns.hashCode();
+    }
 
   public ColumnTracker(Collection<? extends ColumnReference> columns) {
     this.columns = new ArrayList<ColumnReference>(columns);
     // sort the columns
     Collections.sort(this.columns);
+    this.hashCode = calcHashCode(this.columns);
   }
 
   /**
@@ -70,11 +76,7 @@ public class ColumnTracker implements IndexedColumnGroup {
 
   @Override
   public int hashCode() {
-    int hash = 0;
-    for (ColumnReference ref : columns) {
-      hash += ref.hashCode();
-    }
-    return hash;
+    return hashCode;
   }
 
   @Override
@@ -83,6 +85,9 @@ public class ColumnTracker implements IndexedColumnGroup {
       return false;
     }
     ColumnTracker other = (ColumnTracker)o;
+    if (hashCode != other.hashCode) {
+        return false;
+    }
     if (other.columns.size() != columns.size()) {
       return false;
     }

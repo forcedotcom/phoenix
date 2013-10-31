@@ -100,9 +100,16 @@ public class FromCompiler {
      *             if table name not found in schema
      */
     public static ColumnResolver getResolver(SelectStatement statement, PhoenixConnection connection)
+    		throws SQLException {
+    	List<TableNode> fromNodes = statement.getFrom();
+    	if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
+    	SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, (NamedTableNode)fromNodes.get(0), false);
+    	return visitor;
+    }
+    
+    public static ColumnResolver getMultiTableResolver(SelectStatement statement, PhoenixConnection connection)
             throws SQLException {
         List<TableNode> fromNodes = statement.getFrom();
-        if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
         MultiTableColumnResolver visitor = new MultiTableColumnResolver(connection);
         for (TableNode node : fromNodes) {
             node.accept(visitor);
@@ -110,9 +117,14 @@ public class FromCompiler {
         return visitor;
     }
 
+    public static ColumnResolver getResolver(NamedTableNode tableNode, PhoenixConnection connection) throws SQLException {
+        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, tableNode, false);
+        return visitor;
+    }
+    
     public static ColumnResolver getResolver(SingleTableSQLStatement statement, PhoenixConnection connection,
             List<ColumnDef> dyn_columns) throws SQLException {
-        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, statement.getTable());
+        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, statement.getTable(), true);
         return visitor;
     }
 
@@ -122,10 +134,12 @@ public class FromCompiler {
     }
 
     private static class SingleTableColumnResolver extends BaseColumnResolver {
-    	private final List<TableRef> tableRefs;
+        	private final List<TableRef> tableRefs;
+        	private final String alias;
     	
-        public SingleTableColumnResolver(PhoenixConnection connection, NamedTableNode table) throws SQLException {
+        public SingleTableColumnResolver(PhoenixConnection connection, NamedTableNode table, boolean updateCacheOnlyIfAutoCommit) throws SQLException {
             super(connection);
+            alias = table.getAlias();
             TableName tableNameNode = table.getName();
             String schemaName = tableNameNode.getSchemaName();
             String tableName = tableNameNode.getTableName();
@@ -135,7 +149,7 @@ public class FromCompiler {
             boolean retry = true;
             while (true) {
                 try {
-                    if (connection.getAutoCommit()) {
+                    if (!updateCacheOnlyIfAutoCommit || connection.getAutoCommit()) {
                         timeStamp = Math.abs(client.updateCache(schemaName, tableName));
                     }
                     String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
@@ -170,9 +184,27 @@ public class FromCompiler {
 		public ColumnRef resolveColumn(String schemaName, String tableName,
 				String colName) throws SQLException {
 			TableRef tableRef = tableRefs.get(0);
-        	PColumn column = tableName == null ? 
-        			tableRef.getTable().getColumn(colName) : 
-        			tableRef.getTable().getColumnFamily(tableName).getColumn(colName);
+			boolean resolveCF = false;
+			if (schemaName != null || tableName != null) {
+			    String resolvedTableName = tableRef.getTable().getTableName().getString();
+			    String resolvedSchemaName = tableRef.getTable().getSchemaName().getString();
+			    if (schemaName != null && tableName != null) {
+                    if ( ! ( schemaName.equals(resolvedSchemaName)  &&
+                             tableName.equals(resolvedTableName) )) {
+                        if (!(resolveCF = schemaName.equals(alias))) {
+                            throw new ColumnNotFoundException(schemaName, tableName, null, colName);
+                        }
+                    }
+			    } else { // schemaName == null && tableName != null
+                    if (tableName != null && !tableName.equals(alias) && (!tableName.equals(resolvedTableName) || !resolvedSchemaName.equals(""))) {
+                        resolveCF = true;
+                   }
+			    }
+			    
+			}
+        	PColumn column = resolveCF
+        	        ? tableRef.getTable().getColumnFamily(tableName).getColumn(colName)
+        			: tableRef.getTable().getColumn(colName);
             return new ColumnRef(tableRef, column.getPosition());
 		}
 
@@ -212,7 +244,8 @@ public class FromCompiler {
         }
     }
     
-    private static class MultiTableColumnResolver extends BaseColumnResolver implements TableNodeVisitor {
+    // TODO: unused, but should be used for joins - make private once used
+    public static class MultiTableColumnResolver extends BaseColumnResolver implements TableNodeVisitor {
         private final ListMultimap<String, TableRef> tableMap;
         private final List<TableRef> tables;
 
@@ -234,7 +267,7 @@ public class FromCompiler {
 
         @Override
         public void visit(JoinTableNode joinNode) throws SQLException {
-            throw new SQLFeatureNotSupportedException();
+            joinNode.getTable().accept(this);
         }
 
         private TableRef createTableRef(String alias, String schemaName, String tableName,
@@ -266,7 +299,11 @@ public class FromCompiler {
                 tableMap.put(alias, tableRef);
             }
 
-            tableMap.put( theTable.getName().getString(), tableRef);
+            String name = theTable.getName().getString();
+            //avoid having one name mapped to two identical TableRef.
+            if (alias == null || !alias.equals(name)) {
+            	tableMap.put(name, tableRef);
+            }
             tables.add(tableRef);
         }
 

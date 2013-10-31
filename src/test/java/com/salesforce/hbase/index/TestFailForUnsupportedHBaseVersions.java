@@ -31,9 +31,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
@@ -48,7 +45,9 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.junit.Test;
 
-import com.salesforce.hbase.index.builder.example.ColumnFamilyIndexer;
+import com.salesforce.hbase.index.covered.example.ColumnGroup;
+import com.salesforce.hbase.index.covered.example.CoveredColumn;
+import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
 
 /**
  * Test that we correctly fail for versions of HBase that don't support current properties
@@ -130,13 +129,16 @@ public class TestFailForUnsupportedHBaseVersions {
     // setup the primary table
     HTableDescriptor desc = new HTableDescriptor(
         "testDoesNotStartRegionServerForUnsupportedCompressionAndVersion");
-    String family = "f";
-    desc.addFamily(new HColumnDescriptor(Bytes.toBytes(family)));
+    byte[] family = Bytes.toBytes("f");
+    desc.addFamily(new HColumnDescriptor(family));
 
     // enable indexing to a non-existant index table
-    Map<byte[], String> familyMap = new HashMap<byte[], String>();
-    familyMap.put(Bytes.toBytes(family), "INDEX_TABLE");
-    ColumnFamilyIndexer.enableIndexing(desc, familyMap);
+    String indexTableName = "INDEX_TABLE";
+    ColumnGroup fam1 = new ColumnGroup(indexTableName);
+    fam1.add(new CoveredColumn(family, CoveredColumn.ALL_QUALIFIERS));
+    CoveredColumnIndexSpecifierBuilder builder = new CoveredColumnIndexSpecifierBuilder();
+    builder.addIndexGroup(fam1);
+    builder.build(desc);
 
     // get a reference to the regionserver, so we can ensure it aborts
     HRegionServer server = util.getMiniHBaseCluster().getRegionServer(0);

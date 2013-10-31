@@ -12,6 +12,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
+import com.salesforce.hbase.index.covered.IndexCodec;
 
 /**
  * Helper to build the configuration for the {@link CoveredColumnIndexer}.
@@ -34,6 +35,7 @@ public class CoveredColumnIndexSpecifierBuilder {
   // private static final String INDEX_GROUP_FULLY_COVERED = ".covered";
 
   List<ColumnGroup> groups = new ArrayList<ColumnGroup>();
+  private Map<String, String> specs = new HashMap<String, String>();
 
   /**
    * Add a group of columns to index
@@ -66,7 +68,6 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   Map<String, String> convertToMap() {
-    Map<String, String> specs = new HashMap<String, String>();
     int total = this.groups.size();
     // hbase.index.covered.groups = i
     specs.put(INDEX_GROUPS_COUNT_KEY, Integer.toString(total));
@@ -111,9 +112,13 @@ public class CoveredColumnIndexSpecifierBuilder {
   }
 
   public void build(HTableDescriptor desc) throws IOException {
+    build(desc, CoveredColumnIndexCodec.class);
+  }
+
+  void build(HTableDescriptor desc, Class<? extends IndexCodec> clazz) throws IOException {
     // add the codec for the index to the map of options
     Map<String, String> opts = this.convertToMap();
-    opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, CoveredColumnIndexCodec.class.getName());
+    opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, clazz.getName());
     Indexer.enableIndexing(desc, CoveredColumnIndexer.class, opts);
   }
 
@@ -149,5 +154,13 @@ public class CoveredColumnIndexSpecifierBuilder {
       columns.add(group);
     }
     return columns;
+  }
+
+  /**
+   * @param key
+   * @param value
+   */
+  public void addArbitraryConfigForTesting(String key, String value) {
+    this.specs.put(key, value);
   }
 }

@@ -68,7 +68,7 @@ import com.salesforce.hbase.index.TableName;
  */
 public class TestEndToEndCoveredIndexing {
   private static final Log LOG = LogFactory.getLog(TestEndToEndCoveredIndexing.class);
-  private static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
+  protected static final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   private static final String FAM_STRING = "FAMILY";
   private static final byte[] FAM = Bytes.toBytes(FAM_STRING);
   private static final String FAM2_STRING = "FAMILY2";

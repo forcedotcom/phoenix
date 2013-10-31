@@ -27,19 +27,35 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import static com.salesforce.phoenix.query.QueryConstants.*;
+import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
+import static com.salesforce.phoenix.query.QueryConstants.UNGROUPED_AGG_ROW_KEY;
 import static com.salesforce.phoenix.query.QueryServices.MUTATE_BATCH_SIZE_ATTRIB;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.regionserver.*;
+import org.apache.hadoop.hbase.regionserver.HRegion;
+import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
@@ -51,13 +67,26 @@ import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.Aggregators;
+import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PRow;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.ScanUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -77,7 +106,12 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
     public static final String DELETE_CF = "DeleteCF";
     public static final String EMPTY_CF = "EmptyCF";
     
-    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations) throws IOException {
+    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations, byte[] indexUUID) throws IOException {
+        if (indexUUID != null) {
+            for (Pair<Mutation,Integer> pair : mutations) {
+                pair.getFirst().setAttribute(PhoenixIndexCodec.INDEX_UUID, indexUUID);
+            }
+        }
         @SuppressWarnings("unchecked")
         Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
         // TODO: should we use the one that is all or none?
@@ -123,10 +157,11 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
         RegionScanner theScanner = s;
         if (p != null && j != null)  {
-            theScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment().getConfiguration());
+            theScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment());
         }
         final RegionScanner innerScanner = theScanner;
         
+        byte[] indexUUID = scan.getAttribute(PhoenixIndexCodec.INDEX_UUID);
         PTable projectedTable = null;
         List<Expression> selectExpressions = null;
         byte[] upsertSelectTable = scan.getAttribute(UPSERT_SELECT_TABLE);
@@ -266,7 +301,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                         }
                         // Commit in batches based on UPSERT_BATCH_SIZE_ATTRIB in config
                         if (!mutations.isEmpty() && batchSize > 0 && mutations.size() % batchSize == 0) {
-                            commitBatch(region,mutations);
+                            commitBatch(region,mutations, indexUUID);
                             mutations.clear();
                         }
                     } catch (ConstraintViolationException e) {
@@ -288,7 +323,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         }
 
         if (!mutations.isEmpty()) {
-            commitBatch(region,mutations);
+            commitBatch(region,mutations, indexUUID);
         }
 
         final boolean hadAny = hasAny;

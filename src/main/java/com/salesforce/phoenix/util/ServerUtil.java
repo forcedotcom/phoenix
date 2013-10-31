@@ -100,6 +100,14 @@ public class ServerUtil {
     }
 
     public static SQLException parseServerException(Throwable t) {
+        SQLException e = parseServerExceptionOrNull(t);
+        if (e != null) {
+            return e;
+        }
+        return new PhoenixIOException(t);
+    }
+    
+    public static SQLException parseServerExceptionOrNull(Throwable t) {
         while (t.getCause() != null) {
             t = t.getCause();
         }
@@ -107,21 +115,17 @@ public class ServerUtil {
     }
 
     private static SQLException parseRemoteException(Throwable t) {
-    	String message = t.getLocalizedMessage();
-    	if (message == null) {
-    		return new PhoenixIOException(t);
-		}
-    	
-        // If the message matches the standard pattern, recover the SQLException and throw it.
-        Matcher matcher = PATTERN.matcher(t.getLocalizedMessage());
-        if (matcher.find()) {
-            int errorCode = Integer.parseInt(matcher.group(1));
-            String sqlState = matcher.group(2);
-            return new SQLException(matcher.group(), sqlState, errorCode, t);
-        } else {
-            // The message does not match the standard pattern, wrap it inside a SQLException and rethrow it.
-            return new PhoenixIOException(t);
-        }
+        	String message = t.getLocalizedMessage();
+        	if (message != null) {
+            // If the message matches the standard pattern, recover the SQLException and throw it.
+            Matcher matcher = PATTERN.matcher(t.getLocalizedMessage());
+            if (matcher.find()) {
+                int errorCode = Integer.parseInt(matcher.group(1));
+                String sqlState = matcher.group(2);
+                return new SQLException(matcher.group(), sqlState, errorCode, t);
+            }
+        	}
+        return null;
     }
 
 }

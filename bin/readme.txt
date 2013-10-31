@@ -30,3 +30,27 @@ Usage: performance <zookeeper> <row count>
 
 Example: Generates and upserts 1000000 rows and time basic queries on this data
 ./performance.sh localhost 1000000
+
+csv-bulk-loader.sh
+==================
+
+Usage: csv-bulk-loader <option value>
+Note: phoenix-[version].jar needs to be on Hadoop classpath on each node
+
+<option>  <value>
+-i        CSV data file path in hdfs (mandatory)
+-s        Phoenix schema name (mandatory if not default)
+-t        Phoenix table name (mandatory)
+-sql      Phoenix create table sql file path (mandatory)
+-zk       Zookeeper IP:<port> (mandatory)
+-mr       MapReduce Job Tracker IP:<port> (mandatory)
+-hd       HDFS NameNode IP:<port> (mandatory)
+-o        Output directory path in hdfs (optional)
+-idx      Phoenix index table name (optional, not yet supported)
+-error    Ignore error while reading rows from CSV? (1-YES | 0-NO, default-1) (optional)
+-help     Print all options (optional)
+
+Example:
+./csv-bulk-loader.sh -i hdfs://server:9000/mydir/data.csv -s ns -t example -sql ~/Documents/createTable.sql -zk server:2181 -hd hdfs://server:9000 -mr server:9001
+
+

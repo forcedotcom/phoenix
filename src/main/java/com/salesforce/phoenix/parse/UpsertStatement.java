@@ -34,12 +34,14 @@ public class UpsertStatement extends SingleTableSQLStatement {
     private final List<ColumnName> columns;
     private final List<ParseNode> values;
     private final SelectStatement select;
+    private final HintNode hint;
 
-    public UpsertStatement(NamedTableNode table, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
+    public UpsertStatement(NamedTableNode table, HintNode hint, List<ColumnName> columns, List<ParseNode> values, SelectStatement select, int bindCount) {
         super(table, bindCount);
         this.columns = columns == null ? Collections.<ColumnName>emptyList() : columns;
         this.values = values;
         this.select = select;
+        this.hint = hint == null ? HintNode.EMPTY_HINT_NODE : hint;
     }
 
     public List<ColumnName> getColumns() {
@@ -52,5 +54,9 @@ public class UpsertStatement extends SingleTableSQLStatement {
 
     public SelectStatement getSelect() {
         return select;
+    }
+
+    public HintNode getHint() {
+        return hint;
     }
 }

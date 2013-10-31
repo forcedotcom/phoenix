@@ -39,7 +39,9 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.StringUtil;
@@ -117,7 +119,10 @@ public class RTrimFunction extends ScalarFunction {
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
             @Override
-            public KeyRange getKeyRange(CompareOp op, byte[] key) {
+            public KeyRange getKeyRange(CompareOp op, Expression rhs) {
+                ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+                rhs.evaluate(null, ptr);
+                byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
                 PDataType type = getColumn().getDataType();
                 KeyRange range;
                 switch (op) {
@@ -128,7 +133,7 @@ public class RTrimFunction extends ScalarFunction {
                     range = type.getKeyRange(KeyRange.UNBOUND, false, ByteUtil.nextKey(ByteUtil.concat(key, new byte[] {StringUtil.SPACE_UTF8})), false);
                     break;
                 default:
-                    range = childPart.getKeyRange(op, key);
+                    range = childPart.getKeyRange(op, rhs);
                     break;
                 }
                 Integer length = getColumn().getByteSize();

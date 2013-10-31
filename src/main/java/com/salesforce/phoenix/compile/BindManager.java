@@ -56,6 +56,8 @@ import com.salesforce.phoenix.schema.PDatum;
  * @since 0.1
  */
 public class BindManager {
+    public static final Object UNBOUND_PARAMETER = new Object();
+
     private final List<Object> binds;
     private final PhoenixParameterMetaData bindMetaData;
 
@@ -74,7 +76,12 @@ public class BindManager {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_INDEX_OUT_OF_BOUND)
                 .setMessage("binds size: " + binds.size() + "; index: " + index).build().buildException();
         }
-        return binds.get(index);
+        Object value = binds.get(index);
+        if (value == UNBOUND_PARAMETER) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
+            .setMessage(node.toString()).build().buildException();
+        }
+        return value;
     }
 
     public void addParamMetaData(BindParseNode bind, PDatum column) throws SQLException {

@@ -47,7 +47,7 @@ public class BindParseNode extends NamedParseNode {
     }
     
     public int getIndex() {
-        return index;
+        return index-1;
     }
 
     @Override

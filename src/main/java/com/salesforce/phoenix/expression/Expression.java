@@ -53,18 +53,18 @@ public interface Expression extends PDatum, Writable {
      * @return true if the expression could be evaluated (i.e. ptr was set)
      * and false otherwise
      */
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr);
+    boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr);
     
     /**
      * Means of traversing expression tree through visitor.
      * @param visitor
      */
-    public <T> T accept(ExpressionVisitor<T> visitor);
+    <T> T accept(ExpressionVisitor<T> visitor);
     
     /**
      * @return the child expressions
      */
-    public List<Expression> getChildren();
+    List<Expression> getChildren();
     
     /**
      * Resets the state of a expression back to its initial state and
@@ -76,4 +76,10 @@ public interface Expression extends PDatum, Writable {
      * processing a new row.
      */
     void reset();
+    
+    /**
+     * @return true if the expression represents a constant value and
+     * false otherwise.
+     */
+    boolean isConstant();
 }

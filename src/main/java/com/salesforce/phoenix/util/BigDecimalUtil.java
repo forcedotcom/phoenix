@@ -44,7 +44,7 @@ public class BigDecimalUtil {
      * @param rp precision of the right operand
      * @param rs scale of the right operand
      * @param op The operation type
-     * @return
+     * @return {@link Pair} comprising of the precision and scale.
      */
     public static Pair<Integer, Integer> getResultPrecisionScale(int lp, int ls, int rp, int rs, Operation op) {
         int resultPrec = 0, resultScale = 0;

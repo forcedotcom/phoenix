@@ -41,20 +41,26 @@ import java.sql.SQLException;
 public class JoinTableNode extends TableNode {
     public enum JoinType {Inner, Left, Right, Full};
     
-    private final NamedTableNode table;
     private final JoinType type;
+    private final ParseNode on;
+    private final TableNode table;
     
-    JoinTableNode(String alias, NamedTableNode table, ParseNode node, JoinType type) {
-        super(alias);
-        this.table = table;
+    JoinTableNode(JoinType type, ParseNode on, TableNode table) {
+        super(table.getAlias());
         this.type = type;
+        this.on = on;
+        this.table = table;
     }
 
     public JoinType getType() {
         return type;
     }
 
-    public NamedTableNode getTable() {
+    public ParseNode getOnNode() {
+        return on;
+    }
+    
+    public TableNode getTable() {
         return table;
     }
 

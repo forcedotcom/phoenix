@@ -1,11 +1,11 @@
-<h1>Phoenix: A SQL skin over HBase<br /> 
-<em><sup><sup>'We put the SQL back in NoSQL'</sup></sup></em></h1>
+![logo](http://forcedotcom.github.com/phoenix/images/logo.jpg)
+
 Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce. To see what's supported, go to our [language reference guide](http://forcedotcom.github.com/phoenix/), read more on our [wiki](https://github.com/forcedotcom/phoenix/wiki), and download it [here](https://github.com/forcedotcom/phoenix/wiki/Download).
 ## Mission
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## Quick Start
-Tired of reading already and just want to get started? Jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
+Tired of reading already and just want to get started? Listen to the Phoenix talks from [Hadoop Summit 2013](http://www.youtube.com/watch?v=YHsHdQ08trg) and [HBaseConn 2013](http://www.cloudera.com/content/cloudera/en/resources/library/hbasecon/hbasecon-2013--how-and-why-phoenix-puts-the-sql-back-into-nosql-video.html), check out our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.), and jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
 
 ## How It Works ##
 
@@ -42,6 +42,7 @@ Alternatively, you can build it yourself using maven by following these [build i
 
 
 ## Getting Started ##
+Wanted to get started quickly? Take a look at our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.) and take our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less).
 
 <h4>Command Line</h4>
 
@@ -60,9 +61,14 @@ For more information, see the [manual](http://www.hydromatic.net/sqlline/manual.
 
 <h5>Loading Data</h5>
 
-In addition, you can use the bin/psql.sh to execute to load CSV data or execute SQL scripts. For example:
+In addition, you can use the bin/psql.sh to load CSV data or execute SQL scripts. For example:
 
         $ psql.sh localhost ../examples/web_stat.sql ../examples/web_stat.csv ../examples/web_stat_queries.sql
+
+Other alternatives include:
+* Using our [map-reduce based CSV loader](https://github.com/forcedotcom/phoenix/wiki/Bulk-CSV-loading-through-map-reduce) for bigger data sets
+* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
+* Populating the table through our [UPSERT VALUES](http://forcedotcom.github.io/phoenix/#upsert_values) command.
 
 <h4>SQL Client</h4>
 
@@ -108,7 +114,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>2.0.0</version>
+        <version>2.1.0</version>
     </dependency>
     ...
   </dependencies>

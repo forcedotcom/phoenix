@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
-import org.apache.hadoop.hbase.coprocessor.*;
+import org.apache.hadoop.hbase.coprocessor.BaseRegionObserver;
+import org.apache.hadoop.hbase.coprocessor.ObserverContext;
+import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 
 import com.salesforce.phoenix.cache.GlobalCache;
 
@@ -41,6 +43,6 @@ public class MetaDataRegionObserver extends BaseRegionObserver {
     @Override
     public void preClose(final ObserverContext<RegionCoprocessorEnvironment> c,
             boolean abortRequested) {
-        GlobalCache.getInstance(c.getEnvironment().getConfiguration()).getMetaDataCache().clear();
+        GlobalCache.getInstance(c.getEnvironment()).getMetaDataCache().clear();
     }
 }

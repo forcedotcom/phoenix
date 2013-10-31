@@ -28,10 +28,15 @@
 package com.salesforce.phoenix.query;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import org.apache.hadoop.hbase.*;
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -39,7 +44,10 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTableType;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -69,8 +77,8 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public NavigableMap<HRegionInfo, ServerName> getAllTableRegions(TableRef table) throws SQLException {
-        return getDelegate().getAllTableRegions(table);
+    public List<HRegionLocation> getAllTableRegions(byte[] tableName) throws SQLException {
+        return getDelegate().getAllTableRegions(tableName);
     }
 
     @Override
@@ -119,13 +127,14 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
-        return getDelegate().addColumn(tabeMetaData, tableType, family);
+    public MetaDataMutationResult addColumn(List<Mutation> tabeMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families ) throws SQLException {
+        return getDelegate().addColumn(tabeMetaData, tableType, families);
     }
 
+
     @Override
-    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType, byte[] emptyCF) throws SQLException {
-        return getDelegate().dropColumn(tabeMetaData, tableType, emptyCF);
+    public MetaDataMutationResult dropColumn(List<Mutation> tabeMetaData, PTableType tableType) throws SQLException {
+        return getDelegate().dropColumn(tabeMetaData, tableType);
     }
 
     @Override
@@ -156,5 +165,15 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public HTableDescriptor getTableDescriptor(byte[] tableName) throws SQLException {
         return getDelegate().getTableDescriptor(tableName);
+    }
+
+    @Override
+    public void clearTableRegionCache(byte[] tableName) throws SQLException {
+        getDelegate().clearTableRegionCache(tableName);
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return getDelegate().hasInvalidIndexConfiguration();
     }
 }

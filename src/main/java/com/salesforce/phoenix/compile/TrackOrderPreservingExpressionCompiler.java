@@ -1,7 +1,9 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
@@ -10,7 +12,11 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression.OrderPreserving;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.CaseParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.DivideParseNode;
+import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -25,20 +31,19 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * the order is preserved.
  * 
  */
-public class TrackOrderPreservingExpressionCompiler  extends AliasingExpressionCompiler {
+public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler {
     public enum Ordering {ORDERED, UNORDERED};
     
     private final List<Entry> entries;
     private final Ordering ordering;
+    private final int positionOffset;
     private OrderPreserving orderPreserving = OrderPreserving.YES;
     private ColumnRef columnRef;
     private boolean isOrderPreserving = true;
     
-    TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, Map<String, ParseNode> aliasParseNodeMap, int expectedEntrySize, Ordering ordering) {
-        super(context, groupBy, aliasParseNodeMap);
-        if (context.getResolver().getTables().get(0).getTable().getBucketNum() != null) {
-            orderPreserving = OrderPreserving.NO;
-        }
+    TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, int expectedEntrySize, Ordering ordering) {
+        super(context, groupBy);
+        positionOffset =  context.getResolver().getTables().get(0).getTable().getBucketNum() == null ? 0 : 1;
         entries = Lists.newArrayListWithExpectedSize(expectedEntrySize);
         this.ordering = ordering;
     }
@@ -60,7 +65,7 @@ public class TrackOrderPreservingExpressionCompiler  extends AliasingExpressionC
         // Determine if there are any gaps in the PK columns (in which case we don't need
         // to sort in the coprocessor because the keys will already naturally be in sorted
         // order.
-        int prevPos = -1;
+        int prevPos = positionOffset - 1;
         OrderPreserving prevOrderPreserving = OrderPreserving.YES;
         for (int i = 0; i < entries.size() && isOrderPreserving; i++) {
             Entry entry = entries.get(i);

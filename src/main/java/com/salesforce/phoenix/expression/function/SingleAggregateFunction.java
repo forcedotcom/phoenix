@@ -29,7 +29,9 @@ package com.salesforce.phoenix.expression.function;
 
 import java.io.DataInput;
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -138,7 +140,7 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
      * Create the aggregator to do client-side aggregation
      * based on the results returned from the aggregating
      * coprocessor. The data type of the returned Aggregator
-     * must match the data type returned by {@link #newServerAggregator()}
+     * must match the data type returned by {@link #newServerAggregator(Configuration)}
      * @return the aggregator to use on the client-side
      */
     public Aggregator newClientAggregator() {

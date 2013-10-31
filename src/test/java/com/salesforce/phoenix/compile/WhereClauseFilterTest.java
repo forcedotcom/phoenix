@@ -27,15 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.and;
+import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
+import static com.salesforce.phoenix.util.TestUtil.columnComparison;
+import static com.salesforce.phoenix.util.TestUtil.constantComparison;
+import static com.salesforce.phoenix.util.TestUtil.in;
+import static com.salesforce.phoenix.util.TestUtil.kvColumn;
+import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
+import static com.salesforce.phoenix.util.TestUtil.not;
+import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
 import static java.util.Collections.emptyList;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -46,23 +65,30 @@ import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.salesforce.phoenix.expression.*;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.*;
+import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
+import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
     private static SelectStatement compileStatement(StatementContext context, SelectStatement statement, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
-        statement = StatementNormalizer.normalize(statement);
+        statement = StatementNormalizer.normalize(statement, resolver);
         Integer limit = LimitCompiler.compile(context, statement);
         assertEquals(expectedLimit, limit);
 
@@ -85,7 +111,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -106,7 +132,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             multiKVFilter(columnComparison(
@@ -128,7 +154,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
         // Nothing extracted, since the where clause becomes FALSE
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         Filter filter = scan.getFilter();
         assertNull(filter);
 
@@ -147,7 +173,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         
         assertEquals(
@@ -174,7 +200,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -196,7 +222,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
 
         Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
@@ -219,7 +245,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, emptyList(), scan);
-        statement = compileStatement(context, statement, resolver, emptyList(), scan, 1, null);
+        compileStatement(context, statement, resolver, emptyList(), scan, 1, null);
         Filter filter = scan.getFilter();
 
         assertEquals(
@@ -279,7 +305,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         Filter filter = scan.getFilter();
 
         assertEquals(
@@ -306,7 +332,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertEquals(0,scan.getStartRow().length);
         assertEquals(0,scan.getStopRow().length);
         assertNotNull(scan.getFilter());
@@ -324,8 +350,8 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
-        assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes(keyPrefix), new byte[15-keyPrefix.length()]),scan.getStartRow());
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
+        assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), StringUtil.padChar(Bytes.toBytes(keyPrefix), 15)),scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(scan.getStartRow()),scan.getStopRow());
     }
 
@@ -340,7 +366,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         // Degenerate b/c "foobar" is more than 3 characters
         assertDegenerate(context);
     }
@@ -358,7 +384,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         // Degenerate b/c a_string length is 100
         assertDegenerate(context);
     }
@@ -376,7 +402,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter( // single b/c one column is a row key column
@@ -428,7 +454,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertDegenerate(context);
     }
 
@@ -443,7 +469,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
         assertDegenerate(context);
     }
 
@@ -458,7 +484,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         assertNull(scan.getFilter());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
@@ -477,7 +503,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -503,7 +529,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -528,7 +554,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertNull(filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -548,7 +574,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
@@ -558,7 +584,6 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertEquals(
             singleKVFilter(in(
                 kvColumn(BaseConnectionlessQueryTest.A_STRING),
-                PDataType.VARCHAR,
                 "a",
                 "b")),
             filter);
@@ -579,7 +604,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
@@ -611,7 +636,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 0, null);
+        compileStatement(context, statement, resolver, binds, scan, 0, null);
 
         Filter filter = scan.getFilter();
         assertEquals(
@@ -644,7 +669,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId + entityId2);
@@ -680,7 +705,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 3, null);
+        compileStatement(context, statement, resolver, binds, scan, 3, null);
         Filter filter = scan.getFilter();
         assertEquals(
             new SkipScanFilter(
@@ -713,7 +738,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
         Filter filter = scan.getFilter();
         assertEquals(
             new SkipScanFilter(
@@ -742,7 +767,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3), PDataType.VARCHAR.toBytes(entityId));
@@ -774,7 +799,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         Filter filter = scan.getFilter();
         assertEquals(
@@ -806,11 +831,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
 
         assertNull(scan.getFilter());
-        byte[] wideLower = ByteUtil.nextKey(ByteUtil.fillKey(Bytes.toBytes(tenantId1), 15));
-        byte[] wideUpper = ByteUtil.fillKey(Bytes.toBytes(tenantId2), 15);
+        byte[] wideLower = ByteUtil.nextKey(StringUtil.padChar(Bytes.toBytes(tenantId1), 15));
+        byte[] wideUpper = StringUtil.padChar(Bytes.toBytes(tenantId2), 15);
         assertArrayEquals(wideLower, scan.getStartRow());
         assertArrayEquals(wideUpper, scan.getStopRow());
     }
@@ -832,7 +857,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 2, null);
+        compileStatement(context, statement, resolver, binds, scan, 2, null);
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1),PDataType.VARCHAR.toBytes(entityId1));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3),PDataType.VARCHAR.toBytes(entityId2));
@@ -851,7 +876,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
                 singleKVFilter(and(
@@ -877,7 +902,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
-        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        compileStatement(context, statement, resolver, binds, scan, 1, null);
         Filter filter = scan.getFilter();
         assertEquals(
                 singleKVFilter(not(and(

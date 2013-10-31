@@ -30,6 +30,8 @@ package com.salesforce.hbase.index;
 import java.io.IOException;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -55,7 +57,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
  * <li>In a preXXX hook,
  * <ol>
  * <li>Build the {@link WALEdit} + index information</li>
- * <li>Lock the {@link IndexLogRollSynchronizer#INDEX_UPDATE_LOCK}</li>
+ * <li>Lock the {@link IndexLogRollSynchronizer#logArchiveLock}</li>
  * <ul>
  * <li>This is a reentrant readlock on the WAL archiving, so we can make multiple WAL/index updates
  * concurrently</li>
@@ -67,7 +69,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
  * <li>In the corresponding postXXX,
  * <ol>
  * <li>make the updates to the index tables</li>
- * <li>Unlock {@link IndexLogRollSynchronizer#INDEX_UPDATE_LOCK}</li>
+ * <li>Unlock {@link IndexLogRollSynchronizer#logArchiveLock}</li>
  * </ol>
  * </li> </ol>
  * <p>
@@ -75,6 +77,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
  */
 public class IndexLogRollSynchronizer implements WALActionsListener {
 
+  private static final Log LOG = LogFactory.getLog(IndexLogRollSynchronizer.class);
   private WriteLock logArchiveLock;
 
   public IndexLogRollSynchronizer(WriteLock logWriteLock){
@@ -85,18 +88,22 @@ public class IndexLogRollSynchronizer implements WALActionsListener {
   @Override
   public void preLogArchive(Path oldPath, Path newPath) throws IOException {
     //take a write lock on the index - any pending index updates will complete before we finish
+    LOG.debug("Taking INDEX_UPDATE writelock");
     logArchiveLock.lock();
+    LOG.debug("Got the INDEX_UPDATE writelock");
   }
   
   @Override
   public void postLogArchive(Path oldPath, Path newPath) throws IOException {
     // done archiving the logs, any WAL updates will be replayed on failure
+    LOG.debug("Releasing INDEX_UPDATE writelock");
     logArchiveLock.unlock();
   }
 
   @Override
   public void logCloseRequested() {
-  // don't care- before this is called, all the HRegions are closed, so we can't get any new requests and all pending request can finish before the WAL closes.
+    // don't care- before this is called, all the HRegions are closed, so we can't get any new
+    // requests and all pending request can finish before the WAL closes.
   }
 
   @Override

@@ -29,16 +29,21 @@ package com.salesforce.phoenix.compile;
 
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.TrackOrderPreservingExpressionCompiler.Ordering;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.FilterableStatement;
+import com.salesforce.phoenix.parse.OrderByNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
@@ -71,8 +76,6 @@ public class OrderByCompiler {
      * @param context the query context for tracking various states
      * associated with the given select statement
      * @param statement TODO
-     * @param aliasMap the map of aliased parse nodes used
-     * to resolve alias usage in the ORDER BY clause
      * @param groupBy the list of columns in the GROUP BY clause
      * @param limit the row limit or null if no limit
      * @return the compiled ORDER BY clause
@@ -80,8 +83,7 @@ public class OrderByCompiler {
      */
     public static OrderBy compile(StatementContext context,
                                   FilterableStatement statement,
-                                  Map<String, ParseNode> aliasMap, GroupBy groupBy,
-                                  Integer limit) throws SQLException {
+                                  GroupBy groupBy, Integer limit) throws SQLException {
         List<OrderByNode> orderByNodes = statement.getOrderBy();
         if (orderByNodes.isEmpty()) {
             return OrderBy.EMPTY_ORDER_BY;
@@ -89,7 +91,7 @@ public class OrderByCompiler {
         // accumulate columns in ORDER BY
         TrackOrderPreservingExpressionCompiler visitor = 
                 new TrackOrderPreservingExpressionCompiler(context, groupBy, 
-                        aliasMap, orderByNodes.size(), Ordering.ORDERED);
+                        orderByNodes.size(), Ordering.ORDERED);
         LinkedHashSet<OrderByExpression> orderByExpressions = Sets.newLinkedHashSetWithExpectedSize(orderByNodes.size());
         for (OrderByNode node : orderByNodes) {
             boolean isAscending = node.isAscending();

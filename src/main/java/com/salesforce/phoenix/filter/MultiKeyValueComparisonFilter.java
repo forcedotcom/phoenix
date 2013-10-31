@@ -69,7 +69,11 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
         
         @Override
         public String toString() {
-            return keyValue.toString() + " value= " + Bytes.toStringBinary(keyValue.getValue());
+            if(keyValue != null) {
+                return keyValue.toString() + " value = " + Bytes.toStringBinary(keyValue.getValue());
+            } else {
+                return super.toString();
+            }
         }
     }
     
@@ -188,11 +192,11 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     
     @Override
     public ReturnCode filterKeyValue(KeyValue keyValue) {
-        if (this.matchedColumn == Boolean.TRUE) {
+        if (Boolean.TRUE.equals(this.matchedColumn)) {
           // We already found and matched the single column, all keys now pass
           return ReturnCode.INCLUDE;
         }
-        if (this.matchedColumn == Boolean.FALSE) {
+        if (Boolean.FALSE.equals(this.matchedColumn)) {
           // We found all the columns, but did not match the expression, so skip to next row
           return ReturnCode.NEXT_ROW;
         }
@@ -230,7 +234,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     public void reset() {
         matchedColumn = null;
         inputTuple.reset();
-        expression.reset();
+        super.reset();
     }
 
     @Override

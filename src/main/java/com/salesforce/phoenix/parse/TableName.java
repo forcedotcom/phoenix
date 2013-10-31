@@ -34,9 +34,19 @@ public class TableName {
     private final String tableName;
     private final String schemaName;
     
-    public TableName(String schemaName, String tableName) {
-        this.tableName = SchemaUtil.normalizeIdentifier(tableName);
-        this.schemaName = schemaName == null ? null : SchemaUtil.normalizeIdentifier(schemaName);
+    public static TableName createNormalized(String schemaName, String tableName) {
+        schemaName = schemaName == null ? null : SchemaUtil.normalizeIdentifier(schemaName);
+        tableName = SchemaUtil.normalizeIdentifier(tableName);
+        return new TableName(schemaName, tableName);
+    }
+    
+    public static TableName create(String schemaName, String tableName) {
+        return new TableName(schemaName,tableName);
+    }
+    
+    private TableName(String schemaName, String tableName) {
+        this.schemaName = schemaName;
+        this.tableName = tableName;
     }
 
     public String getTableName() {

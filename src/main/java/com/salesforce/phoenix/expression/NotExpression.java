@@ -61,8 +61,11 @@ public class NotExpression extends BaseSingleExpression {
         if (!getChild().evaluate(tuple, ptr)) {
             return false;
         }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
         
-        ptr.set(PDataType.BOOLEAN.toObject(ptr).equals(Boolean.TRUE) ? PDataType.FALSE_BYTES : PDataType.TRUE_BYTES);
+        ptr.set(Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(ptr)) ? PDataType.FALSE_BYTES : PDataType.TRUE_BYTES);
         return true;
     }
 

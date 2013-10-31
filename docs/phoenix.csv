@@ -39,7 +39,7 @@ UPSERT INTO TEST VALUES('foo','bar',3);
 UPSERT INTO TEST(NAME,ID) VALUES('foo',123);
 "
 "Commands","UPSERT SELECT","
-UPSERT INTO tableName [( { columnRef | columnDef } [,...] )] select
+UPSERT [/*+ hint */] INTO tableName [( { columnRef | columnDef } [,...] )] select
 ","
 Inserts if not present and updates otherwise rows in the table based on the
 results of running another query. The values are set based on their matching
@@ -132,10 +132,13 @@ ON tableRef ( columnRef [ASC | DESC] [,...] )
 [ INCLUDE ( columnRef [,...] ) ]
 [indexOptions] [ SPLIT ON ( splitPoint [,...] ) ]
 ","
-Creates a new secondary index on a table or view. Currently indexes may only be added to tables that are declared as having
-immutable rows (i.e. by specifying the IMMUTABLE_ROWS=true property when creating or altering a table). Immutable rows are
-expected to be inserted once in their entirety and then never updated. This limitation will be removed once incremental
-index maintenance has been implemented. The current implementation inserts the index rows when the data row is inserted.
+Creates a new secondary index on a table or view. The index will be automatically kept in sync with the table as the data changes.
+At query time, the optimizer will use the index if it contains all columns referenced in the query and produces the most efficient
+execution plan.
+If a table has rows that are write-once and append-only, then the table may set the IMMUTABLE_ROWS property to true (either up-front
+in the CREATE TABLE statement or afterwards in an ALTER TABLE statement). This reduces the overhead at write time to maintain the index.
+Otherwise, if this property is not set on the table, then incremental index maintenance will be performed on the server side when
+the data changes.
 ","
 CREATE INDEX my_idx ON sales.opportunity(last_updated_date DESC)
 CREATE INDEX my_idx ON log.event(created_date DESC) INCLUDE (name, payload) SALT_BUCKETS=10
@@ -155,14 +158,16 @@ DROP INDEX IF EXISTS my_idx ON server_metrics
 "
 
 "Commands","ALTER INDEX","
-ALTER INDEX [IF EXISTS] indexName ON tableRef { ENABLE | DISABLE }
+ALTER INDEX [IF EXISTS] indexName ON tableRef { DISABLE | REBUILD | UNUSABLE | USABLE }
 ","
-Disables or enables an index. An index that is disabled will not be used at query time. This has no affect on index maintenance -
-an index that is disabled will continue to be maintained.
-
+Alters the state of an existing index.  DISABLE will cause the no further index maintenance to be performed on the index and it
+will no longer be considered for use in queries. REBUILD will completely rebuild the index and upon completion will enable
+the index to be used in queries again. UNUSABLE will cause the index to no longer be considered for use in queries, however
+index maintenance will continue to be performed. USABLE will cause the index to again be considered for use in queries. Note
+that a disabled index must be rebuild and cannot be set as USABLE.
 ","
 ALTER INDEX my_idx ON sales.opportunity DISABLE
-ALTER INDEX IF EXISTS my_idx ON server_metrics ENABLE
+ALTER INDEX IF EXISTS my_idx ON server_metrics REBUILD
 "
 
 "Commands","EXPLAIN","
@@ -218,8 +223,8 @@ MAX_FILESIZE=2000000000,MEMSTORE_FLUSHSIZE=80000000
 name [,...]
 ","
 Advanced features that overrides default query processing behavior. The
-five supported hints are 1) SKIP_SCAN to force a skip scan to be performed on the query when
-it otherwise would not. This option may improve performance if a query does
+supported hints include 1) SKIP_SCAN to force a skip scan to be performed on the query when
+it otherwise would not be. This option may improve performance if a query does
 not include the leading primary key column, but does include other, very
 selective primary key columns. 2) RANGE_SCAN to force a range scan to be
 performed on the query. This option may improve performance if a query
@@ -305,7 +310,7 @@ PRODUCT_METRICS AS PM
 "Other Grammar","Order","
 { expression } [ ASC | DESC ] [ NULLS { FIRST | LAST } ]
 ","
-Sorts the result by an expression. Only supported for queries that use GROUP BY.
+Sorts the result by an expression.
 ","
 NAME DESC NULLS LAST
 "
@@ -387,12 +392,25 @@ value
     | caseWhen
     | ( operand )
     | [ tableAlias. ] columnRef
+    | rowValueConstructor
 ","
 A value.
 ","
 'Hello'
 "
 
+
+"Other Grammar","Row Value Constructor","
+( term { ,term } [...] )
+","
+A row value constructor is a list of other terms which are treated together as
+a kind of composite structure. They may be compared to each other or to other
+other terms. The main use case is 1) to enable efficiently stepping through
+a set of rows in support of query-more type functionality, or 2) to allow
+IN clause to perform point gets on composite row keys.
+","
+(col1, col2, 5)
+"
 
 "Other Grammar","Bind Parameter","
 ?
@@ -855,14 +873,14 @@ PERCENTILE_DISC is an inverse distribution function that assumes a discrete dist
 PERCENTILE_DISC( 0.9 ) WITHIN GROUP (ORDER BY X DESC)
 "
 
-"Functions (Aggregate)","PERCENTILE_RANK","
-PERCENTILE_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
+"Functions (Aggregate)","PERCENT_RANK","
+PERCENT_RANK( { numeric } ) WITHIN GROUP (ORDER BY { numericTerm } { ASC | DESC } )
 ","
 The percentile rank for a hypothetical value, if inserted into the column.
 Aggregates are only allowed in select statements.
 The returned value is of decimal data type.
 ","
-PERCENTILE_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
+PERCENT_RANK( 100 ) WITHIN GROUP (ORDER BY X ASC)
 "
 
 "Functions (Aggregate)","STDDEV_POP","
@@ -970,6 +988,22 @@ Returns a string by applying a regular expression and replacing the matches with
 string. If the replacement string is not specified, it defaults to an empty string.
 ","
 REGEXP_REPLACE('abc123ABC', '[0-9]+', '#') evaluates to 'abc#ABC'
+"
+
+"Functions (General)","MD5","
+MD5( term )
+","
+Computes the MD5 hash of the argument, returning the result as a BINARY(16).
+","
+MD5(my_column)
+"
+
+"Functions (General)","INVERT","
+INVERT( term )
+","
+Inverts the bits of the argument. The return type will be the same as the argument.
+","
+INVERT(my_column)
 "
 
 "Functions (General)","TO_NUMBER","

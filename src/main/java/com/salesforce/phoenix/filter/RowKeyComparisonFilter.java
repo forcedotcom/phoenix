@@ -27,7 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -50,6 +52,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     private static final Logger logger = LoggerFactory.getLogger(RowKeyComparisonFilter.class);
 
+    private boolean evaluate = true;
     private boolean keepRow = false;
     private RowKeyTuple inputTuple = new RowKeyTuple();
     private byte[] essentialCF;
@@ -65,14 +68,25 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
     @Override
     public void reset() {
         this.keepRow = false;
+        this.evaluate = true;
+        super.reset();
     }
 
+    /**
+     * Evaluate in filterKeyValue instead of filterRowKey, because HBASE-6562 causes filterRowKey
+     * to be called with deleted or partial row keys.
+     */
     @Override
     public ReturnCode filterKeyValue(KeyValue v) {
-        if(this.keepRow) {
-            return ReturnCode.INCLUDE;
+        if (evaluate) {
+            inputTuple.setKey(v.getBuffer(), v.getRowOffset(), v.getRowLength());
+            this.keepRow = Boolean.TRUE.equals(evaluate(inputTuple));
+            if (logger.isDebugEnabled()) {
+                logger.debug("RowKeyComparisonFilter: " + (this.keepRow ? "KEEP" : "FILTER")  + " row " + inputTuple);
+            }
+            evaluate = false;
         }
-        return ReturnCode.NEXT_ROW;
+        return keepRow ? ReturnCode.INCLUDE : ReturnCode.NEXT_ROW;
     }
 
     private final class RowKeyTuple implements Tuple {
@@ -115,16 +129,6 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
         public KeyValue getValue(int index) {
             throw new IndexOutOfBoundsException(Integer.toString(index));
         }
-    }
-
-    @Override
-    public boolean filterRowKey(final byte[] data, int offset, int length) {
-        inputTuple.setKey(data, offset, length);
-        this.keepRow = Boolean.TRUE.equals(evaluate(inputTuple));
-        if (logger.isDebugEnabled()) {
-            logger.debug("RowKeyComparisonFilter: " + (this.keepRow ? "KEEP" : "FILTER")  + " row " + inputTuple);
-        }
-        return !this.keepRow;
     }
 
     @Override

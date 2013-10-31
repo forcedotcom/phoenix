@@ -52,6 +52,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.function.IndexStateNameFunction;
 import com.salesforce.phoenix.expression.function.SqlTableType;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.iterate.DelegateResultIterator;
@@ -136,7 +137,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] COLUMN_COUNT_BYTES = Bytes.toBytes(COLUMN_COUNT);
     public static final String SALT_BUCKETS = "SALT_BUCKETS";
     public static final byte[] SALT_BUCKETS_BYTES = Bytes.toBytes(SALT_BUCKETS);
-    
+ 
     public static final String DATA_TABLE_NAME = "DATA_TABLE_NAME";
     public static final byte[] DATA_TABLE_NAME_BYTES = Bytes.toBytes(DATA_TABLE_NAME);
     public static final String INDEX_STATE = "INDEX_STATE";
@@ -423,7 +424,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 "null PAGES,\n" +
                 "null FILTER_CONDITION,\n" +
                 DATA_TYPE + ",\n" + // Include data type info, though not in spec
-                SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME +
+                SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME + 
                 "\nfrom " + TYPE_SCHEMA_AND_TABLE + 
                 "\nwhere ");
         buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
@@ -834,7 +835,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TYPE_NAME + "," +
                 SELF_REFERENCING_COL_NAME_NAME + "," +
                 REF_GENERATION_NAME + "," +
-                INDEX_STATE + "," +
+                IndexStateNameFunction.NAME + "(" + INDEX_STATE + ") AS " + INDEX_STATE + "," +
                 IMMUTABLE_ROWS +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
@@ -865,7 +866,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             }
             buf.setCharAt(buf.length()-1, ')');
         }
-        buf.append(" order by " + TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
+        buf.append(" order by " + TYPE_SCHEMA_AND_TABLE + "." +TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }

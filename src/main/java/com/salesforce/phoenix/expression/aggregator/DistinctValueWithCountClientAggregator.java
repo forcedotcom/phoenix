@@ -27,21 +27,24 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.aggregator;
 
-import java.io.*;
-import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.salesforce.phoenix.exception.PhoenixIOException;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ImmutableBytesPtr;
 
 /**
  * Client side Aggregator which will aggregate data and find distinct values with number of occurrences for each.
@@ -50,8 +53,6 @@ import com.salesforce.phoenix.util.ImmutableBytesPtr;
  * @since 1.2.1
  */
 public abstract class DistinctValueWithCountClientAggregator extends BaseAggregator {
-    private static final Logger LOG = LoggerFactory.getLogger(DistinctValueWithCountClientAggregator.class);
-
     protected Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
     protected byte[] buffer;
     protected long totalCount = 0L;
@@ -88,9 +89,7 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
                 totalCount += value;
             }
         } catch (IOException ioe) {
-            LOG.error("Error in deserializing the data from "
-                    + DistinctValueWithCountServerAggregator.class.getSimpleName(), ioe);
-            new PhoenixIOException(ioe);
+            throw new RuntimeException(ioe); // Impossible as we're using a ByteArrayInputStream
         }
         if (buffer == null) {
             initBuffer();

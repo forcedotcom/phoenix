@@ -27,12 +27,28 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.StringReader;
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -215,7 +231,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             // compare a higher length col with lower length : a_string(10), b_string(8) 
             query = "select a_string, b_string from " + tableName + "  where a_id = 3 and b_string = a_string";
             statement = conn.prepareStatement(query);
-            rs = statement.executeQuery();
+            statement.executeQuery();
             assertCharacterPadding(conn.prepareStatement(query), testString2, testString2);
             
             upsert = "UPSERT INTO " + tableName + " values (4, '" + rowKey2 + "', '" + rowKey2 + "') ";

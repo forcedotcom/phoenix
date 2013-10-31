@@ -38,6 +38,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 /**
@@ -50,22 +51,29 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RowKeyColumnExpression  extends ColumnExpression {
     private PDataType fromType;
     private RowKeyValueAccessor accessor;
-    
-    private final String name;
+    protected final String name;
     
     public RowKeyColumnExpression() {
         name = null; // Only on client
     }
     
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
-        this(datum, accessor, datum.getDataType());
-    }
-    
-    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
+    private RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType, String name) {
         super(datum);
         this.accessor = accessor;
         this.fromType = fromType;
-        this.name = datum.toString();
+        this.name = name;
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor) {
+        this(datum, accessor, datum.getDataType(), datum.toString());
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, String name) {
+        this(datum, accessor, datum.getDataType(), name);
+    }
+    
+    public RowKeyColumnExpression(PDatum datum, RowKeyValueAccessor accessor, PDataType fromType) {
+        this(datum, accessor, fromType, datum.toString());
     }
     
     public int getPosition() {
@@ -112,13 +120,19 @@ public class RowKeyColumnExpression  extends ColumnExpression {
             int length = fixedByteSize >= 0 ? fixedByteSize  : accessor.getLength(buffer, offset, maxOffset);
             // In the middle of the key, an empty variable length byte array represents null
             if (length > 0) {
+                /*
                 if (type == fromType) {
                     ptr.set(buffer,offset,length);
                 } else {
                     ptr.set(type.toBytes(type.toObject(buffer, offset, length, fromType)));
                 }
-                return true;
+                */
+                ptr.set(buffer,offset,length);
+                type.coerceBytes(ptr, fromType, getColumnModifier(), getColumnModifier());
+            } else {
+                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
             }
+            return true;
         }
         return false;
     }

@@ -27,13 +27,21 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.*;
 import java.sql.Date;
-import java.util.*;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -120,6 +128,13 @@ public class PDataTypeTest {
                 PDataType.FLOAT.toBytes(f2), 0, PDataType.FLOAT.getByteSize(), null, PDataType.FLOAT) == 0);
     }        
         
+    @Test
+    public void testDoubleToDecimalComparison() {
+        // Basic tests
+        assertTrue(PDataType.DOUBLE.compareTo(PDataType.DOUBLE.toBytes(1.23), 0, PDataType.DOUBLE.getByteSize(), null,
+                   PDataType.DECIMAL.toBytes(BigDecimal.valueOf(1.24)), 0, PDataType.DECIMAL.getByteSize(), null, PDataType.DECIMAL) < 0);
+    }
+    
     @Test
     public void testDoubleToLongComparison() {
         // Basic tests
