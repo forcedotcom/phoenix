@@ -134,7 +134,7 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         }
     }
     
-   // @BeforeClass 
+    @BeforeClass 
     public static void doSetup() throws Exception {
         
         Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
@@ -144,27 +144,6 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
     
-    @Before
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-        } finally {
-                admin.close();
-        }
-    }
     
     @Test
     public void testImmutableTableIndexMaintanenceSaltedSalted() throws Exception {
@@ -297,6 +276,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
              "CLIENT MERGE SORT\n" + 
              "CLIENT 2 ROW LIMIT";
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+        
+        conn.createStatement().execute("DROP TABLE t ");
     }
 
     @Test
@@ -327,6 +308,22 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("chara", rs.getString(1));
         assertEquals(4, rs.getInt(2));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        
+        query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        
+        query = "SELECT char_col1, int_col1 from IDX ";
+        try{
+            rs = conn.createStatement().executeQuery(query);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TABLE_UNDEFINED.getErrorCode(), e.getErrorCode());
+        }
+        
+        
     }
     
     @Test
@@ -340,24 +337,24 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         conn.setAutoCommit(false);
 
         conn.createStatement().execute(
-            "CREATE TABLE t (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  ");
+            "CREATE TABLE ty (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR)  ");
         
-        query = "SELECT * FROM t";
+        query = "SELECT * FROM ty";
         rs = conn.createStatement().executeQuery(query);
         assertFalse(rs.next());
 
-        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
                 .isImmutableRows());
 
-        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("ALTER TABLE ty SET IMMUTABLE_ROWS=true");
 
-        assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+        assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
                 .isImmutableRows());
         
         
-        conn.createStatement().execute("ALTER TABLE t SET immutable_rows=false");
+        conn.createStatement().execute("ALTER TABLE ty SET immutable_rows=false");
 
-        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TY")
                 .isImmutableRows());
         
        
@@ -413,6 +410,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(rs.next());
         assertEquals(3L, rs.getLong(1));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
     
     

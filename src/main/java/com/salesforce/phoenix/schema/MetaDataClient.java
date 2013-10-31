@@ -69,6 +69,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -837,23 +838,8 @@ public class MetaDataClient {
                     Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
                     tableMetaData.add(linkDelete);
                 }
-                
-                final NamedTableNode dataTableNode = NamedTableNode.create(null, TableName.create(schemaName, tableName), Collections.<ColumnDef>emptyList());
-                final ColumnResolver resolver = FromCompiler.getResolver(dataTableNode, connection);
-                PTable table = resolver.getTables().get(0).getTable();
-                
-                List<byte[]> tableNamesToDelete = Lists.newArrayList();
-                tableNamesToDelete.add(table.getName().getBytes());
-                if (!PTableType.INDEX.equals(tableType)) {
-                    List<PTable> indexTables = table.getIndexes();
-                    if (indexTables != null) {
-                        for (PTable indexTable : indexTables) {
-                            tableNamesToDelete.add(indexTable.getName().getBytes());
-                        }
-                    }
-                }
-                
-                MetaDataMutationResult result = connection.getQueryServices().dropTables(tableMetaData, tableType, tableNamesToDelete);
+
+                MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, tableType);
                 MutationCode code = result.getMutationCode();
                 switch(code) {
                     case TABLE_NOT_FOUND:
@@ -879,12 +865,12 @@ public class MetaDataClient {
                                 long ts = (scn == null ? result.getMutationTime() : scn);
                                 // Create empty table and schema - they're only used to get the name from
                                 // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
-                                PTable tbl = result.getTable();
-                                List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + tbl.getIndexes().size());
-                                tableRefs.add(new TableRef(null, tbl, ts, false));
+                                PTable table = result.getTable();
+                                List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
+                                tableRefs.add(new TableRef(null, table, ts, false));
                                 // Let the standard mutable secondary index maintenance handle this
                                 /* TODO if (table.isImmutableRows()) */ {
-                                    for (PTable index: tbl.getIndexes()) {
+                                    for (PTable index: table.getIndexes()) {
                                         tableRefs.add(new TableRef(null, index, ts, false));
                                     }
                                 }

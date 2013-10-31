@@ -35,9 +35,11 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.util.MetaDataUtil;
@@ -137,6 +139,15 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
                 this.table = new PTableImpl();
                 this.table.readFields(input);
             }
+            boolean hasTablesToDelete = input.readBoolean();
+            if (hasTablesToDelete) {
+                int count = input.readInt();
+                tableNamesToDelete = Lists.newArrayListWithExpectedSize(count);
+                for( int i = 0 ; i < count ; i++ ){
+                     byte[] tableName = Bytes.readByteArray(input);
+                     tableNamesToDelete.add(tableName);
+                }
+            }
         }
 
         @Override
@@ -146,6 +157,16 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             output.writeBoolean(table != null);
             if (table != null) {
                 table.write(output);
+            }
+            if(tableNamesToDelete != null && tableNamesToDelete.size() > 0 ) {
+                output.writeBoolean(true);
+                output.writeInt(tableNamesToDelete.size());
+                for(byte[] tableName : tableNamesToDelete) {
+                    Bytes.writeByteArray(output,tableName);    
+                }
+                
+            } else {
+                output.writeBoolean(false);
             }
             
         }
