@@ -36,42 +36,29 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.util.Map;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.google.common.collect.Maps;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 public class MutableSaltedIndexTest extends BaseMutableIndexTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
     
-    @Before
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-       } finally {
-                admin.close();
-        }
+    @BeforeClass 
+    public static void doSetup() throws Exception {
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        // Drop the HBase table metadata for this test
+        props.put(QueryServices.DROP_METADATA_ATTRIB, Boolean.toString(true));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
     
     @Test
