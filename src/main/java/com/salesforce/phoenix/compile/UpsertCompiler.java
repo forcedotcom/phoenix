@@ -77,7 +77,6 @@ import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnImpl;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
@@ -218,8 +217,7 @@ public class UpsertCompiler {
         final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
         if (tenantId != null && table.isTenantSpecificTable()) {
             PColumn tenantIdColumn = table.getTenantIdColumn();
-            PName familyName = tenantIdColumn.getFamilyName();
-            columnNodes.add(0, ColumnName.caseSensitiveColumnName(familyName == null ? null : familyName.getString(), tenantIdColumn.getName().getString()));
+            columnNodes.add(0, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
         }
         List<PColumn> allColumns = table.getColumns();
 
