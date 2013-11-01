@@ -27,65 +27,28 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+public class RoundHalfUpDecimalExpression extends CeilingDecimalExpression {
+    private static final MathContext ROUND_HALF_UP_CONTEXT = new MathContext(1, RoundingMode.HALF_UP);
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
-
-
-public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
-    
-    public CeilingDecimalExpression() {
+    public RoundHalfUpDecimalExpression() {
     }
-    
-    public CeilingDecimalExpression(Expression child)  {
+
+    public RoundHalfUpDecimalExpression(Expression child) {
         super(child);
     }
-    
+
+    @Override
     protected MathContext getMathContext() {
-        return CEILING_CONTEXT;
-    }
-    
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child =  getChild();
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
-            BigDecimal value = (BigDecimal) childType.toObject(ptr);
-            value = value.round(getMathContext());
-            byte[] b = childType.toBytes(value, child.getColumnModifier());
-            ptr.set(b);
-            return true;
-        }
-        return false;
+        return ROUND_HALF_UP_CONTEXT;
     }
 
-    @Override
-    public ColumnModifier getColumnModifier() {
-            return getChild().getColumnModifier();
-    }    
 
     @Override
-    public final PDataType getDataType() {
-        return  getChild().getDataType();
-    }
-    
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-    
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
+    public final String toString() {
+        StringBuilder buf = new StringBuilder("ROUNDHALFUP(");
         for (int i = 0; i < children.size() - 1; i++) {
             buf.append(getChild().toString());
         }

@@ -2630,6 +2630,38 @@ public class QueryTest extends BaseClientMangedTimeTest {
         }
     }
     
+    @Test
+    public void testCastingDecimalToLong() throws Exception {
+        String query = "SELECT CAST 1.8 AS BIGINT FROM aTable LIMIT 1";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(2, rs.getLong(1));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testCastingDecimalToInt() throws Exception {
+        String query = "SELECT CAST 1.4 AS INTEGER FROM aTable LIMIT 1";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(1, rs.getInt(1));
+        } finally {
+            conn.close();
+        }
+    }
+   
     private static AtomicInteger runCount = new AtomicInteger(0);
     private static int nextRunCount() {
         return runCount.getAndAdd(1);

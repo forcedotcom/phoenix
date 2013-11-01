@@ -27,69 +27,66 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
+public class RoundUpTimestampExpression extends BaseSingleExpression {
+    private static final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
 
-public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
-    
-    public CeilingDecimalExpression() {
+    public RoundUpTimestampExpression() {
     }
-    
-    public CeilingDecimalExpression(Expression child)  {
+
+    public RoundUpTimestampExpression(Expression child) {
         super(child);
     }
-    
-    protected MathContext getMathContext() {
-        return CEILING_CONTEXT;
+
+    protected int getRoundUpAmount() {
+        return 1;
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child =  getChild();
+        Expression child = children.get(0);
         if (child.evaluate(tuple, ptr)) {
             PDataType childType = child.getDataType();
-            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
-            BigDecimal value = (BigDecimal) childType.toObject(ptr);
-            value = value.round(getMathContext());
-            byte[] b = childType.toBytes(value, child.getColumnModifier());
-            ptr.set(b);
+            tempPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
+            childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
+            Timestamp value = (Timestamp) childType.toObject(tempPtr);
+            if (value.getNanos() >= TimeUnit.MILLISECONDS.toNanos(1)/2) {
+                value = new Timestamp(value.getTime() + getRoundUpAmount());
+                byte[] b = childType.toBytes(value, child.getColumnModifier());
+                ptr.set(b);
+            }
             return true;
         }
         return false;
     }
 
     @Override
-    public ColumnModifier getColumnModifier() {
-            return getChild().getColumnModifier();
-    }    
-
-    @Override
     public final PDataType getDataType() {
-        return  getChild().getDataType();
+        return children.get(0).getDataType();
     }
-    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         return getChild().accept(visitor);
     }
-    
+
+
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
+        StringBuilder buf = new StringBuilder("ROUND_TIMESTAMP(");
         for (int i = 0; i < children.size() - 1; i++) {
             buf.append(getChild().toString());
         }
         buf.append(")");
         return buf.toString();
     }
+
 }
