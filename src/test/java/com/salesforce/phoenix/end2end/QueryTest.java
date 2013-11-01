@@ -78,6 +78,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.collect.Lists;
@@ -103,7 +105,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @author jtaylor
  * @since 0.1
  */
-//@RunWith(Parameterized.class)
+@RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
     private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
@@ -125,11 +127,10 @@ public class QueryTest extends BaseClientMangedTimeTest {
     private long ts;
     private String indexDDL;
     
-    public QueryTest(){}
-    /*public QueryTest(String indexDDL) {
+    public QueryTest(String indexDDL) {
         this.indexDDL = indexDDL;
     }
-    */
+    
     @Before
     public void initTable() throws Exception {
          ts = nextTimestamp();

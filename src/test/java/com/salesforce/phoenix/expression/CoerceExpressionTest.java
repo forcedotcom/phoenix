@@ -105,30 +105,6 @@ public class CoerceExpressionTest {
     }
 	
 	@Test
-	public void testCoerceExpressionSupportsCoercingIntegerToDecimal() throws Exception {
-        LiteralExpression v = LiteralExpression.newConstant(Integer.valueOf(1), PDataType.INTEGER);
-        CoerceExpression e = new CoerceExpression(v, PDataType.DECIMAL);
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        e.evaluate(null, ptr);
-        Object obj = e.getDataType().toObject(ptr);
-        assertTrue(obj instanceof BigDecimal);
-        BigDecimal value = (BigDecimal)obj;
-        assertTrue(value.equals(BigDecimal.valueOf(1)));
-    }
-	
-	@Test
-    public void testCoerceExpressionSupportsCoercingLongToDecimal() throws Exception {
-        LiteralExpression v = LiteralExpression.newConstant(Long.valueOf(1), PDataType.LONG);
-        CoerceExpression e = new CoerceExpression(v, PDataType.DECIMAL);
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        e.evaluate(null, ptr);
-        Object obj = e.getDataType().toObject(ptr);
-        assertTrue(obj instanceof BigDecimal);
-        BigDecimal value = (BigDecimal)obj;
-        assertTrue(value.equals(BigDecimal.valueOf(1)));
-    }
-
-	@Test
 	public void testCoerceExpressionSupportsCoercingAllPDataTypesToVarBinary() throws Exception {
 		for(PDataType p : PDataType.values()) {
 			LiteralExpression v = LiteralExpression.newConstant(map.get(p.getJavaClass()), p);
