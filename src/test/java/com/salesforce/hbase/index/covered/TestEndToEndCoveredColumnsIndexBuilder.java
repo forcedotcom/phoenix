@@ -152,7 +152,7 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
     public void verify(TableState state) {
       try {
         Scanner kvs =
-            ((LocalTableState) state).getNonIndexedColumnsTableState(Arrays.asList(columns));
+            ((LocalTableState) state).getIndexedColumnsTableState(Arrays.asList(columns)).getFirst();
 
         int count = 0;
         KeyValue kv;

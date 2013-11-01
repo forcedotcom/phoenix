@@ -49,6 +49,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -118,7 +119,7 @@ public class SchemaUtil {
     private static final int VAR_LENGTH_ESTIMATE = 10;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
-    public static RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
+    public static final RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
     
         @Override
         public boolean isNullable() {
@@ -309,11 +310,11 @@ public class SchemaUtil {
     }
 
     public static String getColumnDisplayName(byte[] cf, byte[] cq) {
-        return getName(Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
+        return getName(cf == null || cf.length == 0 || Bytes.compareTo(cf, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES) == 0 ? ByteUtil.EMPTY_BYTE_ARRAY : cf, cq);
     }
 
     public static String getColumnDisplayName(String cf, String cq) {
-        return getName(QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
+        return getName(cf == null || cf.isEmpty() || QueryConstants.DEFAULT_COLUMN_FAMILY.equals(cf) ? null : cf, cq);
     }
 
     public static String getMetaDataEntityName(String schemaName, String tableName, String familyName, String columnName) {
@@ -654,12 +655,24 @@ public class SchemaUtil {
         Properties props = conn.getClientInfo();
         PMetaData metaData = conn.getPMetaData();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(scn));
-        PhoenixConnection metaConnection = new PhoenixConnection(conn.getQueryServices(), url, props, metaData);
+        PhoenixConnection metaConnection = null;
+
+        Statement stmt = null;
         try {
-            metaConnection.createStatement().executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + columnDef);
-            return metaConnection;
+            metaConnection = new PhoenixConnection(conn.getQueryServices(), url, props, metaData);
+            try {
+                stmt = metaConnection.createStatement();
+                stmt.executeUpdate("ALTER TABLE SYSTEM.\"TABLE\" ADD IF NOT EXISTS " + columnDef);
+                return metaConnection;
+            } finally {
+                if(stmt != null) {
+                    stmt.close();
+                }
+            }
         } finally {
-            metaConnection.close();
+            if(metaConnection != null) {
+                metaConnection.close();
+            }
         }
     }
     
@@ -788,7 +801,9 @@ public class SchemaUtil {
                 try {
                     admin.close();
                 } finally {
-                    htable.close();
+                    if(htable != null) {
+                        htable.close();
+                    }
                 }
             } catch (IOException e) {
                 throw new SQLException(e);
@@ -802,5 +817,15 @@ public class SchemaUtil {
             return ""; 
         }
         return tableName.substring(0, index);
+    }
+
+    public static byte[] getTableKeyFromFullName(String fullTableName) {
+        int index = fullTableName.indexOf(QueryConstants.NAME_SEPARATOR);
+        if (index < 0) {
+            return getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, null, fullTableName); 
+        }
+        String schemaName = fullTableName.substring(0, index);
+        String tableName = fullTableName.substring(index+1);
+        return getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName); 
     }
 }

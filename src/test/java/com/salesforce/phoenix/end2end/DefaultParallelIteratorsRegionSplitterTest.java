@@ -333,7 +333,6 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         assertTrue(waitForAsyncChange(minKeyChange,waitTime));
         assertArrayEquals(KMIN2, stats.getMinKey(table));
         assertArrayEquals(KMAX, stats.getMaxKey(table));
-        minKeyChange = new MinKeyChange(stats, table);
         maxKeyChange = new MaxKeyChange(stats, table);
         
         delStmt.setString(1, new String(KMAX));

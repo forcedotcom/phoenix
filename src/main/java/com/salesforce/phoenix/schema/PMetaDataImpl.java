@@ -66,14 +66,17 @@ public class PMetaDataImpl implements PMetaData {
         if (table.getParentName() != null) { // Upsert new index table into parent data table list
             String parentName = table.getParentName().getString();
             PTable parentTable = tables.get(parentName);
-            List<PTable> oldIndexes = parentTable.getIndexes();
-            List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
-            newIndexes.addAll(oldIndexes);
-            if (oldTable != null) {
-                newIndexes.remove(oldTable);
+            // If parentTable isn't cached, that's ok we can skip this
+            if (parentTable != null) {
+                List<PTable> oldIndexes = parentTable.getIndexes();
+                List<PTable> newIndexes = Lists.newArrayListWithExpectedSize(oldIndexes.size() + 1);
+                newIndexes.addAll(oldIndexes);
+                if (oldTable != null) {
+                    newIndexes.remove(oldTable);
+                }
+                newIndexes.add(table);
+                tables.put(parentName, PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
             }
-            newIndexes.add(table);
-            tables.put(parentName, PTableImpl.makePTable(parentTable, table.getTimeStamp(), newIndexes));
         }
         for (PTable index : table.getIndexes()) {
             tables.put(index.getName().getString(), index);

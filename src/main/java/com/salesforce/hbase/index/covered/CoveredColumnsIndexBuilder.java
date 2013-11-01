@@ -397,7 +397,7 @@ public class CoveredColumnsIndexBuilder extends BaseIndexBuilder {
 
 
   /**
-   * Get the index deletes from the codec (IndexCodec{@link #getIndexDeletes(TableState)} and then
+   * Get the index deletes from the codec {@link IndexCodec#getIndexDeletes(TableState)} and then
    * add them to the update map.
    * <p>
    * Expects the {@link LocalTableState} to already be correctly setup (correct timestamp, updates

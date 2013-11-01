@@ -33,7 +33,6 @@ import static com.salesforce.phoenix.expression.LiteralExpression.newConstant;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -61,7 +60,6 @@ import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
-import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -158,7 +156,7 @@ public class WhereCompiler {
                 disambiguateWithFamily = true;
             }
             return ref;
-        }
+         }
     }
 
     private static final class Counter {

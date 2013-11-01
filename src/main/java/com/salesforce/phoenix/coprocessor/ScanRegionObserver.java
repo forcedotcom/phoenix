@@ -53,6 +53,7 @@ import com.salesforce.phoenix.iterate.OrderedResultIterator;
 import com.salesforce.phoenix.iterate.RegionScannerResultIterator;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.join.HashJoinInfo;
+import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -138,7 +139,6 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
         
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
-        final OrderedResultIterator iterator = deserializeFromScan(scan,s);
         final ImmutableBytesWritable tenantId = ScanUtil.getTenantId(scan);
         
         RegionScanner innerScanner = s;
@@ -146,6 +146,7 @@ public class ScanRegionObserver extends BaseScannerRegionObserver {
             innerScanner = new HashJoinRegionScanner(s, p, j, tenantId, c.getEnvironment());
         }
         
+        final OrderedResultIterator iterator = deserializeFromScan(scan,innerScanner);
         if (iterator == null) {
             return getWrappedScanner(c, innerScanner);
         }

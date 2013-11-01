@@ -946,7 +946,7 @@ public enum PDataType {
             case DOUBLE:
             case UNSIGNED_DOUBLE:
                 double d = (Double)object;
-                if (d == Double.NaN
+                if (Double.isNaN(d)
                         || d == Double.POSITIVE_INFINITY
                         || d == Double.NEGATIVE_INFINITY
                         || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE)) {
@@ -1176,12 +1176,12 @@ public enum PDataType {
                 case UNSIGNED_DOUBLE:
                     return d >= 0;
                 case FLOAT:
-                    return d == Double.NaN
+                    return Double.isNaN(d)
                             || d == Double.POSITIVE_INFINITY
                             || d == Double.NEGATIVE_INFINITY
                             || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE);
                 case UNSIGNED_FLOAT:
-                    return d == Double.NaN || d == Double.POSITIVE_INFINITY
+                    return Double.isNaN(d) || d == Double.POSITIVE_INFINITY
                             || (d >= 0 && d <= Float.MAX_VALUE);
                 case UNSIGNED_LONG:
                     return (d >= 0 && d <= Long.MAX_VALUE);
@@ -1486,7 +1486,7 @@ public enum PDataType {
         @Override
         public byte[] coerceBytes(byte[] b, Object object, PDataType actualType, Integer maxLength, Integer scale,
                 Integer desiredMaxLength, Integer desiredScale) {
-            if (desiredScale == null || desiredScale == null) {
+            if (desiredScale == null) {
                 // deiredScale not available, or we do not have scale requirement, delegate to parents.
                 return super.coerceBytes(b, object, actualType);
             }
@@ -2480,7 +2480,7 @@ public enum PDataType {
             case UNSIGNED_DOUBLE:
             case DOUBLE:
                 double d = (Double)object;
-                if (d == Double.NaN
+                if (Double.isNaN(d)
                         || d == Double.POSITIVE_INFINITY
                         || (d >= 0 && d <= Float.MAX_VALUE)) {
                     return (float) d;
@@ -2765,10 +2765,10 @@ public enum PDataType {
                 double d = (Double)value;
                 switch (targetType) {
                 case UNSIGNED_FLOAT:
-                    return d == Double.NaN || d == Double.POSITIVE_INFINITY
+                    return Double.isNaN(d) || d == Double.POSITIVE_INFINITY
                             || (d >= 0 && d <= Float.MAX_VALUE);
                 case FLOAT:
-                    return d == Double.NaN
+                    return Double.isNaN(d)
                             || d == Double.POSITIVE_INFINITY
                             || (d >= -Float.MAX_VALUE && d <= Float.MAX_VALUE);
                 case UNSIGNED_LONG:
@@ -3983,7 +3983,7 @@ public enum PDataType {
         
         @Override
         public int encodeDouble(double v, byte[] b, int o) {
-            if (v == Double.NaN || v == Double.POSITIVE_INFINITY
+            if (Double.isNaN(v) || v == Double.POSITIVE_INFINITY
                     || v == Double.NEGATIVE_INFINITY
                     || (v >= -Float.MAX_VALUE && v <= Float.MAX_VALUE)) {
                 return encodeFloat((float)v, b, o);
@@ -4059,7 +4059,7 @@ public enum PDataType {
         @Override
         public float decodeFloat(byte[] b, int o, ColumnModifier columnModifier) {
             double v = decodeDouble(b, o, columnModifier);
-            if (v == Double.NaN || v == Double.NEGATIVE_INFINITY
+            if (Double.isNaN(v) || v == Double.NEGATIVE_INFINITY
                     || v == Double.POSITIVE_INFINITY
                     || (v >= -Float.MAX_VALUE && v <= Float.MAX_VALUE)) {
                 return (float) v;

@@ -18,7 +18,7 @@ import org.apache.hadoop.io.Writable;
  * A WALReader that can also deserialize custom {@link WALEdit}s that contain index information.
  * <p>
  * This is basically a wrapper around a {@link SequenceFileLogReader} that has a custom
- * {@link #next(Entry)} method that only replaces the creation of the WALEdit with our own custom
+ * {@link SequenceFileLogReader.WALReader#next(Object)} method that only replaces the creation of the WALEdit with our own custom
  * type
  * <p>
  * This is a little bit of a painful way of going about this, but saves the effort of hacking the

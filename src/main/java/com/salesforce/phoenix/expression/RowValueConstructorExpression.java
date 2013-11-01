@@ -60,7 +60,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     private int counter;
     private int estimatedByteSize;
     
-    private static interface ExpressionComparabilityWrapper {
+    public static interface ExpressionComparabilityWrapper {
         public Expression wrap(Expression lhs, Expression rhs);
     }
     /*
@@ -110,7 +110,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         WRAPPERS[CompareOp.GREATER_OR_EQUAL.ordinal()] = WRAPPERS[CompareOp.GREATER.ordinal()];
     }
     
-    public static ExpressionComparabilityWrapper getWrapper(CompareOp op) {
+    private static ExpressionComparabilityWrapper getWrapper(CompareOp op) {
         ExpressionComparabilityWrapper wrapper = WRAPPERS[op.ordinal()];
         if (wrapper == null) {
             throw new IllegalStateException("Unexpected compare op of " + op + " for row value constructor");
@@ -122,7 +122,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         return coerce(lhs, rhs, getWrapper(op));
     }
         
-    private static Expression coerce(Expression lhs, Expression rhs, ExpressionComparabilityWrapper wrapper) throws SQLException {
+    public static Expression coerce(Expression lhs, Expression rhs, ExpressionComparabilityWrapper wrapper) throws SQLException {
         
         if (lhs instanceof RowValueConstructorExpression && rhs instanceof RowValueConstructorExpression) {
             int i = 0;
@@ -275,7 +275,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                         expressionCount = j+1;
                         ptrs[j] = new ImmutableBytesWritable();
                         ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
-                        estimatedByteSize += ptr.getLength() + (expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
+                        estimatedByteSize += ptr.getLength() + (expression.getDataType() == null || expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
                     }
                     counter++;
                 } else if (tuple == null || tuple.isImmutable()) {
@@ -314,7 +314,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                             }
                         } else {
                             output.write(tempPtr.get(), tempPtr.getOffset(), tempPtr.getLength());
-                            if (!childType.isFixedWidth()) {
+                            if (childType != null && !childType.isFixedWidth()) {
                                 output.write(QueryConstants.SEPARATOR_BYTE);
                             }
                             if (previousCarryOver) {

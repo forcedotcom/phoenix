@@ -39,24 +39,26 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
 
 
 public class CreateTableCompiler {
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
     
-    public CreateTableCompiler(PhoenixConnection connection) {
-        this.connection = connection;
+    public CreateTableCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
 
-    public MutationPlan compile(final CreateTableStatement statement, List<Object> binds) throws SQLException {
-        final ColumnResolver resolver = FromCompiler.getResolver(statement, connection);
+    public MutationPlan compile(final CreateTableStatement create) throws SQLException {
+        final PhoenixConnection connection = statement.getConnection();
+        final ColumnResolver resolver = FromCompiler.getResolver(create, connection);
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(statement, connection, resolver, binds, scan);
+        final StatementContext context = new StatementContext(create, connection, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
-        List<ParseNode> splitNodes = statement.getSplitNodes();
+        List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
@@ -78,7 +80,7 @@ public class CreateTableCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createTable(statement, splits);
+                return client.createTable(create, splits);
             }
 
             @Override

@@ -50,14 +50,19 @@ public class InstanceResolver {
      */
     @SuppressWarnings("unchecked")
     public static <T> T getSingleton(Class<T> clazz, T defaultInstance) {
-        if (!RESOLVED_SINGLETONS.containsKey(clazz)) {
-            // check the type of the default instance if provided
-            if (defaultInstance != null && !clazz.isInstance(defaultInstance)) throw new IllegalArgumentException("defaultInstance is not of type " + clazz.getName());
-            RESOLVED_SINGLETONS.put(clazz, resolveSingleton(clazz, defaultInstance));
+        Object obj = RESOLVED_SINGLETONS.get(clazz);
+        if(obj != null) {
+            return (T)obj;
         }
-        return (T) RESOLVED_SINGLETONS.get(clazz);
+        if (defaultInstance != null && !clazz.isInstance(defaultInstance)) throw new IllegalArgumentException("defaultInstance is not of type " + clazz.getName());
+        final Object o = resolveSingleton(clazz, defaultInstance);
+        obj = RESOLVED_SINGLETONS.putIfAbsent(clazz, o);
+        if(obj == null) {
+            obj = o;
+        }
+        return (T)obj;
     }
-
+    
     private synchronized static <T> T resolveSingleton(Class<T> clazz, T defaultInstance) {
         ServiceLoader<T> loader = ServiceLoader.load(clazz);
         // returns the first registered instance found

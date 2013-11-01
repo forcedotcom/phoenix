@@ -56,11 +56,13 @@ import static com.salesforce.phoenix.query.QueryServices.TARGET_QUERY_CONCURRENC
 import static com.salesforce.phoenix.query.QueryServices.THREAD_POOL_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.THREAD_TIMEOUT_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.USE_INDEXES_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
 
 import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -92,6 +94,7 @@ public class QueryServicesOptions {
     public static final boolean DEFAULT_ROW_KEY_ORDER_SALTED_TABLE = true; // Merge sort on client to ensure salted tables are row key ordered
     public static final boolean DEFAULT_USE_INDEXES = true; // Use indexes
     public static final boolean DEFAULT_IMMUTABLE_ROWS = false; // Tables rows may be updated
+    public static final boolean DEFAULT_DROP_METADATA = true; // Drop meta data also.
     
     public final static int DEFAULT_MUTATE_BATCH_SIZE = 1000; // Batch size for UPSERT SELECT and DELETE
 	// The only downside of it being out-of-sync is that the parallelization of the scan won't be as balanced as it could be.
@@ -149,7 +152,8 @@ public class QueryServicesOptions {
             .setIfUnset(USE_INDEXES_ATTRIB, DEFAULT_USE_INDEXES)
             .setIfUnset(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS)
             .setIfUnset(INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, DEFAULT_INDEX_MUTATE_BATCH_SIZE_THRESHOLD)
-            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_MAX_SPOOL_TO_DISK_BYTES);
+            .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_MAX_SPOOL_TO_DISK_BYTES)
+            .setIfUnset(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set
@@ -264,6 +268,10 @@ public class QueryServicesOptions {
         return set(ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, rowKeyOrderSaltedTable);
     }
     
+    public QueryServicesOptions setDropMetaData(boolean dropMetadata) {
+        return set(DROP_METADATA_ATTRIB, dropMetadata);
+    }
+    
     private QueryServicesOptions set(String name, boolean value) {
         config.set(name, Boolean.toString(value));
         return this;
@@ -323,6 +331,10 @@ public class QueryServicesOptions {
     public boolean isImmutableRows() {
         return config.getBoolean(IMMUTABLE_ROWS_ATTRIB, DEFAULT_IMMUTABLE_ROWS);
     }
+    
+    public boolean isDropMetaData() {
+        return config.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+    }
 
     public QueryServicesOptions setMaxServerCacheTTLMs(int ttl) {
         return set(MAX_SERVER_CACHE_TIME_TO_LIVE_MS, ttl);
@@ -350,6 +362,10 @@ public class QueryServicesOptions {
     
     public QueryServicesOptions setImmutableRows(boolean isImmutableRows) {
         return set(IMMUTABLE_ROWS_ATTRIB, isImmutableRows);
+    }
+
+    public QueryServicesOptions setWALEditCodec(String walEditCodec) {
+        return set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, walEditCodec);
     }
     
 }

@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -110,7 +109,7 @@ public interface PTable extends Writable {
      * @return the PColumn with the given name
      * @throws ColumnNotFoundException if no PK column with the given name
      * can be found
-     * @throws SQLException 
+     * @throws ColumnNotFoundException 
      */
     PColumn getPKColumn(String name) throws ColumnNotFoundException;
 

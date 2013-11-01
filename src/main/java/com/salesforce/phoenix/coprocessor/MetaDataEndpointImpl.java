@@ -83,6 +83,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.KeyRange;
@@ -568,6 +569,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (tableType.equals(PTableType.SYSTEM.getSerializedValue())) {
             return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
+        List<byte[]> tableNamesToDelete = Lists.newArrayList();
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
@@ -590,7 +592,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
-                result = doDropTable(key, tenantIdBytes, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids);
+                result = doDropTable(key, tenantIdBytes, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids, tableNamesToDelete);
                 if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                     return result;
                 }
@@ -616,7 +618,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private MetaDataMutationResult doDropTable(byte[] key, byte[] tenantId, byte[] schemaName, byte[] tableName, PTableType tableType, 
-            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
+            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids, List<byte[]> tableNamesToDelete) throws IOException, SQLException {
         long clientTimeStamp = MetaDataUtil.getClientTimeStamp(rowsToDelete);
 
         RegionCoprocessorEnvironment env = getEnvironment();
@@ -625,6 +627,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
+        
         // We always cache the latest version - fault in if not in cache
         if (table != null || (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) != null) {
             if (table.getTimeStamp() < clientTimeStamp) {
@@ -643,9 +646,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (table == null && buildDeletedTable(key, cacheKey, region, clientTimeStamp) != null) {
             return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
-        
-        List<byte[]> indexNames = Lists.newArrayList();
-        // Get mutatioins for main table.
+        // Get mutations for main table.
         Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         List<KeyValue> results = Lists.newArrayList();
@@ -659,6 +660,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
+        tableNamesToDelete.add(table.getName().getBytes());
+        List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
         byte[][] rowKeyMetaData = new byte[5][];
         byte[] rowKey;
@@ -688,13 +691,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             Delete delete = new Delete(indexKey, clientTimeStamp, null);
             rowsToDelete.add(delete);
             acquireLock(region, indexKey, lids);
-            MetaDataMutationResult result = doDropTable(indexKey, tenantId, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids);
+            MetaDataMutationResult result = doDropTable(indexKey, tenantId, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids, tableNamesToDelete);
             if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                 return result;
             }
         }
         
-        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table, tableNamesToDelete);
     }
 
     private static interface ColumnMutator {
@@ -843,6 +846,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetaData) throws IOException {
         final long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetaData);
+        final List<byte[]> tableNamesToDelete = Lists.newArrayList();
         return mutateColumn(tableMetaData, new ColumnMutator() {
             @SuppressWarnings("deprecation")
             @Override
@@ -887,7 +891,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                             byte[] linkKey = MetaDataUtil.getParentLinkKey(tenantId, schemaName, tableName, index.getTableName().getBytes());
                                             // Drop the link between the data table and the index table
                                             additionalTableMetaData.add(new Delete(linkKey, clientTimeStamp, null));
-                                            doDropTable(indexKey, tenantId, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids);
+                                            doDropTable(indexKey, tenantId, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids, tableNamesToDelete);
                                             // TODO: return in result?
                                         } else {
                                             invalidateList.add(new ImmutableBytesPtr(indexKey));
@@ -913,6 +917,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return null;
             }
         });
+        
     }
     
     private static MetaDataMutationResult checkTableKeyInRegion(byte[] key, HRegion region) {
@@ -1013,9 +1018,17 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public long getVersion() {
-        // The first 5 bytes of the long is used to encoding the HBase version as major.minor.patch.
-        // The next 5 bytes of the value is used to encode the Phoenix version as major.minor.patch.
-        return MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
+        // The first 3 bytes of the long is used to encoding the HBase version as major.minor.patch.
+        // The next 4 bytes of the value is used to encode the Phoenix version as major.minor.patch.
+        long version = MetaDataUtil.encodeHBaseAndPhoenixVersions(this.getEnvironment().getHBaseVersion());
+        
+        // The last byte is used to communicate whether or not mutable secondary indexing
+        // was configured properly.
+        RegionCoprocessorEnvironment env = getEnvironment();
+        version = MetaDataUtil.encodeMutableIndexConfiguredProperly(
+                version, 
+                IndexManagementUtil.isWALEditCodecSet(env.getConfiguration()));
+        return version;
     }
 
     @Override
@@ -1052,13 +1065,28 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 }
                 KeyValue currentStateKV = currentResult.raw()[0];
                 PIndexState currentState = PIndexState.fromSerializedValue(currentStateKV.getBuffer()[currentStateKV.getValueOffset()]);
+                // Detect invalid transitions
+                if (currentState == PIndexState.BUILDING) {
+                    if (newState == PIndexState.USABLE) {
+                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
+                } else if (currentState == PIndexState.DISABLE) {
+                    if (newState != PIndexState.BUILDING && newState != PIndexState.DISABLE) {
+                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
+                    // Done building, but was disable before that, so that in disabled state
+                    if (newState == PIndexState.ACTIVE) {
+                        newState = PIndexState.DISABLE;
+                    }
+                }
+
                 if (currentState == PIndexState.BUILDING && newState != PIndexState.ACTIVE) {
                     timeStamp = currentStateKV.getTimestamp();
                 }
-                if ((currentState == PIndexState.DISABLE && newState == PIndexState.ACTIVE) || (currentState == PIndexState.ACTIVE && newState == PIndexState.DISABLE)) {
+                if ((currentState == PIndexState.UNUSABLE && newState == PIndexState.ACTIVE) || (currentState == PIndexState.ACTIVE && newState == PIndexState.UNUSABLE)) {
                     newState = PIndexState.INACTIVE;
                     newKVs.set(0, KeyValueUtil.newKeyValue(key, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES, timeStamp, Bytes.toBytes(newState.getSerializedValue())));
-                } else if (currentState == PIndexState.INACTIVE && newState == PIndexState.ENABLE) {
+                } else if (currentState == PIndexState.INACTIVE && newState == PIndexState.USABLE) {
                     newState = PIndexState.ACTIVE;
                     newKVs.set(0, KeyValueUtil.newKeyValue(key, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES, timeStamp, Bytes.toBytes(newState.getSerializedValue())));
                 }

@@ -295,6 +295,32 @@ public abstract class ValueSchema implements Writable {
     }
     
     @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + minNullable;
+        for (Field field : fields) {
+        	result = prime * result + field.hashCode();
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        ValueSchema other = (ValueSchema)obj;
+        if (minNullable != other.minNullable) return false;
+        if (fields.size() != other.fields.size()) return false;
+        for (int i = 0; i < fields.size(); i++) {
+        	if (!fields.get(i).equals(other.fields.get(i)))
+        		return false;
+        }
+        return true;
+    }
+    
+    @Override
     public void readFields(DataInput in) throws IOException {
         int minNullable = WritableUtils.readVInt(in);
         int nFields = WritableUtils.readVInt(in);

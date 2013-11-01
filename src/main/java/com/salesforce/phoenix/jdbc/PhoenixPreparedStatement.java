@@ -15,13 +15,35 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import java.io.*;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.sql.*;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.Clob;
 import java.sql.Date;
-import java.util.*;
+import java.sql.NClob;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.Ref;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.RowId;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLXML;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.List;
 
+import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.StatementPlan;
 import com.salesforce.phoenix.schema.PDataType;
@@ -53,7 +75,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
         if (this.statement == null) { throw new EOFException(); }
         this.query = null; // TODO: add toString on SQLStatement
         this.parameters = Arrays.asList(new Object[statement.getBindCount()]);
-        Collections.fill(parameters, UNBOUND_PARAMETER);
+        Collections.fill(parameters, BindManager.UNBOUND_PARAMETER);
     }
 
     public PhoenixPreparedStatement(PhoenixConnection connection, String query) throws SQLException {
@@ -61,7 +83,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
         this.query = query;
         this.statement = parseStatement(query);
         this.parameters = Arrays.asList(new Object[statement.getBindCount()]);
-        Collections.fill(parameters, UNBOUND_PARAMETER);
+        Collections.fill(parameters, BindManager.UNBOUND_PARAMETER);
     }
 
     @Override
@@ -71,7 +93,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public void clearParameters() throws SQLException {
-        Collections.fill(parameters, UNBOUND_PARAMETER);
+        Collections.fill(parameters, BindManager.UNBOUND_PARAMETER);
     }
 
     @Override
@@ -105,14 +127,47 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
 
     @Override
     public ResultSetMetaData getMetaData() throws SQLException {
-        return statement.getResultSetMetaData();
+        int paramCount = statement.getBindCount();
+        List<Object> params = this.getParameters();
+        BitSet unsetParams = new BitSet(statement.getBindCount());
+        for (int i = 0; i < paramCount; i++) {
+            if ( params.get(i) == BindManager.UNBOUND_PARAMETER) {
+                unsetParams.set(i);
+                params.set(i, null);
+            }
+        }
+        try {
+            return statement.getResultSetMetaData();
+        } finally {
+            int lastSetBit = 0;
+            while ((lastSetBit = unsetParams.nextSetBit(lastSetBit)) != -1) {
+                params.set(lastSetBit, BindManager.UNBOUND_PARAMETER);
+                lastSetBit++;
+            }
+        }
     }
 
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
-        List<Object> nullParameters = Arrays.asList(new Object[statement.getBindCount()]);
-        StatementPlan plan = statement.compilePlan(nullParameters);
-        return plan.getParameterMetaData();
+        int paramCount = statement.getBindCount();
+        List<Object> params = this.getParameters();
+        BitSet unsetParams = new BitSet(statement.getBindCount());
+        for (int i = 0; i < paramCount; i++) {
+            if ( params.get(i) == BindManager.UNBOUND_PARAMETER) {
+                unsetParams.set(i);
+                params.set(i, null);
+            }
+        }
+        try {
+            StatementPlan plan = statement.compilePlan();
+            return plan.getParameterMetaData();
+        } finally {
+            int lastSetBit = 0;
+            while ((lastSetBit = unsetParams.nextSetBit(lastSetBit)) != -1) {
+                params.set(lastSetBit, BindManager.UNBOUND_PARAMETER);
+                lastSetBit++;
+            }
+        }
     }
 
     @Override

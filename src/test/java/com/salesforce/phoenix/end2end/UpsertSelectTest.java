@@ -28,11 +28,28 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.PhoenixRuntime.UPSERT_BATCH_SIZE_ATTRIB;
-import static com.salesforce.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.CUSTOM_ENTITY_DATA_FULL_NAME;
+import static com.salesforce.phoenix.util.TestUtil.C_VALUE;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.ROW6;
+import static com.salesforce.phoenix.util.TestUtil.ROW7;
+import static com.salesforce.phoenix.util.TestUtil.ROW8;
+import static com.salesforce.phoenix.util.TestUtil.ROW9;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -40,31 +57,61 @@ import org.junit.Test;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.QueryUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 public class UpsertSelectTest extends BaseClientMangedTimeTest {
+    
     @Test
-    public void testUpsertSelect() throws Exception {
+    public void testUpsertSelectWithNoIndex() throws Exception {
+        testUpsertSelect(false);
+    }
+    
+    @Test
+    public void testUpsertSelecWithIndex() throws Exception {
+        testUpsertSelect(true);
+    }
+    
+    private void testUpsertSelect(boolean createIndex) throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         initATableValues(tenantId, getDefaultSplits(tenantId), null, ts-1);
         ensureTableCreated(PHOENIX_JDBC_URL, CUSTOM_ENTITY_DATA_FULL_NAME, ts-1);
+        String indexName = "IDX1";
+        if (createIndex) {
+            Properties props = new Properties();
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts)); // Execute at timestamp 1
+            Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            conn.createStatement().execute("CREATE INDEX IF NOT EXISTS " + indexName + " ON " + TestUtil.ATABLE_NAME + "(a_string)" );
+            conn.close();
+        }
+        PreparedStatement upsertStmt;
         Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 1)); // Execute at timestamp 1
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         props.setProperty(UPSERT_BATCH_SIZE_ATTRIB, Integer.toString(3)); // Trigger multiple batches
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         conn.setAutoCommit(true);
         String upsert = "UPSERT INTO " + CUSTOM_ENTITY_DATA_FULL_NAME + "(custom_entity_data_id, key_prefix, organization_id, created_by) " +
             "SELECT substr(entity_id, 4), substr(entity_id, 1, 3), organization_id, a_string  FROM ATABLE WHERE a_string = ?";
-        PreparedStatement upsertStmt = conn.prepareStatement(upsert);
+        if (createIndex) { // Confirm index is used
+            upsertStmt = conn.prepareStatement("EXPLAIN " + upsert);
+            upsertStmt.setString(1, tenantId);
+            ResultSet ers = upsertStmt.executeQuery();
+            assertTrue(ers.next());
+            String explainPlan = QueryUtil.getExplainPlan(ers);
+            assertTrue(explainPlan.contains(" SCAN OVER " + indexName));
+        }
+        
+        upsertStmt = conn.prepareStatement(upsert);
         upsertStmt.setString(1, A_VALUE);
         int rowsInserted = upsertStmt.executeUpdate();
         assertEquals(4, rowsInserted);
         conn.commit();
         conn.close();
         
-        String query = "SELECT key_prefix, substr(custom_entity_data_id, 1, 1), created_by FROM " + CUSTOM_ENTITY_DATA_FULL_NAME + " WHERE organization_id = ?";
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        String query = "SELECT key_prefix, substr(custom_entity_data_id, 1, 1), created_by FROM " + CUSTOM_ENTITY_DATA_FULL_NAME + " WHERE organization_id = ? ";
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 3)); // Execute at timestamp 3
         conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         PreparedStatement statement = conn.prepareStatement(query);
         statement.setString(1, tenantId);
@@ -94,18 +141,19 @@ public class UpsertSelectTest extends BaseClientMangedTimeTest {
         conn.close();
 
         // Test UPSERT through coprocessor
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 3));
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
         conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         conn.setAutoCommit(true);
         upsert = "UPSERT INTO " + CUSTOM_ENTITY_DATA_FULL_NAME + "(custom_entity_data_id, key_prefix, organization_id, last_update_by, division) " +
-            "SELECT custom_entity_data_id, key_prefix, organization_id, created_by, 1.0  FROM " + CUSTOM_ENTITY_DATA_FULL_NAME + " WHERE organization_id = ?";
+            "SELECT custom_entity_data_id, key_prefix, organization_id, created_by, 1.0  FROM " + CUSTOM_ENTITY_DATA_FULL_NAME + " WHERE organization_id = ? and created_by >= 'a'";
+        
         upsertStmt = conn.prepareStatement(upsert);
         upsertStmt.setString(1, tenantId);
         assertEquals(4, upsertStmt.executeUpdate());
         conn.commit();
 
         query = "SELECT key_prefix, substr(custom_entity_data_id, 1, 1), created_by, last_update_by, division FROM " + CUSTOM_ENTITY_DATA_FULL_NAME + " WHERE organization_id = ?";
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4)); 
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5)); 
         conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         statement = conn.prepareStatement(query);
         statement.setString(1, tenantId);

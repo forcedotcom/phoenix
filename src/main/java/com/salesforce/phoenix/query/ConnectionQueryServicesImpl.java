@@ -32,6 +32,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
@@ -47,6 +48,7 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
@@ -98,7 +100,6 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
-import com.salesforce.phoenix.join.HashJoiningRegionObserver;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -134,6 +135,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private final Object latestMetaDataLock = new Object();
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
+    private boolean hasInvalidIndexConfiguration = false;
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -144,16 +146,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
      */
     public ConnectionQueryServicesImpl(QueryServices services, ConnectionInfo connectionInfo) throws SQLException {
         super(services);
-        this.config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
+        Configuration config = HBaseFactoryProvider.getConfigurationFactory().getConfiguration();
         for (Entry<String,String> entry : services.getProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
         for (Entry<String,String> entry : connectionInfo.asProps()) {
             config.set(entry.getKey(), entry.getValue());
         }
-        this.props = new ReadOnlyProps(config.iterator());
+        // Without making a copy of the configuration we cons up, we lose some of our properties
+        // on the server side during testing.
+        this.config = HBaseConfiguration.create(config);
+        this.props = new ReadOnlyProps(this.config.iterator());
         try {
-            this.connection = HConnectionManager.createConnection(config);
+            this.connection = HConnectionManager.createConnection(this.config);
         } catch (ZooKeeperConnectionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
                 .setRootCause(e).build().buildException();
@@ -494,9 +499,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (!descriptor.hasCoprocessor(GroupedAggregateRegionObserver.class.getName())) {
                 descriptor.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
             }
-            if (!descriptor.hasCoprocessor(HashJoiningRegionObserver.class.getName())) {
-                descriptor.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
-            }
             if (!descriptor.hasCoprocessor(ServerCachingEndpointImpl.class.getName())) {
                 descriptor.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
             }
@@ -750,11 +752,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
                     existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(HashJoiningRegionObserver.class.getName());
+                    existingDesc.removeCoprocessor(ServerCachingEndpointImpl.class.getName());                    
                     existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
                     existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(HashJoiningRegionObserver.class.getName(), null, 1, null);
+                    existingDesc.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
                     boolean wasEnabled = admin.isTableEnabled(tableName);
                     if (wasEnabled) {
                         admin.disableTable(tableName);
@@ -916,8 +918,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             logger.info("Upgrade to 2.1.0 completed successfully" );
         }
     }
-
-    private boolean isCompatible(Long serverVersion) {
+    
+    private static boolean isInvalidMutableIndexConfig(Long serverVersion) {
+        if (serverVersion == null) {
+            return false;
+        }
+        return !MetaDataUtil.decodeMutableIndexConfiguredProperly(serverVersion);
+    }
+    
+    private static boolean isCompatible(Long serverVersion) {
         if (serverVersion == null) {
             return false;
         }
@@ -962,6 +971,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     buf.append(name);
                     buf.append(';');
                 }
+                hasInvalidIndexConfiguration |= isInvalidMutableIndexConfig(result.getValue());
                 if (minHBaseVersion > MetaDataUtil.decodeHBaseVersion(result.getValue())) {
                     minHBaseVersion = MetaDataUtil.decodeHBaseVersion(result.getValue());
                 }
@@ -1061,17 +1071,66 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes, schemaBytes, tableBytes);
-        return metaDataCoprocessorExec(tableKey,
+        final MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
                       return instance.dropTable(tableMetaData, tableType.getSerializedValue());
                     }
                 });
+        
+        final MutationCode code = result.getMutationCode();
+        switch(code) {
+        case TABLE_ALREADY_EXISTS:
+            final ReadOnlyProps props = this.getProps();
+            final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+            if (dropMetadata) {
+                dropTables(result.getTableNamesToDelete());
+            }
+            break;
+        default:
+            break;
+        }
+          return result;
+    }
+    
+    private void dropTables(final List<byte[]> tableNamesToDelete) throws SQLException {
+        HBaseAdmin admin = null;
+        SQLException sqlE = null;
+        try{
+            admin = new HBaseAdmin(config);
+            if (tableNamesToDelete != null){
+                for ( byte[] tableName : tableNamesToDelete ) {
+                    if ( admin.tableExists(tableName) ) {
+                        admin.disableTable(tableName);
+                        admin.deleteTable(tableName);
+                    }
+                }
+            }
+            
+        } catch (IOException e) {
+            sqlE = ServerUtil.parseServerException(e);
+        } finally {
+            try {
+                if (admin != null) {
+                    admin.close();
+                }
+            } catch (IOException e) {
+                if (sqlE == null) {
+                    sqlE = ServerUtil.parseServerException(e);
+                } else {
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
+                }
+            } finally {
+                if (sqlE != null) {
+                    throw sqlE;
+                }
+            }
+        }
     }
 
     @Override
-    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, Pair<byte[],Map<String,Object>> family) throws SQLException {
+    public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families) throws SQLException {
         byte[][] rowKeyMetaData = new byte[3][];
 
         byte[] rowKey = tableMetaData.get(0).getRow();
@@ -1081,7 +1140,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-        if (family != null) {
+        for ( Pair<byte[],Map<String,Object>>  family : families) {
+            
             PTable table = latestMetaData.getTable(Bytes.toString(tableName));
             ensureFamilyCreated(table.getPhysicalName().getBytes(), tableType, family);
         }
@@ -1115,7 +1175,20 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return instance.dropColumn(tableMetaData);
                 }
             });
+        final MutationCode code = result.getMutationCode();
+        switch(code) {
+        case TABLE_ALREADY_EXISTS:
+            final ReadOnlyProps props = this.getProps();
+            final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+            if (dropMetadata) {
+                dropTables(result.getTableNamesToDelete());
+            }
+            break;
+        default:
+            break;
+        }
         return result;
+       
     }
 
     @Override
@@ -1154,6 +1227,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public int getLowestClusterHBaseVersion() {
         return lowestClusterHBaseVersion;
+    }
+
+    @Override
+    public boolean hasInvalidIndexConfiguration() {
+        return hasInvalidIndexConfiguration;
     }
 
     /**

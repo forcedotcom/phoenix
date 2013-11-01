@@ -32,8 +32,10 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -76,29 +78,22 @@ public class ServerCacheClient {
     private static final Log LOG = LogFactory.getLog(ServerCacheClient.class);
     private static final Random RANDOM = new Random();
     private final PhoenixConnection connection;
-    private final TableRef cacheUsingTableRef;
+    private final Map<Integer, TableRef> cacheUsingTableRefMap = new HashMap<Integer, TableRef>();
 
     /**
      * Construct client used to create a serialized cached snapshot of a table and send it to each region server
      * for caching during hash join processing.
      * @param connection the client connection
-     * @param cacheUsingTableRef table name
-     * @param minMaxKeyRange KeyRange specifying the min and max keys for the operation involving cacheUsingTableRef
      * 
      * TODO: instead of minMaxKeyRange, have an interface for iterating through ranges as we may be sending to
      * servers when we don't have to if the min is in first region and max is in last region, especially for point queries.
      */
-    public ServerCacheClient(PhoenixConnection connection, TableRef cacheUsingTableRef) {
+    public ServerCacheClient(PhoenixConnection connection) {
         this.connection = connection;
-        this.cacheUsingTableRef = cacheUsingTableRef;
     }
 
     public PhoenixConnection getConnection() {
         return connection;
-    }
-    
-    public TableRef getTableRef() {
-        return cacheUsingTableRef;
     }
     
     /**
@@ -143,7 +138,7 @@ public class ServerCacheClient {
 
     }
     
-    public ServerCache addServerCache(ScanRanges keyRanges, final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory) throws SQLException {
+    public ServerCache addServerCache(ScanRanges keyRanges, final ImmutableBytesWritable cachePtr, final ServerCacheFactory cacheFactory, final TableRef cacheUsingTableRef) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         MemoryChunk chunk = services.getMemoryManager().allocate(cachePtr.getLength());
         List<Closeable> closeables = new ArrayList<Closeable>();
@@ -204,6 +199,7 @@ public class ServerCacheClient {
                 future.get(timeoutMs, TimeUnit.MILLISECONDS);
             }
             
+            cacheUsingTableRefMap.put(Bytes.mapKey(cacheId), cacheUsingTableRef);
             success = true;
         } catch (SQLException e) {
             firstException = e;
@@ -244,6 +240,7 @@ public class ServerCacheClient {
     private void removeServerCache(byte[] cacheId, Set<HRegionLocation> servers) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
+        TableRef cacheUsingTableRef = cacheUsingTableRefMap.get(Bytes.mapKey(cacheId));
         byte[] tableName = cacheUsingTableRef.getTable().getPhysicalName().getBytes();
         HTableInterface iterateOverTable = services.getTable(tableName);
         List<HRegionLocation> locations = services.getAllTableRegions(tableName);

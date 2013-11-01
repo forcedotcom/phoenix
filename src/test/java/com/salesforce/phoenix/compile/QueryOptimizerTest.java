@@ -141,6 +141,36 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         assertEquals("IDX", plan.getTableRef().getTable().getTableName().getString());
     }
     
+    @Test
+    public void testChooseIndexFromOrderByDesc() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY DESC, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        QueryPlan plan = stmt.optimizeQuery("SELECT k FROM t WHERE k = 30 ORDER BY v1, k DESC LIMIT 5");
+        assertEquals("IDX", plan.getTableRef().getTable().getTableName().getString());
+    }
+    
+    @Test
+    public void testChooseTableFromOrderByAsc() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY DESC, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        QueryPlan plan = stmt.optimizeQuery("SELECT k FROM t WHERE k = 30 ORDER BY v1, k LIMIT 5");
+        assertEquals("T", plan.getTableRef().getTable().getTableName().getString());
+    }
+    
+    @Test
+    public void testChooseIndexFromOrderByAsc() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY DESC, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1, k)");
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        QueryPlan plan = stmt.optimizeQuery("SELECT k FROM t WHERE k = 30 ORDER BY v1, k LIMIT 5");
+        assertEquals("IDX", plan.getTableRef().getTable().getTableName().getString());
+    }
+    
 
     @Test
     public void testChooseIndexWithLongestRowKey() throws Exception {

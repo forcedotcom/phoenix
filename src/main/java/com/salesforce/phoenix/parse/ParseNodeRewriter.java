@@ -61,6 +61,32 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
      */
     public static SelectStatement rewrite(SelectStatement statement, ParseNodeRewriter rewriter) throws SQLException {
         Map<String,ParseNode> aliasMap = rewriter.getAliasMap();
+        List<TableNode> from = statement.getFrom();
+        List<TableNode> normFrom = from;
+        if (from.size() > 1) {
+        	for (int i = 1; i < from.size(); i++) {
+        		TableNode tableNode = from.get(i);
+        		if (tableNode instanceof JoinTableNode) {
+        			JoinTableNode joinTableNode = (JoinTableNode) tableNode;
+        			ParseNode onNode = joinTableNode.getOnNode();
+        			rewriter.reset();
+        			ParseNode normOnNode = onNode.accept(rewriter);
+        			if (onNode == normOnNode) {
+        				if (from != normFrom) {
+        					normFrom.add(tableNode);
+        				}
+        				continue;
+        			}
+        			if (from == normFrom) {
+        				normFrom = Lists.newArrayList(from.subList(0, i));
+        			}
+        			TableNode normTableNode = NODE_FACTORY.join(joinTableNode.getType(), normOnNode, joinTableNode.getTable());
+        			normFrom.add(normTableNode);
+        		} else if (from != normFrom) {
+					normFrom.add(tableNode);
+				}
+        	}
+        }
         ParseNode where = statement.getWhere();
         ParseNode normWhere = where;
         if (where != null) {
@@ -89,8 +115,8 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             if (selectNodes == normSelectNodes) {
                 normSelectNodes = Lists.newArrayList(selectNodes.subList(0, i));
             }
-            AliasedNode normAliasNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
-            normSelectNodes.add(normAliasNode);
+            AliasedNode normAliasedNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
+            normSelectNodes.add(normAliasedNode);
         }
         // Add to map in separate pass so that we don't try to use aliases
         // while processing the select expressions
@@ -140,15 +166,17 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             }
             normOrderByNodes.add(NODE_FACTORY.orderBy(normNode, orderByNode.isNullsLast(), orderByNode.isAscending()));
         }
+        
         // Return new SELECT statement with updated WHERE clause
-        if (normWhere == where && 
+        if (normFrom == from && 
+        		normWhere == where && 
                 normHaving == having && 
                 selectNodes == normSelectNodes && 
                 groupByNodes == normGroupByNodes &&
                 orderByNodes == normOrderByNodes) {
             return statement;
         }
-        return NODE_FACTORY.select(statement.getFrom(), statement.getHint(), statement.isDistinct(),
+        return NODE_FACTORY.select(normFrom, statement.getHint(), statement.isDistinct(),
                 normSelectNodes, normWhere, normGroupByNodes, normHaving, normOrderByNodes,
                 statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
@@ -161,13 +189,22 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     private final Map<String, ParseNode> aliasMap;
     
     protected ParseNodeRewriter() {
-        aliasMap = null;
-        resolver = null;
+        this.resolver = null;
+        this.aliasMap = null;
+    }
+    
+    protected ParseNodeRewriter(ColumnResolver resolver) {
+        this.resolver = resolver;
+        this.aliasMap = null;
     }
     
     protected ParseNodeRewriter(ColumnResolver resolver, int maxAliasCount) {
         this.resolver = resolver;
-        aliasMap = Maps.newHashMapWithExpectedSize(maxAliasCount);
+        this.aliasMap = Maps.newHashMapWithExpectedSize(maxAliasCount);
+    }
+    
+    protected ColumnResolver getResolver() {
+        return resolver;
     }
     
     protected void reset() {

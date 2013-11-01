@@ -1,3 +1,30 @@
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     Redistributions of source code must retain the above copyright notice,
+ *     this list of conditions and the following disclaimer.
+ *     Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *     Neither the name of Salesforce.com nor the names of its contributors may 
+ *     be used to endorse or promote products derived from this software without 
+ *     specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
 package com.salesforce.phoenix.end2end.index;
 
 import static com.salesforce.phoenix.util.TestUtil.INDEX_DATA_SCHEMA;
@@ -14,28 +41,25 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "T"));
-    private static final byte[] INDEX_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "I"));
     
     // Populate the test table with data.
     private static void populateTestTable() throws SQLException {
@@ -102,27 +126,16 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         }
     }
     
-    @Before
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-        } finally {
-                admin.close();
-        }
+    @BeforeClass 
+    public static void doSetup() throws Exception {
+        
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        // Drop the HBase table metadata for this test
+        props.put(QueryServices.DROP_METADATA_ATTRIB, Boolean.toString(true));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
+    
     
     @Test
     public void testImmutableTableIndexMaintanenceSaltedSalted() throws Exception {
@@ -225,10 +238,10 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         // would be a full table scan.
         expectedPlan = indexSaltBuckets == null ? 
             ("CLIENT PARALLEL 1-WAY RANGE SCAN OVER I [*] - [~'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT") :
             ("CLIENT PARALLEL 4-WAY SKIP SCAN ON 4 RANGES OVER I [0,*] - [3,~'x']\n" + 
-             "    SERVER TOP -1 ROWS SORTED BY [:K]\n" + 
+             "    SERVER TOP -1 ROWS SORTED BY [K]\n" + 
              "CLIENT MERGE SORT");
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
         
@@ -255,6 +268,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
              "CLIENT MERGE SORT\n" + 
              "CLIENT 2 ROW LIMIT";
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+        
+        conn.createStatement().execute("DROP TABLE t ");
     }
 
     @Test
@@ -285,6 +300,22 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("chara", rs.getString(1));
         assertEquals(4, rs.getInt(2));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        
+        query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        
+        query = "SELECT char_col1, int_col1 from IDX ";
+        try{
+            rs = conn.createStatement().executeQuery(query);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TABLE_UNDEFINED.getErrorCode(), e.getErrorCode());
+        }
+        
+        
     }
     
     @Test
@@ -307,11 +338,18 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
 
-        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true ");
+        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
 
         assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
+        
+        
+        conn.createStatement().execute("ALTER TABLE t SET immutable_rows=false");
 
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+                .isImmutableRows());
+        
+       
     }
     
     @Test
@@ -338,10 +376,18 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         
         String dml = "DELETE from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE +
                 " WHERE long_col2 = 4";
-        conn.createStatement().execute(dml);
+        assertEquals(1,conn.createStatement().executeUpdate(dml));
         conn.commit();
         
-        String query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        String query = "SELECT /*+ NO_INDEX */ long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        assertEquals(1L, rs.getLong(1));
+        assertTrue(rs.next());
+        assertEquals(3L, rs.getLong(1));
+        assertFalse(rs.next());
+        
+        query = "SELECT long_pk FROM " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
         rs = conn.createStatement().executeQuery(query);
         assertTrue(rs.next());
         assertEquals(1L, rs.getLong(1));
@@ -356,6 +402,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(rs.next());
         assertEquals(3L, rs.getLong(1));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
     
     

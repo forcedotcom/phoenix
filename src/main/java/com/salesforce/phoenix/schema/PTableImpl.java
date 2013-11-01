@@ -734,7 +734,7 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public IndexMaintainer getIndexMaintainer(PTable dataTable) {
+    public synchronized IndexMaintainer getIndexMaintainer(PTable dataTable) {
         if (indexMaintainer == null) {
             indexMaintainer = IndexMaintainer.create(dataTable, this);
         }
@@ -742,7 +742,7 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public void getIndexMaintainers(ImmutableBytesWritable ptr) {
+    public synchronized void getIndexMaintainers(ImmutableBytesWritable ptr) {
         if (indexMaintainersPtr == null) {
             indexMaintainersPtr = new ImmutableBytesWritable();
             if (indexes.isEmpty()) {

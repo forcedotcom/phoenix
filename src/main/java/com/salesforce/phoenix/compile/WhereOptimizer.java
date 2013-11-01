@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -42,6 +43,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.BaseTerminalExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.InListExpression;
@@ -51,6 +54,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
+import com.salesforce.phoenix.expression.RowValueConstructorExpression.ExpressionComparabilityWrapper;
 import com.salesforce.phoenix.expression.function.FunctionExpression.OrderPreserving;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
@@ -64,6 +68,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -303,12 +308,15 @@ public class WhereOptimizer {
                 return null;
             }
             
-            int initPosition = table.getBucketNum() == null ? 0 : 1;
-            int position = initPosition;
+            int positionOffset = table.getBucketNum() == null ? 0 : 1;
+            int position = 0;
             for (KeySlots slots : childSlots) {
                 KeySlot keySlot = slots.iterator().next();
+                List<Expression> childExtractNodes = keySlot.getKeyPart().getExtractNodes();
                 // If columns are not in PK order, then stop iteration
-                if (keySlot.getPKPosition() != position) {
+                if (childExtractNodes.size() != 1 
+                        || childExtractNodes.get(0) != rvc.getChildren().get(position) 
+                        || keySlot.getPKPosition() != position + positionOffset) {
                     break;
                 }
                 position++;
@@ -323,9 +331,9 @@ public class WhereOptimizer {
                     break;
                 }
             }
-            if (position > initPosition) {
-                int span = position - initPosition;
-                return new SingleKeySlot(new RowValueConstructorKeyPart(table.getPKColumns().get(initPosition), rvc, span), initPosition, span, EVERYTHING_RANGES);
+            if (position > 0) {
+                int span = position;
+                return new SingleKeySlot(new RowValueConstructorKeyPart(table.getPKColumns().get(positionOffset), rvc, span, childSlots), positionOffset, span, EVERYTHING_RANGES);
             }
             return null;
         }
@@ -341,6 +349,49 @@ public class WhereOptimizer {
             
             // Scalar function always returns primitive and never a row value constructor, so span is always 1
             return new SingleKeySlot(part, slot.getPKPosition(), slot.getKeyRanges(), node.preservesOrder());
+        }
+
+        private KeySlots newCoerceKeyPart(KeySlot slot, final CoerceExpression node) {
+            if (isDegenerate(slot.getKeyRanges())) {
+                return DEGENERATE_KEY_PARTS;
+            }
+            final KeyPart childPart = slot.getKeyPart();
+            final ImmutableBytesWritable ptr = context.getTempPtr();
+            return new SingleKeySlot(new KeyPart() {
+
+                @Override
+                public KeyRange getKeyRange(CompareOp op, Expression rhs) {
+                    KeyRange range = childPart.getKeyRange(op, rhs);
+                    byte[] lower = range.getLowerRange();
+                    if (!range.lowerUnbound()) {
+                        ptr.set(lower);
+                        // Do the reverse translation so we can optimize out the coerce expression
+                        // For the actual type of the coerceBytes call, we use the node type instead of the rhs type, because
+                        // for IN, the rhs type will be VARBINARY and no coerce will be done in that case (and we need it to
+                        // be done).
+                        node.getChild().getDataType().coerceBytes(ptr, node.getDataType(), rhs.getColumnModifier(), node.getChild().getColumnModifier());
+                        lower = ByteUtil.copyKeyBytesIfNecessary(ptr);
+                    }
+                    byte[] upper = range.getUpperRange();
+                    if (!range.upperUnbound()) {
+                        ptr.set(upper);
+                        // Do the reverse translation so we can optimize out the coerce expression
+                        node.getChild().getDataType().coerceBytes(ptr, node.getDataType(), rhs.getColumnModifier(), node.getChild().getColumnModifier());
+                        upper = ByteUtil.copyKeyBytesIfNecessary(ptr);
+                    }
+                    return KeyRange.getKeyRange(lower, range.isLowerInclusive(), upper, range.isUpperInclusive());
+                }
+
+                @Override
+                public List<Expression> getExtractNodes() {
+                    return childPart.getExtractNodes();
+                }
+
+                @Override
+                public PColumn getColumn() {
+                    return childPart.getColumn();
+                }
+            }, slot.getPKPosition(), slot.getKeyRanges());
         }
 
         private KeySlots andKeySlots(AndExpression andExpression, List<KeySlots> childSlots) {
@@ -528,6 +579,19 @@ public class WhereOptimizer {
 
 
         @Override
+        public Iterator<Expression> visitEnter(CoerceExpression node) {
+            return node.getChildren().iterator();
+        }
+
+        @Override
+        public KeySlots visitLeave(CoerceExpression node, List<KeySlots> childParts) {
+            if (childParts.isEmpty()) {
+                return null;
+            }
+            return newCoerceKeyPart(childParts.get(0).iterator().next(), node);
+        }
+
+        @Override
         public Iterator<Expression> visitEnter(AndExpression node) {
             return node.getChildren().iterator();
         }
@@ -675,20 +739,27 @@ public class WhereOptimizer {
                 return null;
             }
 
-            List<Expression> keys = node.getKeys();
-            List<KeyRange> ranges = Lists.newArrayListWithExpectedSize(keys.size());
+            List<Expression> keyExpressions = node.getKeyExpressions();
+            List<KeyRange> ranges = Lists.newArrayListWithExpectedSize(keyExpressions.size());
             KeySlot childSlot = childParts.get(0).iterator().next();
             KeyPart childPart = childSlot.getKeyPart();
+            ColumnModifier mod = node.getChildren().get(0).getColumnModifier();
             // We can only optimize a row value constructor that is fully qualified
             if (childSlot.getPKSpan() > 1 && !isFullyQualified(childSlot.getPKSpan())) {
+                // Just return a key part that has the min/max of the IN list, but doesn't
+                // extract the IN list expression.
                 return newKeyParts(childSlot, (Expression)null, Collections.singletonList(
                         KeyRange.getKeyRange(
                                 ByteUtil.copyKeyBytesIfNecessary(node.getMinKey()), true,
                                 ByteUtil.copyKeyBytesIfNecessary(node.getMaxKey()), true)), null);
             }
             // Handles cases like WHERE substr(foo,1,3) IN ('aaa','bbb')
-            for (Expression key : keys) {
-                ranges.add(childPart.getKeyRange(CompareOp.EQUAL, key));
+            for (Expression key : keyExpressions) {
+                KeyRange range = childPart.getKeyRange(CompareOp.EQUAL, key);
+                if (mod != null) {
+                    range = range.invert();
+                }
+                ranges.add(range);
             }
             return newKeyParts(childSlot, node, ranges, null);
         }
@@ -891,15 +962,18 @@ public class WhereOptimizer {
             private final RowValueConstructorExpression rvc;
             private final PColumn column;
             private final List<Expression> nodes;
+            private final List<KeySlots> childSlots;
 
-            private RowValueConstructorKeyPart(PColumn column, RowValueConstructorExpression rvc, int span) {
+            private RowValueConstructorKeyPart(PColumn column, RowValueConstructorExpression rvc, int span, List<KeySlots> childSlots) {
                 this.column = column;
                 if (span == rvc.getChildren().size()) {
                     this.rvc = rvc;
                     this.nodes = Collections.<Expression>singletonList(rvc);
+                    this.childSlots = childSlots;
                 } else {
                     this.rvc = new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isConstant());
                     this.nodes = Collections.<Expression>emptyList();
+                    this.childSlots = childSlots.subList(0,  span);
                 }
             }
 
@@ -936,6 +1010,93 @@ public class WhereOptimizer {
                         // We know that rhs was converted to a row value constructor and that it's a constant
                         rhs= new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
                     }
+                }
+                /*
+                 * Recursively transform the RHS row value constructor by applying the same logic as
+                 * is done elsewhere during WHERE optimization: optimizing out LHS functions by applying
+                 * the appropriate transformation to the RHS key.
+                 */
+                // Child slot iterator parallel with child expressions of the LHS row value constructor 
+                final Iterator<KeySlots> keySlotsIterator = childSlots.iterator();
+                try {
+                    // Call our static row value expression constructor with the current LHS row value constructor and
+                    // the current RHS (which has already been coerced to match the LHS expression). We pass through an
+                    // implementation of ExpressionComparabilityWrapper that transforms the RHS key to match the row key
+                    // structure of the LHS column. This is essentially optimizing out the expressions on the LHS by
+                    // applying the appropriate transformations to the RHS key (through the KeyPart#getKeyRange method).
+                    rhs = RowValueConstructorExpression.coerce(rvc, rhs, new ExpressionComparabilityWrapper() {
+
+                        @Override
+                        public Expression wrap(final Expression lhs, final Expression rhs) {
+                            final KeyPart childPart = keySlotsIterator.hasNext() ? keySlotsIterator.next().iterator().next().getKeyPart() : null;
+                            // TODO: DelegateExpression
+                            return new BaseTerminalExpression() {
+                                @Override
+                                public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+                                    if (childPart == null) {
+                                        return rhs.evaluate(tuple, ptr);
+                                    }
+                                    if (!rhs.evaluate(tuple, ptr)) {
+                                        return false;
+                                    }
+                                    if (ptr.getLength() == 0) {
+                                        ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                                        return true;
+                                    }
+                                    // Use the EQUAL operator here, because we're applying transformations to the
+                                    // children of the row value constructor here. After this transformation, we
+                                    // use the operator passed through to do a final transform on the RHS row value
+                                    // constructor.
+                                    KeyRange range = childPart.getKeyRange(CompareOp.EQUAL, rhs);
+                                    byte[] key = range.getLowerRange();
+                                    // FIXME: this is kind of a hack. We don't want to fill the key yet, but the
+                                    // above will do that.
+                                    if (lhs.getByteSize() != null) {
+                                        key = Arrays.copyOf(key, lhs.getByteSize());
+                                    }
+                                    ptr.set(key);
+                                    return true;
+                                }
+
+                                @Override
+                                public PDataType getDataType() {
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getDataType();
+                                }
+                                
+                                @Override
+                                public boolean isNullable() {
+                                    return isChildPartNull(childPart) ? true : childPart.getColumn().isNullable();
+                                }
+
+                                @Override
+                                public Integer getByteSize() {
+                                    return lhs.getByteSize();
+                               }
+
+                                @Override
+                                public Integer getMaxLength() {
+                                    return lhs.getMaxLength();
+                                }
+
+                                @Override
+                                public Integer getScale() {
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getScale();
+                                }
+
+                                private boolean isChildPartNull(final KeyPart childPart) {
+                                    return childPart == null || childPart.getColumn() == null;
+                                }
+                                
+                                @Override
+                                public ColumnModifier getColumnModifier() {
+                                    return isChildPartNull(childPart) ? null : childPart.getColumn().getColumnModifier();
+                                }
+                            };
+                        }
+                        
+                    });
+                } catch (SQLException e) {
+                    return null; // Shouldn't happen
                 }
                 ImmutableBytesWritable ptr = context.getTempPtr();
                 if (!rhs.evaluate(null, ptr) || ptr.getLength()==0) {

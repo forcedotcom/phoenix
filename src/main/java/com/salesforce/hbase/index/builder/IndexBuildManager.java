@@ -72,7 +72,7 @@ public class IndexBuildManager implements Stoppable {
    * of time building index updates, it could be worthwhile to spend the time to tune this parameter
    * as it could lead to dramatic increases in speed.
    */
-  public static String NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY = "index.builder.threads.max";
+  public static final String NUM_CONCURRENT_INDEX_BUILDER_THREADS_CONF_KEY = "index.builder.threads.max";
   /** Default to a single thread. This is the safest course of action, but the slowest as well */
   private static final int DEFAULT_CONCURRENT_INDEX_BUILDER_THREADS = 10;
   /**

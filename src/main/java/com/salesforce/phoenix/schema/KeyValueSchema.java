@@ -34,6 +34,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.http.annotation.Immutable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 
 
@@ -47,6 +48,9 @@ import com.salesforce.phoenix.util.ByteUtil;
  */
 @Immutable
 public class KeyValueSchema extends ValueSchema {
+	
+	public KeyValueSchema() {
+	}
     
     protected KeyValueSchema(int minNullable, List<Field> fields) {
         super(minNullable, fields);
@@ -94,6 +98,13 @@ public class KeyValueSchema extends ValueSchema {
      * @return byte representation of the KeyValueSchema
      */
     public byte[] toBytes(Expression[] expressions, ValueBitSet valueSet, ImmutableBytesWritable ptr) {
+    	return toBytes(null, expressions, valueSet, ptr);
+    }
+    
+    /**
+     * @return byte representation of the KeyValueSchema
+     */
+    public byte[] toBytes(Tuple tuple, Expression[] expressions, ValueBitSet valueSet, ImmutableBytesWritable ptr) {
         int offset = 0;
         int index = 0;
         valueSet.clear();
@@ -106,7 +117,7 @@ public class KeyValueSchema extends ValueSchema {
             Field field = fields.get(i);
             PDataType type = field.getDataType();
             for (int j = 0; j < field.getCount(); j++) {
-                if (expressions[index].evaluate(null, ptr)) { // Skip null values
+                if (expressions[index].evaluate(tuple, ptr)) { // Skip null values
                     if (index >= minNullableIndex) {
                         valueSet.set(index - minNullableIndex);
                     }

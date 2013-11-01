@@ -91,7 +91,7 @@ import com.salesforce.hbase.index.write.ParallelWriterIndexCommitter;
 public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
   private static final Log LOG = LogFactory.getLog(TrackingParallelWriterIndexCommitter.class);
 
-  public static String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.trackingwriter.threads.max";
+  public static final String NUM_CONCURRENT_INDEX_WRITER_THREADS_CONF_KEY = "index.trackingwriter.threads.max";
   private static final int DEFAULT_CONCURRENT_INDEX_WRITER_THREADS = 10;
   private static final String INDEX_WRITER_KEEP_ALIVE_TIME_CONF_KEY =
       "index.trackingwriter.threads.keepalivetime";

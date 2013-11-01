@@ -60,6 +60,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.map.reduce.util.ConfigReader;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 public class CSVBulkLoader {
 	
@@ -74,6 +75,8 @@ public class CSVBulkLoader {
 	static String createPSQL[] = null;
 	static String skipErrors = null;
 	static String zookeeperIP = null;
+	static String mapredIP = null;
+	static String hdfsNameNode = null;
 
 	static{
 		/** load the log-file writer, if debug is true **/
@@ -101,6 +104,8 @@ public class CSVBulkLoader {
 	 * -t		Phoenix table name
 	 * -sql  	Phoenix create table sql path (1 SQL statement per line)
 	 * -zk		Zookeeper IP:<port>
+	 * -mr		MapReduce Job Tracker IP:<port>
+	 * -hd		HDFS NameNode IP:<port>
 	 * -o		Output directory path in hdfs (Optional)
 	 * -idx  	Phoenix index table name (Optional)
 	 * -error    	Ignore error while reading rows from CSV ? (1 - YES/0 - NO, defaults to 1) (OPtional)
@@ -108,7 +113,7 @@ public class CSVBulkLoader {
 	 */
 
 	@SuppressWarnings("deprecation")
-    public static void main(String[] args) throws Exception{
+    	public static void main(String[] args) throws Exception{
 		
 		String inputFile = null;
 		String outFile = null;
@@ -120,6 +125,8 @@ public class CSVBulkLoader {
 		options.addOption("t", true, "Phoenix table name");
 		options.addOption("idx", true, "Phoenix index table name");
 		options.addOption("zk", true, "Zookeeper IP:<port>");
+		options.addOption("mr", true, "MapReduce Job Tracker IP:<port>");
+		options.addOption("hd", true, "HDFS NameNode IP:<port>");
 		options.addOption("sql", true, "Phoenix create table sql path");
 		options.addOption("error", true, "Ignore error while reading rows from CSV ? (1 - YES/0 - NO, defaults to 1)");
 		options.addOption("help", false, "All options");
@@ -160,7 +167,19 @@ public class CSVBulkLoader {
 			System.err.println(parser_error + "Please provide Zookeeper address");
 			System.exit(0);
 		}
-
+		if(cmd.hasOption("mr")){
+			mapredIP = cmd.getOptionValue("mr");
+		}else{
+			System.err.println(parser_error + "Please provide MapReduce address");
+			System.exit(0);
+		}
+		if(cmd.hasOption("hd")){
+			hdfsNameNode = cmd.getOptionValue("hd");
+		}else{
+			System.err.println(parser_error + "Please provide HDFS NameNode address");
+			System.exit(0);
+		}
+		
 		if(cmd.hasOption("o")){
 			outFile = cmd.getOptionValue("o");
 		}else{
@@ -210,7 +229,11 @@ public class CSVBulkLoader {
 		
 		SchemaMetrics.configureGlobally(conf);
 
-		String dataTable = schemaName.toUpperCase() + "." + tableName.toUpperCase();
+		String dataTable = ""; 
+        	if(schemaName != null && schemaName.trim().length() > 0)
+        		dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
+        	else
+        		dataTable = SchemaUtil.normalizeIdentifier(tableName);
 		HTable hDataTable = new HTable(conf, dataTable);
 		
 		// Auto configure partitioner and reducer according to the Main Data table
@@ -231,18 +254,26 @@ public class CSVBulkLoader {
 	public static void createPTable(String stmt) {
 		
 		Connection conn = null;
-		PreparedStatement statement;
+		PreparedStatement statement = null;
 
 		try {
 			conn = DriverManager.getConnection(getUrl(), "", "");
-			statement = conn.prepareStatement(stmt);
-			statement.execute();
-			conn.commit();
+			try {
+    			statement = conn.prepareStatement(stmt);
+    			statement.execute();
+    			conn.commit();
+			} finally {
+			    if(statement != null) {
+			        statement.close();
+			    }
+			}
 		} catch (Exception e) {
 			System.err.println("Error creating the table :: " + e.getMessage());
 		} finally{
 			try {
-				conn.close();
+			    if(conn != null) {
+			        conn.close();
+			    }
 			} catch (Exception e) {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}
@@ -260,6 +291,8 @@ public class CSVBulkLoader {
 		conf.set("schemaName", schemaName);
 		conf.set("tableName", tableName);
 		conf.set("zk", zookeeperIP);
+		conf.set("fs.default.name", hdfsNameNode);
+		conf.set("mapred.job.tracker", mapredIP);
 		if(createPSQL[0] != null) conf.set("createTableSQL", createPSQL[0]);
 		if(createPSQL[1] != null) conf.set("createIndexSQL", createPSQL[1]);
 		

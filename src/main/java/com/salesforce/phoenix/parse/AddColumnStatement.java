@@ -28,24 +28,25 @@
 package com.salesforce.phoenix.parse;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 public class AddColumnStatement extends AlterTableStatement {
-    private final ColumnDef columnDef;
+    private final List<ColumnDef> columnDefs;
     private final boolean ifNotExists;
     private final Map<String,Object> props;
     
-    protected AddColumnStatement(NamedTableNode table, ColumnDef columnDef, boolean ifNotExists, Map<String, Object> props) {
+    protected AddColumnStatement(NamedTableNode table, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
         super(table);
-        this.columnDef = columnDef;
+        this.columnDefs = columnDefs;
         this.props = props == null ? Collections.<String,Object>emptyMap() : props;
         this.ifNotExists = ifNotExists;
     }
 
-    public ColumnDef getColumnDef() {
-        return columnDef;
+    public List<ColumnDef> getColumnDefs() {
+        return columnDefs;
     }
-
+    
     public boolean ifNotExists() {
         return ifNotExists;
     }

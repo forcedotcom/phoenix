@@ -33,6 +33,7 @@ import java.util.List;
 import com.salesforce.phoenix.expression.AddExpression;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.DivideExpression;
 import com.salesforce.phoenix.expression.Expression;
@@ -44,6 +45,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.MultiplyExpression;
 import com.salesforce.phoenix.expression.NotExpression;
 import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.ProjectedColumnExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
@@ -60,6 +62,28 @@ import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
  * @since 0.1
  */
 public interface ExpressionVisitor<E> {
+    /**
+     * Default visit method when an expression subclass doesn't
+     * define an accept method of its own. This will end up calling
+     * the {@link #defaultIterator(Expression)} to iterate over the
+     * children calling accept on them
+     */
+    public E visit(Expression node);
+    /**
+     * Default visitEnter method when an expression subclass doesn't
+     * define an accept method of its own. This will end up calling
+     * the {@link #defaultIterator(Expression)} to iterate over the
+     * children calling accept on them
+     */
+    public Iterator<Expression> visitEnter(Expression node);
+    /**
+     * Default visitLeave method when an expression subclass doesn't
+     * define an accept method of its own.  This will end up calling
+     * the {@link #defaultReturn(Expression, List)} with the list from
+     * the iteration over the children.
+     */
+    public E visitLeave(Expression node, List<E> l);
+
     public E defaultReturn(Expression node, List<E> l);
     public Iterator<Expression> defaultIterator(Expression node);
     
@@ -105,9 +129,13 @@ public interface ExpressionVisitor<E> {
     public Iterator<Expression> visitEnter(DivideExpression node);
     public E visitLeave(DivideExpression node, List<E> l);
     
+    public Iterator<Expression> visitEnter(CoerceExpression node);
+    public E visitLeave(CoerceExpression node, List<E> l);
+    
     public E visit(LiteralExpression node);
     public E visit(RowKeyColumnExpression node);
     public E visit(KeyValueColumnExpression node);
+    public E visit(ProjectedColumnExpression node);
     
 	public Iterator<Expression> visitEnter(StringConcatExpression node);
 	public E visitLeave(StringConcatExpression node, List<E> l);

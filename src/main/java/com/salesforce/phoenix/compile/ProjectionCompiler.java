@@ -98,7 +98,7 @@ public class ProjectionCompiler {
     }
     
     public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy) throws SQLException  {
-        return compile(context, statement, groupBy, null);
+        return compile(context, statement, groupBy, Collections.<PColumn>emptyList());
     }
     
     private static void projectAllTableColumns(StatementContext context, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
@@ -167,7 +167,7 @@ public class ProjectionCompiler {
      * @return projector used to access row values during scan
      * @throws SQLException 
      */
-    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, PColumn[] targetColumns) throws SQLException {
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, List<PColumn> targetColumns) throws SQLException {
         List<AliasedNode> aliasedNodes = statement.getSelect();
         // Setup projected columns in Scan
         SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy);
@@ -187,13 +187,14 @@ public class ProjectionCompiler {
                     ExpressionCompiler.throwNonAggExpressionInAggException(node.toString());
                 }
                 isWildcard = true;
-               if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
-                   projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
+                if (tableRef.getTable().getType() == PTableType.INDEX && ((WildcardParseNode)node).isRewrite()) {
+                	projectAllIndexColumns(context, tableRef, projectedExpressions, projectedColumns);
                 } else {
                     projectAllTableColumns(context, tableRef, projectedExpressions, projectedColumns);
                 }
             } else if (node instanceof  FamilyWildcardParseNode){
                 // Project everything for SELECT cf.*
+                // TODO: support cf.* expressions for multiple tables the same way with *.
                 String cfName = ((FamilyWildcardParseNode) node).getName();
                 // Delay projecting to scan, as when any other column in the column family gets
                 // added to the scan, it overwrites that we want to project the entire column
@@ -201,24 +202,27 @@ public class ProjectionCompiler {
                 // TODO: consider having a ScanUtil.addColumn and ScanUtil.addFamily to work
                 // around this, as this code depends on this function being the last place where
                 // columns are projected (which is currently true, but could change).
-               projectedFamilies.add(Bytes.toBytes(cfName));
-               if (tableRef.getTable().getType() == PTableType.INDEX && ((FamilyWildcardParseNode)node).isRewrite()) {
-                   projectIndexColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
+                projectedFamilies.add(Bytes.toBytes(cfName));
+                if (tableRef.getTable().getType() == PTableType.INDEX && ((FamilyWildcardParseNode)node).isRewrite()) {
+                    projectIndexColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
                 } else {
                     projectTableColumnFamily(context, cfName, tableRef, projectedExpressions, projectedColumns);
                 }
             } else {
                 Expression expression = node.accept(selectVisitor);
                 projectedExpressions.add(expression);
-                if (targetColumns != null && index < targetColumns.length && targetColumns[index].getDataType() != expression.getDataType()) {
-                    PDataType targetType = targetColumns[index].getDataType();
-                    // Check if coerce allowed using more relaxed isComparable check, since we promote INTEGER to LONG 
-                    // during expression evaluation and then convert back to INTEGER on UPSERT SELECT (and we don't have
-                    // (an actual value we can specifically check against).
-                    if (expression.getDataType() != null && !expression.getDataType().isComparableTo(targetType)) {
-                        throw new ArgumentTypeMismatchException(targetType, expression.getDataType(), "column: " + targetColumns[index]);
+                if (index < targetColumns.size()) {
+                    PColumn targetColumn = targetColumns.get(index);
+                    if (targetColumn.getDataType() != expression.getDataType()) {
+                        PDataType targetType = targetColumn.getDataType();
+                        // Check if coerce allowed using more relaxed isComparable check, since we promote INTEGER to LONG 
+                        // during expression evaluation and then convert back to INTEGER on UPSERT SELECT (and we don't have
+                        // (an actual value we can specifically check against).
+                        if (expression.getDataType() != null && !expression.getDataType().isComparableTo(targetType)) {
+                            throw new ArgumentTypeMismatchException(targetType, expression.getDataType(), "column: " + targetColumn);
+                        }
+                        expression = CoerceExpression.create(expression, targetType);
                     }
-                    expression = CoerceExpression.create(expression, targetType);
                 }
                 if (node instanceof BindParseNode) {
                     context.getBindManager().addParamMetaData((BindParseNode)node, expression);
@@ -230,13 +234,15 @@ public class ProjectionCompiler {
                 }
                 String columnAlias = aliasedNode.getAlias();
                 boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
-                String name = columnAlias == null ? node.toString() : columnAlias;
+                String name = columnAlias == null ? expression.toString() : columnAlias;
                 projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
             }
             selectVisitor.reset();
             index++;
         }
 
+        table = context.getCurrentTable().getTable(); // switch to current table for scan projection
+        // TODO make estimatedByteSize more accurate by counting the joined columns.
         int estimatedKeySize = table.getRowKeySchema().getEstimatedValueLength();
         int estimatedByteSize = 0;
         for (Map.Entry<byte[],NavigableSet<byte[]>> entry : scan.getFamilyMap().entrySet()) {

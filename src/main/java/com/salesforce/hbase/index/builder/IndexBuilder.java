@@ -85,7 +85,7 @@ public interface IndexBuilder extends Stoppable {
    * The counter-part to {@link #getIndexUpdate(Mutation)} - your opportunity to update any/all
    * index tables based on the delete of the primary table row. This is only called for cases where
    * the client sends a single delete ({@link HTable#delete}). We separate this method from
-   * {@link #getIndexUpdate(Mutation...)} only for the ease of implementation as the delete path has
+   * {@link #getIndexUpdate(Mutation)} only for the ease of implementation as the delete path has
    * subtly different semantics for updating the families/timestamps from the generic batch path.
    * <p>
    * Its up to your implementation to ensure that timestamps match between the primary and index

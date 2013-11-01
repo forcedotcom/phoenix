@@ -30,13 +30,16 @@ package com.salesforce.phoenix.coprocessor;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.ipc.CoprocessorProtocol;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.util.MetaDataUtil;
@@ -95,14 +98,20 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         private MutationCode returnCode;
         private long mutationTime;
         private PTable table;
+        private List<byte[]> tableNamesToDelete;
         
         public MetaDataMutationResult() {
         }
 
         public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table) {
+           this(returnCode, currentTime, table, Collections.<byte[]> emptyList());
+        }
+        
+        public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table, List<byte[]> tableNamesToDelete) {
             this.returnCode = returnCode;
             this.mutationTime = currentTime;
             this.table = table;
+            this.tableNamesToDelete = tableNamesToDelete;
         }
         
         public MutationCode getMutationCode() {
@@ -116,6 +125,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         public PTable getTable() {
             return table;
         }
+        
+        public List<byte[]> getTableNamesToDelete() {
+            return tableNamesToDelete;
+        }
 
         @Override
         public void readFields(DataInput input) throws IOException {
@@ -125,6 +138,15 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             if (hasTable) {
                 this.table = new PTableImpl();
                 this.table.readFields(input);
+            }
+            boolean hasTablesToDelete = input.readBoolean();
+            if (hasTablesToDelete) {
+                int count = input.readInt();
+                tableNamesToDelete = Lists.newArrayListWithExpectedSize(count);
+                for( int i = 0 ; i < count ; i++ ){
+                     byte[] tableName = Bytes.readByteArray(input);
+                     tableNamesToDelete.add(tableName);
+                }
             }
         }
 
@@ -136,6 +158,17 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             if (table != null) {
                 table.write(output);
             }
+            if(tableNamesToDelete != null && tableNamesToDelete.size() > 0 ) {
+                output.writeBoolean(true);
+                output.writeInt(tableNamesToDelete.size());
+                for(byte[] tableName : tableNamesToDelete) {
+                    Bytes.writeByteArray(output,tableName);    
+                }
+                
+            } else {
+                output.writeBoolean(false);
+            }
+            
         }
     }
     
@@ -191,16 +224,12 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     /**
      * Clears the server-side cache of table meta data. Used between test runs to
      * ensure no side effects.
-     * 
-     * @throws IOException
      */
     void clearCache();
     
     /**
      * Get the version of the server-side HBase and phoenix.jar. Used when initially connecting
      * to a cluster to ensure that the client and server jars are compatible.
-     * 
-     * @throws IOException
      */
     long getVersion();
 }

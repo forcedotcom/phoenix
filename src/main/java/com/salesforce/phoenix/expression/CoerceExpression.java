@@ -31,6 +31,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
@@ -136,8 +137,13 @@ public class CoerceExpression extends BaseSingleExpression {
     }    
 
     @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
+    public <T> T accept(ExpressionVisitor<T> visitor) {
+        List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
+        T t = visitor.visitLeave(this, l);
+        if (t == null) {
+            t = visitor.defaultReturn(this, l);
+        }
+        return t;
     }
     
     @Override
