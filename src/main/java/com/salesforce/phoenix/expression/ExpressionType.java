@@ -133,6 +133,8 @@ public enum ExpressionType {
     CeilingTimestampExpression(CeilingTimestampExpression.class),
     FloorDecimalExpression(FloorDecimalExpression.class),
     FloorTimestampExpression(FloorTimestampExpression.class),
+    RoundHalfUpDecimalExpression(RoundHalfUpDecimalExpression.class),
+    RoundUpTimestampExpression(RoundUpTimestampExpression.class),
     IndexKeyValue(IndexKeyValueColumnExpression.class),
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),

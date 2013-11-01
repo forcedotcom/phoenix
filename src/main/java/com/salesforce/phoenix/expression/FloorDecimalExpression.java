@@ -32,7 +32,7 @@ import java.math.RoundingMode;
 
 
 public class FloorDecimalExpression extends CeilingDecimalExpression {
-    private static final MathContext FLOOR_CONTEXT = new MathContext(0, RoundingMode.FLOOR);
+    private static final MathContext FLOOR_CONTEXT = new MathContext(1, RoundingMode.FLOOR);
     
     public FloorDecimalExpression() {
     }

@@ -59,7 +59,7 @@ public class CeilingTimestampExpression extends BaseSingleExpression {
             childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
             Timestamp value = (Timestamp) childType.toObject(tempPtr);
             if (value.getNanos() > 0) {
-                value = new Timestamp(value.getTime()+getRoundUpAmount());
+                value = new Timestamp(value.getTime() + getRoundUpAmount());
                 byte[] b = childType.toBytes(value, child.getColumnModifier());
                 ptr.set(b);
             }

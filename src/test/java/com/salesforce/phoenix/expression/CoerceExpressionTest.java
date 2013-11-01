@@ -27,10 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.HashMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -102,6 +105,30 @@ public class CoerceExpressionTest {
     }
 	
 	@Test
+	public void testCoerceExpressionSupportsCoercingIntegerToDecimal() throws Exception {
+        LiteralExpression v = LiteralExpression.newConstant(Integer.valueOf(1), PDataType.INTEGER);
+        CoerceExpression e = new CoerceExpression(v, PDataType.DECIMAL);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        e.evaluate(null, ptr);
+        Object obj = e.getDataType().toObject(ptr);
+        assertTrue(obj instanceof BigDecimal);
+        BigDecimal value = (BigDecimal)obj;
+        assertTrue(value.equals(BigDecimal.valueOf(1)));
+    }
+	
+	@Test
+    public void testCoerceExpressionSupportsCoercingLongToDecimal() throws Exception {
+        LiteralExpression v = LiteralExpression.newConstant(Long.valueOf(1), PDataType.LONG);
+        CoerceExpression e = new CoerceExpression(v, PDataType.DECIMAL);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        e.evaluate(null, ptr);
+        Object obj = e.getDataType().toObject(ptr);
+        assertTrue(obj instanceof BigDecimal);
+        BigDecimal value = (BigDecimal)obj;
+        assertTrue(value.equals(BigDecimal.valueOf(1)));
+    }
+
+	@Test
 	public void testCoerceExpressionSupportsCoercingAllPDataTypesToVarBinary() throws Exception {
 		for(PDataType p : PDataType.values()) {
 			LiteralExpression v = LiteralExpression.newConstant(map.get(p.getJavaClass()), p);
@@ -112,7 +139,6 @@ public class CoerceExpressionTest {
 			assertTrue("Coercing to VARBINARY failed for PDataType " + p, obj instanceof byte[]);
 		}
 	}
-	
 
 	@Test
     public void testCoerceExpressionSupportsCoercingAllPDataTypesToBinary() throws Exception {
@@ -126,4 +152,76 @@ public class CoerceExpressionTest {
 		}
     }
 	
+	@Test
+	public void testRoundHalfUpDecimalExpression() throws Exception {
+	    LiteralExpression le = LiteralExpression.newConstant(BigDecimal.valueOf(-5.5), PDataType.DECIMAL);
+        RoundHalfUpDecimalExpression cde = new RoundHalfUpDecimalExpression(le);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        cde.evaluate(null, ptr);
+        Object obj = cde.getDataType().toObject(ptr);
+        assertTrue(obj instanceof BigDecimal);
+        BigDecimal value = (BigDecimal)obj;
+        assertEquals(BigDecimal.valueOf(-6), value);
+    }
+	
+	@Test
+	public void testCeilingDecimalExpression() throws Exception {
+	    LiteralExpression le = LiteralExpression.newConstant(BigDecimal.valueOf(-5.5), PDataType.DECIMAL);
+        CeilingDecimalExpression cde = new CeilingDecimalExpression(le);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        cde.evaluate(null, ptr);
+        Object obj = cde.getDataType().toObject(ptr);
+        assertTrue(obj instanceof BigDecimal);
+        BigDecimal value = (BigDecimal)obj;
+        assertEquals(BigDecimal.valueOf(-5), value);
+	}
+	
+	@Test
+    public void testFloorDecimalExpression() throws Exception {
+        LiteralExpression le = LiteralExpression.newConstant(BigDecimal.valueOf(1.8), PDataType.DECIMAL);
+        FloorDecimalExpression cde = new FloorDecimalExpression(le);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        cde.evaluate(null, ptr);
+        Object obj = cde.getDataType().toObject(ptr);
+        assertTrue(obj instanceof BigDecimal);
+        BigDecimal value = (BigDecimal)obj;
+        assertEquals(BigDecimal.valueOf(1), value);
+    }
+	
+	@Test
+	public void testCeilingTimeStampExpression() throws Exception {
+	    LiteralExpression le = LiteralExpression.newConstant(new Timestamp(1), PDataType.TIMESTAMP);
+        CeilingTimestampExpression cde = new CeilingTimestampExpression(le);
+        CoerceExpression ce = new CoerceExpression(cde, PDataType.DATE);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        ce.evaluate(null, ptr);
+        Object obj = ce.getDataType().toObject(ptr);
+        assertTrue(obj instanceof Date);
+        Date value = (Date)obj;
+        assertEquals(new Date(2), value);
+	}
+	
+	@Test
+    public void testRoundUpTimeStampExpression() throws Exception {
+	    Timestamp ts1 = new Timestamp(0);
+	    ts1.setNanos(100);
+	    LiteralExpression le = LiteralExpression.newConstant(ts1, PDataType.TIMESTAMP);
+        RoundUpTimestampExpression cte = new RoundUpTimestampExpression(le);
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        cte.evaluate(null, ptr);
+        Object obj = cte.getDataType().toObject(ptr);
+        assertTrue(obj instanceof Timestamp);
+        Timestamp value = (Timestamp)obj;
+        assertEquals(ts1.getTime(), value.getTime());
+        
+        ts1.setNanos(700000);
+        le = LiteralExpression.newConstant(ts1, PDataType.TIMESTAMP);
+        cte = new RoundUpTimestampExpression(le);
+        ptr = new ImmutableBytesWritable();
+        cte.evaluate(null, ptr);
+        obj = cte.getDataType().toObject(ptr);
+        assertTrue(obj instanceof Timestamp);
+        value = (Timestamp)obj;
+        assertEquals(new Timestamp(1).getTime(), value.getTime());
+    }
 }

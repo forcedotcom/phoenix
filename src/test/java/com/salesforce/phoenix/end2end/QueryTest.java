@@ -78,8 +78,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import com.google.common.collect.Lists;
@@ -105,7 +103,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @author jtaylor
  * @since 0.1
  */
-@RunWith(Parameterized.class)
+//@RunWith(Parameterized.class)
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
     private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
@@ -127,10 +125,11 @@ public class QueryTest extends BaseClientMangedTimeTest {
     private long ts;
     private String indexDDL;
     
-    public QueryTest(String indexDDL) {
+    public QueryTest(){}
+    /*public QueryTest(String indexDDL) {
         this.indexDDL = indexDDL;
     }
-    
+    */
     @Before
     public void initTable() throws Exception {
          ts = nextTimestamp();
@@ -2630,6 +2629,38 @@ public class QueryTest extends BaseClientMangedTimeTest {
         }
     }
     
+    @Test
+    public void testCastingDecimalToLong() throws Exception {
+        String query = "SELECT CAST 1.8 AS BIGINT FROM aTable LIMIT 1";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(2, rs.getLong(1));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testCastingDecimalToInt() throws Exception {
+        String query = "SELECT CAST 1.4 AS INTEGER FROM aTable LIMIT 1";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(1, rs.getInt(1));
+        } finally {
+            conn.close();
+        }
+    }
+   
     private static AtomicInteger runCount = new AtomicInteger(0);
     private static int nextRunCount() {
         return runCount.getAndAdd(1);
