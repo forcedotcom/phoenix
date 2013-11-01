@@ -609,9 +609,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (table == null && buildDeletedTable(key, cacheKey, region, clientTimeStamp) != null) {
             return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
-        tableNamesToDelete.add(table.getName().getBytes());
-        List<byte[]> indexNames = Lists.newArrayList();
-        // Get mutatioins for main table.
+        // Get mutations for main table.
         Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         List<KeyValue> results = Lists.newArrayList();
@@ -625,6 +623,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
+        tableNamesToDelete.add(table.getName().getBytes());
+        List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
         byte[][] rowKeyMetaData = new byte[4][];
         byte[] rowKey;
