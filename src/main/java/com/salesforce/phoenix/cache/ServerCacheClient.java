@@ -155,7 +155,7 @@ public class ServerCacheClient {
         ExecutorService executor = services.getExecutor();
         List<Future<Boolean>> futures = Collections.emptyList();
         try {
-            List<HRegionLocation> locations = services.getAllTableRegions(cacheUsingTableRef.getTable().getName().getBytes());
+            List<HRegionLocation> locations = services.getAllTableRegions(cacheUsingTableRef.getTable().getPhysicalName().getBytes());
             int nRegions = locations.size();
             // Size these based on worst case
             futures = new ArrayList<Future<Boolean>>(nRegions);
@@ -167,14 +167,14 @@ public class ServerCacheClient {
                     servers.add(entry);
                     if (LOG.isDebugEnabled()) {LOG.debug("Adding cache entry to be sent for " + entry);}
                     final byte[] key = entry.getRegionInfo().getStartKey();
-                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getName().getBytes());
+                    final HTableInterface htable = services.getTable(cacheUsingTableRef.getTable().getPhysicalName().getBytes());
                     closeables.add(htable);
                     futures.add(executor.submit(new JobCallable<Boolean>() {
                         
                         @Override
                         public Boolean call() throws Exception {
                             ServerCachingProtocol protocol = htable.coprocessorProxy(ServerCachingProtocol.class, key);
-                            return protocol.addServerCache(connection.getTenantId(), cacheId, cachePtr, cacheFactory);
+                            return protocol.addServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId, cachePtr, cacheFactory);
                         }
 
                         /**
@@ -241,7 +241,7 @@ public class ServerCacheClient {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
         TableRef cacheUsingTableRef = cacheUsingTableRefMap.get(Bytes.mapKey(cacheId));
-        byte[] tableName = cacheUsingTableRef.getTable().getName().getBytes();
+        byte[] tableName = cacheUsingTableRef.getTable().getPhysicalName().getBytes();
         HTableInterface iterateOverTable = services.getTable(tableName);
         List<HRegionLocation> locations = services.getAllTableRegions(tableName);
         Set<HRegionLocation> remainingOnServers = new HashSet<HRegionLocation>(servers);
@@ -256,7 +256,7 @@ public class ServerCacheClient {
                 try {
                     byte[] key = entry.getRegionInfo().getStartKey();
                     ServerCachingProtocol protocol = iterateOverTable.coprocessorProxy(ServerCachingProtocol.class, key);
-                    protocol.removeServerCache(connection.getTenantId(), cacheId);
+                    protocol.removeServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId);
                     remainingOnServers.remove(entry);
                 } catch (Throwable t) {
                     lastThrowable = t;

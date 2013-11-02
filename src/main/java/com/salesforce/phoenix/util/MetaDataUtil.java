@@ -133,20 +133,20 @@ public class MetaDataUtil {
         return version;
     }
 
-    public static void getSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
+    public static void getTenantIdAndSchemaAndTableName(List<Mutation> tableMetadata, byte[][] rowKeyMetaData) {
         Mutation m = getTableHeaderRow(tableMetadata);
-        getVarChars(m.getRow(), 2, rowKeyMetaData);
+        getVarChars(m.getRow(), 3, rowKeyMetaData);
     }
     
     public static byte[] getParentTableName(List<Mutation> tableMetadata) {
         if (tableMetadata.size() == 1) {
             return null;
         }
-        byte[][] rowKeyMetaData = new byte[2][];
-        getSchemaAndTableName(tableMetadata, rowKeyMetaData);
+        byte[][] rowKeyMetaData = new byte[3][];
+        getTenantIdAndSchemaAndTableName(tableMetadata, rowKeyMetaData);
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         Mutation m = getParentTableHeaderRow(tableMetadata);
-        getVarChars(m.getRow(), 2, rowKeyMetaData);
+        getVarChars(m.getRow(), 3, rowKeyMetaData);
         if (Bytes.compareTo(tableName, rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]) == 0) {
             return null;
         }
@@ -193,12 +193,12 @@ public class MetaDataUtil {
         return kvs.isEmpty() ? m.getTimeStamp() : kvs.iterator().next().get(0).getTimestamp();
     }    
 
-    public static byte[] getParentLinkKey(String schemaName, String tableName, String indexName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));
+    public static byte[] getParentLinkKey(byte[] tenantId, String schemaName, String tableName, String indexName) {
+        return ByteUtil.concat(tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName), QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(indexName));
     }
 
-    public static byte[] getParentLinkKey(byte[] schemaName, byte[] tableName, byte[] indexName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, indexName);
+    public static byte[] getParentLinkKey(byte[] tenantId, byte[] schemaName, byte[] tableName, byte[] indexName) {
+        return ByteUtil.concat(tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, indexName);
     }
 
 

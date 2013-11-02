@@ -117,9 +117,10 @@ public abstract class BasicQueryPlan implements QueryPlan {
     }
 
     private ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
-        byte[] tenantId = context.getConnection().getTenantId();
         // Get child services associated with tenantId of query.
-        ConnectionQueryServices childServices = tenantId == null ? services : services.getChildQueryServices(new ImmutableBytesWritable(tenantId));
+        ConnectionQueryServices childServices = context.getConnection().getTenantId() == null ? 
+                services : 
+                services.getChildQueryServices(new ImmutableBytesWritable(context.getConnection().getTenantId().getBytes()));
         return childServices;
     }
 
@@ -154,7 +155,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         PhoenixConnection connection = context.getConnection();
         Long scn = connection.getSCN();
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
-        ScanUtil.setTenantId(scan, connection.getTenantId());
+        ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
         scanner = newScanner();
         return scanner;
     }

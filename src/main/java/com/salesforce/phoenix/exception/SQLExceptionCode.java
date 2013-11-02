@@ -111,6 +111,8 @@ public enum SQLExceptionCode {
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
     VARBINARY_LAST_PK(1022, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
     NULLABLE_FIXED_WIDTH_LAST_PK(1023, "42J04", "Cannot add column to table when the last PK column is nullable and fixed width."),
+    TENANT_TABLE_PK(1028, "42J04", "Cannot modify PK of a tenant-specific table."),
+    BASE_TABLE_COLUMN(1029, "42J04", "Cannot modify columns of base table used by tenant-specific tables."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL(1007, "42K01", "A key/value column may not be declared as not null."),
     // View related errors.
@@ -143,6 +145,10 @@ public enum SQLExceptionCode {
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
             + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
             +  IndexedWALEditCodec.class.getName() + " in the hbase-sites.xml of every region server"),
+    CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
+    CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
+    BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
+    BASE_TABLE_NO_TENANT_ID_PK(1033, "42Y92", "Base table for a tenant table-specific table must have 2 or more PK columns.  Leading PK column must be non-nullable VARCHAR or CHAR."),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

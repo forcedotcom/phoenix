@@ -286,12 +286,12 @@ public class SchemaUtil {
      * @param schemaName
      * @param tableName
      */
-    public static byte[] getTableKey(byte[] schemaName, byte[] tableName) {
-        return ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    public static byte[] getTableKey(byte[] tenantId, byte[] schemaName, byte[] tableName) {
+        return ByteUtil.concat(tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
     }
 
-    public static byte[] getTableKey(String schemaName, String tableName) {
-        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
+    public static byte[] getTableKey(byte[] tenantIdBytes, String schemaName, String tableName) {
+        return ByteUtil.concat(tenantIdBytes, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : Bytes.toBytes(schemaName), QueryConstants.SEPARATOR_BYTE_ARRAY, Bytes.toBytes(tableName));
     }
 
     public static String getTableName(String schemaName, String tableName) {
@@ -822,10 +822,10 @@ public class SchemaUtil {
     public static byte[] getTableKeyFromFullName(String fullTableName) {
         int index = fullTableName.indexOf(QueryConstants.NAME_SEPARATOR);
         if (index < 0) {
-            return getTableKey(null, fullTableName); 
+            return getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, null, fullTableName); 
         }
         String schemaName = fullTableName.substring(0, index);
         String tableName = fullTableName.substring(index+1);
-        return getTableKey(schemaName, tableName); 
+        return getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, schemaName, tableName); 
     }
 }

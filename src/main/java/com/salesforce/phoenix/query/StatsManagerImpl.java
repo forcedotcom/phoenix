@@ -98,7 +98,7 @@ public class StatsManagerImpl implements StatsManager {
     @Override
     public void updateStats(TableRef tableRef) throws SQLException {
         SQLException sqlE = null;
-        HTableInterface hTable = services.getTable(tableRef.getTable().getName().getBytes());
+        HTableInterface hTable = services.getTable(tableRef.getTable().getPhysicalName().getBytes());
         try {
             byte[] minKey = null, maxKey = null;
             // Do a key-only scan to get the first row of a table. This is the min

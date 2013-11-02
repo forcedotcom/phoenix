@@ -93,7 +93,7 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
     protected List<HRegionLocation> getAllRegions() throws SQLException {
         Scan scan = context.getScan();
         PTable table = tableRef.getTable();
-        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table.getName().getBytes());
+        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(table.getPhysicalName().getBytes());
         // If we're not salting, then we've already intersected the minMaxRange with the scan range
         // so there's nothing to do here.
         return filterRegions(allTableRegions, scan.getStartRow(), scan.getStopRow());

@@ -61,6 +61,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
+import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.LikeParseNode;
 import com.salesforce.phoenix.parse.NotParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
@@ -72,7 +73,6 @@ import com.salesforce.phoenix.parse.StatelessTraverseAllParseNodeVisitor;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.TraverseNoParseNodeVisitor;
 import com.salesforce.phoenix.parse.WildcardParseNode;
-import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
@@ -254,7 +254,7 @@ public class JoinCompiler {
                 }            	
             }
             
-            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
+            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), null);
             return new ProjectedPTableWrapper(t, columnNameMap, sourceExpressions);
         }
         
@@ -787,7 +787,7 @@ public class JoinCompiler {
     			merged.add(column);
     		}
     	}
-        PTable t = PTableImpl.makePTable(left.getSchemaName(), PNameFactory.newName(SchemaUtil.getTableName(left.getName().getString(), right.getName().getString())), left.getType(), left.getIndexState(), left.getTimeStamp(), left.getSequenceNumber(), left.getPKName(), left.getBucketNum(), merged, left.getParentTableName(), left.getIndexes(), left.isImmutableRows());
+        PTable t = PTableImpl.makePTable(left.getSchemaName(), PNameFactory.newName(SchemaUtil.getTableName(left.getName().getString(), right.getName().getString())), left.getType(), left.getIndexState(), left.getTimeStamp(), left.getSequenceNumber(), left.getPKName(), left.getBucketNum(), merged, left.getParentTableName(), left.getIndexes(), left.isImmutableRows(), null);
 
         ListMultimap<String, String> mergedMap = ArrayListMultimap.<String, String>create();
         mergedMap.putAll(lWrapper.getColumnNameMap());

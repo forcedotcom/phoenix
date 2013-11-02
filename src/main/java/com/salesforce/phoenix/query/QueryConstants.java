@@ -61,6 +61,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
@@ -129,6 +130,7 @@ public interface QueryConstants {
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
+            TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
             TABLE_NAME_NAME + " VARCHAR NOT NULL," +
             COLUMN_NAME + " VARCHAR NULL," + // null only for table row
@@ -167,8 +169,8 @@ public interface QueryConstants {
             DATA_TABLE_NAME + " VARCHAR NULL," +
             INDEX_STATE + " CHAR(1)\n," +
             IMMUTABLE_ROWS + " BOOLEAN\n" +
-            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
-            + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
+            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
+            + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
 }

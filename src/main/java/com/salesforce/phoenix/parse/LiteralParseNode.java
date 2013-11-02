@@ -47,7 +47,7 @@ public class LiteralParseNode extends TerminalParseNode {
     private final Object value;
     private final PDataType type;
     
-    LiteralParseNode(Object value) {
+    public LiteralParseNode(Object value) {
         this.value = value;
         this.type = PDataType.fromLiteral(value);
     }
