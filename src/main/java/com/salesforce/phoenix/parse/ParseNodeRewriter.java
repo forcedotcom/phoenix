@@ -187,6 +187,11 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     private final ColumnResolver resolver;
     private final Map<String, ParseNode> aliasMap;
+    private int nodeCount;
+    
+    public boolean isTopLevel() {
+        return nodeCount == 0;
+    }
     
     protected ParseNodeRewriter() {
         this.resolver = null;
@@ -208,6 +213,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     protected void reset() {
+        this.nodeCount = 0;
     }
     
     private static interface CompoundNodeFactory {
@@ -477,6 +483,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     
     @Override
     public List<ParseNode> newElementList(int size) {
+        nodeCount += size;
         return new ArrayList<ParseNode>(size);
     }
     
@@ -487,6 +494,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     @Override
     public void addElement(List<ParseNode> l, ParseNode element) {
+        nodeCount--;
         if (element != null) {
             l.add(element);
         }

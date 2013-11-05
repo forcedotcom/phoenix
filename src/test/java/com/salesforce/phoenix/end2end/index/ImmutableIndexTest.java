@@ -440,4 +440,22 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
             
         conn.createStatement().execute("DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
-}
+    
+    @Test
+    public void testGroupByCount() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col2)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT int_col2, COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " GROUP BY int_col2");
+        assertTrue(rs.next());
+        assertEquals(1,rs.getInt(2));
+    }}

@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.IndexStatementRewriter;
 import com.salesforce.phoenix.compile.QueryCompiler;
 import com.salesforce.phoenix.compile.QueryPlan;
@@ -20,6 +21,7 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
@@ -39,7 +41,7 @@ public class QueryOptimizer {
         return optimize(select, statement, Collections.<PColumn>emptyList(), null);
     }
 
-    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
         QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
         QueryPlan dataPlan = compiler.compile(select);
         if (!useIndexes) {
@@ -52,6 +54,19 @@ public class QueryOptimizer {
         List<PTable>indexes = Lists.newArrayList(dataTable.getIndexes());
         if (indexes.isEmpty() || dataPlan.getTableRef().hasDynamicCols() || select.getHint().hasHint(Hint.NO_INDEX)) {
             return dataPlan;
+        }
+        
+        // The targetColumns is set for UPSERT SELECT to ensure that the proper type conversion takes place.
+        // For a SELECT, it is empty. In this case, we want to set the targetColumns to match the projection
+        // from the dataPlan to ensure that the metadata for when an index is used matches the metadata for
+        // when the data table is used.
+        if (targetColumns.isEmpty()) {
+            List<? extends ColumnProjector> projectors = dataPlan.getProjector().getColumnProjectors();
+            List<PDatum> targetDatums = Lists.newArrayListWithExpectedSize(projectors.size());
+            for (ColumnProjector projector : projectors) {
+                targetDatums.add(projector.getExpression());
+            }
+            targetColumns = targetDatums;
         }
         
         SelectStatement translatedIndexSelect = IndexStatementRewriter.translate(select, dataPlan.getContext().getResolver());
@@ -68,7 +83,7 @@ public class QueryOptimizer {
         return chooseBestPlan(select, plans);
     }
     
-    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement select, List<PTable> indexes, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
+    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement select, List<PTable> indexes, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         String indexHint = select.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
@@ -123,7 +138,7 @@ public class QueryOptimizer {
         return -1;
     }
     
-    private static boolean addPlan(PhoenixStatement statement, SelectStatement select, PTable index, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
+    private static boolean addPlan(PhoenixStatement statement, SelectStatement select, PTable index, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         int nColumns = dataPlan.getProjector().getColumnCount();
         String alias = '"' + dataPlan.getTableRef().getTableAlias() + '"'; // double quote in case it's case sensitive

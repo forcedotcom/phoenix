@@ -918,8 +918,8 @@ public class QueryTest extends BaseClientMangedTimeTest {
                 Arrays.<Object>asList(2, C_VALUE),
                 Arrays.<Object>asList( 3, E_VALUE));
         List<List<Object>> expectedResultsB = Lists.newArrayList(
-                Arrays.<Object>asList(4, B_VALUE),
-                Arrays.<Object>asList( 5, C_VALUE));
+                Arrays.<Object>asList( 5, C_VALUE),
+                Arrays.<Object>asList(4, B_VALUE));
         // Since we're not ordering and we may be using a descending index, we don't
         // know which rows we'll get back.
         assertOneOfValuesEqualsResultSet(rs, expectedResultsA,expectedResultsB);
