@@ -27,12 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.util.Pair;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -40,7 +34,19 @@ import java.io.Reader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Properties;
+import java.util.StringTokenizer;
+
+import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.util.Pair;
+
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
 
 /**
  * 
@@ -117,7 +123,8 @@ public class PhoenixRuntime {
                 "  psql localhost my_ddl.sql\n" +
                 "  psql localhost my_ddl.sql my_table.csv\n" +
                 "  psql my_cluster:1825 -t my_table my_table2012-Q3.csv\n" +
-                "  psql my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n"
+                "  psql my_cluster -t my_table -h col1,col2,col3 my_table2012-Q3.csv\n" +
+                "  psql my_cluster -t my_table -h col1,col2,col3 -d 1 2 3 my_table2012-Q3.csv\n"
         );
         System.exit(-1);
     }
