@@ -123,8 +123,8 @@ public class PhoenixRuntime {
                 "  psql localhost my_ddl.sql\n" +
                 "  psql localhost my_ddl.sql my_table.csv\n" +
                 "  psql -t my_table my_cluster:1825 my_table2012-Q3.csv\n" +
-                "  psql -t my_table -h col1,col2,col3 my_cluster my_table2012-Q3.csv\n" +
-                "  psql -t my_table -h col1,col2,col3 -d 1 2 3 my_cluster my_table2012-Q3.csv\n"
+                "  psql -t my_table -h col1,col2,col3 my_cluster:1825 my_table2012-Q3.csv\n" +
+                "  psql -t my_table -h col1,col2,col3 -d 1 2 3 my_cluster:1825 my_table2012-Q3.csv\n"
         );
         System.exit(-1);
     }
