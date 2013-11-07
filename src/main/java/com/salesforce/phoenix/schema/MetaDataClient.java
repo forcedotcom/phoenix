@@ -69,6 +69,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1263,8 +1264,12 @@ public class MetaDataClient {
                             // Only if it's not already a column family do we need to ensure it's created
                             List<Pair<byte[],Map<String,Object>>> family = Lists.newArrayListWithExpectedSize(1);
                             family.add(new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
+                            // Just use a Put without any key values as the Mutation, as addColumn will treat this specially
+                            // TODO: pass through schema name and table name instead to these methods as it's cleaner
                             connection.getQueryServices().addColumn(
-                                    Collections.<Mutation>emptyList(), 
+                                    Collections.<Mutation>singletonList(new Put(SchemaUtil.getTableKey
+                                            (tableContainingColumnToDrop.getSchemaName().getBytes(),
+                                            tableContainingColumnToDrop.getTableName().getBytes()))),
                                     tableContainingColumnToDrop.getType(),family);
                         }
                     }

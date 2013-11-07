@@ -49,7 +49,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -538,4 +537,25 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+
+    @Test
+    public void testDropVarCols() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE test_table " + "  (a_string varchar not null, col1 integer, cf1.col2 integer"
+                    + "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+            conn.createStatement().execute(ddl);
+
+            ddl = "ALTER TABLE test_table DROP COLUMN col1";
+            conn.createStatement().execute(ddl);
+
+            ddl = "ALTER TABLE test_table DROP COLUMN cf1.col2";
+            conn.createStatement().execute(ddl);
+        } finally {
+            conn.close();
+        }
+    }
+
 }
