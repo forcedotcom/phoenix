@@ -42,8 +42,13 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
 
         // Coerce index column reference back to same type as data column so that
         // expression behave exactly the same. No need to invert, as this will be done
-        // automatically as needed.
-        if (!indexColType.isBytesComparableWith(dataColType)) {
+        // automatically as needed. If node is used at the top level, do not convert, as
+        // otherwise the wrapper gets in the way in the group by clause. For example,
+        // an INTEGER column in a GROUP BY gets doubly wrapped like this:
+        //     CAST CAST int_col AS INTEGER AS DECIMAL
+        // This is unnecessary and problematic in the case of a null value.
+        // TODO: test case for this
+        if (!isTopLevel() && indexColType != dataColType) {
             indexColNode = FACTORY.cast(indexColNode, dataColType);
         }
         return indexColNode;

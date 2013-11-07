@@ -32,6 +32,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
@@ -1064,13 +1065,62 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[][] rowKeyMetadata = new byte[2][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
         byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
-        return metaDataCoprocessorExec(tableKey,
+        final MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
                       return instance.dropTable(tableMetaData, tableType.getSerializedValue());
                     }
                 });
+        
+        final MutationCode code = result.getMutationCode();
+        switch(code) {
+        case TABLE_ALREADY_EXISTS:
+            final ReadOnlyProps props = this.getProps();
+            final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+            if (dropMetadata) {
+                dropTables(result.getTableNamesToDelete());
+            }
+            break;
+        default:
+            break;
+        }
+          return result;
+    }
+    
+    private void dropTables(final List<byte[]> tableNamesToDelete) throws SQLException {
+        HBaseAdmin admin = null;
+        SQLException sqlE = null;
+        try{
+            admin = new HBaseAdmin(config);
+            if (tableNamesToDelete != null){
+                for ( byte[] tableName : tableNamesToDelete ) {
+                    if ( admin.tableExists(tableName) ) {
+                        admin.disableTable(tableName);
+                        admin.deleteTable(tableName);
+                    }
+                }
+            }
+            
+        } catch (IOException e) {
+            sqlE = ServerUtil.parseServerException(e);
+        } finally {
+            try {
+                if (admin != null) {
+                    admin.close();
+                }
+            } catch (IOException e) {
+                if (sqlE == null) {
+                    sqlE = ServerUtil.parseServerException(e);
+                } else {
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
+                }
+            } finally {
+                if (sqlE != null) {
+                    throw sqlE;
+                }
+            }
+        }
     }
 
     @Override
@@ -1087,8 +1137,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             ensureFamilyCreated(tableName, tableType, family);
         }
         // Special case for call during drop table to ensure that the empty column family exists.
+        // In this, case we only include the table header row, as until we add schemaBytes and tableBytes
+        // as args to this function, we have no way of getting them in this case.
+        // TODO: change to  if (tableMetaData.isEmpty()) once we pass through schemaBytes and tableBytes
         // Also, could be used to update property values on ALTER TABLE t SET prop=xxx
-        if (tableMetaData.isEmpty()) {
+        if (tableMetaData.size() == 1 && tableMetaData.get(0).isEmpty()) {
             return null;
         }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
@@ -1115,7 +1168,20 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return instance.dropColumn(tableMetaData);
                 }
             });
+        final MutationCode code = result.getMutationCode();
+        switch(code) {
+        case TABLE_ALREADY_EXISTS:
+            final ReadOnlyProps props = this.getProps();
+            final boolean dropMetadata = props.getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+            if (dropMetadata) {
+                dropTables(result.getTableNamesToDelete());
+            }
+            break;
+        default:
+            break;
+        }
         return result;
+       
     }
 
     @Override

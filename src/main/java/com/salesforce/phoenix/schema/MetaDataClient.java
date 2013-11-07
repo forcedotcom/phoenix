@@ -47,6 +47,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -67,6 +69,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -835,46 +838,46 @@ public class MetaDataClient {
                 Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
                 tableMetaData.add(linkDelete);
             }
-            
+
             MetaDataMutationResult result = connection.getQueryServices().dropTable(tableMetaData, tableType);
             MutationCode code = result.getMutationCode();
             switch(code) {
-            case TABLE_NOT_FOUND:
-                if (!ifExists) {
-                    throw new TableNotFoundException(schemaName, tableName);
-                }
-                break;
-            case NEWER_TABLE_FOUND:
-                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
-            case UNALLOWED_TABLE_MUTATION:
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
-                    .setSchemaName(schemaName).setTableName(tableName).build().buildException();
-            default:
-                try {
-                    // TODO: should we update the parent table by removing the index?
-                    connection.removeTable(tableName);
-                } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
-                if (result.getTable() != null && tableType != PTableType.VIEW) {
-                    connection.setAutoCommit(true);
-                    // Delete everything in the column. You'll still be able to do queries at earlier timestamps
-                    long ts = (scn == null ? result.getMutationTime() : scn);
-                    // Create empty table and schema - they're only used to get the name from
-                    // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
-                    PTable table = result.getTable();
-                    List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
-                    tableRefs.add(new TableRef(null, table, ts, false));
-                    // Let the standard mutable secondary index maintenance handle this
-                    /* TODO if (table.isImmutableRows()) */ {
+                case TABLE_NOT_FOUND:
+                    if (!ifExists) {
+                        throw new TableNotFoundException(schemaName, tableName);
+                    }
+                    break;
+                case NEWER_TABLE_FOUND:
+                    throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+                case UNALLOWED_TABLE_MUTATION:
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                        .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                default:
+                    try {
+                        // TODO: should we update the parent table by removing the index?
+                        connection.removeTable(tableName);
+                    } catch (TableNotFoundException ignore) { } // Ignore - just means wasn't cached
+                    
+                    boolean dropMetaData = connection.getQueryServices().getProps().getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+                    if (result.getTable() != null && tableType != PTableType.VIEW && !dropMetaData) {
+                        connection.setAutoCommit(true);
+                        // Delete everything in the column. You'll still be able to do queries at earlier timestamps
+                        long ts = (scn == null ? result.getMutationTime() : scn);
+                        // Create empty table and schema - they're only used to get the name from
+                        // PName name, PTableType type, long timeStamp, long sequenceNumber, List<PColumn> columns
+                        PTable table = result.getTable();
+                        List<TableRef> tableRefs = Lists.newArrayListWithExpectedSize(1 + table.getIndexes().size());
+                        tableRefs.add(new TableRef(null, table, ts, false));
+                        // TODO: Let the standard mutable secondary index maintenance handle this?
                         for (PTable index: table.getIndexes()) {
                             tableRefs.add(new TableRef(null, index, ts, false));
                         }
+                        MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
+                        return connection.getQueryServices().updateData(plan);
                     }
-                    MutationPlan plan = new PostDDLCompiler(connection).compile(tableRefs, null, null, Collections.<PColumn>emptyList(), ts);
-                    return connection.getQueryServices().updateData(plan);
+                    break;
                 }
-                break;
-            }
-            return new MutationState(0,connection);
+                 return new MutationState(0,connection);
         } finally {
             connection.setAutoCommit(wasAutoCommit);
         }
@@ -1261,8 +1264,12 @@ public class MetaDataClient {
                             // Only if it's not already a column family do we need to ensure it's created
                             List<Pair<byte[],Map<String,Object>>> family = Lists.newArrayListWithExpectedSize(1);
                             family.add(new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
+                            // Just use a Put without any key values as the Mutation, as addColumn will treat this specially
+                            // TODO: pass through schema name and table name instead to these methods as it's cleaner
                             connection.getQueryServices().addColumn(
-                                    Collections.<Mutation>emptyList(), 
+                                    Collections.<Mutation>singletonList(new Put(SchemaUtil.getTableKey
+                                            (tableContainingColumnToDrop.getSchemaName().getBytes(),
+                                            tableContainingColumnToDrop.getTableName().getBytes()))),
                                     tableContainingColumnToDrop.getType(),family);
                         }
                     }
@@ -1291,8 +1298,11 @@ public class MetaDataClient {
                         // Delete everything in the column. You'll still be able to do queries at earlier timestamps
                         long ts = (scn == null ? result.getMutationTime() : scn);
                         PostDDLCompiler compiler = new PostDDLCompiler(connection);
-                        // Drop any index tables that had the dropped column in the PK
-                        connection.getQueryServices().updateData(compiler.compile(indexesToDrop, null, null, Collections.<PColumn>emptyList(), ts));
+                        boolean dropMetaData = connection.getQueryServices().getProps().getBoolean(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA);
+                        if(!dropMetaData){
+                            // Drop any index tables that had the dropped column in the PK
+                            connection.getQueryServices().updateData(compiler.compile(indexesToDrop, null, null, Collections.<PColumn>emptyList(), ts));
+                        }
                         // Update empty key value column if necessary
                         for (ColumnRef droppedColumnRef : columnsToDrop) {
                             // Painful, but we need a TableRef with a pre-set timestamp to prevent attempts

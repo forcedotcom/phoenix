@@ -53,15 +53,15 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
-import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
@@ -88,14 +88,14 @@ public class QueryCompiler {
     private final PhoenixStatement statement;
     private final Scan scan;
     private final Scan scanCopy;
-    private final List<PColumn> targetColumns;
+    private final List<? extends PDatum> targetColumns;
     private final ParallelIteratorFactory parallelIteratorFactory;
 
     public QueryCompiler(PhoenixStatement statement) throws SQLException {
-        this(statement, Collections.<PColumn>emptyList(), null);
+        this(statement, Collections.<PDatum>emptyList(), null);
     }
     
-    public QueryCompiler(PhoenixStatement statement, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
         this.statement = statement;
         this.scan = new Scan();
         this.targetColumns = targetColumns;
@@ -157,8 +157,8 @@ public class QueryCompiler {
         	PTableWrapper projectedTable = initialProjectedTable;
             int count = joinTables.size();
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
-            List<Expression>[] joinExpressions = (List<Expression>[]) new List[count];
-            List<Expression>[] hashExpressions = (List<Expression>[]) new List[count];
+            List<Expression>[] joinExpressions = new List[count];
+            List<Expression>[] hashExpressions = new List[count];
             JoinType[] joinTypes = new JoinType[count];
             PTable[] tables = new PTable[count];
             int[] fieldPositions = new int[count];
