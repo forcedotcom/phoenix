@@ -66,8 +66,9 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     /*
      * Used to coerce the RHS to the expected type based on the LHS. In some circumstances,
      * we may need to round the value up or down. For example:
-     * WHERE (a,b) < (2.5, 'foo')
-     * We need to round the 2.5 up to 3 in this case.
+     * WHERE (a,b) < (2.4, 'foo')
+     * We take the ceiling of 2.4 to make it 3 if a is an INTEGER to prevent needing to coerce
+     * every time during evaluation.
      */
     private static ExpressionComparabilityWrapper[] WRAPPERS = new ExpressionComparabilityWrapper[CompareOp.values().length];
     static {
@@ -118,6 +119,16 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         return wrapper;
     }
     
+    /**
+     * Recursively coerce the RHS to match the LHS type, throwing if the types are incompatible. The
+     * recursion occurs when the RHS or LHS is a row value constructor.
+     * TODO: this no longer needs to be recursive, as we flatten out rvc when we normalize the statement.
+     * @param lhs left hand side expression
+     * @param rhs right hand side expression
+     * @param op operator being used to compare the expressions, which can affect rounding we may need to do.
+     * @return
+     * @throws SQLException
+     */
     public static Expression coerce(Expression lhs, Expression rhs, CompareOp op) throws SQLException {
         return coerce(lhs, rhs, getWrapper(op));
     }
@@ -275,7 +286,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                         expressionCount = j+1;
                         ptrs[j] = new ImmutableBytesWritable();
                         ptrs[j].set(ptr.get(), ptr.getOffset(), ptr.getLength());
-                        estimatedByteSize += ptr.getLength() + (expression.getDataType() == null || expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
+                        estimatedByteSize += ptr.getLength() + (expression.getDataType().isFixedWidth() ? 0 : 1); // 1 extra for the separator byte.
                     }
                     counter++;
                 } else if (tuple == null || tuple.isImmutable()) {
@@ -314,7 +325,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                             }
                         } else {
                             output.write(tempPtr.get(), tempPtr.getOffset(), tempPtr.getLength());
-                            if (childType != null && !childType.isFixedWidth()) {
+                            if (!childType.isFixedWidth()) {
                                 output.write(QueryConstants.SEPARATOR_BYTE);
                             }
                             if (previousCarryOver) {

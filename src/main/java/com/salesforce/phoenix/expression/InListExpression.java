@@ -87,13 +87,12 @@ public class InListExpression extends BaseSingleExpression {
                     // Don't specify the firstChild column modifier here, as we specify it in the LiteralExpression creation below
                     try {
                         firstChildType.coerceBytes(ptr, rhs.getDataType(), rhs.getColumnModifier(), null);
-                        rhs = LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier());
-                        if(rhs.getDataType() != firstChildType && rhs.getDataType().isCoercibleTo(firstChildType)) {
-                            coercedKeyExpressions.add(CoerceExpression.create(rhs, firstChildType));    
-                        } else {
+                        keys.add(LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier()));
+                        if(rhs.getDataType() == firstChildType) {
                             coercedKeyExpressions.add(rhs);
+                        } else {
+                            coercedKeyExpressions.add(CoerceExpression.create(rhs, firstChildType));    
                         }
-                        keys.add(rhs);
                     } catch (ConstraintViolationException e) { // Ignore and continue
                     }
                 }

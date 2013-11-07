@@ -61,7 +61,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Properties;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -400,8 +399,7 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         }
     }
     
-    
-    @Ignore
+    @Test
     public void testQueryMoreWithInListRowValueConstructor() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();

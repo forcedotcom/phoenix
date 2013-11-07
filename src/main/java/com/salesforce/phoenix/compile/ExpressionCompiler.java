@@ -156,6 +156,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
     }
     
+    // TODO: this no longer needs to be recursive, as we flatten out rvc when we normalize the statement
     private void checkComparability(ParseNode parentNode, ParseNode lhsNode, ParseNode rhsNode, Expression lhsExpr, Expression rhsExpr) throws SQLException {
         if (lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
             int i = 0;
