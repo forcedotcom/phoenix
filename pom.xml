@@ -4,7 +4,7 @@
   <groupId>com.salesforce</groupId>
   <artifactId>phoenix</artifactId>
   <version>2.2.0-SNAPSHOT</version>
-  <name>Phoenix</name>
+  <name>Phoenix-branching</name>
   <description>A SQL layer over HBase</description>
 
   <repositories>
@@ -383,7 +383,7 @@
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
     </dependency>
-    
+
     <!-- Test Dependencies -->
     <dependency>
       <groupId>org.apache.hbase</groupId>
@@ -559,7 +559,7 @@
       </build>
 
     </profile>
-    
+
   </profiles>
 
 </project>

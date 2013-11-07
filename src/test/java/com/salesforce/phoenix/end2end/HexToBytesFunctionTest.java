@@ -57,4 +57,36 @@ public class HexToBytesFunctionTest extends BaseHBaseManagedTimeTest {
 
 		assertFalse(rs.next());
 	}
+
+	@Test
+	public void invalidCharacters() throws Exception {
+		Connection conn = DriverManager.getConnection(getUrl());
+		String ddl = "CREATE TABLE test_table ( page_offset_id BINARY(12) NOT NULL CONSTRAINT PK PRIMARY KEY (page_offset_id))";
+
+		conn.createStatement().execute(ddl);
+
+		try {
+			ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM test_table WHERE page_offset_id = HEX_TO_BYTES('zzxxuuyyzzxxuuyy')");
+		} catch (NumberFormatException e) {
+			assertTrue(true);
+			return;
+		}
+		assertFalse(false);
+	}
+
+	@Test
+	public void invalidLenght() throws Exception {
+		Connection conn = DriverManager.getConnection(getUrl());
+		String ddl = "CREATE TABLE test_table ( page_offset_id BINARY(12) NOT NULL CONSTRAINT PK PRIMARY KEY (page_offset_id))";
+
+		conn.createStatement().execute(ddl);
+
+		try {
+			ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM test_table WHERE page_offset_id = HEX_TO_BYTES('8')");
+		} catch (StringIndexOutOfBoundsException e) {
+			assertTrue(true);
+			return;
+		}
+		assertFalse(false);
+	}
 }
