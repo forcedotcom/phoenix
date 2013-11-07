@@ -61,6 +61,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -399,7 +400,8 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         }
     }
     
-    @Test
+    
+    @Ignore
     public void testQueryMoreWithInListRowValueConstructor() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -427,6 +429,7 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         assertEquals(PARENTID7, rs.getString(1));
         assertFalse(rs.next());
      }
+    
     @Test
     public void testQueryMoreFunctionalityUsingAllPKColsInRowValueConstructor() throws Exception {
         _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(false);
@@ -759,6 +762,60 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
             }
         } finally {
             conn.close();
+        }
+    }
+    
+    @Test
+    public void testRVCWithInListClausePossibleNullValues() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        //we have a row present in aTable where x_integer = 5 and y_integer = NULL which gets translated to 0 when retriving from HBase. 
+        String query = "SELECT x_integer, y_integer FROM aTable WHERE ? = organization_id AND (x_integer, y_integer) IN ((5))";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(5, rs.getInt(1));
+            assertEquals(0, rs.getInt(2));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRVCWithInListClauseUsingSubsetOfPKColsInOrder() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        //we have a row present in aTable where organization_id = tenantId and  x_integer = 5 
+        String query = "SELECT organization_id, entity_id FROM aTable WHERE (organization_id, entity_id) IN (('" + tenantId + "')) AND x_integer = 5";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = null;
+        PreparedStatement statement = null;
+        try {
+            try {
+                conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+                statement = conn.prepareStatement(query);
+                ResultSet rs = statement.executeQuery();
+                assertTrue(rs.next());
+                assertEquals(tenantId, rs.getString(1));
+                assertEquals(ROW7, rs.getString(2));
+                assertFalse(rs.next());
+            } finally {
+                if(statement != null) {
+                    statement.close();
+                }
+            }
+        } finally {
+            if(conn != null) {
+                conn.close();
+            }
         }
     }
 
