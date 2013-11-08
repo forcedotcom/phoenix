@@ -28,14 +28,26 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 public class UpsertValuesTest extends BaseClientMangedTimeTest {
@@ -179,6 +191,34 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertTrue(rs.next());
         assertEquals(100, rs.getInt(1));
         assertFalse(rs.next());
+    }
+    
+    @Test
+    public void testUpsertValuesWithMoreValuesThanNumColsInTable() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.createStatement();
+            stmt.execute("create table UpsertWithDesc (k VARCHAR not null primary key desc)");
+        } finally {
+            TestUtil.closeStmtAndConn(stmt, conn);
+        }
+
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.createStatement();
+            stmt.execute("upsert into UpsertWithDesc values (to_char(100), to_char(100), to_char(100))");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH.getErrorCode(),e.getErrorCode());
+        } finally {
+            TestUtil.closeStmtAndConn(stmt, conn);
+        }
     }
 
 }
