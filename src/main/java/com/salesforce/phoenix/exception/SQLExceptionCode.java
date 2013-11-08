@@ -66,6 +66,7 @@ public enum SQLExceptionCode {
     NONPOSITIVE_BINARY_LENGTH(211, "22003", "BINARY must have a positive length."),
     SERVER_ARITHMETIC_ERROR(212, "22012", "Arithmetic error on server."),
     VALUE_OUTSIDE_RANGE(213,"22003","Value outside range."),
+    VALUE_IN_LIST_NOT_CONSTANT(214, "22008", "Values in IN must evaluate to a constant."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)

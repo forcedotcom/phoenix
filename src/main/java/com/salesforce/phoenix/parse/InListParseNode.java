@@ -31,6 +31,9 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+
 
 
 /**
@@ -45,6 +48,14 @@ public class InListParseNode extends CompoundParseNode {
 
     InListParseNode(List<ParseNode> children, boolean negate) {
         super(children);
+        // All values in the IN must be constant. First child is the LHS
+        for (int i = 1; i < children.size(); i++) {
+            ParseNode child = children.get(i);
+            if (!child.isConstant()) {
+                throw new ParseException(new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_LIST_NOT_CONSTANT)
+                .build().buildException());
+            }
+        }
         this.negate = negate;
     }
     

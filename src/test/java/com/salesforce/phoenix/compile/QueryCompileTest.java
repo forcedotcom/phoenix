@@ -1048,6 +1048,18 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
+    public void testNonConstantInList() throws Exception {
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE a_integer IN (x_integer)";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since non constants in IN is not valid");
+        } catch (SQLException e) {
+            assertTrue(e.getErrorCode() == SQLExceptionCode.VALUE_IN_LIST_NOT_CONSTANT.getErrorCode());
+        }
+    }
+    
+    @Test
     public void testKeyValueColumnInPKConstraint() throws Exception {
         String ddl = "CREATE TABLE t (a.k VARCHAR, b.v VARCHAR CONSTRAINT pk PRIMARY KEY(k))";
         Connection conn = DriverManager.getConnection(getUrl());
