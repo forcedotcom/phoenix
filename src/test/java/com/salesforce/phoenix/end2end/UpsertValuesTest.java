@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.closeStmtAndConn;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -205,7 +206,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
             stmt = conn.createStatement();
             stmt.execute("create table UpsertWithDesc (k VARCHAR not null primary key desc)");
         } finally {
-            TestUtil.closeStmtAndConn(stmt, conn);
+            closeStmtAndConn(stmt, conn);
         }
 
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
@@ -217,7 +218,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         } catch (SQLException e) {
             assertEquals(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH.getErrorCode(),e.getErrorCode());
         } finally {
-            TestUtil.closeStmtAndConn(stmt, conn);
+            closeStmtAndConn(stmt, conn);
         }
     }
 
