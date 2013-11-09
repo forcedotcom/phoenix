@@ -125,6 +125,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     }
     
     private long ts;
+    private Date date;
     private String indexDDL;
     
     public QueryTest(String indexDDL) {
@@ -134,7 +135,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     @Before
     public void initTable() throws Exception {
          ts = nextTimestamp();
-        initATableValues(tenantId, getDefaultSplits(tenantId), new Date(System.currentTimeMillis()), ts);
+        initATableValues(tenantId, getDefaultSplits(tenantId), date=new Date(System.currentTimeMillis()), ts);
         if (indexDDL != null && indexDDL.length() > 0) {
             Properties props = new Properties(TEST_PROPERTIES);
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
@@ -1490,6 +1491,25 @@ public class QueryTest extends BaseClientMangedTimeTest {
                     Arrays.<Object>asList( ROW4, B_VALUE), 
                     Arrays.<Object>asList(ROW7, B_VALUE));
             assertValuesEqualsResultSet(rs, expectedResults);
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDateInList() throws Exception {
+        String query = "SELECT entity_id FROM ATABLE WHERE a_date IN (?,?) AND a_integer < 4";
+        String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + (ts + 5); // Run query at timestamp 5
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(url, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setDate(1, new Date(0));
+            statement.setDate(2, date);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ROW1, rs.getString(1));
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }

@@ -1005,15 +1005,20 @@ public class MetaDataClient {
 
                 if ( columnDefs.size() > 0 ) {
                     for( ColumnDef colDef : columnDefs) {
-                        if (colDef != null && !colDef.isNull() && colDef.isPK()) {
-                            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
+                        if (colDef != null && !colDef.isNull()) {
+                            if(colDef.isPK()) {
+                                throw new SQLExceptionInfo.Builder(SQLExceptionCode.NOT_NULLABLE_COLUMN_IN_ROW_KEY)
                                 .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
+                            } else {
+                                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ADD_NOT_NULLABLE_COLUMN)
+                                .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
+                            }
                         }
-                        
+
                         PColumn column = newColumn(position++, colDef, PrimaryKeyConstraint.EMPTY);
                         columns.add(column);
                         addColumnMutation(schemaName, tableName, column, colUpsert, null);
-                     
+
                         // TODO: support setting properties on other families?
                         if (column.getFamilyName() != null) {
                             families.add(new Pair<byte[],Map<String,Object>>(column.getFamilyName().getBytes(),statement.getProps()));
@@ -1028,7 +1033,7 @@ public class MetaDataClient {
                                 addColumnMutation(schemaName, index.getTableName().getString(), indexColumn, colUpsert, index.getParentTableName().getString());
                             }
                         }
-                        
+
                         tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                         connection.rollback();
                     }

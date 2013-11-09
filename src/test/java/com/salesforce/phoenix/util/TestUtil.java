@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -318,5 +319,20 @@ public class TestUtil {
           });
     }
 
-
+    public static void closeStatement(Statement stmt) {
+        try {
+            stmt.close();
+        } catch (Throwable ignore) {}
+    }
+    
+    public static void closeConnection(Connection conn) {
+        try {
+            conn.close();
+        } catch (Throwable ignore) {}
+    }
+    
+    public static void closeStmtAndConn(Statement stmt, Connection conn) {
+        closeStatement(stmt);
+        closeConnection(conn);
+    }
 }
