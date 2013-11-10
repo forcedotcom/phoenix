@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.closeConnection;
+import static com.salesforce.phoenix.util.TestUtil.closeStatement;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -48,6 +50,7 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -556,6 +559,36 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.createStatement().execute(ddl);
         } finally {
             conn.close();
+        }
+    }
+    
+    @Test
+    public void testDisallowAddingNotNullableColumnNotPartOfPkForExistingTable() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            conn.setAutoCommit(false);
+            try {
+                String ddl = "CREATE TABLE test_table " + "  (a_string varchar not null, col1 integer, cf1.col2 integer"
+                        + "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+            } finally {
+                closeStatement(stmt);
+            }
+            try {
+                stmt = conn.prepareStatement("ALTER TABLE test_table ADD b_string VARCHAR NOT NULL");
+                stmt.execute();
+                fail("Should have failed since altering a table by adding a non-nullable column is not allowed.");
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.CANNOT_ADD_NOT_NULLABLE_COLUMN.getErrorCode(), e.getErrorCode());
+            } finally {
+                closeStatement(stmt);
+            }
+        } finally {
+            closeConnection(conn);
         }
     }
 
