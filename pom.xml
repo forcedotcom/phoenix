@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.salesforce</groupId>
   <artifactId>phoenix</artifactId>
-  <version>2.1.0</version>
+  <version>2.2.0-SNAPSHOT</version>
   <name>Phoenix</name>
   <description>A SQL layer over HBase</description>
 
@@ -65,7 +65,7 @@
     <!-- Dependency versions -->
     <hbase.version>0.94.12</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
-    <hadoop.version>1.2.1</hadoop.version>
+    <hadoop.version>1.0.4</hadoop.version>
     <pig.version>0.11.0</pig.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
@@ -312,7 +312,7 @@
       <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>2.13</version>
+          <version>2.16</version>
           <configuration>
               <argLine>-enableassertions -Xmx2000m -Djava.security.egd=file:/dev/./urandom</argLine>
               <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>

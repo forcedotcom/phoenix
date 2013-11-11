@@ -63,6 +63,7 @@ import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
@@ -167,7 +168,7 @@ public class ProjectionCompiler {
      * @return projector used to access row values during scan
      * @throws SQLException 
      */
-    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, List<PColumn> targetColumns) throws SQLException {
+    public static RowProjector compile(StatementContext context, SelectStatement statement, GroupBy groupBy, List<? extends PDatum> targetColumns) throws SQLException {
         List<AliasedNode> aliasedNodes = statement.getSelect();
         // Setup projected columns in Scan
         SelectClauseVisitor selectVisitor = new SelectClauseVisitor(context, groupBy);
@@ -211,7 +212,7 @@ public class ProjectionCompiler {
                 Expression expression = node.accept(selectVisitor);
                 projectedExpressions.add(expression);
                 if (index < targetColumns.size()) {
-                    PColumn targetColumn = targetColumns.get(index);
+                    PDatum targetColumn = targetColumns.get(index);
                     if (targetColumn.getDataType() != expression.getDataType()) {
                         PDataType targetType = targetColumn.getDataType();
                         // Check if coerce allowed using more relaxed isComparable check, since we promote INTEGER to LONG 

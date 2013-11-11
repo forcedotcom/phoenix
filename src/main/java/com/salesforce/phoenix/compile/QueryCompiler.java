@@ -48,7 +48,7 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
-import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
@@ -72,14 +72,14 @@ public class QueryCompiler {
     private static final String LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR = "_ondemand_";
     private final PhoenixStatement statement;
     private final Scan scan;
-    private final List<PColumn> targetColumns;
+    private final List<? extends PDatum> targetColumns;
     private final ParallelIteratorFactory parallelIteratorFactory;
 
     public QueryCompiler(PhoenixStatement statement) throws SQLException {
-        this(statement, Collections.<PColumn>emptyList(), null);
+        this(statement, Collections.<PDatum>emptyList(), null);
     }
     
-    public QueryCompiler(PhoenixStatement statement, List<PColumn> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
         this.statement = statement;
         this.scan = new Scan();
         this.targetColumns = targetColumns;

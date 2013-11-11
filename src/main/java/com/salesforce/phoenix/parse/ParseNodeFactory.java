@@ -267,8 +267,8 @@ public class ParseNodeFactory {
         return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
-    public AddColumnStatement addColumn(NamedTableNode table,  ColumnDef columnDef, boolean ifNotExists, Map<String,Object> props) {
-        return new AddColumnStatement(table, columnDef, ifNotExists, props);
+    public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
+        return new AddColumnStatement(table, columnDefs, ifNotExists, props);
     }
     
     public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {

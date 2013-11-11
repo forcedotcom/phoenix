@@ -617,4 +617,11 @@ public class QueryParserTest {
                         "\"WEB_STAT_ALIAS\".\"DOMAIN\" ASC"));
         parser.parseStatement();
     }
+
+    @Test
+    public void testToDateInList() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader("select * from date_test where d in (to_date('2013-11-04 09:12:00'))"));
+        parser.parseStatement();
+    }
 }

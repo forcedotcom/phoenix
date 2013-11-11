@@ -155,6 +155,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
     }
     
+    // TODO: this no longer needs to be recursive, as we flatten out rvc when we normalize the statement
     private void checkComparability(ParseNode parentNode, ParseNode lhsNode, ParseNode rhsNode, Expression lhsExpr, Expression rhsExpr) throws SQLException {
         if (lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
             int i = 0;
@@ -494,7 +495,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // If we're in an aggregate expression
         // and we're not in the context of an aggregate function
         // and we didn't just wrap our column reference
-        // then we're mixing aggregate and non aggregate expressions in the same exxpression
+        // then we're mixing aggregate and non aggregate expressions in the same expression.
+        // This catches cases like this: SELECT sum(a_integer) + a_integer FROM atable GROUP BY a_string
         if (isAggregate && aggregateFunction == null && wrappedExpression == expression) {
             throwNonAggExpressionInAggException(expression.toString());
         }
@@ -667,7 +669,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 throw new TypeMismatchException(dataType, targetDataType, child.toString());
             }
         }
-        return CoerceExpression.create(child, targetDataType); 
+        return wrapGroupByExpression(CoerceExpression.create(child, targetDataType)); 
     }
 
     @Override

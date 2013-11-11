@@ -68,10 +68,12 @@ public class InListExpression extends BaseSingleExpression {
     public static Expression create (List<Expression> children, ImmutableBytesWritable ptr) throws SQLException {
         Expression firstChild = children.get(0);
         PDataType firstChildType = firstChild.getDataType();
-
+        
         boolean addedNull = false;
         List<Expression> keys = Lists.newArrayListWithExpectedSize(children.size());
+        List<Expression> coercedKeyExpressions = Lists.newArrayListWithExpectedSize(children.size());
         keys.add(firstChild);
+        coercedKeyExpressions.add(firstChild);
         for (int i = 1; i < children.size(); i++) {
             Expression rhs = children.get(i);
             if (rhs.evaluate(null, ptr)) {
@@ -79,17 +81,23 @@ public class InListExpression extends BaseSingleExpression {
                     if (!addedNull) {
                         addedNull = true;
                         keys.add(LiteralExpression.newConstant(null, PDataType.VARBINARY));
+                        coercedKeyExpressions.add(LiteralExpression.newConstant(null, firstChildType));
                     }
                 } else {
                     // Don't specify the firstChild column modifier here, as we specify it in the LiteralExpression creation below
                     try {
                         firstChildType.coerceBytes(ptr, rhs.getDataType(), rhs.getColumnModifier(), null);
-                        rhs = LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier());
-                        keys.add(rhs);
+                        keys.add(LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier()));
+                        if(rhs.getDataType() == firstChildType) {
+                            coercedKeyExpressions.add(rhs);
+                        } else {
+                            coercedKeyExpressions.add(CoerceExpression.create(rhs, firstChildType));    
+                        }
                     } catch (ConstraintViolationException e) { // Ignore and continue
                     }
                 }
             }
+            
         }
         if (keys.size() == 1) {
             return LiteralExpression.FALSE_EXPRESSION;
@@ -104,11 +112,10 @@ public class InListExpression extends BaseSingleExpression {
         if (keys.size() == 2) {
             expression = new ComparisonExpression(CompareOp.EQUAL, keys);
         } else {
-            expression = new InListExpression(keys, children);
+            expression = new InListExpression(keys, coercedKeyExpressions);
         }
         return expression;
-    }
-    
+    }    
     public InListExpression() {
     }
 

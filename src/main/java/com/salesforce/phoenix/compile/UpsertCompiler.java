@@ -221,7 +221,9 @@ public class UpsertCompiler {
         boolean isSalted = table.getBucketNum() != null;
         int posOffset = isSalted ? 1 : 0;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
-        if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
+        int numColsInUpsert = columnNodes.size();
+        int numColsInTable = table.getColumns().size();
+        if (columnNodes.isEmpty() || numColsInUpsert == upsert.getTable().getDynamicColumns().size()) {
             columnIndexesToBe = new int[allColumns.size() - posOffset];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
@@ -235,14 +237,14 @@ public class UpsertCompiler {
                 }
             }
         } else {
-            columnIndexesToBe = new int[columnNodes.size()];
+            columnIndexesToBe = new int[numColsInUpsert];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
             targetColumns.addAll(Collections.<PColumn>nCopies(columnIndexesToBe.length, null));
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
-            for (int i =0; i < columnNodes.size(); i++) {
+            for (int i =0; i < numColsInUpsert; i++) {
                 ColumnName colName = columnNodes.get(i);
                 ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
                 columnIndexesToBe[i] = ref.getColumnPosition();
@@ -531,6 +533,12 @@ public class UpsertCompiler {
         ////////////////////////////////////////////////////////////////////
         // UPSERT VALUES
         /////////////////////////////////////////////////////////////////////
+        if (nValuesToSet > numColsInTable) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH)
+                .setMessage("Numbers of columns in table: " + numColsInTable + ". Number of values: " + nValuesToSet)
+                .build().buildException();
+        }
+        
         int nodeIndex = 0;
         // Allocate array based on size of all columns in table,
         // since some values may not be set (if they're nullable).

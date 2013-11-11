@@ -41,28 +41,25 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.TableNotFoundException;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.util.QueryUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 
 
 public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
     private static final int TABLE_SPLITS = 3;
     private static final int INDEX_SPLITS = 4;
-    private static final byte[] DATA_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "T"));
-    private static final byte[] INDEX_TABLE_FULL_NAME = Bytes.toBytes(SchemaUtil.getTableName(null, "I"));
     
     // Populate the test table with data.
     private static void populateTestTable() throws SQLException {
@@ -129,27 +126,16 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         }
     }
     
-    @Before
-    public void destroyTables() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
-        Properties props = new Properties(TEST_PROPERTIES);
-        ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
-        HBaseAdmin admin = services.getAdmin();
-        try {
-            try {
-                admin.disableTable(INDEX_TABLE_FULL_NAME);
-                admin.deleteTable(INDEX_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-            try {
-                admin.disableTable(DATA_TABLE_FULL_NAME);
-                admin.deleteTable(DATA_TABLE_FULL_NAME);
-            } catch (TableNotFoundException e) {
-            }
-        } finally {
-                admin.close();
-        }
+    @BeforeClass 
+    public static void doSetup() throws Exception {
+        
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        // Drop the HBase table metadata for this test
+        props.put(QueryServices.DROP_METADATA_ATTRIB, Boolean.toString(true));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
+    
     
     @Test
     public void testImmutableTableIndexMaintanenceSaltedSalted() throws Exception {
@@ -282,6 +268,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
              "CLIENT MERGE SORT\n" + 
              "CLIENT 2 ROW LIMIT";
         assertEquals(expectedPlan,QueryUtil.getExplainPlan(rs));
+        
+        conn.createStatement().execute("DROP TABLE t ");
     }
 
     @Test
@@ -312,6 +300,22 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertEquals("chara", rs.getString(1));
         assertEquals(4, rs.getInt(2));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+        
+        query = "SELECT char_col1, int_col1 from " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE;
+        rs = conn.createStatement().executeQuery(query);
+        assertTrue(rs.next());
+        
+        query = "SELECT char_col1, int_col1 from IDX ";
+        try{
+            rs = conn.createStatement().executeQuery(query);
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TABLE_UNDEFINED.getErrorCode(), e.getErrorCode());
+        }
+        
+        
     }
     
     @Test
@@ -334,11 +338,18 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
 
-        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true ");
+        conn.createStatement().execute("ALTER TABLE t SET IMMUTABLE_ROWS=true");
 
         assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
                 .isImmutableRows());
+        
+        
+        conn.createStatement().execute("ALTER TABLE t SET immutable_rows=false");
 
+        assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("T")
+                .isImmutableRows());
+        
+       
     }
     
     @Test
@@ -391,6 +402,8 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         assertTrue(rs.next());
         assertEquals(3L, rs.getLong(1));
         assertFalse(rs.next());
+        
+        conn.createStatement().execute("DROP INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
     
     
@@ -426,5 +439,95 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
         }
             
         conn.createStatement().execute("DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
+    }
+    
+    @Test
+    public void testGroupByCount() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col2)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT int_col2, COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " GROUP BY int_col2");
+        assertTrue(rs.next());
+        assertEquals(1,rs.getInt(2));
+    }
+    
+    @Test   
+    public void testSelectDistinctOnTableWithSecondaryImmutableIndex() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col2)";
+        Connection conn = null;
+        PreparedStatement stmt = null;
+
+        try {
+            try {
+                conn = DriverManager.getConnection(getUrl(), props);
+                conn.setAutoCommit(false);
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+                ResultSet rs = conn.createStatement().executeQuery("SELECT distinct int_col2 FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " where int_col2 > 0");
+                assertTrue(rs.next());
+                assertEquals(3, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(5, rs.getInt(1));
+                assertFalse(rs.next());
+            } finally {
+                if (stmt != null) {
+                    stmt.close();
+                }
+            } 
+        } finally {
+            if (conn != null) {
+                conn.close();
+            }
+        }
+    }
+    
+    @Test
+    public void testInClauseWithIndexOnColumnOfUsignedIntType() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col1)";
+        try {
+            try {
+                conn = DriverManager.getConnection(getUrl(), props);
+                conn.setAutoCommit(false);
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+                ResultSet rs = conn.createStatement().executeQuery("SELECT int_col1 FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " where int_col1 IN (1, 2, 3, 4)");
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(3, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+                assertFalse(rs.next());
+            } finally {
+                if(stmt != null) {
+                    stmt.close();
+                }
+            } 
+        } finally {
+            if(conn != null) {
+                conn.close();
+            }
+        }
     }
 }

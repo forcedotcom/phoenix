@@ -56,8 +56,7 @@ public interface KeyPart {
      * @param op comparison operator (=, <=, <, >=, >, !=)
      * @param rhs the constant on the RHS of an expression.
      * @return the key range that encompasses the range for the
-     *  expression for which this keyPart is associated or null if the
-     *  the expression cannot possibly be satisfied.
+     *  expression for which this keyPart is associated
      *  
      * @see com.salesforce.phoenix.expression.function.ScalarFunction#newKeyPart(KeyPart)
      */

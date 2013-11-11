@@ -271,7 +271,7 @@ public class WhereOptimizer {
         };
 
         private static boolean isDegenerate(List<KeyRange> keyRanges) {
-            return keyRanges == null || keyRanges.size() == 1 && keyRanges.get(0) == KeyRange.EMPTY_RANGE;
+            return keyRanges == null || keyRanges.isEmpty() || (keyRanges.size() == 1 && keyRanges.get(0) == KeyRange.EMPTY_RANGE);
         }
         
         private static KeySlots newKeyParts(KeySlot slot, Expression extractNode, KeyRange keyRange) {
@@ -756,10 +756,12 @@ public class WhereOptimizer {
             // Handles cases like WHERE substr(foo,1,3) IN ('aaa','bbb')
             for (Expression key : keyExpressions) {
                 KeyRange range = childPart.getKeyRange(CompareOp.EQUAL, key);
-                if (mod != null) {
-                    range = range.invert();
+                if (range != KeyRange.EMPTY_RANGE) { // null means it can't possibly be in range
+                    if (mod != null) {
+                        range = range.invert();
+                    }
+                    ranges.add(range);
                 }
-                ranges.add(range);
             }
             return newKeyParts(childSlot, node, ranges, null);
         }
@@ -988,15 +990,16 @@ public class WhereOptimizer {
             }
            @Override
             public KeyRange getKeyRange(CompareOp op, Expression rhs) {
-                // Since row value constructors in equality expressions are always rewritten
-                // to be simple equality expressions, we know that equality here is for an
-                // IN (1,2,3) expression. In that case, we want to use the regular key part
-                // logic, as the rhs is not a row value constructor.
+               // With row value constructors, we need to convert the operator for any transformation we do on individual values
+               // to prevent keys from being increased to the next key as would be done for fixed width values. The next key is
+               // done to compensate for the start key (lower range) always being inclusive (thus we convert > to >=) and the
+               // end key (upper range) always being exclusive (thus we convert <= to <). 
+               final CompareOp rvcElementOp = op == CompareOp.LESS_OR_EQUAL ? CompareOp.LESS : op == CompareOp.GREATER ? CompareOp.GREATER_OR_EQUAL : op;
                 if (op != CompareOp.EQUAL) {
                     boolean usedAllOfLHS = !nodes.isEmpty();
-                    // Need special case for a single valued lhs row value constructor (only when
-                    // we're extracting it), as this may subtly affect the CompareOp we need
-                    // to use. For example: a < (1,2) is true if a = 1, so we need to switch
+                    // We need to transform the comparison operator for a LHS row value constructor
+                    // that is shorter than a RHS row value constructor when we're extracting it.
+                    // For example: a < (1,2) is true if a = 1, so we need to switch
                     // the compare op to <= like this: a <= 1. Since we strip trailing nulls
                     // in the rvc, we don't need to worry about the a < (1,null) case.
                     if (usedAllOfLHS && rvc.getChildren().size() < rhs.getChildren().size()) {
@@ -1023,12 +1026,14 @@ public class WhereOptimizer {
                     // the current RHS (which has already been coerced to match the LHS expression). We pass through an
                     // implementation of ExpressionComparabilityWrapper that transforms the RHS key to match the row key
                     // structure of the LHS column. This is essentially optimizing out the expressions on the LHS by
-                    // applying the appropriate transformations to the RHS key (through the KeyPart#getKeyRange method).
+                    // applying the appropriate transformations to the RHS (through the KeyPart#getKeyRange method).
+                    // For example, with WHERE (invert(a),b) < ('abc',5), the 'abc' would be inverted by going through the
+                    // childPart.getKeyRange defined for the invert function.
                     rhs = RowValueConstructorExpression.coerce(rvc, rhs, new ExpressionComparabilityWrapper() {
 
                         @Override
                         public Expression wrap(final Expression lhs, final Expression rhs) {
-                            final KeyPart childPart = keySlotsIterator.hasNext() ? keySlotsIterator.next().iterator().next().getKeyPart() : null;
+                            final KeyPart childPart = keySlotsIterator.next().iterator().next().getKeyPart();
                             // TODO: DelegateExpression
                             return new BaseTerminalExpression() {
                                 @Override
@@ -1043,15 +1048,23 @@ public class WhereOptimizer {
                                         ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
                                         return true;
                                     }
-                                    // Use the EQUAL operator here, because we're applying transformations to the
-                                    // children of the row value constructor here. After this transformation, we
-                                    // use the operator passed through to do a final transform on the RHS row value
-                                    // constructor.
-                                    KeyRange range = childPart.getKeyRange(CompareOp.EQUAL, rhs);
-                                    byte[] key = range.getLowerRange();
-                                    // FIXME: this is kind of a hack. We don't want to fill the key yet, but the
-                                    // above will do that.
-                                    if (lhs.getByteSize() != null) {
+                                    KeyRange range = childPart.getKeyRange(rvcElementOp, rhs);
+                                    // This can happen when an EQUAL operator is used and the expression cannot possibly match.
+                                    if (range == KeyRange.EMPTY_RANGE) {
+                                        return false;
+                                    }
+                                    // We have to take the range and condense it down to a single key. We use which ever
+                                    // part of the range is inclusive (which implies being bound as well). This works in all
+                                    // cases, including this substring one, which produces a lower inclusive range and an
+                                    // upper non inclusive range.
+                                    // (a, substr(b,1,1)) IN (('a','b'), ('c','d'))
+                                    byte[] key = range.isLowerInclusive() ? range.getLowerRange() : range.getUpperRange();
+                                    // FIXME: this is kind of a hack. The above call will fill a fixed width key, but
+                                    // we don't want to fill the key yet because it can throw off our the logic we
+                                    // use to compute the next key when we evaluate the RHS row value constructor
+                                    // below.  We could create a new childPart with a delegate column that returns
+                                    // null for getByteSize().
+                                    if (lhs.getByteSize() != null && key.length != lhs.getByteSize()) {
                                         key = Arrays.copyOf(key, lhs.getByteSize());
                                     }
                                     ptr.set(key);

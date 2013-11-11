@@ -535,6 +535,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (tableType.equals(PTableType.SYSTEM.getSerializedValue())) {
             return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
+        List<byte[]> tableNamesToDelete = Lists.newArrayList();
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
@@ -554,7 +555,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     acquireLock(region, key, lids);
                 }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
-                result = doDropTable(key, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids);
+                result = doDropTable(key, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids, tableNamesToDelete);
                 if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                     return result;
                 }
@@ -580,7 +581,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private MetaDataMutationResult doDropTable(byte[] key, byte[] schemaName, byte[] tableName, PTableType tableType, 
-            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
+            List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids, List<byte[]> tableNamesToDelete) throws IOException, SQLException {
         long clientTimeStamp = MetaDataUtil.getClientTimeStamp(rowsToDelete);
 
         RegionCoprocessorEnvironment env = getEnvironment();
@@ -589,6 +590,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         Map<ImmutableBytesPtr,PTable> metaDataCache = GlobalCache.getInstance(this.getEnvironment()).getMetaDataCache();
         PTable table = metaDataCache.get(cacheKey);
+        
         // We always cache the latest version - fault in if not in cache
         if (table != null || (table = buildTable(key, cacheKey, region, HConstants.LATEST_TIMESTAMP)) != null) {
             if (table.getTimeStamp() < clientTimeStamp) {
@@ -607,9 +609,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if (table == null && buildDeletedTable(key, cacheKey, region, clientTimeStamp) != null) {
             return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
-        
-        List<byte[]> indexNames = Lists.newArrayList();
-        // Get mutatioins for main table.
+        // Get mutations for main table.
         Scan scan = newTableRowsScan(key, MIN_TABLE_TIMESTAMP, clientTimeStamp);
         RegionScanner scanner = region.getScanner(scan);
         List<KeyValue> results = Lists.newArrayList();
@@ -623,6 +623,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
+        tableNamesToDelete.add(table.getName().getBytes());
+        List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
         byte[][] rowKeyMetaData = new byte[4][];
         byte[] rowKey;
@@ -652,13 +654,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             Delete delete = new Delete(indexKey, clientTimeStamp, null);
             rowsToDelete.add(delete);
             acquireLock(region, indexKey, lids);
-            MetaDataMutationResult result = doDropTable(indexKey, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids);
+            MetaDataMutationResult result = doDropTable(indexKey, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids, tableNamesToDelete);
             if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                 return result;
             }
         }
         
-        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table);
+        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, EnvironmentEdgeManager.currentTimeMillis(), table, tableNamesToDelete);
     }
 
     private static interface ColumnMutator {
@@ -800,6 +802,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     @Override
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetaData) throws IOException {
         final long clientTimeStamp = MetaDataUtil.getClientTimeStamp(tableMetaData);
+        final List<byte[]> tableNamesToDelete = Lists.newArrayList();
         return mutateColumn(tableMetaData, new ColumnMutator() {
             @SuppressWarnings("deprecation")
             @Override
@@ -843,7 +846,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                             byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, tableName, index.getTableName().getBytes());
                                             // Drop the link between the data table and the index table
                                             additionalTableMetaData.add(new Delete(linkKey, clientTimeStamp, null));
-                                            doDropTable(indexKey, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids);
+                                            doDropTable(indexKey, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids, tableNamesToDelete);
                                             // TODO: return in result?
                                         } else {
                                             invalidateList.add(new ImmutableBytesPtr(indexKey));
@@ -869,6 +872,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 return null;
             }
         });
+        
     }
     
     private static MetaDataMutationResult checkTableKeyInRegion(byte[] key, HRegion region) {

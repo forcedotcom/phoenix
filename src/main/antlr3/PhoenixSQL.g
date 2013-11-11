@@ -463,7 +463,7 @@ alter_index_node returns [AlterIndexStatement ret]
 // Parse an alter table statement.
 alter_table_node returns [AlterTableStatement ret]
     :   ALTER TABLE t=from_table_name
-        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_def) (p=properties)?) | (SET (p=properties)) )
+        ( (DROP COLUMN (IF ex=EXISTS)? c=column_name) | (ADD (IF NOT ex=EXISTS)? (d=column_defs) (p=properties)?) | (SET (p=properties)) )
         {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
     ;
 
@@ -803,20 +803,6 @@ literal_or_bind_value returns [ParseNode ret]
     |   b=bind_name { $ret = factory.bind(b); }    
     ;
 
-// The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
-literal_expression returns [ParseNode ret]
-    :   e=literal_or_bind_value { $ret = e; }
-    |   LPAREN l=literal_expressions RPAREN 
-        { 
-            if(l.size() == 1) {
-                $ret = l.get(0);
-            }   
-            else {
-                $ret = factory.rowValueConstructor(l);
-            } 
-        }
-    ;
-
 // Get a string, integer, double, date, boolean, or NULL value.
 literal returns [LiteralParseNode ret]
     :   t=STRING_LITERAL { ret = factory.literal(t.getText()); }
@@ -876,12 +862,7 @@ double_literal returns [LiteralParseNode ret]
 
 list_expressions returns [List<ParseNode> ret]
 @init{ret = new ArrayList<ParseNode>(); }
-    :   LPAREN v = literal_expressions RPAREN { $ret = v; }
-;
-
-literal_expressions returns [List<ParseNode> ret]
-@init{ret = new ArrayList<ParseNode>(); }
-    :   v = literal_expression {$ret.add(v);}  (COMMA v = literal_expression {$ret.add(v);} )*
+    :   LPAREN  v = expression {$ret.add(v);}  (COMMA v = expression {$ret.add(v);} )* RPAREN
 ;
 
 // parse a field, if it might be a bind name.

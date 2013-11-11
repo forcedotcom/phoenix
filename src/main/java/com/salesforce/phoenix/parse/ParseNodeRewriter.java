@@ -160,6 +160,11 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     private final ColumnResolver resolver;
     private final Map<String, ParseNode> aliasMap;
+    private int nodeCount;
+    
+    public boolean isTopLevel() {
+        return nodeCount == 0;
+    }
     
     protected ParseNodeRewriter() {
         this.resolver = null;
@@ -181,6 +186,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     protected void reset() {
+        this.nodeCount = 0;
     }
     
     private static interface CompoundNodeFactory {
@@ -450,6 +456,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     
     @Override
     public List<ParseNode> newElementList(int size) {
+        nodeCount += size;
         return new ArrayList<ParseNode>(size);
     }
     
@@ -460,6 +467,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     @Override
     public void addElement(List<ParseNode> l, ParseNode element) {
+        nodeCount--;
         if (element != null) {
             l.add(element);
         }
@@ -467,23 +475,34 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 
     @Override
     public ParseNode visitLeave(RowValueConstructorParseNode node, List<ParseNode> children) throws SQLException {
-        if (node.isConstant()) {
-            // Strip trailing nulls from rvc as they have no meaning
-            if (children.get(children.size()-1) == null) {
-                children = Lists.newArrayList(children);
-                do {
-                    children.remove(children.size()-1);
-                } while (children.size() > 0 && children.get(children.size()-1) == null);
-                // If we're down to a single child, it's not a rvc anymore
-                if (children.size() == 0) {
-                    return null;
-                }
-                if (children.size() == 1) {
-                    return children.get(0);
-                }
+        // Strip trailing nulls from rvc as they have no meaning
+        if (children.get(children.size()-1) == null) {
+            children = Lists.newArrayList(children);
+            do {
+                children.remove(children.size()-1);
+            } while (children.size() > 0 && children.get(children.size()-1) == null);
+            // If we're down to a single child, it's not a rvc anymore
+            if (children.size() == 0) {
+                return null;
+            }
+            if (children.size() == 1) {
+                return children.get(0);
             }
         }
-        return leaveCompoundNode(node, children, new CompoundNodeFactory() {
+        // Flatten nested row value constructors, as this makes little sense and adds no information
+        List<ParseNode> flattenedChildren = children;
+        for (int i = 0; i < children.size(); i++) {
+            ParseNode child = children.get(i);
+            if (child instanceof RowValueConstructorParseNode) {
+                if (flattenedChildren == children) {
+                    flattenedChildren = Lists.newArrayListWithExpectedSize(children.size() + child.getChildren().size());
+                    flattenedChildren.addAll(children.subList(0, i));
+                }
+                flattenedChildren.addAll(child.getChildren());
+            }
+        }
+        
+        return leaveCompoundNode(node, flattenedChildren, new CompoundNodeFactory() {
             @Override
             public ParseNode createNode(List<ParseNode> children) {
                 return NODE_FACTORY.rowValueConstructor(children);
