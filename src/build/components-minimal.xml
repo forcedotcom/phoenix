@@ -11,8 +11,6 @@
       <includes>
         <include>net.sf.opencsv:opencsv</include>
         <include>org.antlr:antlr*</include>
-        <include>jline:jline</include>
-        <include>sqlline:sqlline</include>
       </includes>
     </dependencySet>
 
