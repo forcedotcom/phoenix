@@ -1586,7 +1586,6 @@ public enum PDataType {
             switch (actualType) {
             case TIMESTAMP:
                 Timestamp v = new Timestamp(Bytes.toLong(b, o, Bytes.SIZEOF_LONG));
-                v.setNanos(Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT));
                 return v;
             case DATE:
             case TIME:
