@@ -1,6 +1,7 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.end2end.BaseConnectedQueryTest.getUrl;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -9,6 +10,7 @@ import java.sql.ResultSet;
 import org.apache.hadoop.hbase.util.Bytes;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import org.junit.Test;
 
 /**
@@ -67,11 +69,11 @@ public class HexToBytesFunctionTest extends BaseHBaseManagedTimeTest {
 
 		try {
 			ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM test_table WHERE page_offset_id = HEX_TO_BYTES('zzxxuuyyzzxxuuyy')");
-		} catch (NumberFormatException e) {
+		} catch (IllegalDataException e) {
 			assertTrue(true);
 			return;
 		}
-		assertFalse(false);
+		fail();
 	}
 
 	@Test
@@ -83,10 +85,10 @@ public class HexToBytesFunctionTest extends BaseHBaseManagedTimeTest {
 
 		try {
 			ResultSet rs = conn.createStatement().executeQuery("SELECT * FROM test_table WHERE page_offset_id = HEX_TO_BYTES('8')");
-		} catch (StringIndexOutOfBoundsException e) {
+		} catch (IllegalDataException e) {
 			assertTrue(true);
 			return;
 		}
-		assertFalse(false);
+		fail();
 	}
 }

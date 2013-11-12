@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.function;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import java.sql.SQLException;
@@ -53,26 +54,6 @@ public class HexToBytesFunction extends ScalarFunction {
 	}
 
 	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + getExpression().hashCode();
-		return result;
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		if (obj == null) {
-			return false;
-		}
-		if (getClass() != obj.getClass()) {
-			return false;
-		}
-		final HexToBytesFunction other = (HexToBytesFunction) obj;
-		return true;
-	}
-
-	@Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
 		Expression expression = getExpression();
 		if (!expression.evaluate(tuple, ptr)) {
@@ -87,7 +68,13 @@ public class HexToBytesFunction extends ScalarFunction {
 
 		byte[] out = new byte[hexStr.length() / 2];
 		for (int i = 0; i < hexStr.length(); i = i + 2) {
-			out[i / 2] = (byte) Integer.parseInt(hexStr.substring(i, i + 2), 16);
+			try {
+				out[i / 2] = (byte) Integer.parseInt(hexStr.substring(i, i + 2), 16);
+			} catch (NumberFormatException ex) {
+				throw new IllegalDataException("Value " + hexStr.substring(i, i + 2) + " cannot be cast to hex number");
+			} catch (StringIndexOutOfBoundsException ex) {
+				throw new IllegalDataException("Invalid value length, cannot cast to hex number (" + hexStr + ")");
+			}
 		}
 
 		ptr.set(out);
@@ -97,7 +84,7 @@ public class HexToBytesFunction extends ScalarFunction {
 
 	@Override
 	public PDataType getDataType() {
-		return PDataType.BINARY;
+		return PDataType.VARBINARY;
 	}
 
 	@Override
@@ -112,5 +99,15 @@ public class HexToBytesFunction extends ScalarFunction {
 	@Override
 	public String getName() {
 		return NAME;
+	}
+
+	@Override
+	public Integer getByteSize() {
+		return getExpression().getByteSize();
+	}
+
+	@Override
+	public Integer getMaxLength() {
+		return getExpression().getMaxLength();
 	}
 }
