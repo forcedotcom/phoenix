@@ -149,7 +149,9 @@ public class HashJoinPlan implements QueryPlan {
         		planSteps.add("        " + step);
         	}
         }
-        planSteps.add("    SERVER FILTER BY " + joinInfo.getPostJoinFilterExpression().toString());
+        if (joinInfo.getPostJoinFilterExpression() != null) {
+        	planSteps.add("    SERVER FILTER BY " + joinInfo.getPostJoinFilterExpression().toString());
+        }
         
         return new ExplainPlan(planSteps);
     }
