@@ -52,6 +52,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -591,4 +592,67 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         }
     }
 
-}
+    @Test
+    public void testDropColumnsWithImutability() throws Exception {
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+
+        try {
+
+            conn.createStatement()
+                    .execute(
+                            "CREATE TABLE test_table "
+                                    + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3");
+
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+
+            conn.createStatement().execute("CREATE INDEX i ON test_table (col1) include (cf1.col2) SALT_BUCKETS=4");
+            query = "SELECT * FROM i";
+            rs = conn.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+
+            String dml = "UPSERT INTO test_table VALUES(?,?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "b");
+            stmt.setInt(2, 10);
+            stmt.setInt(3, 20);
+            stmt.setInt(4, 30);
+            stmt.setInt(5, 40);
+            stmt.execute();
+            stmt.setString(1, "a");
+            stmt.setInt(2, 101);
+            stmt.setInt(3, 201);
+            stmt.setInt(4, 301);
+            stmt.setInt(5, 401);
+            stmt.execute();
+            conn.commit();
+
+            query = "SELECT * FROM test_table order by col1";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("b", rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertFalse(rs.next());
+
+            String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col3";
+            conn.createStatement().execute(ddl);
+
+            ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col1";
+            conn.createStatement().execute(ddl);
+
+            query = "SELECT * FROM i";
+            try {
+                rs = conn.createStatement().executeQuery(query);
+                fail();
+            } catch (TableNotFoundException e) {}
+        } finally {
+            conn.close();
+        }
+    }
+ }
