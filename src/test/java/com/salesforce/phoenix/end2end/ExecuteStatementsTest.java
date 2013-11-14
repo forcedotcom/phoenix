@@ -79,7 +79,7 @@ public class ExecuteStatementsTest extends BaseHBaseManagedTimeTest {
             "    CONSTRAINT pk PRIMARY KEY (inst,host,date))\n" +
             "    split on (?,?,?);\n" +
             "alter table " + PTSDB_NAME + " add if not exists val decimal;\n" +  // Shouldn't error out b/c of if not exists clause
-            "alter table " + PTSDB_NAME + " drop column if exists blah;\n" +  // Shouldn't error out b/c of if exists clause
+            "alter table " + PTSDB_NAME + " drop columns if exists blah;\n" +  // Shouldn't error out b/c of if exists clause
             "drop table if exists FOO.BAR;\n" + // Shouldn't error out b/c of if exists clause
             "UPSERT INTO " + PTSDB_NAME + "(date, val, host) " +
             "    SELECT current_date(), x_integer+2, entity_id FROM ATABLE WHERE a_integer >= ?;" +
