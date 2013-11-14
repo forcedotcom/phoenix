@@ -857,7 +857,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn5 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         assertTrue(conn5.createStatement().executeQuery("SELECT 1 FROM atable WHERE b_string IS NOT NULL").next());
-        conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN b_string");
+        conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMNS b_string");
         conn5.close();
  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
@@ -897,7 +897,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn1 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
-            conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN entity_id");
+            conn1.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMNS entity_id");
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 506 (42817): Primary key column may not be dropped."));
@@ -929,7 +929,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn5 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn5.createStatement().executeUpdate("ALTER TABLE " + MDTEST_NAME + " DROP COLUMN col1");
+        conn5.createStatement().executeUpdate("ALTER TABLE " + MDTEST_NAME + " DROP COLUMNS col1");
         conn5.close();
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
@@ -941,7 +941,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 7));
         Connection conn7 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn7.createStatement().executeUpdate("ALTER TABLE " + MDTEST_NAME + " DROP COLUMN col2");
+        conn7.createStatement().executeUpdate("ALTER TABLE " + MDTEST_NAME + " DROP COLUMNS col2");
         conn7.close();
         
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 8));
@@ -960,9 +960,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 5));
         Connection conn5 = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-        conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN x_integer");
+        conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMNS x_integer");
         try {
-            conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMN y_integer");
+            conn5.createStatement().executeUpdate("ALTER TABLE " + ATABLE_NAME + " DROP COLUMNS y_integer");
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1013 (42M04): Table already exists. tableName=ATABLE"));

@@ -271,8 +271,8 @@ public class ParseNodeFactory {
         return new AddColumnStatement(table, columnDefs, ifNotExists, props);
     }
     
-    public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
-        return new DropColumnStatement(table, columnNode, ifExists);
+    public DropColumnStatement dropColumn(NamedTableNode table,  List<ColumnName> columnNodes, boolean ifExists) {
+        return new DropColumnStatement(table, columnNodes, ifExists);
     }
     
     public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {

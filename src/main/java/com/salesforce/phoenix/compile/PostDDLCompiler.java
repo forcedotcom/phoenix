@@ -111,7 +111,7 @@ public class PostDDLCompiler {
                     /*
                      * Handles:
                      * 1) deletion of all rows for a DROP TABLE and subsequently deletion of all rows for a DROP INDEX;
-                     * 2) deletion of all column values for a ALTER TABLE DROP COLUMN
+                     * 2) deletion of all column values for a ALTER TABLE DROP COLUMNS
                      * 3) updating the necessary rows to have an empty KV
                      */
                     long totalMutationCount = 0;
