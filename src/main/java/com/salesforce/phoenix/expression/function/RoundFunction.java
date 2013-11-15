@@ -64,7 +64,7 @@ import com.salesforce.phoenix.util.ByteUtil;
  * @since 0.1
  */
 @BuiltInFunction(name=RoundFunction.NAME, args= {
-    @Argument(allowedTypes={PDataType.DATE}),
+    @Argument(allowedTypes={PDataType.DATE, PDataType.TIMESTAMP, PDataType.DECIMAL}),
     @Argument(enumeration="TimeUnit"),
     @Argument(allowedTypes={PDataType.INTEGER}, isConstant=true, defaultValue="1")} )
 public class RoundFunction extends ScalarFunction {

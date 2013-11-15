@@ -67,6 +67,8 @@ import com.salesforce.phoenix.expression.LongMultiplyExpression;
 import com.salesforce.phoenix.expression.LongSubtractExpression;
 import com.salesforce.phoenix.expression.NotExpression;
 import com.salesforce.phoenix.expression.OrExpression;
+import com.salesforce.phoenix.expression.RoundHalfUpDecimalExpression;
+import com.salesforce.phoenix.expression.RoundUpTimestampExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
@@ -658,21 +660,36 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
-        final ParseNode childNode = node.getChildren().get(0);
-        final Expression child = children.get(0);
-        final PDataType dataType = child.getDataType();
-        final PDataType targetDataType = node.getDataType();
-
+        ParseNode childNode = node.getChildren().get(0);
+        PDataType targetDataType = node.getDataType();
+        Expression childExpr = children.get(0);
+        PDataType fromDataType = childExpr.getDataType();
+        
         if (childNode instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
+            context.getBindManager().addParamMetaData((BindParseNode)childNode, childExpr);
         }
-        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
-            // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
-            if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
-                throw new TypeMismatchException(dataType, targetDataType, child.toString());
+        
+        if(fromDataType != null) {
+            /* 
+             * We allow casting from DECIMAL to INTEGER OR LONG. But we don't allow coercion. 
+             * When casting from a decimal to a long or int, we round up the value. When casting 
+             * time stamp to some other coercible data type, we end up rounding the time stamp 
+             * depending on whether or not the corresponding nanos value of the time stamp is greater 
+             * than half a millisecond or 1000000/2 nano seconds.  
+             */
+            if (fromDataType.equals(PDataType.DECIMAL) && (targetDataType.equals(PDataType.LONG) || targetDataType.equals(PDataType.INTEGER))) {
+                childExpr = new RoundHalfUpDecimalExpression(childExpr);
+            } else if (fromDataType.equals(PDataType.TIMESTAMP) && fromDataType.isCoercibleTo(targetDataType)) {
+                childExpr = new RoundUpTimestampExpression(childExpr);
+            } else if (!fromDataType.isCoercibleTo(targetDataType)) {
+                // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
+                if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
+                    throw new TypeMismatchException(fromDataType, targetDataType, childExpr.toString());
+                }
             }
         }
-        return wrapGroupByExpression(CoerceExpression.create(child, targetDataType)); 
+        
+        return CoerceExpression.create(childExpr, targetDataType); 
     }
 
     @Override
