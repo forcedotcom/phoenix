@@ -1586,6 +1586,7 @@ public enum PDataType {
             switch (actualType) {
             case TIMESTAMP:
                 Timestamp v = new Timestamp(Bytes.toLong(b, o, Bytes.SIZEOF_LONG));
+                v.setNanos(v.getNanos() + Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT));
                 return v;
             case DATE:
             case TIME:
@@ -4718,4 +4719,9 @@ public enum PDataType {
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
     
+   /* private static Timestamp createTimeStamp(PDataType dataType) {
+        Timestamp ts = null;
+        //over all this is what we want.
+        return ts;
+    }*/
 }

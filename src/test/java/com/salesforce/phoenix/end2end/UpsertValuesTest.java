@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.closeStatement;
 import static com.salesforce.phoenix.util.TestUtil.closeStmtAndConn;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -41,6 +42,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -221,5 +223,98 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
             closeStmtAndConn(stmt, conn);
         }
     }
+    
+    @Test
+    public void testDemonstrateTimestampSetNanosLosesMillis() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("create table UpsertTimestamp (a integer NOT NULL, t timestamp NOT NULL CONSTRAINT pk PRIMARY KEY (a, t))");
+            stmt.execute();
+        } finally {
+            closeStatement(stmt);
+        }
+        
+        Timestamp ts1 = new Timestamp(120055);
+        ts1.setNanos(60);
+        
+        Timestamp ts2 = new Timestamp(120100);
+        ts2.setNanos(60);
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
+            stmt.setTimestamp(1, ts1);
+            stmt.executeUpdate();
+            conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
+            stmt.setTimestamp(1, ts2);
+            stmt.executeUpdate();
+            conn.commit();
+         } finally {
+            closeStatement(stmt);
+        }
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("select count(*) from UpsertTimestamp where a = 1");
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                assertEquals(2, rs.getInt(1));
+            }
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+    }
+    
+    @Test
+    public void testDemonstrateCorrectUsageOfTimestamp() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("create table UpsertTimestamp (a integer NOT NULL, t timestamp NOT NULL CONSTRAINT pk PRIMARY KEY (a, t))");
+            stmt.execute();
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+        
+        Timestamp ts1 = new Timestamp(120055);
+        ts1.setNanos(ts1.getNanos() + 60);
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
+            stmt.setTimestamp(1, ts1);
+            stmt.executeUpdate();
+            conn.commit();
+         } finally {
+             closeStmtAndConn(stmt, conn);
+        }
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("select t from UpsertTimestamp");
+            ResultSet rs = stmt.executeQuery();
+            while(rs.next()) {
+                System.out.println(ts1.getNanos());
+                System.out.println(rs.getTimestamp(1).getNanos());
+                assertEquals(ts1, rs.getTimestamp(1));
+            }
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+    }
+
 
 }
