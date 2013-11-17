@@ -92,8 +92,12 @@ public class MapReduceJob {
 				createDDL[0]		= context.getConfiguration().get("createTableDDL");
 				createDDL[1]		= context.getConfiguration().get("createIndexDDL");
 				ignoreUpsertError 	= context.getConfiguration().get("IGNORE.INVALID.ROW").equalsIgnoreCase("0") ? false : true;
-				
+
 				for(String s : createDDL){
+					if(s == null || s.trim().length() == 0) {
+						continue;
+					}
+
 					try {
 						PreparedStatement prepStmt = conn_none.prepareStatement(s);
 						prepStmt.execute();
