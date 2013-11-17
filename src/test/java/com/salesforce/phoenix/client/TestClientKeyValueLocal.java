@@ -34,6 +34,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.DataInputBuffer;
 import org.apache.hadoop.io.DataOutputBuffer;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.client.ClientKeyValue;
@@ -204,6 +205,7 @@ public class TestClientKeyValueLocal {
    * @throws Exception
    */
   @Test
+  @Ignore("Only supported with HBase 0.94.14")
   public void testUsableWithPut() throws Exception {
     final byte[] a = Bytes.toBytes("aaa");
     byte[] family1 = Bytes.toBytes("abc");
@@ -229,6 +231,7 @@ public class TestClientKeyValueLocal {
    * @throws Exception
    */
   @Test
+  @Ignore("Only supported with HBase 0.94.14")
   public void testUsableWithDelete() throws Exception {
     final byte[] a = Bytes.toBytes("aaa");
     byte[] family1 = Bytes.toBytes("abc");

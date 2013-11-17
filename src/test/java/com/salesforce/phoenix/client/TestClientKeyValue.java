@@ -44,6 +44,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -76,6 +77,7 @@ public class TestClientKeyValue {
    * @throws Exception
    */
   @Test
+  @Ignore("Only supported with HBase 0.94.14")
   public void testClientKeyValue() throws Exception {
     byte[] TABLE = Bytes.toBytes("testClientKeyValue");
     HTable table = TEST_UTIL.createTable(TABLE, new byte[][] { FAMILY });
