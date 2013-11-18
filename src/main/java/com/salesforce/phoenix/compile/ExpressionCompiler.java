@@ -97,6 +97,7 @@ import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PTableType;
@@ -449,7 +450,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             Object value = null;
             PDataType type = func.getDataType();
             if (func.evaluate(null, ptr)) {
-                value = type.toObject(ptr);
+                try {
+                    value = type.toObject(ptr);
+                } catch (IllegalDataException e) {
+                    throw new SQLException(e);
+                }
             }
             return LiteralExpression.newConstant(value, type);
         }
