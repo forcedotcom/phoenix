@@ -40,7 +40,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
 public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(0, RoundingMode.CEILING);
+    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
     
     public CeilingDecimalExpression() {
     }
