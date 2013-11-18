@@ -404,6 +404,23 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         
         // The above returns all columns, starting with the PK columns
         assertTrue(rs.next());
+        
+        rs = dbmd.getColumns("", CUSTOM_ENTITY_DATA_SCHEMA_NAME.toLowerCase(), CUSTOM_ENTITY_DATA_NAME.toLowerCase(), "key_prefix");
+        assertTrue(rs.next());
+        assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
+        assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(null, rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("key_prefix"), rs.getString("COLUMN_NAME"));
+        
+        rs = dbmd.getColumns("", CUSTOM_ENTITY_DATA_SCHEMA_NAME.toLowerCase(), CUSTOM_ENTITY_DATA_NAME.toLowerCase(), "key_prefix".toUpperCase());
+        assertTrue(rs.next());
+        assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
+        assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
+        assertEquals(null, rs.getString("TABLE_CAT"));
+        assertEquals(SchemaUtil.normalizeIdentifier("key_prefix"), rs.getString("COLUMN_NAME"));
+        
+        assertFalse(rs.next());
+        
     }
     
     @Test
