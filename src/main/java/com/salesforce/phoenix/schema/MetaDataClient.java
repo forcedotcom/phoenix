@@ -1136,7 +1136,6 @@ public class MetaDataClient {
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         String familyName = null;
-        
         StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TABLE_SCHEM_NAME);
         if (schemaName == null || schemaName.length() == 0) {
             buf.append(" IS NULL AND ");
