@@ -391,7 +391,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public String getIdentifierQuoteString() throws SQLException {
-        return "'";
+        return "\"";
     }
 
     @Override
