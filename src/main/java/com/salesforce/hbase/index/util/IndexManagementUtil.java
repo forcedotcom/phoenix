@@ -44,7 +44,7 @@ public class IndexManagementUtil {
         // private ctor for util classes
     }
 
-    private static final String INDEX_WAL_EDIT_CODEC_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec";
+    public static final String INDEX_WAL_EDIT_CODEC_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec";
     private static final String INDEX_HLOG_READER_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader";
     private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
     public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";

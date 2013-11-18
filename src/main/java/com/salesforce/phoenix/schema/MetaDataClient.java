@@ -71,6 +71,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1135,66 +1136,59 @@ public class MetaDataClient {
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         String familyName = null;
-        for(PColumn columnToDrop : columnsToDrop) {
-            List<String> binds = Lists.newArrayListWithExpectedSize(4);
-            StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TABLE_SCHEM_NAME);
-            if (schemaName == null || schemaName.length() == 0) {
-                buf.append(" IS NULL AND ");
-            } else {
-                buf.append(" = ? AND ");
-                binds.add(schemaName);
-            }
-            buf.append (TABLE_NAME_NAME + " = ? AND " + COLUMN_NAME + " = ? AND " + TABLE_CAT_NAME);
-            binds.add(tableName);
-            binds.add(columnToDrop.getName().getString());
-            if (columnToDrop.getFamilyName() == null) {
-                buf.append(" IS NULL");
-            } else {
-                buf.append(" = ?");
-                binds.add(familyName = columnToDrop.getFamilyName().getString());
-            }
-            
-            PreparedStatement colDelete = null;
-            try {
-                colDelete = connection.prepareStatement(buf.toString());
-                for (int i = 0; i < binds.size(); i++) {
-                    colDelete.setString(i+1, binds.get(i));
+        
+        StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TABLE_SCHEM_NAME);
+        if (schemaName == null || schemaName.length() == 0) {
+            buf.append(" IS NULL AND ");
+        } else {
+            buf.append(" = ? AND ");
+        }
+        buf.append (TABLE_NAME_NAME + " = ? AND " + COLUMN_NAME + " = ? AND " + TABLE_CAT_NAME);
+        buf.append(" = ?");
+        
+        // TODO: when DeleteCompiler supports running an fully qualified IN query on the client-side,
+        // we can use a single IN query here instead of executing a different query per column being dropped.
+        PreparedStatement colDelete = connection.prepareStatement(buf.toString());
+        try {
+            for(PColumn columnToDrop : columnsToDrop) {
+                int i = 1;
+                if (schemaName != null & schemaName.length() > 0) {
+                    colDelete.setString(i++, schemaName);    
                 }
+                colDelete.setString(i++, tableName);
+                colDelete.setString(i++, columnToDrop.getName().getString());
+                colDelete.setString(i++, columnToDrop.getFamilyName() == null ? null : columnToDrop.getFamilyName().getString());
                 colDelete.execute();
-            } finally {
-                if(colDelete != null) {
-                    colDelete.close();
-                }
             }
-            
+        } finally {
+            if(colDelete != null) {
+                colDelete.close();
+            }
         }
         
-        List<PColumn> allColumns = Lists.newArrayList(table.getColumns());
-        allColumns.removeAll(columnsToDrop);
-        Collections.sort(allColumns,new Comparator<PColumn> () {
-
-            @Override
+       Collections.sort(columnsToDrop,new Comparator<PColumn> () {
+           @Override
             public int compare(PColumn left, PColumn right) {
                return Ints.compare(left.getPosition(), right.getPosition());
             }
-            
         });
-        
-        int columnPosition = 0; 
+    
+        int columnsToDropIndex = 0;
         PreparedStatement colUpdate = connection.prepareStatement(UPDATE_COLUMN_POSITION);
         colUpdate.setString(1, schemaName);
         colUpdate.setString(2, tableName);
-        for(PColumn column : allColumns) {
-            if(column.getPosition() == columnPosition) {
-                columnPosition ++;
+        for (int i = columnsToDrop.get(columnsToDropIndex).getPosition() + 1; i < table.getColumns().size(); i++) {
+            PColumn column = table.getColumns().get(i);
+            if(columnsToDrop.contains(column)) {
+                columnsToDropIndex++;
                 continue;
             }
             colUpdate.setString(3, column.getName().getString());
             colUpdate.setString(4, column.getFamilyName() == null ? null : column.getFamilyName().getString());
-            colUpdate.setInt(5, ++columnPosition);
+            colUpdate.setInt(5, column.getPosition() - columnsToDropIndex);
             colUpdate.execute();
         }
-        return familyName;
+       return familyName;
     }
     
     /**
@@ -1232,7 +1226,7 @@ public class MetaDataClient {
                 TableRef tableRef = null;
                 List<ColumnRef> columnsToDrop = Lists.newArrayListWithExpectedSize(columnRefs.size() + table.getIndexes().size());
                 List<TableRef> indexesToDrop = Lists.newArrayListWithExpectedSize(table.getIndexes().size());
-                List<Mutation> tableMetaData = Lists.newArrayList();
+                List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize((table.getIndexes().size() + 1) * (1 + table.getColumns().size() - columnRefs.size()));
                 List<PColumn>  tableColumnsToDrop = Lists.newArrayListWithExpectedSize(columnRefs.size());
                 
                 for(ColumnName column : columnRefs) {
@@ -1265,14 +1259,17 @@ public class MetaDataClient {
                             if (SchemaUtil.isPKColumn(indexColumn)) {
                                 indexesToDrop.add(new TableRef(index));
                             } else {
-                                incrementTableSeqNum(index, -1);
                                 indexColumnsToDrop.add(indexColumn);
                                 columnsToDrop.add(new ColumnRef(tableRef, columnToDrop.getPosition()));
                             }
                         } catch (ColumnNotFoundException e) {
                         }
                     }
-                    dropColumnMutations(index, indexColumnsToDrop, tableMetaData);
+                    if(!indexColumnsToDrop.isEmpty()) {
+                        incrementTableSeqNum(index, -1);
+                        dropColumnMutations(index, indexColumnsToDrop, tableMetaData);
+                    }
+                    
                 }
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
@@ -1318,14 +1315,14 @@ public class MetaDataClient {
                     if (code == MutationCode.COLUMN_NOT_FOUND) {
                         connection.addTable(result.getTable());
                         if (!statement.ifExists()) {
-                            throw new ColumnNotFoundException(schemaName, tableName, result.getColumn().getFamilyName().toString(), result.getColumn().getName().getString());
+                            throw new ColumnNotFoundException(schemaName, tableName, Bytes.toString(result.getFamilyName()), Bytes.toString(result.getColumnName()));
                         }
                         return new MutationState(0, connection);
                     }
                     // If we've done any index metadata updates, don't bother trying to update
                     // client-side cache as it would be too painful. Just let it pull it over from
                     // the server when needed.
-                    if (columnsToDrop.size() == tableColumnsToDrop.size() && indexesToDrop.isEmpty()) {
+                    if (columnsToDrop.size() > 0 && indexesToDrop.isEmpty()) {
                         for(PColumn columnToDrop : tableColumnsToDrop) {
                             connection.removeColumn(SchemaUtil.getTableName(schemaName, tableName), columnToDrop.getFamilyName().getString() , columnToDrop.getName().getString(), result.getMutationTime(), seqNum);
                         }

@@ -232,7 +232,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         conn.commit();
         
         assertIndexExists(conn,true);
-        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMNS v1");
+        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMN v1");
         assertIndexExists(conn,false);
         
         query = "SELECT * FROM " + DATA_TABLE_FULL_NAME;
@@ -291,7 +291,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         conn.commit();
         
         assertIndexExists(conn,true);
-        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMNS v2");
+        conn.createStatement().execute("ALTER TABLE " + DATA_TABLE_FULL_NAME + " DROP COLUMN v2");
         // TODO: verify meta data that we get back to confirm our column was dropped
         assertIndexExists(conn,true);
         
@@ -440,7 +440,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
                     "SALT_BUCKETS=4";
             conn.createStatement().execute(ddl);
             
-            ddl = "ALTER TABLE MESSAGES DROP COLUMNS B.JSON";
+            ddl = "ALTER TABLE MESSAGES DROP COLUMN B.JSON";
             conn.createStatement().execute(ddl);
             
             conn.createStatement().executeQuery("select count(*) from messages").next();
@@ -570,10 +570,10 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
                     + "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
             conn.createStatement().execute(ddl);
 
-            ddl = "ALTER TABLE test_table DROP COLUMNS col1";
+            ddl = "ALTER TABLE test_table DROP COLUMN col1";
             conn.createStatement().execute(ddl);
 
-            ddl = "ALTER TABLE test_table DROP COLUMNS cf1.col2";
+            ddl = "ALTER TABLE test_table DROP COLUMN cf1.col2";
             conn.createStatement().execute(ddl);
         } finally {
             conn.close();
@@ -618,12 +618,11 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         conn.setAutoCommit(false);
 
         try {
-
             conn.createStatement()
                     .execute(
                             "CREATE TABLE test_table "
                                     + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
-                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3");
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3 ");
 
             String query = "SELECT * FROM test_table";
             ResultSet rs = conn.createStatement().executeQuery(query);
@@ -658,10 +657,10 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             assertEquals("a", rs.getString(1));
             assertFalse(rs.next());
 
-            String ddl = "ALTER TABLE test_table DROP COLUMNS IF EXISTS col2,col4";
+            String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col2,col3";
             conn.createStatement().execute(ddl);
             
-           ddl = "ALTER TABLE test_table DROP COLUMNS col3,col5";
+            ddl = "ALTER TABLE test_table DROP COLUMN col4,col5";
             try {
                 conn.createStatement().execute(ddl);
                 fail();
@@ -670,21 +669,21 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
                 assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column. columnName=COL5"));
             } 
 
-            ddl = "ALTER TABLE test_table DROP COLUMNS IF EXISTS col1";
+            ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col1";
             conn.createStatement().execute(ddl);
-
+            
             query = "SELECT * FROM i";
             try {
                 rs = conn.createStatement().executeQuery(query);
                 fail();
             } catch (TableNotFoundException e) {}
             
-            query = "select col3 FROM test_table";
+            query = "select col4 FROM test_table";
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
             assertTrue(rs.next());
 
-            query = "select col1,col2,col4 FROM test_table";
+            query = "select col2,col3 FROM test_table";
             try {
                 rs = conn.createStatement().executeQuery(query);
                 fail();
