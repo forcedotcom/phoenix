@@ -818,8 +818,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         if (pkCount > COLUMN_NAME_INDEX 
                                 && Bytes.compareTo(schemaName, rowKeyMetaData[SCHEMA_NAME_INDEX]) == 0 
                                 && Bytes.compareTo(tableName, rowKeyMetaData[TABLE_NAME_INDEX]) == 0 ) {
+                            PColumn columnToDelete = null;
                             try {
-                                PColumn columnToDelete = null;
                                 if (pkCount > FAMILY_NAME_INDEX && rowKeyMetaData[PhoenixDatabaseMetaData.FAMILY_NAME_INDEX].length > 0) {
                                     PColumnFamily family = table.getColumnFamily(rowKeyMetaData[PhoenixDatabaseMetaData.FAMILY_NAME_INDEX]);
                                     columnToDelete = family.getColumn(rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX]);
@@ -856,9 +856,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                     }
                                 }
                             } catch (ColumnFamilyNotFoundException e) {
-                                return new MetaDataMutationResult(MutationCode.COLUMN_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table);
+                                return new MetaDataMutationResult(MutationCode.COLUMN_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table, columnToDelete);
                             } catch (ColumnNotFoundException e) {
-                                return new MetaDataMutationResult(MutationCode.COLUMN_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table);
+                                return new MetaDataMutationResult(MutationCode.COLUMN_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table, columnToDelete);
                             }
                         }
                     }

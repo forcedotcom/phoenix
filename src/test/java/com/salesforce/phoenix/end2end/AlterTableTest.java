@@ -487,7 +487,25 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
           
             ddl = "ALTER TABLE test_table ADD  c1.col2 VARCHAR  , c1.col3 integer , c2.col4 integer";
             conn.createStatement().execute(ddl);
-          
+            
+            ddl = "ALTER TABLE test_table ADD   col5 integer , c1.col2 VARCHAR";
+            try {
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 503 (42711): A duplicate column name was detected in the object definition or ALTER TABLE statement."));
+            }
+            
+            query = "SELECT col5 FROM test_table";
+            try {
+                conn.createStatement().executeQuery(query);
+                fail(); 
+            } catch(SQLException e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column."));
+            }
+       
+            ddl = "ALTER TABLE test_table ADD IF NOT EXISTS col5 integer , c1.col2 VARCHAR";
+            conn.createStatement().execute(ddl);
             
             dml = "UPSERT INTO test_table VALUES(?,?,?,?,?)";
             stmt = conn.prepareStatement(dml);
@@ -600,12 +618,11 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
         conn.setAutoCommit(false);
 
         try {
-
             conn.createStatement()
                     .execute(
                             "CREATE TABLE test_table "
                                     + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
-                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3");
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3 ");
 
             String query = "SELECT * FROM test_table";
             ResultSet rs = conn.createStatement().executeQuery(query);
@@ -640,17 +657,40 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             assertEquals("a", rs.getString(1));
             assertFalse(rs.next());
 
-            String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col3";
+            String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col2,col3";
             conn.createStatement().execute(ddl);
+            
+            ddl = "ALTER TABLE test_table DROP COLUMN col4,col5";
+            try {
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.COLUMN_NOT_FOUND.getErrorCode(), e.getErrorCode());
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column. columnName=COL5"));
+            } 
 
             ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col1";
             conn.createStatement().execute(ddl);
-
+            
             query = "SELECT * FROM i";
             try {
                 rs = conn.createStatement().executeQuery(query);
                 fail();
             } catch (TableNotFoundException e) {}
+            
+            query = "select col4 FROM test_table";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+
+            query = "select col2,col3 FROM test_table";
+            try {
+                rs = conn.createStatement().executeQuery(query);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.COLUMN_NOT_FOUND.getErrorCode(), e.getErrorCode());
+            }
+              
         } finally {
             conn.close();
         }
