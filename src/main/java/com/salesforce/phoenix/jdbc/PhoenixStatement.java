@@ -689,7 +689,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("ALTER TABLE DROP COLUMNS"));
+                    return new ExplainPlan(Collections.singletonList("ALTER TABLE DROP COLUMN"));
                 }
             };
         }
