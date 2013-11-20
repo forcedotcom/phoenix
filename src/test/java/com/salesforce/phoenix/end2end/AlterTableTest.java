@@ -660,6 +660,14 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col2,col3";
             conn.createStatement().execute(ddl);
             
+            ddl = "ALTER TABLE test_table DROP COLUMN a_string,col1";
+            try{
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.CANNOT_DROP_PK.getErrorCode(), e.getErrorCode());
+            }
+            
             ddl = "ALTER TABLE test_table DROP COLUMN col4,col5";
             try {
                 conn.createStatement().execute(ddl);
@@ -695,4 +703,5 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
+   
  }
