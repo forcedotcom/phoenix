@@ -323,8 +323,8 @@ public abstract class BaseTest {
                 "   (item_id char(10) not null primary key, " +
                 "    name varchar not null, " +
                 "    price integer not null, " +
-        		"    discount1 integer not null, " +
-        		"    discount2 integer not null, " +
+                "    discount1 integer not null, " +
+                "    discount2 integer not null, " +
                 "    supplier_id char(10) not null, " +
                 "    description varchar)");
         builder.put(JOIN_SUPPLIER_TABLE, "create table " + JOIN_SUPPLIER_TABLE +

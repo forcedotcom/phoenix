@@ -466,7 +466,7 @@ public class JoinCompiler {
             expressionCompiler = new ExpressionCompiler(context);
             Iterator<Pair<Expression, Expression>> iter = compiled.iterator();
             for (ParseNode condition : conditions) {
-            	Pair<Expression, Expression> p = iter.next();
+                Pair<Expression, Expression> p = iter.next();
                 EqualParseNode equalNode = (EqualParseNode) condition;
                 expressionCompiler.reset();
                 Expression right = equalNode.getRHS().accept(expressionCompiler);
@@ -509,40 +509,40 @@ public class JoinCompiler {
             List<Expression> lConditions = new ArrayList<Expression>(compiled.size());
             List<Expression> rConditions = new ArrayList<Expression>(compiled.size());
             for (Pair<Expression, Expression> pair : compiled) {
-            	lConditions.add(pair.getFirst());
-            	rConditions.add(pair.getSecond());
+                lConditions.add(pair.getFirst());
+                rConditions.add(pair.getSecond());
             }
             
             return new Pair<List<Expression>, List<Expression>>(lConditions, rConditions);
         }
         
         private PDataType getCommonType(PDataType lType, PDataType rType) throws SQLException {
-        	if (lType == rType)
-        		return lType;
+            if (lType == rType)
+                return lType;
 
-        	if ((lType == null || lType.isCoercibleTo(PDataType.DECIMAL))
-            		&& (rType == null || rType.isCoercibleTo(PDataType.DECIMAL))) {
+            if ((lType == null || lType.isCoercibleTo(PDataType.DECIMAL))
+                    && (rType == null || rType.isCoercibleTo(PDataType.DECIMAL))) {
                 return PDataType.DECIMAL;
             }
 
-        	if ((lType == null || lType.isCoercibleTo(PDataType.TIMESTAMP))
-            		&& (rType == null || rType.isCoercibleTo(PDataType.TIMESTAMP))) {
+            if ((lType == null || lType.isCoercibleTo(PDataType.TIMESTAMP))
+                    && (rType == null || rType.isCoercibleTo(PDataType.TIMESTAMP))) {
                 return PDataType.TIMESTAMP;
             }
 
         	if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
-            		&& (rType == null || rType.isCoercibleTo(PDataType.VARCHAR))) {
+                    && (rType == null || rType.isCoercibleTo(PDataType.VARCHAR))) {
                 return PDataType.VARCHAR;
             }
 
-        	if ((lType == null || lType.isCoercibleTo(PDataType.VARBINARY))
-            		&& (rType == null || rType.isCoercibleTo(PDataType.VARBINARY))) {
+            if ((lType == null || lType.isCoercibleTo(PDataType.VARBINARY))
+                    && (rType == null || rType.isCoercibleTo(PDataType.VARBINARY))) {
                 return PDataType.VARBINARY;
             }
 
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
-            	.setMessage("On-clause LHS expression and RHS expression must have common type. LHS type: " + lType + ", RHS type: " + rType)
-            	.build().buildException();
+                .setMessage("On-clause LHS expression and RHS expression must have common type. LHS type: " + lType + ", RHS type: " + rType)
+                .build().buildException();
         }
         
         private class OnNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
