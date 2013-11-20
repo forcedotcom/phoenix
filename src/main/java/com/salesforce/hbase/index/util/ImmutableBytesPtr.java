@@ -104,10 +104,13 @@ public class ImmutableBytesPtr extends ImmutableBytesWritable {
      * @return the backing byte array, copying only if necessary
      */
     public byte[] copyBytesIfNecessary() {
-        if (this.getOffset() == 0 && this.getLength() == this.get().length) {
-            return this.get();
-        }
-        return this.copyBytes();
+    return copyBytesIfNecessary(this);
     }
 
+  public static byte[] copyBytesIfNecessary(ImmutableBytesWritable ptr) {
+    if (ptr.getOffset() == 0 && ptr.getLength() == ptr.get().length) {
+      return ptr.get();
+    }
+    return ptr.copyBytes();
+  }
 }

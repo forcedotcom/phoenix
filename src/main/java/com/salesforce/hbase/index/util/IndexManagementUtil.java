@@ -26,7 +26,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
 
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
@@ -44,10 +43,14 @@ public class IndexManagementUtil {
         // private ctor for util classes
     }
 
-    private static final String INDEX_WAL_EDIT_CODEC_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec";
+    // Don't rely on statically defined classes constants from classes that may not exist
+    // in earlier HBase versions
+    public static final String INDEX_WAL_EDIT_CODEC_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec";
+    public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
+    public static final String WAL_EDIT_CODEC_CLASS_KEY = "hbase.regionserver.wal.codec";
+
     private static final String INDEX_HLOG_READER_CLASS_NAME = "org.apache.hadoop.hbase.regionserver.wal.IndexedHLogReader";
     private static final Log LOG = LogFactory.getLog(IndexManagementUtil.class);
-    public static final String HLOG_READER_IMPL_KEY = "hbase.regionserver.hlog.reader.impl";
 
     public static boolean isWALEditCodecSet(Configuration conf) {
         // check to see if the WALEditCodec is installed
@@ -58,7 +61,7 @@ public class IndexManagementUtil {
         } catch (Throwable t) {
             return false;
         }
-        if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+        if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WAL_EDIT_CODEC_CLASS_KEY, null))) {
             // its installed, and it can handle compression and non-compression cases
             return true;
         }
@@ -84,7 +87,7 @@ public class IndexManagementUtil {
         if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
             if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) { throw new IllegalStateException(
                     "WAL Compression is only supported with " + codecClass
-                            + ". You can install in hbase-site.xml, under " + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY); }
+                            + ". You can install in hbase-site.xml, under " + WAL_EDIT_CODEC_CLASS_KEY); }
         } else {
             throw new IllegalStateException(codecClass + " is not installed, but "
                     + indexLogReaderName + " hasn't been installed in hbase-site.xml under " + HLOG_READER_IMPL_KEY);

@@ -291,10 +291,11 @@ public class CSVBulkLoader {
 		conf.set("schemaName", schemaName);
 		conf.set("tableName", tableName);
 		conf.set("zk", zookeeperIP);
+		conf.set("hbase.zookeeper.quorum", zookeeperIP);
 		conf.set("fs.default.name", hdfsNameNode);
 		conf.set("mapred.job.tracker", mapredIP);
-		if(createPSQL[0] != null) conf.set("createTableSQL", createPSQL[0]);
-		if(createPSQL[1] != null) conf.set("createIndexSQL", createPSQL[1]);
+		if(createPSQL[0] != null) conf.set("createTableDDL", createPSQL[0]);
+		if(createPSQL[1] != null) conf.set("createIndexDDL", createPSQL[1]);
 		
 		//Load the other System-Configs
 		try {
