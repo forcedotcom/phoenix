@@ -473,11 +473,11 @@ public class JoinCompiler {
                 Expression left = p.getFirst();
                 PDataType toType = getCommonType(left.getDataType(), right.getDataType());
                 if (left.getDataType() != toType) {
-                	left = CoerceExpression.create(left, toType);
-                	p.setFirst(left);
+                    left = CoerceExpression.create(left, toType);
+                    p.setFirst(left);
                 }
                 if (right.getDataType() != toType) {
-                	right = CoerceExpression.create(right, toType);
+                    right = CoerceExpression.create(right, toType);
                 }
                 p.setSecond(right);
             }
@@ -530,7 +530,7 @@ public class JoinCompiler {
                 return PDataType.TIMESTAMP;
             }
 
-        	if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
+            if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
                     && (rType == null || rType.isCoercibleTo(PDataType.VARCHAR))) {
                 return PDataType.VARCHAR;
             }
