@@ -27,8 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import java.sql.*;
-import java.text.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.text.Format;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.TimeZone;
 
 import org.apache.commons.lang.time.FastDateFormat;
@@ -132,5 +136,18 @@ public class DateUtil {
         } catch (ParseException e) {
             throw new IllegalDataException(e);
         }
+    }
+    
+    /**
+     * Utility function to work around the weirdness of the {@link Timestamp} constructor.
+     * This method takes the milli-seconds that spills over to the nanos part as part of 
+     * constructing the {@link Timestamp} object.
+     * If we just set the nanos part of timestamp to the nanos passed in param, we 
+     * end up losing the sub-second part of timestamp. 
+     */
+    public static Timestamp getTimestamp(long millis, int nanos) {
+        Timestamp ts = new Timestamp(millis);
+        ts.setNanos(ts.getNanos() + nanos);
+        return ts;
     }
 }
