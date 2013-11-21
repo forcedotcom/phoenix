@@ -34,7 +34,6 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -59,7 +58,7 @@ public class TimestampSubtractExpression extends SubtractExpression {
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal finalResult = BigDecimal.ZERO;
         
-        for(int i=0;i<children.size();i++) {
+        for(int i=0; i<children.size(); i++) {
             if (!children.get(i).evaluate(tuple, ptr)) {
                 return false;
             }
@@ -70,10 +69,7 @@ public class TimestampSubtractExpression extends SubtractExpression {
             PDataType type = children.get(i).getDataType();
             ColumnModifier columnModifier = children.get(i).getColumnModifier();
             if(type == PDataType.TIMESTAMP) {
-                Timestamp timestamp = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, columnModifier);
-                long millisPart = timestamp.getTime();
-                BigDecimal nanosPart = BigDecimal.valueOf((timestamp.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, PDataType.TIMESTAMP, columnModifier));
             } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
                 value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
@@ -87,7 +83,7 @@ public class TimestampSubtractExpression extends SubtractExpression {
                 finalResult = finalResult.subtract(value);
             }
         }
-        Timestamp ts = DateUtil.getTimestamp(finalResult.longValue(), ((finalResult.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(QueryConstants.MILLIS_TO_NANOS_CONVERTOR))).intValue()));
+        Timestamp ts = DateUtil.getTimestamp(finalResult);
         byte[] resultPtr = new byte[getDataType().getByteSize()];
         PDataType.TIMESTAMP.toBytes(ts, resultPtr, 0);
         ptr.set(resultPtr);

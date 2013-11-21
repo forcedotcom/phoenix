@@ -313,7 +313,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testTimestampArithmetic() throws Exception {
+    public void testTimestampAddSubstractArithmetic() throws Exception {
         long ts = nextTimestamp();
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
@@ -346,6 +346,19 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         try {
             conn = DriverManager.getConnection(getUrl(), props);
             stmt = conn.prepareStatement("select (t + (500.0/(1*24*60*60*1000) + 60.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            Timestamp ts2 = rs.getTimestamp(1);
+            assertEquals(expcTs, ts2);
+        } finally {
+            closeStatement(stmt);
+        }
+        
+        expcTs = new Timestamp(ts1.getTime() - 250);
+        expcTs.setNanos(expcTs.getNanos() + 60 - 30); //setting the extra nanos as well as what spilled over from timestamp millis.
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            stmt = conn.prepareStatement("select (t - (250.0/(1*24*60*60*1000) + 30.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
             Timestamp ts2 = rs.getTimestamp(1);
