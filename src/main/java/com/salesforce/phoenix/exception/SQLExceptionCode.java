@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
-
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.MetaDataUtil;
@@ -143,8 +141,8 @@ public enum SQLExceptionCode {
     NO_DELETE_IF_IMMUTABLE_INDEX(1027, "42Y86", "Delete not allowed on a table with IMMUTABLE_ROW with non PK column in index."),
     INVALID_INDEX_STATE_TRANSITION(1028, "42Y87", "Invalid index state transition."),
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
-            + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
-            +  IndexedWALEditCodec.class.getName() + " in the hbase-sites.xml of every region server"),
+            + IndexManagementUtil.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
+            +  IndexManagementUtil.INDEX_WAL_EDIT_CODEC_CLASS_NAME + " in the hbase-sites.xml of every region server"),
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

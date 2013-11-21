@@ -40,8 +40,10 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
 
 
@@ -99,10 +101,21 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         private long mutationTime;
         private PTable table;
         private List<byte[]> tableNamesToDelete;
+        private byte[] columnName;
+        private byte[] familyName;
         
         public MetaDataMutationResult() {
         }
 
+        public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table, PColumn column) {
+            this(returnCode, currentTime, table);
+            if(column != null){
+                this.columnName = column.getName().getBytes();
+                this.familyName = column.getFamilyName().getBytes();    
+            }
+            
+        }
+        
         public MetaDataMutationResult(MutationCode returnCode, long currentTime, PTable table) {
            this(returnCode, currentTime, table, Collections.<byte[]> emptyList());
         }
@@ -125,11 +138,19 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         public PTable getTable() {
             return table;
         }
-        
+ 
         public List<byte[]> getTableNamesToDelete() {
             return tableNamesToDelete;
         }
-
+        
+        public byte[] getColumnName() {
+            return columnName;
+        }
+        
+        public byte[] getFamilyName() {
+            return familyName;
+        }        
+        
         @Override
         public void readFields(DataInput input) throws IOException {
             this.returnCode = MutationCode.values()[WritableUtils.readVInt(input)];
@@ -138,6 +159,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             if (hasTable) {
                 this.table = new PTableImpl();
                 this.table.readFields(input);
+            }
+            columnName = Bytes.readByteArray(input);
+            if (columnName.length > 0) {
+                familyName = Bytes.readByteArray(input);
             }
             boolean hasTablesToDelete = input.readBoolean();
             if (hasTablesToDelete) {
@@ -157,6 +182,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             output.writeBoolean(table != null);
             if (table != null) {
                 table.write(output);
+            }
+            Bytes.writeByteArray(output, columnName == null ? ByteUtil.EMPTY_BYTE_ARRAY : columnName);
+            if (columnName != null) {
+                 Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName);
             }
             if(tableNamesToDelete != null && tableNamesToDelete.size() > 0 ) {
                 output.writeBoolean(true);

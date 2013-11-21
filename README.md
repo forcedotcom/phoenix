@@ -20,7 +20,7 @@ Applications interact with Phoenix through a standard JDBC interface; all the us
 For detailed documentation on the current level of SQL support, see our [language reference guide](http://forcedotcom.github.com/phoenix/). For details about how Phoenix handles schema, transactions, and more, see the [wiki](https://github.com/forcedotcom/phoenix/wiki).
 
 ## System Requirements ##
-* HBase v 0.94.4 or above
+* HBase v0.94.4+ (0.96 is not yet supported)
 * JDK 6 or higher
 
 ## Build Requirements ##
@@ -114,7 +114,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>2.1.0</version>
+        <version>2.1.2</version>
     </dependency>
     ...
   </dependencies>
