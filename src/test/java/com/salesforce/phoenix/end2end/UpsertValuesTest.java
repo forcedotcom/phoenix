@@ -225,53 +225,6 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testDemonstrateSetNanosOnTimestampLosesMillis() throws Exception {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        try {
-            conn = DriverManager.getConnection(getUrl(), props);
-            stmt = conn.prepareStatement("create table UpsertTimestamp (a integer NOT NULL, t timestamp NOT NULL CONSTRAINT pk PRIMARY KEY (a, t))");
-            stmt.execute();
-        } finally {
-            closeStatement(stmt);
-        }
-        
-        Timestamp ts1 = new Timestamp(120055);
-        ts1.setNanos(60);
-        
-        Timestamp ts2 = new Timestamp(120100);
-        ts2.setNanos(60);
-        
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
-        try {
-            conn = DriverManager.getConnection(getUrl(), props);
-            stmt = conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
-            stmt.setTimestamp(1, ts1);
-            stmt.executeUpdate();
-            conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
-            stmt.setTimestamp(1, ts2);
-            stmt.executeUpdate();
-            conn.commit();
-         } finally {
-            closeStatement(stmt);
-        }
-        
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
-        try {
-            conn = DriverManager.getConnection(getUrl(), props);
-            stmt = conn.prepareStatement("select count(*) from UpsertTimestamp where a = 1");
-            ResultSet rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            assertFalse(2 == rs.getInt(1)); //should have been true i.e. we should have had two rows created with (1, ts1) and (1, ts2)
-        } finally {
-            closeStmtAndConn(stmt, conn);
-        }
-    }
-    
-    @Test
     public void testTimestampSerializedAndDeserializedCorrectly() throws Exception {
         long ts = nextTimestamp();
         Properties props = new Properties();
