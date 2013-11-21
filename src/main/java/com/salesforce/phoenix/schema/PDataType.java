@@ -4727,10 +4727,5 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-    
-   /* private static Timestamp createTimeStamp(PDataType dataType) {
-        Timestamp ts = null;
-        //over all this is what we want.
-        return ts;
-    }*/
+
 }
