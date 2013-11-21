@@ -38,6 +38,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.DateUtil;
 /**
  * 
  * Class to encapsulate subtraction arithmetic for {@link PDataType.TIMESTAMP}.
@@ -86,8 +87,7 @@ public class TimestampSubtractExpression extends SubtractExpression {
                 finalResult = finalResult.subtract(value);
             }
         }
-        Timestamp ts = new Timestamp(finalResult.longValue());
-        ts.setNanos(ts.getNanos() + ((finalResult.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(QueryConstants.MILLIS_TO_NANOS_CONVERTOR))).intValue()));
+        Timestamp ts = DateUtil.getTimestamp(finalResult.longValue(), ((finalResult.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(QueryConstants.MILLIS_TO_NANOS_CONVERTOR))).intValue()));
         byte[] resultPtr = new byte[getDataType().getByteSize()];
         PDataType.TIMESTAMP.toBytes(ts, resultPtr, 0);
         ptr.set(resultPtr);
