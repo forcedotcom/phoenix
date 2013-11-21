@@ -266,7 +266,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
     }
     
     @Test
-    public void testTimestampAddSubtractArithmetic() throws Exception {
+    public void testTimestampAddSubstractArithmetic() throws Exception {
         long ts = nextTimestamp();
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
@@ -281,8 +281,7 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         }
         
         Timestamp ts1 = new Timestamp(120550);
-        int extraNanos = 60;
-        ts1.setNanos(ts1.getNanos() + extraNanos);
+        ts1.setNanos(ts1.getNanos() + 60);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
         try {
             conn = DriverManager.getConnection(getUrl(), props);
@@ -294,39 +293,29 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
              closeStmtAndConn(stmt, conn);
         }
         
-        Timestamp ts2 = new Timestamp(ts1.getTime() + 500);
-        ts2.setNanos(ts2.getNanos() + extraNanos + 10); //setting the extra nanos as well as what spilled over from timestamp millis.
+        Timestamp expcTs = new Timestamp(ts1.getTime() + 500);
+        expcTs.setNanos(expcTs.getNanos() + 60 + 60); //setting the extra nanos as well as what spilled over from timestamp millis.
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
         try {
             conn = DriverManager.getConnection(getUrl(), props);
-            stmt = conn.prepareStatement("select (t + (500.0/(1*24*60*60*1000) + 10.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
+            stmt = conn.prepareStatement("select (t + (500.0/(1*24*60*60*1000) + 60.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals(ts2, rs.getTimestamp(1));
+            Timestamp ts2 = rs.getTimestamp(1);
+            assertEquals(expcTs, ts2);
         } finally {
             closeStatement(stmt);
         }
         
-        ts2 = new Timestamp(ts1.getTime() - 250);
-        ts2.setNanos(ts2.getNanos() + extraNanos - 30); //setting the extra nanos as well as what spilled over from timestamp millis.
+        expcTs = new Timestamp(ts1.getTime() - 250);
+        expcTs.setNanos(expcTs.getNanos() + 60 - 30); //setting the extra nanos as well as what spilled over from timestamp millis.
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
         try {
             stmt = conn.prepareStatement("select (t - (250.0/(1*24*60*60*1000) + 30.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
             ResultSet rs = stmt.executeQuery();
             assertTrue(rs.next());
-            assertEquals(ts2, rs.getTimestamp(1));
-        } finally {
-            closeStatement(stmt);
-        }
-        
-        ts2 = new Timestamp(ts1.getTime() + 250);
-        ts2.setNanos(ts2.getNanos() + extraNanos);
-        try {
-            stmt = conn.prepareStatement("select t from UpsertTimestamp where t = ? - 250.0/(1*24*60*60*1000) LIMIT 1");
-            stmt.setTimestamp(1, ts2);
-            ResultSet rs = stmt.executeQuery();
-            assertTrue(rs.next());
-            assertEquals(ts1, rs.getTimestamp(1));
+            Timestamp ts2 = rs.getTimestamp(1);
+            assertEquals(expcTs, ts2);
         } finally {
             closeStmtAndConn(stmt, conn);
         }
@@ -370,4 +359,5 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
              closeStmtAndConn(stmt, conn);
         }
     }
+
 }

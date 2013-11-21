@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -37,6 +38,7 @@ import java.util.TimeZone;
 
 import org.apache.commons.lang.time.FastDateFormat;
 
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.IllegalDataException;
 
 
@@ -149,5 +151,12 @@ public class DateUtil {
         Timestamp ts = new Timestamp(millis);
         ts.setNanos(ts.getNanos() + nanos);
         return ts;
+    }
+    
+    /**
+     * Utility function to convert a {@link BigDecimal} value to {@link Timestamp}.
+     */
+    public static Timestamp getTimestamp(BigDecimal bd) {
+        return DateUtil.getTimestamp(bd.longValue(), ((bd.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(QueryConstants.MILLIS_TO_NANOS_CONVERTOR))).intValue()));
     }
 }

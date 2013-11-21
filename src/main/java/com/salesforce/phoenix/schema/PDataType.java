@@ -48,6 +48,7 @@ import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -1310,10 +1311,10 @@ public enum PDataType {
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             case TIMESTAMP:
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
-                BigDecimal v = BigDecimal.valueOf(ts.getTime());
-                int nanos = ts.getNanos();
-                v = v.add(BigDecimal.valueOf(nanos, 9));
-                return v;
+                long millisPart = ts.getTime();
+                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
+                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                return value;
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1345,6 +1346,12 @@ public enum PDataType {
                 return BigDecimal.valueOf((Double)object);
             case DECIMAL:
                 return object;
+            case TIMESTAMP:
+                Timestamp ts = (Timestamp)object;
+                long millisPart = ts.getTime();
+                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
+                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                return value;
             default:
                 return super.toObject(object, actualType);
             }
@@ -1559,8 +1566,11 @@ public enum PDataType {
             Timestamp value = (Timestamp)object;
             offset = Bytes.putLong(bytes, offset, value.getTime());
             
-            //Don't get the stuff that got spilled over from the millis part. 
-            //This leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos  
+            /*
+             * By not getting the stuff that got spilled over from the millis part,
+             * it leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos.
+             * Also, it enables timestamp bytes to be directly compared with date/time bytes.   
+             */
             Bytes.putInt(bytes, offset, value.getNanos() % 1000000);  
             size += Bytes.SIZEOF_INT;
             return size;
@@ -1606,7 +1616,7 @@ public enum PDataType {
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) actualType.toObject(b, o, l);
                 long ms = bd.longValue();
-                int nanos = (bd.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(1000000))).intValue();
+                int nanos = (bd.remainder(BigDecimal.ONE).multiply(QueryConstants.BD_MILLIS_NANOS_CONVERSION)).intValue();
                 v = DateUtil.getTimestamp(ms, nanos);
                 return v;
             default:

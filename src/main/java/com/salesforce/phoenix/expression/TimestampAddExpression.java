@@ -72,10 +72,7 @@ public class TimestampAddExpression extends AddExpression {
             PDataType type = children.get(i).getDataType();
             ColumnModifier columnModifier = children.get(i).getColumnModifier();
             if(type == PDataType.TIMESTAMP) {
-                Timestamp timestamp = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, columnModifier);
-                long millisPart = timestamp.getTime();
-                BigDecimal nanosPart = BigDecimal.valueOf((timestamp.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, PDataType.TIMESTAMP, columnModifier));
             } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
                 value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
@@ -85,8 +82,7 @@ public class TimestampAddExpression extends AddExpression {
             } 
             finalResult = finalResult.add(value);
         }
-        
-        Timestamp ts = DateUtil.getTimestamp(finalResult.longValue(), ((finalResult.remainder(BigDecimal.ONE).multiply(BigDecimal.valueOf(QueryConstants.MILLIS_TO_NANOS_CONVERTOR))).intValue()));
+        Timestamp ts = DateUtil.getTimestamp(finalResult);
         byte[] resultPtr = new byte[getDataType().getByteSize()];
         PDataType.TIMESTAMP.toBytes(ts, resultPtr, 0);
         ptr.set(resultPtr);
