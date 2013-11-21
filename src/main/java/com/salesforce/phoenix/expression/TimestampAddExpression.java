@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.expression;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.sql.Timestamp;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -37,52 +39,63 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
+/**
+ * 
+ * Class to encapsulate addition arithmetic for {@link PDataType.TIMESTAMP}.
+ *
+ * @author samarth.jain
+ * @since 2.1.3
+ */
 
-public class DateAddExpression extends AddExpression {
-    static private final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
-    
-    public DateAddExpression() {
+public class TimestampAddExpression extends AddExpression {
+
+    public TimestampAddExpression() {
     }
 
-    public DateAddExpression(List<Expression> children) {
+    public TimestampAddExpression(List<Expression> children) {
         super(children);
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        long finalResult=0;
+        BigDecimal finalResult = BigDecimal.ZERO;
         
-        for(int i=0;i<children.size();i++) {
+        for(int i=0; i<children.size(); i++) {
             if (!children.get(i).evaluate(tuple, ptr)) {
                 return false;
             }
             if (ptr.getLength() == 0) {
                 return true;
             }
-            long value;
+            BigDecimal value;
             PDataType type = children.get(i).getDataType();
             ColumnModifier columnModifier = children.get(i).getColumnModifier();
-            if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier);
-                value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
-            } else if (type.isCoercibleTo(PDataType.LONG)) {
-                value = type.getCodec().decodeLong(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY;
+            if(type == PDataType.TIMESTAMP) {
+                Timestamp timestamp = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, columnModifier);
+                long millisPart = timestamp.getTime();
+                BigDecimal nanosPart = BigDecimal.valueOf((timestamp.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
+                value = BigDecimal.valueOf(millisPart).add(nanosPart);
+            } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
+                value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
-                value = (long)(type.getCodec().decodeDouble(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY);
+                value = ((BigDecimal.valueOf(type.getCodec().decodeDouble(ptr, columnModifier))).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else {
-                value = type.getCodec().decodeLong(ptr, columnModifier);
-            }
-            finalResult += value;
+                value = BigDecimal.valueOf(type.getCodec().decodeLong(ptr, columnModifier));
+            } 
+            finalResult = finalResult.add(value);
         }
+        
+        Timestamp ts = new Timestamp(finalResult.longValue());
+        ts.setNanos(ts.getNanos() + ((finalResult.remainder(BigDecimal.ONE).multiply(QueryConstants.BD_MILLIS_NANOS_CONVERSION)).intValue()));
         byte[] resultPtr = new byte[getDataType().getByteSize()];
+        PDataType.TIMESTAMP.toBytes(ts, resultPtr, 0);
         ptr.set(resultPtr);
-        getDataType().getCodec().encodeLong(finalResult, ptr);
         return true;
     }
 
     @Override
     public final PDataType getDataType() {
-        return PDataType.DATE;
+        return PDataType.TIMESTAMP;
     }
 
 }
