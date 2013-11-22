@@ -259,6 +259,61 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         return emptyResultSet;
     }
 
+    /** Appends "AND" to a "WHERE" clause if necessary. */
+    private void appendAnd(StringBuilder buf) {
+        if (buf.lastIndexOf("where") == buf.length() - "where".length()) {
+            buf.append(" ");
+        } else {
+            buf.append(" and ");
+        }
+    }
+
+    private void quoteString(StringBuilder buf, String s) {
+        buf.append("'");
+        buf.append(s.replaceAll("'", "''"));
+        buf.append("'");
+    }
+
+    /** Appends a pattern to the current query. If the pattern is the empty
+     * string, matches null values. */
+    private void pattern(StringBuilder buf, String column, String pattern) {
+        if (pattern == null) {
+            return;
+        }
+        appendAnd(buf);
+        buf.append(column);
+        if (pattern.length() == 0) {
+            buf.append(" is null");
+        } else {
+            buf.append(" like ");
+            quoteString(buf, pattern);
+        }
+    }
+
+    /** Appends a pattern to the current query. */
+    private void pattern2(StringBuilder buf, String column, String pattern) {
+        if (pattern == null || pattern.length() == 0) {
+            return;
+        }
+        appendAnd(buf);
+        buf.append(column);
+        buf.append(" like ");
+        quoteString(buf, pattern);
+    }
+
+    /** Appends a pattern to the current query. If the pattern is null or
+     * empty, appends "... is not null". */
+    private void pattern3(StringBuilder buf, String column, String pattern) {
+        appendAnd(buf);
+        buf.append(column);
+        if (pattern == null || pattern.length() == 0) {
+            buf.append(" is not null");
+        } else {
+            buf.append(" like ");
+            quoteString(buf, pattern);
+        }
+    }
+
     @Override
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
             throws SQLException {
@@ -287,28 +342,14 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 IS_AUTOINCREMENT +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where");
-        String conjunction = " ";
-        if (schemaPattern != null) {
-            buf.append(conjunction + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
-            conjunction = " and ";
-        }
-        if (tableNamePattern != null && tableNamePattern.length() > 0) {
-            buf.append(conjunction + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
-            conjunction = " and ";
-        }
-        if (catalog != null && catalog.length() > 0) { // if null or empty, will pick up all columns
-            // Will pick up only KV columns
-            // We supported only getting the PK columns by using catalog="", but some clients pass this through
-            // instead of null (namely SQLLine), so better to just treat these the same. If only PK columns are
-            // wanted, you can just stop the scan when you get to a non null TABLE_CAT_NAME
-            buf.append(conjunction + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
-            conjunction = " and ";
-        }
-        if (columnNamePattern != null && columnNamePattern.length() > 0) {
-            buf.append(conjunction + COLUMN_NAME + " like '" + SchemaUtil.normalizeIdentifier(columnNamePattern) + "'" );
-        } else {
-            buf.append(conjunction + COLUMN_NAME + " is not null" );
-        }
+        pattern(buf, TABLE_SCHEM_NAME, schemaPattern);
+        pattern2(buf, TABLE_NAME_NAME, tableNamePattern);
+        // Will pick up only KV columns
+        // We supported only getting the PK columns by using catalog="", but some clients pass this through
+        // instead of null (namely SQLLine), so better to just treat these the same. If only PK columns are
+        // wanted, you can just stop the scan when you get to a non null TABLE_CAT_NAME
+        pattern2(buf, TABLE_CAT_NAME, catalog);
+        pattern3(buf, COLUMN_NAME, columnNamePattern);
         buf.append(" order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
@@ -428,9 +469,9 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 DATA_TYPE + ",\n" + // Include data type info, though not in spec
                 SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME + 
                 "\nfrom " + TYPE_SCHEMA_AND_TABLE + 
-                "\nwhere ");
-        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
-        buf.append("\nand " + DATA_TABLE_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
+                "\nwhere");
+        pattern(buf, TABLE_SCHEM_NAME, schema);
+        pattern2(buf, DATA_TABLE_NAME, table);
         buf.append("\nand " + COLUMN_NAME + " is not null" );
         buf.append("\norder by INDEX_NAME," + ORDINAL_POSITION);
         Statement stmt = connection.createStatement();
@@ -575,9 +616,9 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 DATA_TYPE + "," + // include type info, though not in spec
                 SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
-                " where ");
-        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
-        buf.append(" and " + TABLE_NAME_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
+                " where");
+        pattern(buf, TABLE_SCHEM_NAME, schema);
+        pattern2(buf, TABLE_NAME_NAME, table);
         buf.append(" and " + TABLE_CAT_NAME + " is null" );
         buf.append(" order by " + ORDINAL_POSITION);
         // Dynamically replaces the KEY_SEQ with an expression that gets incremented after each next call.
@@ -730,9 +771,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TABLE_SCHEM_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null");
-        if (schemaPattern != null) {
-            buf.append(" and " + TABLE_SCHEM_NAME + " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'");
-        }
+        pattern(buf, TABLE_SCHEM_NAME, schemaPattern);
         Statement stmt = connection.createStatement();
         return stmt.executeQuery(buf.toString());
     }
@@ -842,12 +881,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");
-        if (schemaPattern != null) {
-            buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
-        }
-        if (tableNamePattern != null) {
-            buf.append(" and " + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
-        }
+        pattern(buf, TABLE_SCHEM_NAME, schemaPattern);
+        pattern2(buf, TABLE_NAME_NAME, tableNamePattern);
         if (types != null && types.length > 0) {
             buf.append(" and " + TABLE_TYPE_NAME + " IN (");
             // For b/w compat as table types changed in 2.2.0 TODO remove in 3.0
