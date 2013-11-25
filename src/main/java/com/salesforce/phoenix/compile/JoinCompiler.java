@@ -519,6 +519,11 @@ public class JoinCompiler {
         private PDataType getCommonType(PDataType lType, PDataType rType) throws SQLException {
             if (lType == rType)
                 return lType;
+            
+            if (!lType.isComparableTo(rType))
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
+                    .setMessage("On-clause LHS expression and RHS expression must be comparable. LHS type: " + lType + ", RHS type: " + rType)
+                    .build().buildException();
 
             if ((lType == null || lType.isCoercibleTo(PDataType.DECIMAL))
                     && (rType == null || rType.isCoercibleTo(PDataType.DECIMAL))) {
@@ -535,14 +540,7 @@ public class JoinCompiler {
                 return PDataType.VARCHAR;
             }
 
-            if ((lType == null || lType.isCoercibleTo(PDataType.VARBINARY))
-                    && (rType == null || rType.isCoercibleTo(PDataType.VARBINARY))) {
-                return PDataType.VARBINARY;
-            }
-
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
-                .setMessage("On-clause LHS expression and RHS expression must have common type. LHS type: " + lType + ", RHS type: " + rType)
-                .build().buildException();
+            return PDataType.VARBINARY;
         }
         
         private class OnNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
