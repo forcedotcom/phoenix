@@ -4168,6 +4168,10 @@ public enum PDataType {
         }
     }
 
+    public static final int UNSIGNED_DATE_SQL_TYPE = 17;
+    public static final int UNSIGNED_TIME_SQL_TYPE = 18;
+    public static final int UNSIGNED_TIMESTAMP_SQL_TYPE = 19;
+    
     public static final int MAX_PRECISION = 38; // Max precision guaranteed to fit into a long (and this should be plenty)
     public static final int MIN_DECIMAL_AVG_SCALE = 4;
     public static final MathContext DEFAULT_MATH_CONTEXT = new MathContext(MAX_PRECISION, RoundingMode.HALF_UP);
@@ -4633,7 +4637,21 @@ public enum PDataType {
         }
     }
 
-    public static PDataType fromSqlType(Integer sqlType) {
+    public static PDataType fromSqlType(int sqlType) {
+        // TODO: remove once we implement UNSIGNED_* for time types
+        switch (sqlType) {
+        case UNSIGNED_TIMESTAMP_SQL_TYPE:
+            sqlType = PDataType.TIMESTAMP.getSqlType();
+            break;
+        case UNSIGNED_TIME_SQL_TYPE:
+            sqlType = PDataType.TIME.getSqlType();
+            break;
+        case UNSIGNED_DATE_SQL_TYPE:
+            sqlType = PDataType.DATE.getSqlType();
+            break;
+        default:
+            break;
+        }
         int offset = sqlType - SQL_TYPE_OFFSET;
         if (offset >= 0 && offset < SQL_TYPE_TO_PCOLUMN_DATA_TYPE.length) {
             PDataType type = SQL_TYPE_TO_PCOLUMN_DATA_TYPE[offset];

@@ -35,6 +35,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
@@ -48,6 +49,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_IND
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES;
 import static com.salesforce.phoenix.schema.PTableType.INDEX;
 import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
@@ -137,6 +139,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue DATA_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
     private static final KeyValue INDEX_STATE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
     private static final KeyValue IMMUTABLE_ROWS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, IMMUTABLE_ROWS_BYTES);
+    private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES);
+    private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -145,7 +149,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PK_NAME_KV,
             DATA_TABLE_NAME_KV,
             INDEX_STATE_KV,
-            IMMUTABLE_ROWS_KV
+            IMMUTABLE_ROWS_KV,
+            TENANT_TYPE_ID_KV,
+            DEFAULT_COLUMN_FAMILY_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -158,6 +164,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int DATA_TABLE_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(DATA_TABLE_NAME_KV);
     private static final int INDEX_STATE_INDEX = TABLE_KV_COLUMNS.indexOf(INDEX_STATE_KV);
     private static final int IMMUTABLE_ROWS_INDEX = TABLE_KV_COLUMNS.indexOf(IMMUTABLE_ROWS_KV);
+    private static final int TENANT_TYPE_ID_INDEX = TABLE_KV_COLUMNS.indexOf(TENANT_TYPE_ID_KV);
+    private static final int DEFAULT_COLUMN_FAMILY_INDEX = TABLE_KV_COLUMNS.indexOf(DEFAULT_COLUMN_FAMILY_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -366,6 +374,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         PIndexState indexState = indexStateKv == null ? null : PIndexState.fromSerializedValue(indexStateKv.getBuffer()[indexStateKv.getValueOffset()]);
         KeyValue immutableRowsKv = tableKeyValues[IMMUTABLE_ROWS_INDEX];
         boolean isImmutableRows = immutableRowsKv == null ? false : (Boolean)PDataType.BOOLEAN.toObject(immutableRowsKv.getBuffer(), immutableRowsKv.getValueOffset(), immutableRowsKv.getValueLength());
+        // TODO: pass into PTableImpl.makePTable
+        KeyValue tenantTypeIdKv = tableKeyValues[TENANT_TYPE_ID_INDEX];
+        String tenantTypeId = tenantTypeIdKv != null ? (String)PDataType.VARCHAR.toObject(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
+        // TODO: pass into PTableImpl.makePTable
+        KeyValue defaultColumnFamilyKv = tableKeyValues[DEFAULT_COLUMN_FAMILY_INDEX];
+        String defaultColumnFamily = defaultColumnFamilyKv != null ? (String)PDataType.VARCHAR.toObject(defaultColumnFamilyKv.getBuffer(), defaultColumnFamilyKv.getValueOffset(), defaultColumnFamilyKv.getValueLength()) : null;
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -494,6 +508,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         }
                     } else {
                         return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table);
+                    }
+                } else {
+                    // If we're attempting to create the SYSTEM.TABLE,
+                    // then is the first cluster connection to Phoenix v 3.0, in which case we
+                    // need to upgrade from 2.x to 3.0. Since our updates are additive, we do
+                    // not need to delete any rows, but can just allow the mutation to complete.
+                    if (SchemaUtil.isMetaTable(schemaName, tableName)) {
+                        SchemaUtil.upgradeTo3(region, tableMetadata);
                     }
                 }
                 // TODO: Switch this to HRegion#batchMutate when we want to support indexes on the system
