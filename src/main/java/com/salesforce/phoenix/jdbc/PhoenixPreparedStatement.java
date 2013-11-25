@@ -47,6 +47,7 @@ import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.StatementPlan;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
 
 /**
@@ -410,9 +411,7 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
     @Override
     public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
         cal.setTime(x);
-        Timestamp value = new Timestamp(cal.getTimeInMillis());
-        value.setNanos(x.getNanos());
-        parameters.set(parameterIndex - 1, value);
+        parameters.set(parameterIndex - 1,  DateUtil.getTimestamp(cal.getTimeInMillis(), x.getNanos()));
     }
 
     @Override
