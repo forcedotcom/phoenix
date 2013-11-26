@@ -1391,9 +1391,11 @@ public class MetaDataClient {
                             family.add(new Pair<byte[],Map<String,Object>>(emptyCF,Collections.<String,Object>emptyMap()));
                             // Just use a Put without any key values as the Mutation, as addColumn will treat this specially
                             // TODO: pass through schema name and table name instead to these methods as it's cleaner
+                            byte[] tenantIdBytes = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
+                            if (tenantIdBytes == null) tenantIdBytes = ByteUtil.EMPTY_BYTE_ARRAY;
                             connection.getQueryServices().addColumn(
                                     Collections.<Mutation>singletonList(new Put(SchemaUtil.getTableKey
-                                            (tableContainingColumnToDrop.getSchemaName().getBytes(),
+                                            (tenantIdBytes, tableContainingColumnToDrop.getSchemaName().getBytes(),
                                             tableContainingColumnToDrop.getTableName().getBytes()))),
                                     tableContainingColumnToDrop.getType(),family);
                         }
