@@ -151,6 +151,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
+    public static final byte[] DATA_TYPE_BYTES = Bytes.toBytes(DATA_TYPE);
     public static final String TYPE_NAME = "TYPE_NAME";
     public static final String COLUMN_SIZE = "COLUMN_SIZE";
     public static final String BUFFER_LENGTH = "BUFFER_LENGTH";
@@ -171,6 +172,10 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
+    public static final String DEFAULT_COLUMN_FAMILY_NAME = "DEFAULT_COLUMN_FAMILY";
+    public static final byte[] DEFAULT_COLUMN_FAMILY_NAME_BYTES = Bytes.toBytes(DEFAULT_COLUMN_FAMILY_NAME);
+    public static final String TENANT_TYPE_ID = "TENANT_TYPE_ID";
+    public static final byte[] TENANT_TYPE_ID_BYTES = Bytes.toBytes(TENANT_TYPE_ID);
     
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
