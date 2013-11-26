@@ -126,7 +126,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
      * @param lhs left hand side expression
      * @param rhs right hand side expression
      * @param op operator being used to compare the expressions, which can affect rounding we may need to do.
-     * @return
+     * @return the newly coerced expression
      * @throws SQLException
      */
     public static Expression coerce(Expression lhs, Expression rhs, CompareOp op) throws SQLException {

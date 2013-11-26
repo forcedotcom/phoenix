@@ -200,4 +200,6 @@ public interface PTable extends Writable {
      * @see #isTenantSpecificTable()
      */
     @Nullable PColumn getTenantIdColumn();
+    PName getDefaultFamilyName();
+    PName getTenantTypeId();
 }

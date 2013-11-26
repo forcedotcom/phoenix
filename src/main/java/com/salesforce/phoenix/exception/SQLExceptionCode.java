@@ -149,7 +149,9 @@ public enum SQLExceptionCode {
     CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
     BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
     BASE_TABLE_NO_TENANT_ID_PK(1033, "42Y92", "Base table for a tenant table-specific table must have 2 or more PK columns.  Leading PK column must be non-nullable VARCHAR or CHAR."),
-
+    DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
+    TENANT_TYPE_ID_ONLY_ON_CREATE_TABLE(1035, "42Y94", "Tenant type ID may only be specified when creating a table."),
+    
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

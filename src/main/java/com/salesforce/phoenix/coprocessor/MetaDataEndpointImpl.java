@@ -374,12 +374,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         PIndexState indexState = indexStateKv == null ? null : PIndexState.fromSerializedValue(indexStateKv.getBuffer()[indexStateKv.getValueOffset()]);
         KeyValue immutableRowsKv = tableKeyValues[IMMUTABLE_ROWS_INDEX];
         boolean isImmutableRows = immutableRowsKv == null ? false : (Boolean)PDataType.BOOLEAN.toObject(immutableRowsKv.getBuffer(), immutableRowsKv.getValueOffset(), immutableRowsKv.getValueLength());
-        // TODO: pass into PTableImpl.makePTable
+        KeyValue defaultFamilyNameKv = tableKeyValues[DEFAULT_COLUMN_FAMILY_INDEX];
+        PName defaultFamilyName = defaultFamilyNameKv != null ? newPName(defaultFamilyNameKv.getBuffer(), defaultFamilyNameKv.getValueOffset(), defaultFamilyNameKv.getValueLength()) : null;
         KeyValue tenantTypeIdKv = tableKeyValues[TENANT_TYPE_ID_INDEX];
-        String tenantTypeId = tenantTypeIdKv != null ? (String)PDataType.VARCHAR.toObject(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
-        // TODO: pass into PTableImpl.makePTable
-        KeyValue defaultColumnFamilyKv = tableKeyValues[DEFAULT_COLUMN_FAMILY_INDEX];
-        String defaultColumnFamily = defaultColumnFamilyKv != null ? (String)PDataType.VARCHAR.toObject(defaultColumnFamilyKv.getBuffer(), defaultColumnFamilyKv.getValueOffset(), defaultColumnFamilyKv.getValueLength()) : null;
+        PName tenantTypeId = tenantTypeIdKv != null ? newPName(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -402,7 +400,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         
         return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
-                indexes, isImmutableRows, tableType == USER ? dataTableName : null);
+                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
