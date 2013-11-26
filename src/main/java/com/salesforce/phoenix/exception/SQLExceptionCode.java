@@ -27,9 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
-import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
-
+import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.MetaDataUtil;
@@ -66,6 +64,7 @@ public enum SQLExceptionCode {
     NONPOSITIVE_BINARY_LENGTH(211, "22003", "BINARY must have a positive length."),
     SERVER_ARITHMETIC_ERROR(212, "22012", "Arithmetic error on server."),
     VALUE_OUTSIDE_RANGE(213,"22003","Value outside range."),
+    VALUE_IN_LIST_NOT_CONSTANT(214, "22008", "Values in IN must evaluate to a constant."),
     
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)
@@ -139,16 +138,18 @@ public enum SQLExceptionCode {
     NO_SPLITS_ON_SALTED_TABLE(1022, "42Y81", "Should not specify split points on salted table with default row key order."),
     SALT_ONLY_ON_CREATE_TABLE(1024, "42Y83", "Salt bucket number may only be specified when creating a table."),
     SET_UNSUPPORTED_PROP_ON_ALTER_TABLE(1025, "42Y84", "Unsupported property set in ALTER TABLE command."),
+    CANNOT_ADD_NOT_NULLABLE_COLUMN(1030, "42Y84", "Only nullable columns may be added for a pre-existing table."),
     NO_MUTABLE_INDEXES(1026, "42Y85", "Mutable secondary indexes are only supported for HBase version " + MetaDataUtil.decodeHBaseVersionAsString(PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) + " and above."),
     NO_DELETE_IF_IMMUTABLE_INDEX(1027, "42Y86", "Delete not allowed on a table with IMMUTABLE_ROW with non PK column in index."),
     INVALID_INDEX_STATE_TRANSITION(1028, "42Y87", "Invalid index state transition."),
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
-            + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
-            +  IndexedWALEditCodec.class.getName() + " in the hbase-sites.xml of every region server"),
+            + IndexManagementUtil.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
+            +  IndexManagementUtil.INDEX_WAL_EDIT_CODEC_CLASS_NAME + " in the hbase-sites.xml of every region server"),
     CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
     CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
     BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
     BASE_TABLE_NO_TENANT_ID_PK(1033, "42Y92", "Base table for a tenant table-specific table must have 2 or more PK columns.  Leading PK column must be non-nullable VARCHAR or CHAR."),
+
     
     /** Parser error. (errorcode 06, sqlState 42P) */
     PARSER_ERROR(601, "42P00", "Syntax error."),

@@ -32,6 +32,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.join.ScanProjector;
@@ -46,6 +47,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class ProjectedColumnExpression extends ColumnExpression {
 	private KeyValueSchema schema;
 	private int position;
+	private byte[] name; // for display purpose only
 	
 	public ProjectedColumnExpression() {
 	}
@@ -54,6 +56,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
 		super(column);
 		this.schema = buildSchema(table);
 		this.position = column.getPosition() - table.getPKColumns().size();
+		this.name = column.getName().getBytes();
 	}
     
     private static KeyValueSchema buildSchema(PTable table) {
@@ -72,6 +75,10 @@ public class ProjectedColumnExpression extends ColumnExpression {
     
     public int getPosition() {
     	return position;
+    }
+    
+    public byte[] getName() {
+    	return name;
     }
 
     @Override
@@ -96,7 +103,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return "{PROJECTED}[" + position + "]";
+        return Bytes.toString(name) + "(PROJECTED[" + position + "])";
     }
 	
 	@Override
@@ -122,6 +129,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
         schema = new KeyValueSchema();
         schema.readFields(input);
         position = input.readInt();
+        name = Bytes.readByteArray(input);
     }
 
     @Override
@@ -129,6 +137,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
         super.write(output);
         schema.write(output);
         output.writeInt(position);
+        Bytes.writeByteArray(output, name);
     }
 
     @Override

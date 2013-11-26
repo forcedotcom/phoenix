@@ -288,6 +288,23 @@
               </descriptors>
             </configuration>
           </execution>
+          <execution>
+            <id>client-minimal</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <attach>false</attach>
+              <appendAssemblyId>true</appendAssemblyId>
+              <descriptors>
+                <!-- build the phoenix client jar, but without HBase code. -->
+                <descriptor>src/build/client-without-hbase.xml</descriptor>
+                <!-- build the phoenix client jar, but without HBase (or its depenencies). -->
+                <descriptor>src/build/client-minimal.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
       <plugin>

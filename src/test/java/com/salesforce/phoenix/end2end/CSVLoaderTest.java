@@ -27,19 +27,28 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.StringReader;
-import java.sql.*;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.util.*;
-
 import au.com.bytecode.opencsv.CSVReader;
+
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.util.CSVLoader;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
 
@@ -61,6 +70,9 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
     private static final String[] STOCK_COLUMNS_WITH_BOGUS = new String[] {"SYMBOL", "BOGUS"};
     private static final String[] STOCK_COLUMNS = new String[] {"SYMBOL", "COMPANY"};
     private static final String STOCK_CSV_VALUES_WITH_HEADER =  STOCK_COLUMNS[0] + "," + STOCK_COLUMNS[1] + "\n" + STOCK_CSV_VALUES;
+    private static final String STOCK_CSV_VALUES_WITH_DELIMITER = "APPL" + '\u0001' + '\u0002' + "APPLE\n" +
+                                                                  " Inc" + '\u0002' + "\n" +
+                                                                  "MSFT" + '\u0001' + "Microsoft\n";
 
     
     @Test
@@ -88,6 +100,34 @@ public class CSVLoaderTest extends BaseHBaseManagedTimeTest {
         	}
         }
         
+        assertFalse(phoenixResultSet.next());
+        conn.close();
+    }
+    
+    @Test
+    public void testCSVUpsertWithCustomDelimiters() throws Exception {
+     // Create table
+        String statements = "CREATE TABLE IF NOT EXISTS " + STOCK_TABLE + "(SYMBOL VARCHAR NOT NULL PRIMARY KEY, COMPANY VARCHAR);";
+        PhoenixConnection conn = DriverManager.getConnection(getUrl()).unwrap(PhoenixConnection.class);
+        PhoenixRuntime.executeStatements(conn, new StringReader(statements), null);
+
+        // Upsert CSV file
+        CSVLoader csvUtil = new CSVLoader(conn, STOCK_TABLE, Arrays.<String>asList(STOCK_COLUMNS), true, Arrays.asList("1","2","3"));
+        CSVReader reader = new CSVReader(new StringReader(STOCK_CSV_VALUES_WITH_DELIMITER),'\u0001','\u0002','\u0003');
+        csvUtil.upsert(reader);
+
+        // Compare Phoenix ResultSet with CSV file content
+        PreparedStatement statement = conn.prepareStatement("SELECT SYMBOL, COMPANY FROM " + STOCK_TABLE);
+        ResultSet phoenixResultSet = statement.executeQuery();
+        reader = new CSVReader(new StringReader(STOCK_CSV_VALUES_WITH_DELIMITER),'\u0001','\u0002','\u0003');
+        String[] csvData;
+        while ((csvData = reader.readNext()) != null) {
+            assertTrue (phoenixResultSet.next());
+            for (int i=0; i<csvData.length; i++) {
+                assertEquals(csvData[i], phoenixResultSet.getString(i+1));
+            }
+        }
+
         assertFalse(phoenixResultSet.next());
         conn.close();
     }

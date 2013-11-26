@@ -70,6 +70,8 @@ import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
+import com.salesforce.phoenix.expression.TimestampAddExpression;
+import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
@@ -81,6 +83,7 @@ import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.DivideParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LikeParseNode;
@@ -93,7 +96,6 @@ import com.salesforce.phoenix.parse.RowValueConstructorParseNode;
 import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
@@ -156,6 +158,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
     }
     
+    // TODO: this no longer needs to be recursive, as we flatten out rvc when we normalize the statement
     private void checkComparability(ParseNode parentNode, ParseNode lhsNode, ParseNode rhsNode, Expression lhsExpr, Expression rhsExpr) throws SQLException {
         if (lhsNode instanceof RowValueConstructorParseNode && rhsNode instanceof RowValueConstructorParseNode) {
             int i = 0;
@@ -497,7 +500,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // If we're in an aggregate expression
         // and we're not in the context of an aggregate function
         // and we didn't just wrap our column reference
-        // then we're mixing aggregate and non aggregate expressions in the same exxpression
+        // then we're mixing aggregate and non aggregate expressions in the same expression.
+        // This catches cases like this: SELECT sum(a_integer) + a_integer FROM atable GROUP BY a_string
         if (isAggregate && aggregateFunction == null && wrappedExpression == expression) {
             throwNonAggExpressionInAggException(expression.toString());
         }
@@ -670,7 +674,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 throw new TypeMismatchException(dataType, targetDataType, child.toString());
             }
         }
-        return CoerceExpression.create(child, targetDataType); 
+        return wrapGroupByExpression(CoerceExpression.create(child, targetDataType)); 
     }
 
     @Override
@@ -931,12 +935,16 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                  * become a number. For date1-5, we want to preserve the DATE
                  * type because this can still be compared against another date
                  * and cannot be multiplied or divided. Any other time occurs is
-                 * an error. For example, 5-date1 is an error The nulls occur if
-                 * we have bind variables
+                 * an error. For example, 5-date1 is an error. The nulls occur if
+                 * we have bind variables.
                  */
-                boolean isType1Date = type1 != null
+                boolean isType1Date = 
+                        type1 != null 
+                        && type1 != PDataType.TIMESTAMP
                         && type1.isCoercibleTo(PDataType.DATE);
-                boolean isType2Date = type2 != null
+                boolean isType2Date = 
+                        type2 != null
+                        && type2 != PDataType.TIMESTAMP
                         && type2.isCoercibleTo(PDataType.DATE);
                 if (isType1Date || isType2Date) {
                     if (isType1Date && isType2Date) {
@@ -955,7 +963,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         i = 2;
                         theType = null;
                     }
+                } else if(type1 == PDataType.TIMESTAMP || type2 == PDataType.TIMESTAMP) {
+                    i = 2;
+                    theType = PDataType.TIMESTAMP;
                 }
+                
                 for (; i < children.size(); i++) {
                     // This logic finds the common type to which all child types are coercible
                     // without losing precision.
@@ -992,6 +1004,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     return new DoubleSubtractExpression(children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
+                } else if (theType == PDataType.TIMESTAMP) {
+                    return new TimestampSubtractExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
                 } else {
@@ -1076,15 +1090,17 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                 }
                 if (theType == PDataType.DECIMAL) {
-                    return new DecimalAddExpression( children);
+                    return new DecimalAddExpression(children);
                 } else if (theType == PDataType.LONG) {
-                    return new LongAddExpression( children);
+                    return new LongAddExpression(children);
                 } else if (theType == PDataType.DOUBLE) {
-                    return new DoubleAddExpression( children);
+                    return new DoubleAddExpression(children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
+                } else if (theType == PDataType.TIMESTAMP) {
+                    return new TimestampAddExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
-                    return new DateAddExpression( children);
+                    return new DateAddExpression(children);
                 } else {
                     throw new TypeMismatchException(theType, node.toString());
                 }

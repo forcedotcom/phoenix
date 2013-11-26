@@ -27,18 +27,20 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.List;
+
 public class DropColumnStatement extends AlterTableStatement {
-    private final ColumnName columnRef;
+    private final List<ColumnName> columnRefs;
     private final boolean ifExists;
     
-    protected DropColumnStatement(NamedTableNode table, ColumnName columnRef, boolean ifExists) {
+    protected DropColumnStatement(NamedTableNode table, List<ColumnName> columnRefs, boolean ifExists) {
         super(table);
-        this.columnRef = columnRef;
+        this.columnRefs = columnRefs;
         this.ifExists = ifExists;
     }
 
-    public ColumnName getColumnRef() {
-        return columnRef;
+    public List<ColumnName> getColumnRefs() {
+        return columnRefs;
     }
 
     public boolean ifExists() {

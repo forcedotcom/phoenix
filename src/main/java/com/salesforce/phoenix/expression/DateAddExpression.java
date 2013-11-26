@@ -74,7 +74,7 @@ public class DateAddExpression extends AddExpression {
             }
             finalResult += value;
         }
-        byte[] resultPtr=new byte[getDataType().getByteSize()];
+        byte[] resultPtr = new byte[getDataType().getByteSize()];
         ptr.set(resultPtr);
         getDataType().getCodec().encodeLong(finalResult, ptr);
         return true;

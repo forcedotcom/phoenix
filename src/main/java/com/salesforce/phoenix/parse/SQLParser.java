@@ -27,11 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
-import org.antlr.runtime.*;
+import org.antlr.runtime.ANTLRReaderStream;
+import org.antlr.runtime.CharStream;
+import org.antlr.runtime.CommonTokenStream;
+import org.antlr.runtime.RecognitionException;
 
 import com.salesforce.phoenix.exception.PhoenixParserException;
 
@@ -92,6 +97,9 @@ public class SQLParser {
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
             throw new PhoenixParserException(e, parser);
         }
     }
@@ -109,6 +117,9 @@ public class SQLParser {
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
             throw new PhoenixParserException(e, parser);
         }
     }
@@ -124,6 +135,11 @@ public class SQLParser {
             return statement;
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw new PhoenixParserException(e, parser);
         }
     }
 
@@ -136,6 +152,11 @@ public class SQLParser {
             LiteralParseNode literalNode = parser.literal();
             return literalNode;
         } catch (RecognitionException e) {
+            throw new PhoenixParserException(e, parser);
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
             throw new PhoenixParserException(e, parser);
         }
     }

@@ -647,8 +647,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropColumnStatement extends DropColumnStatement implements ExecutableStatement {
 
-        ExecutableDropColumnStatement(NamedTableNode table, ColumnName columnRef, boolean ifExists) {
-            super(table, columnRef, ifExists);
+        ExecutableDropColumnStatement(NamedTableNode table, List<ColumnName> columnRefs, boolean ifExists) {
+            super(table, columnRefs, ifExists);
         }
 
         @Override
@@ -891,8 +891,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public DropColumnStatement dropColumn(NamedTableNode table,  ColumnName columnNode, boolean ifExists) {
-            return new ExecutableDropColumnStatement(table, columnNode, ifExists);
+        public DropColumnStatement dropColumn(NamedTableNode table,  List<ColumnName> columnNodes, boolean ifExists) {
+            return new ExecutableDropColumnStatement(table, columnNodes, ifExists);
         }
         
         @Override

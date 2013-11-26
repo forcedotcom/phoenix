@@ -28,14 +28,29 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
-import static org.junit.Assert.*;
+import static com.salesforce.phoenix.util.TestUtil.closeStatement;
+import static com.salesforce.phoenix.util.TestUtil.closeStmtAndConn;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.TestUtil;
 
 
 public class UpsertValuesTest extends BaseClientMangedTimeTest {
@@ -180,5 +195,140 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
         assertEquals(100, rs.getInt(1));
         assertFalse(rs.next());
     }
+    
+    @Test
+    public void testUpsertValuesWithMoreValuesThanNumColsInTable() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        Statement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.createStatement();
+            stmt.execute("create table UpsertWithDesc (k VARCHAR not null primary key desc)");
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
 
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.createStatement();
+            stmt.execute("upsert into UpsertWithDesc values (to_char(100), to_char(100), to_char(100))");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH.getErrorCode(),e.getErrorCode());
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+    }
+    
+    @Test
+    public void testTimestampSerializedAndDeserializedCorrectly() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("create table UpsertTimestamp (a integer NOT NULL, t timestamp NOT NULL CONSTRAINT pk PRIMARY KEY (a, t))");
+            stmt.execute();
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+        
+        Timestamp ts1 = new Timestamp(120055);
+        ts1.setNanos(ts1.getNanos() + 60);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
+            stmt.setTimestamp(1, ts1);
+            stmt.executeUpdate();
+            conn.commit();
+         } finally {
+             closeStmtAndConn(stmt, conn);
+        }
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("select t from UpsertTimestamp where t = ?");
+            stmt.setTimestamp(1, ts1);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ts1, rs.getTimestamp(1));
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+    }
+    
+    @Test
+    public void testTimestampAddSubtractArithmetic() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("create table UpsertTimestamp (a integer NOT NULL, t timestamp NOT NULL CONSTRAINT pk PRIMARY KEY (a, t))");
+            stmt.execute();
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+        
+        Timestamp ts1 = new Timestamp(120550);
+        int extraNanos = 60;
+        ts1.setNanos(ts1.getNanos() + extraNanos);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("upsert into UpsertTimestamp values (1, ?)");
+            stmt.setTimestamp(1, ts1);
+            stmt.executeUpdate();
+            conn.commit();
+        } finally {
+             closeStmtAndConn(stmt, conn);
+        }
+        
+        Timestamp ts2 = new Timestamp(ts1.getTime() + 500);
+        ts2.setNanos(ts2.getNanos() + extraNanos + 10); //setting the extra nanos as well as what spilled over from timestamp millis.
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("select (t + (500.0/(1*24*60*60*1000) + 10.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ts2, rs.getTimestamp(1));
+        } finally {
+            closeStatement(stmt);
+        }
+        
+        ts2 = new Timestamp(ts1.getTime() - 250);
+        ts2.setNanos(ts2.getNanos() + extraNanos - 30); //setting the extra nanos as well as what spilled over from timestamp millis.
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            stmt = conn.prepareStatement("select (t - (250.0/(1*24*60*60*1000) + 30.0/(1*24*60*60*1000*1000000)))  from UpsertTimestamp LIMIT 1");
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ts2, rs.getTimestamp(1));
+        } finally {
+            closeStatement(stmt);
+        }
+        
+        ts2 = new Timestamp(ts1.getTime() + 250);
+        ts2.setNanos(ts2.getNanos() + extraNanos);
+        try {
+            stmt = conn.prepareStatement("select t from UpsertTimestamp where t = ? - 250.0/(1*24*60*60*1000) LIMIT 1");
+            stmt.setTimestamp(1, ts2);
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals(ts1, rs.getTimestamp(1));
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+    }
 }

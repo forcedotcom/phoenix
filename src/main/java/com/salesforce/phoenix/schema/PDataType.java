@@ -48,6 +48,7 @@ import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -1310,10 +1311,10 @@ public enum PDataType {
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             case TIMESTAMP:
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
-                BigDecimal v = BigDecimal.valueOf(ts.getTime());
-                int nanos = ts.getNanos();
-                v = v.add(BigDecimal.valueOf(nanos, 9));
-                return v;
+                long millisPart = ts.getTime();
+                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
+                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                return value;
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1345,6 +1346,12 @@ public enum PDataType {
                 return BigDecimal.valueOf((Double)object);
             case DECIMAL:
                 return object;
+            case TIMESTAMP:
+                Timestamp ts = (Timestamp)object;
+                long millisPart = ts.getTime();
+                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
+                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
+                return value;
             default:
                 return super.toObject(object, actualType);
             }
@@ -1556,7 +1563,13 @@ public enum PDataType {
             int size = Bytes.SIZEOF_LONG;
             Timestamp value = (Timestamp)object;
             offset = Bytes.putLong(bytes, offset, value.getTime());
-            Bytes.putInt(bytes, offset, value.getNanos());
+            
+            /*
+             * By not getting the stuff that got spilled over from the millis part,
+             * it leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos.
+             * Also, it enables timestamp bytes to be directly compared with date/time bytes.   
+             */
+            Bytes.putInt(bytes, offset, value.getNanos() % 1000000);  
             size += Bytes.SIZEOF_INT;
             return size;
         }
@@ -1585,8 +1598,15 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIMESTAMP:
-                Timestamp v = new Timestamp(Bytes.toLong(b, o, Bytes.SIZEOF_LONG));
-                v.setNanos(Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT));
+                long millisDeserialized = Bytes.toLong(b, o, Bytes.SIZEOF_LONG);
+                Timestamp v = new Timestamp(millisDeserialized);
+                int nanosDeserialized = Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT);
+                /*
+                 * There was a bug in serialization of timestamps which was causing the sub-second millis part
+                 * of time stamp to be present both in the LONG and INT bytes. Having the <100000 check
+                 * makes this serialization fix backward compatible.
+                 */
+                v.setNanos(nanosDeserialized < 1000000 ? v.getNanos() + nanosDeserialized : nanosDeserialized);
                 return v;
             case DATE:
             case TIME:
@@ -1594,9 +1614,8 @@ public enum PDataType {
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) actualType.toObject(b, o, l);
                 long ms = bd.longValue();
-                int nanos = bd.remainder(BigDecimal.ONE).intValue();
-                v = new Timestamp(ms);
-                v.setNanos(nanos);
+                int nanos = (bd.remainder(BigDecimal.ONE).multiply(QueryConstants.BD_MILLIS_NANOS_CONVERSION)).intValue();
+                v = DateUtil.getTimestamp(ms, nanos);
                 return v;
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
@@ -4736,5 +4755,5 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-    
+
 }

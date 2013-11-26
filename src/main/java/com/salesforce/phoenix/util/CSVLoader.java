@@ -27,22 +27,22 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
+import au.com.bytecode.opencsv.CSVReader;
+import com.google.common.collect.Maps;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.schema.PDataType;
+
 import java.io.FileReader;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import au.com.bytecode.opencsv.CSVReader;
-
-import com.google.common.collect.Maps;
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.PDataType;
 
 /***
  * Upserts CSV data using Phoenix JDBC connection
@@ -56,17 +56,34 @@ public class CSVLoader {
 	private final String tableName;
     private final List<String> columns;
     private final boolean isStrict;
+    private final List<String> delimiter;
+    private final Map<String,Character> ctrlTable = new HashMap<String,Character>() {
+        {   put("1",'\u0001');
+            put("2",'\u0002');
+            put("3",'\u0003');
+            put("4",'\u0004');
+            put("5",'\u0005');
+            put("6",'\u0006');
+            put("7",'\u0007');
+            put("8",'\u0008');
+            put("9",'\u0009');}};
     
     private int unfoundColumnCount;
 
-	public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict) {
-		this.conn = conn;
-		this.tableName = tableName;
-		this.columns = columns;
-		this.isStrict = isStrict;
-	}
+    public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict,List<String> delimiter) {
+        this.conn = conn;
+        this.tableName = tableName;
+        this.columns = columns;
+        this.isStrict = isStrict;
+        this.delimiter = delimiter;
+    }
 
-	/**
+	public CSVLoader(PhoenixConnection conn, String tableName, List<String> columns, boolean isStrict) {
+       this(conn,tableName,columns,isStrict,null);
+    }
+
+
+    /**
 	 * Upserts data from CSV file. Data is batched up based on connection batch
 	 * size. Column PDataType is read from metadata and is used to convert
 	 * column value to correct type before upsert. Note: Column Names are
@@ -76,9 +93,27 @@ public class CSVLoader {
 	 * @throws Exception
 	 */
 	public void upsert(String fileName) throws Exception {
-		CSVReader reader = new CSVReader(new FileReader(fileName));
-		upsert(reader);
+        List<String> delimiter = this.delimiter;
+        CSVReader reader;
+        if ((delimiter != null) && (delimiter.size() == 3)) {
+            reader = new CSVReader(new FileReader(fileName),
+                getCSVCustomField(this.delimiter.get(0)),
+                getCSVCustomField(this.delimiter.get(1)),
+                getCSVCustomField(this.delimiter.get(2)));
+        } else {
+            reader = new CSVReader(new FileReader(fileName));
+        }
+        upsert(reader);
 	}
+
+
+    public char getCSVCustomField(String field) {
+        if(this.ctrlTable.containsKey(field)) {
+            return this.ctrlTable.get(field);
+        } else {
+            return field.charAt(0);
+        }
+    }
 
 	/**
 	 * Upserts data from CSV file. Data is batched up based on connection batch

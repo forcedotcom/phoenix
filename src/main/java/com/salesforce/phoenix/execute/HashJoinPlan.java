@@ -35,6 +35,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.hadoop.hbase.client.Scan;
+
+import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.ExplainPlan;
@@ -136,7 +138,22 @@ public class HashJoinPlan implements QueryPlan {
 
     @Override
     public ExplainPlan getExplainPlan() throws SQLException {
-        return plan.getExplainPlan();
+        List<String> mainQuerySteps = plan.getExplainPlan().getPlanSteps();
+        List<String> planSteps = Lists.newArrayList(mainQuerySteps);
+        int count = hashPlans.length;
+        planSteps.add("    PARALLEL EQUI-JOIN " + count + " HASH TABLES:");
+        for (int i = 0; i < count; i++) {
+        	planSteps.add("    BUILD HASH TABLE " + i);
+        	List<String> steps = hashPlans[i].getExplainPlan().getPlanSteps();
+        	for (String step : steps) {
+        		planSteps.add("        " + step);
+        	}
+        }
+        if (joinInfo.getPostJoinFilterExpression() != null) {
+        	planSteps.add("    AFTER-JOIN SERVER FILTER BY " + joinInfo.getPostJoinFilterExpression().toString());
+        }
+        
+        return new ExplainPlan(planSteps);
     }
 
     @Override
