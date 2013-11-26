@@ -707,9 +707,9 @@ public class SchemaUtil {
 
     private static final byte[][] OLD_TO_NEW_DATA_TYPE_3_0 = new byte[PDataType.TIMESTAMP.getSqlType() + 1][];
     static {
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIMESTAMP.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIMESTAMP_SQL_TYPE);
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIME.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIME_SQL_TYPE);
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.DATE.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_DATE_SQL_TYPE);
+        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIMESTAMP.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIMESTAMP.getSqlType());
+        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIME.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIME.getSqlType());
+        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.DATE.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_DATE.getSqlType());
     }
     
     

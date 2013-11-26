@@ -179,7 +179,7 @@ public interface QueryConstants {
             INDEX_STATE + " CHAR(1),\n" +
             IMMUTABLE_ROWS + " BOOLEAN,\n" +
             // Columns added in 3.0.0
-            TENANT_TYPE_ID + " CHAR(3),\n" +
+            TENANT_TYPE_ID + " VARCHAR,\n" +
             DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
             + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
