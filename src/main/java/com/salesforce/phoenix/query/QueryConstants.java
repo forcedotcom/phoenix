@@ -38,6 +38,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
@@ -61,6 +62,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
@@ -136,6 +139,7 @@ public interface QueryConstants {
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
+            TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
             TABLE_NAME_NAME + " VARCHAR NOT NULL," +
             COLUMN_NAME + " VARCHAR NULL," + // null only for table row
@@ -172,10 +176,14 @@ public interface QueryConstants {
             SALT_BUCKETS + " INTEGER," +
             // Columns added in 2.0.0
             DATA_TABLE_NAME + " VARCHAR NULL," +
-            INDEX_STATE + " CHAR(1)\n," +
-            IMMUTABLE_ROWS + " BOOLEAN\n" +
-            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TABLE_SCHEM_NAME + "," 
-            + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
+            INDEX_STATE + " CHAR(1),\n" +
+            IMMUTABLE_ROWS + " BOOLEAN,\n" +
+            // Columns added in 3.0.0
+            TENANT_TYPE_ID + " VARCHAR,\n" +
+            DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR\n" +
+            "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
+            + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
+            DEFAULT_COLUMN_FAMILY_NAME + "=" + "'_0'" + ",\n" + // Use original default for b/w compat
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
 }

@@ -76,7 +76,9 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     // For 1.0,1.1,1.2,and 1.2.1 we used MetaDataProtocol.MIN_TABLE_TIMESTAMP+1
     // For 2.0 and above, we use MetaDataProtocol.MIN_TABLE_TIMESTAMP+7 so that we can add the five new
     // columns to the existing system table (three new columns in 1.2.1 and two new columns in 1.2)
-    public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 7;
+    // For 3.0 and above, we use MIN_TABLE_TIMESTAMP + 8 so that we can add the tenant_id column
+    // as the first column to the existing system table.
+    public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 8;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
 
     // TODO: pare this down to minimum, as we don't need duplicates for both table and column errors, nor should we need
@@ -205,6 +207,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * The the latest Phoenix table at or before the given clientTimestamp. If the
      * client already has the latest (based on the tableTimestamp), then no table
      * is returned.
+     * @param tenantId
      * @param schemaName
      * @param tableName
      * @param tableTimestamp
@@ -212,7 +215,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
      * @return MetaDataMutationResult
      * @throws IOException
      */
-    MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimestamp) throws IOException;
+    MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimestamp) throws IOException;
 
     /**
      * Create a new Phoenix table

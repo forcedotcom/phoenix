@@ -40,7 +40,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.DateUtil;
 /**
  * 
- * Class to encapsulate subtraction arithmetic for {@link PDataType.TIMESTAMP}.
+ * Class to encapsulate subtraction arithmetic for {@link PDataType#TIMESTAMP}.
  *
  * @author samarth.jain
  * @since 2.1.3

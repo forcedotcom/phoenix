@@ -41,7 +41,7 @@ public class AliasedNode {
     private final ParseNode node;
     private final boolean isCaseSensitve;
 
-    AliasedNode(String alias, ParseNode node) {
+    public AliasedNode(String alias, ParseNode node) {
         this.isCaseSensitve = alias != null && SchemaUtil.isCaseSensitive(alias);
         this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
         this.node = node;

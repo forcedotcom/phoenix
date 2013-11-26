@@ -1539,6 +1539,29 @@ public class PDataTypeTest {
         assertEquals(o.getClass(), java.sql.Timestamp.class); 
     }
 
+    @Test
+    public void testNegativeDateTime() {
+        Date date1 = new Date(-1000);
+        Date date2 = new Date(-2000);
+        assertTrue(date1.compareTo(date2) > 0);
+        
+        byte[] b1 = PDataType.DATE.toBytes(date1);
+        byte[] b2 = PDataType.DATE.toBytes(date2);
+        assertTrue(Bytes.compareTo(b1, b2) > 0);
+        
+    }
+    
+    @Test
+    public void testIllegalUnsignedDateTime() {
+        Date date1 = new Date(-1000);
+        try {
+            PDataType.UNSIGNED_DATE.toBytes(date1);
+            fail();
+        } catch (IllegalDataException e) {
+            
+        }
+    }
+    
     private void testReadDecimalPrecisionAndScaleFromRawBytes(BigDecimal bd) {
         byte[] b = PDataType.DECIMAL.toBytes(bd);
         int[] v = PDataType.getDecimalPrecisionAndScale(b, 0, b.length);
