@@ -1146,8 +1146,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             ensureFamilyCreated(table.getPhysicalName().getBytes(), tableType, family);
         }
         // Special case for call during drop table to ensure that the empty column family exists.
+        // In this, case we only include the table header row, as until we add schemaBytes and tableBytes
+        // as args to this function, we have no way of getting them in this case.
+        // TODO: change to  if (tableMetaData.isEmpty()) once we pass through schemaBytes and tableBytes
         // Also, could be used to update property values on ALTER TABLE t SET prop=xxx
-        if (tableMetaData.isEmpty()) {
+        if (tableMetaData.size() == 1 && tableMetaData.get(0).isEmpty()) {
             return null;
         }
         MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,

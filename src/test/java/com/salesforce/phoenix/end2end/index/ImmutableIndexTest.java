@@ -440,4 +440,94 @@ public class ImmutableIndexTest extends BaseHBaseManagedTimeTest{
             
         conn.createStatement().execute("DROP TABLE " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE);
     }
+    
+    @Test
+    public void testGroupByCount() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col2)";
+        PreparedStatement stmt = conn.prepareStatement(ddl);
+        stmt.execute();
+        
+        ResultSet rs;
+        
+        rs = conn.createStatement().executeQuery("SELECT int_col2, COUNT(*) FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " GROUP BY int_col2");
+        assertTrue(rs.next());
+        assertEquals(1,rs.getInt(2));
+    }
+    
+    @Test   
+    public void testSelectDistinctOnTableWithSecondaryImmutableIndex() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col2)";
+        Connection conn = null;
+        PreparedStatement stmt = null;
+
+        try {
+            try {
+                conn = DriverManager.getConnection(getUrl(), props);
+                conn.setAutoCommit(false);
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+                ResultSet rs = conn.createStatement().executeQuery("SELECT distinct int_col2 FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " where int_col2 > 0");
+                assertTrue(rs.next());
+                assertEquals(3, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(5, rs.getInt(1));
+                assertFalse(rs.next());
+            } finally {
+                if (stmt != null) {
+                    stmt.close();
+                }
+            } 
+        } finally {
+            if (conn != null) {
+                conn.close();
+            }
+        }
+    }
+    
+    @Test
+    public void testInClauseWithIndexOnColumnOfUsignedIntType() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ensureTableCreated(getUrl(), INDEX_DATA_TABLE);
+        populateTestTable();
+        String ddl = "CREATE INDEX IDX ON " + INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE
+                + " (int_col1)";
+        try {
+            try {
+                conn = DriverManager.getConnection(getUrl(), props);
+                conn.setAutoCommit(false);
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+                ResultSet rs = conn.createStatement().executeQuery("SELECT int_col1 FROM " +INDEX_DATA_SCHEMA + QueryConstants.NAME_SEPARATOR + INDEX_DATA_TABLE + " where int_col1 IN (1, 2, 3, 4)");
+                assertTrue(rs.next());
+                assertEquals(2, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(3, rs.getInt(1));
+                assertTrue(rs.next());
+                assertEquals(4, rs.getInt(1));
+                assertFalse(rs.next());
+            } finally {
+                if(stmt != null) {
+                    stmt.close();
+                }
+            } 
+        } finally {
+            if(conn != null) {
+                conn.close();
+            }
+        }
+    }
 }

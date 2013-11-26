@@ -1464,6 +1464,20 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
+    public void testGreaterThan() throws SQLException {
+        String tenantId = "000000000000001";
+        
+        String query = "select * from entity_history where organization_id >?";
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId);
+        HashSet<Expression> extractedFilters = new HashSet<Expression>();
+        compileStatement(query, scan, binds, extractedFilters);
+        assertTrue(extractedFilters.size() == 1);
+        assertArrayEquals(ByteUtil.nextKey(PDataType.VARCHAR.toBytes(tenantId)), scan.getStartRow());
+        assertArrayEquals(HConstants.EMPTY_END_ROW, scan.getStopRow());
+    }
+    
+    @Test
     public void testLessThanEqualTo_NonRVCOnLHSAndRVCOnRHS_WithNonNullBindParams() throws SQLException {
         String tenantId = "000000000000001";
         String parentId = "000000000000008";

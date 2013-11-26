@@ -185,6 +185,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final int ESSENTIAL_FAMILY_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "7");
     // Version below which we should disallow usage of mutable secondary indexing.
     public static final int MUTABLE_SI_VERSION_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "10");
+    /** Version below which we fall back on the generic KeyValueBuilder */
+    public static final int CLIENT_KEY_VALUE_BUILDER_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "14");
 
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
         this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));
@@ -401,7 +403,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     @Override
     public String getIdentifierQuoteString() throws SQLException {
-        return "'";
+        return "\"";
     }
 
     @Override

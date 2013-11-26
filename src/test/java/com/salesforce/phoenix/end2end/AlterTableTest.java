@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static com.salesforce.phoenix.util.TestUtil.closeConnection;
+import static com.salesforce.phoenix.util.TestUtil.closeStatement;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -48,8 +50,9 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-
+import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -484,7 +487,25 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
           
             ddl = "ALTER TABLE test_table ADD  c1.col2 VARCHAR  , c1.col3 integer , c2.col4 integer";
             conn.createStatement().execute(ddl);
-          
+            
+            ddl = "ALTER TABLE test_table ADD   col5 integer , c1.col2 VARCHAR";
+            try {
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 503 (42711): A duplicate column name was detected in the object definition or ALTER TABLE statement."));
+            }
+            
+            query = "SELECT col5 FROM test_table";
+            try {
+                conn.createStatement().executeQuery(query);
+                fail(); 
+            } catch(SQLException e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column."));
+            }
+       
+            ddl = "ALTER TABLE test_table ADD IF NOT EXISTS col5 integer , c1.col2 VARCHAR";
+            conn.createStatement().execute(ddl);
             
             dml = "UPSERT INTO test_table VALUES(?,?,?,?,?)";
             stmt = conn.prepareStatement(dml);
@@ -538,4 +559,149 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             conn.close();
         }
     }
-}
+
+    @Test
+    public void testDropVarCols() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            String ddl = "CREATE TABLE test_table " + "  (a_string varchar not null, col1 integer, cf1.col2 integer"
+                    + "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+            conn.createStatement().execute(ddl);
+
+            ddl = "ALTER TABLE test_table DROP COLUMN col1";
+            conn.createStatement().execute(ddl);
+
+            ddl = "ALTER TABLE test_table DROP COLUMN cf1.col2";
+            conn.createStatement().execute(ddl);
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testDisallowAddingNotNullableColumnNotPartOfPkForExistingTable() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            conn.setAutoCommit(false);
+            try {
+                String ddl = "CREATE TABLE test_table " + "  (a_string varchar not null, col1 integer, cf1.col2 integer"
+                        + "  CONSTRAINT pk PRIMARY KEY (a_string))\n";
+                stmt = conn.prepareStatement(ddl);
+                stmt.execute();
+            } finally {
+                closeStatement(stmt);
+            }
+            try {
+                stmt = conn.prepareStatement("ALTER TABLE test_table ADD b_string VARCHAR NOT NULL");
+                stmt.execute();
+                fail("Should have failed since altering a table by adding a non-nullable column is not allowed.");
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.CANNOT_ADD_NOT_NULLABLE_COLUMN.getErrorCode(), e.getErrorCode());
+            } finally {
+                closeStatement(stmt);
+            }
+        } finally {
+            closeConnection(conn);
+        }
+    }
+
+    @Test
+    public void testDropColumnsWithImutability() throws Exception {
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+
+        try {
+            conn.createStatement()
+                    .execute(
+                            "CREATE TABLE test_table "
+                                    + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true , SALT_BUCKETS=3 ");
+
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+
+            conn.createStatement().execute("CREATE INDEX i ON test_table (col1) include (cf1.col2) SALT_BUCKETS=4");
+            query = "SELECT * FROM i";
+            rs = conn.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+
+            String dml = "UPSERT INTO test_table VALUES(?,?,?,?,?)";
+            PreparedStatement stmt = conn.prepareStatement(dml);
+            stmt.setString(1, "b");
+            stmt.setInt(2, 10);
+            stmt.setInt(3, 20);
+            stmt.setInt(4, 30);
+            stmt.setInt(5, 40);
+            stmt.execute();
+            stmt.setString(1, "a");
+            stmt.setInt(2, 101);
+            stmt.setInt(3, 201);
+            stmt.setInt(4, 301);
+            stmt.setInt(5, 401);
+            stmt.execute();
+            conn.commit();
+
+            query = "SELECT * FROM test_table order by col1";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals("b", rs.getString(1));
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertFalse(rs.next());
+
+            String ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col2,col3";
+            conn.createStatement().execute(ddl);
+            
+            ddl = "ALTER TABLE test_table DROP COLUMN a_string,col1";
+            try{
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.CANNOT_DROP_PK.getErrorCode(), e.getErrorCode());
+            }
+            
+            ddl = "ALTER TABLE test_table DROP COLUMN col4,col5";
+            try {
+                conn.createStatement().execute(ddl);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.COLUMN_NOT_FOUND.getErrorCode(), e.getErrorCode());
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 504 (42703): Undefined column. columnName=COL5"));
+            } 
+
+            ddl = "ALTER TABLE test_table DROP COLUMN IF EXISTS col1";
+            conn.createStatement().execute(ddl);
+            
+            query = "SELECT * FROM i";
+            try {
+                rs = conn.createStatement().executeQuery(query);
+                fail();
+            } catch (TableNotFoundException e) {}
+            
+            query = "select col4 FROM test_table";
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertTrue(rs.next());
+
+            query = "select col2,col3 FROM test_table";
+            try {
+                rs = conn.createStatement().executeQuery(query);
+                fail();
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.COLUMN_NOT_FOUND.getErrorCode(), e.getErrorCode());
+            }
+              
+        } finally {
+            conn.close();
+        }
+    }
+   
+ }

@@ -66,6 +66,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 
+import java.math.BigDecimal;
+
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -126,6 +128,11 @@ public interface QueryConstants {
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = EMPTY_COLUMN_BYTES;
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";
     public static final String SYSTEM_TABLE_PK_NAME = "pk";
+    
+    public static final double MILLIS_TO_NANOS_CONVERTOR = Math.pow(10, 6);
+    public static final BigDecimal BD_MILLIS_NANOS_CONVERSION = BigDecimal.valueOf(MILLIS_TO_NANOS_CONVERTOR);
+    public static final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
+    
 
     public static final String CREATE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +

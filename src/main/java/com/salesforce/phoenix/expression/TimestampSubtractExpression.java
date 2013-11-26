@@ -28,68 +28,70 @@
 package com.salesforce.phoenix.expression;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
+import java.sql.Timestamp;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.DateUtil;
+/**
+ * 
+ * Class to encapsulate subtraction arithmetic for {@link PDataType.TIMESTAMP}.
+ *
+ * @author samarth.jain
+ * @since 2.1.3
+ */
+public class TimestampSubtractExpression extends SubtractExpression {
 
+    public TimestampSubtractExpression() {
+    }
 
-public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
-    
-    public CeilingDecimalExpression() {
+    public TimestampSubtractExpression(List<Expression> children) {
+        super(children);
     }
-    
-    public CeilingDecimalExpression(Expression child)  {
-        super(child);
-    }
-    
-    protected MathContext getMathContext() {
-        return CEILING_CONTEXT;
-    }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child =  getChild();
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
-            BigDecimal value = (BigDecimal) childType.toObject(ptr);
-            value = value.round(getMathContext());
-            byte[] b = childType.toBytes(value, child.getColumnModifier());
-            ptr.set(b);
-            return true;
+        BigDecimal finalResult = BigDecimal.ZERO;
+        
+        for(int i=0; i<children.size(); i++) {
+            if (!children.get(i).evaluate(tuple, ptr)) {
+                return false;
+            }
+            if (ptr.getLength() == 0) {
+                return true;
+            }
+            BigDecimal value;
+            PDataType type = children.get(i).getDataType();
+            ColumnModifier columnModifier = children.get(i).getColumnModifier();
+            if(type == PDataType.TIMESTAMP) {
+                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, PDataType.TIMESTAMP, columnModifier));
+            } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
+                value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
+            } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
+                value = ((BigDecimal.valueOf(type.getCodec().decodeDouble(ptr, columnModifier))).multiply(BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
+            } else {
+                value = BigDecimal.valueOf(type.getCodec().decodeLong(ptr, columnModifier));
+            }
+            if (i == 0) {
+                finalResult = value;
+            } else {
+                finalResult = finalResult.subtract(value);
+            }
         }
-        return false;
+        Timestamp ts = DateUtil.getTimestamp(finalResult);
+        byte[] resultPtr = new byte[getDataType().getByteSize()];
+        PDataType.TIMESTAMP.toBytes(ts, resultPtr, 0);
+        ptr.set(resultPtr);
+        return true;
     }
-
-    @Override
-    public ColumnModifier getColumnModifier() {
-            return getChild().getColumnModifier();
-    }    
 
     @Override
     public final PDataType getDataType() {
-        return  getChild().getDataType();
-    }
-    
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-    
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
+        return PDataType.TIMESTAMP;
     }
 }
