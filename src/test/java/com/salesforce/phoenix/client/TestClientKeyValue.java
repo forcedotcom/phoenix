@@ -48,9 +48,9 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 /**
- *
+ * TODO: once the only test is not ignored, make this class concrete again
  */
-public class TestClientKeyValue {
+public abstract class TestClientKeyValue {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
   private static byte[] ROW = Bytes.toBytes("testRow");
   private static byte[] FAMILY = Bytes.toBytes("testFamily");
