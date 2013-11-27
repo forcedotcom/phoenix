@@ -22,21 +22,9 @@
   </dependencySets>
 
   <fileSets>
-    <!-- Add the compiled classes so we can just run the jar immediately -->
-    <fileSet>
-      <directory>${project.build.directory}/classes/com</directory>
-      <outputDirectory>/com</outputDirectory>
-      <fileMode>0755</fileMode>
-      <directoryMode>0755</directoryMode>
-    </fileSet>
-    <fileSet>
-      <!--Get application resources -->
-      <directory>src/main/external_resources</directory>
-      <outputDirectory>/</outputDirectory>
-    </fileSet>
     <fileSet>
       <!--Get misc project files -->
-      <directory>${project.basedir}</directory>
+      <directory>${project.basedir}/..</directory>
       <outputDirectory>/</outputDirectory>
       <includes>
         <include>*.txt*</include>
@@ -49,7 +37,7 @@
     </fileSet>
     <fileSet>
       <!--Get map-red-config properties files -->
-      <directory>${project.basedir}/src/main/config</directory>
+      <directory>${project.basedir}/../config</directory>
       <outputDirectory>/</outputDirectory>
       <includes>
         <include>csv-bulk-load-config.properties</include>

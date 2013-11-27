@@ -13,6 +13,17 @@
     <componentDescriptor>src/build/components-major-client.xml</componentDescriptor>
   </componentDescriptors>
 
+  <!-- Unpack all the modules into the target jar -->
+  <moduleSets>
+    <moduleSet>
+      <useAllReactorProjects>true</useAllReactorProjects>
+      <binaries>
+      <outputDirectory>/</outputDirectory>
+        <unpack>true</unpack>
+      </binaries>
+    </moduleSet>
+  </moduleSets>
+
   <dependencySets>
     <dependencySet>
       <!-- Unpack all the dependencies to class files, since java doesn't support 
