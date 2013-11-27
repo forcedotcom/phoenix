@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -58,6 +59,26 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 public class ConnectionlessUpsertTest {
+    private static final int saltBuckets = 200;
+    private static final String orgId = "00D300000000XHP";
+    private static final String keyPrefix1 = "111";
+    private static final String keyPrefix2 = "112";
+    private static final String entityHistoryId1 = "123456789012";
+    private static final String entityHistoryId2 = "987654321098";
+    private static final String name1 = "Eli";
+    private static final String name2 = "Simon";
+    private static final Date now = new Date(System.currentTimeMillis());
+    private static final byte[] unsaltedRowKey1 = ByteUtil.concat(
+            PDataType.CHAR.toBytes(orgId),PDataType.CHAR.toBytes(keyPrefix1),PDataType.CHAR.toBytes(entityHistoryId1));
+    private static final byte[] unsaltedRowKey2 = ByteUtil.concat(
+            PDataType.CHAR.toBytes(orgId),PDataType.CHAR.toBytes(keyPrefix2),PDataType.CHAR.toBytes(entityHistoryId2));
+    private static final byte[] saltedRowKey1 = ByteUtil.concat(
+            new byte[] {SaltingUtil.getSaltingByte(unsaltedRowKey1, 0, unsaltedRowKey1.length, saltBuckets)},
+            unsaltedRowKey1);
+    private static final byte[] saltedRowKey2 = ByteUtil.concat(
+            new byte[] {SaltingUtil.getSaltingByte(unsaltedRowKey2, 0, unsaltedRowKey2.length, saltBuckets)},
+            unsaltedRowKey2);
+
     private static String getUrl() {
         return PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + PhoenixRuntime.CONNECTIONLESS;
     }
@@ -74,7 +95,7 @@ public class ConnectionlessUpsertTest {
     
     @Test
     public void testSaltedConnectionlessUpsert() throws Exception {
-        testConnectionlessUpsert(4);
+        testConnectionlessUpsert(saltBuckets);
     }
   
     public void testConnectionlessUpsert(Integer saltBuckets) throws Exception {
@@ -91,53 +112,71 @@ public class ConnectionlessUpsertTest {
         PreparedStatement statement = conn.prepareStatement(dmlStmt);
         statement.execute();
         
-        String orgId = "00D300000000XHP";
-        String keyPrefix1 = "111";
-        String entityHistoryId1 = "123456789012";
-        Date now = new Date(System.currentTimeMillis());
         String upsertStmt = "upsert into core.entity_history(organization_id,key_prefix,entity_history_id, created_by, created_date)\n" +
         "values(?,?,?,?,?)";
         statement = conn.prepareStatement(upsertStmt);
         statement.setString(1, orgId);
-        statement.setString(2, "112");
-        statement.setString(3, "123456789012");
-        statement.setString(4, "Simon");
+        statement.setString(2, keyPrefix2);
+        statement.setString(3, entityHistoryId2);
+        statement.setString(4, name2);
         statement.setDate(5,now);
         statement.execute();
         statement.setString(1, orgId);
         statement.setString(2, keyPrefix1);
         statement.setString(3, entityHistoryId1);
-        statement.setString(4, "Eli");
+        statement.setString(4, name1);
         statement.setDate(5,now);
         statement.execute();
         
         Iterator<Pair<byte[],List<KeyValue>>> dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn);
         Iterator<KeyValue> iterator = dataIterator.next().getSecond().iterator();
-        assertTrue(iterator.hasNext());
-        KeyValue kv = iterator.next();
-        byte[] expectedRowKey = ByteUtil.concat(saltBuckets == null ? ByteUtil.EMPTY_BYTE_ARRAY : new byte[1],
-                PDataType.CHAR.toBytes(orgId),PDataType.CHAR.toBytes(keyPrefix1),PDataType.CHAR.toBytes(entityHistoryId1));
-        if (saltBuckets != null) {
-            expectedRowKey[0] = SaltingUtil.getSaltingByte(expectedRowKey, 1, expectedRowKey.length-1, saltBuckets);
+
+        byte[] expectedRowKey1 = saltBuckets == null ? unsaltedRowKey1 : saltedRowKey1;
+        byte[] expectedRowKey2 = saltBuckets == null ? unsaltedRowKey2 : saltedRowKey2;
+        if (Bytes.compareTo(expectedRowKey1, expectedRowKey2) < 0) {
+            assertRow1(iterator, expectedRowKey1);
+            assertRow2(iterator, expectedRowKey2);
+        } else {
+            assertRow2(iterator, expectedRowKey2);
+            assertRow1(iterator, expectedRowKey1);
         }
-        assertArrayEquals(expectedRowKey, kv.getRow());
         
-        assertEquals("Eli", PDataType.VARCHAR.toObject(kv.getValue()));
-        assertTrue(iterator.hasNext());
-        assertEquals(now, PDataType.DATE.toObject(iterator.next().getValue()));
-        assertTrue(iterator.hasNext());
-        assertNull(PDataType.VARCHAR.toObject(iterator.next().getValue()));
-        assertTrue(iterator.hasNext());
-        assertEquals("Simon", PDataType.VARCHAR.toObject(iterator.next().getValue()));
-        assertTrue(iterator.hasNext());
-        assertEquals(now, PDataType.DATE.toObject(iterator.next().getValue()));
-        assertTrue(iterator.hasNext());
-        assertNull(PDataType.VARCHAR.toObject(iterator.next().getValue()));
         assertFalse(iterator.hasNext());
         assertFalse(dataIterator.hasNext());
         conn.rollback(); // to clear the list of mutations for the next
     }
+    
+    private static void assertRow1(Iterator<KeyValue> iterator, byte[] expectedRowKey1) {
+        KeyValue kv;
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey1, kv.getRow());        
+        assertEquals(name1, PDataType.VARCHAR.toObject(kv.getValue()));
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey1, kv.getRow());        
+        assertEquals(now, PDataType.DATE.toObject(kv.getValue()));
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey1, kv.getRow());        
+        assertNull(PDataType.VARCHAR.toObject(kv.getValue()));
+    }
 
+    private static void assertRow2(Iterator<KeyValue> iterator, byte[] expectedRowKey2) {
+        KeyValue kv;
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey2, kv.getRow());        
+        assertEquals(name2, PDataType.VARCHAR.toObject(kv.getValue()));
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey2, kv.getRow());        
+        assertEquals(now, PDataType.DATE.toObject(kv.getValue()));
+        assertTrue(iterator.hasNext());
+        kv = iterator.next();
+        assertArrayEquals(expectedRowKey2, kv.getRow());        
+        assertNull(PDataType.VARCHAR.toObject(kv.getValue()));
+    }
     
     @Test
     public void testNoConnectionInfo() throws Exception {

@@ -157,9 +157,6 @@ public class CSVBulkLoader {
 		if(cmd.hasOption("sql")){
 			String sqlPath = cmd.getOptionValue("sql");
 			createPSQL = getCreatePSQLstmts(sqlPath);
-		}else{
-			System.err.println(parser_error + "Please provide Phoenix sql");
-			System.exit(0);
 		}
 		if(cmd.hasOption("zk")){
 			zookeeperIP = cmd.getOptionValue("zk");
@@ -203,13 +200,15 @@ public class CSVBulkLoader {
 		Path outPath = new Path(outFile);
 		
 		//Create the Phoenix table in HBase
-		for(String s : createPSQL){
-			if(s == null || s.trim().length() == 0)
-				continue;
-				createPTable(s);
+		if (createPSQL != null) {
+    		for(String s : createPSQL){
+    			if(s == null || s.trim().length() == 0)
+    				continue;
+    				createPTable(s);
+    		}
+    		
+    		log("[TS - Table created] :: " + new Date() + "\n");
 		}
-		
-		log("[TS - Table created] :: " + new Date() + "\n");
 
 		Configuration conf = new Configuration();
 		loadMapRedConfigs(conf);
@@ -230,16 +229,16 @@ public class CSVBulkLoader {
 		SchemaMetrics.configureGlobally(conf);
 
 		String dataTable = ""; 
-        	if(schemaName != null && schemaName.trim().length() > 0)
-        		dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
-        	else
-        		dataTable = SchemaUtil.normalizeIdentifier(tableName);
+    	if(schemaName != null && schemaName.trim().length() > 0)
+    		dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
+    	else
+    		dataTable = SchemaUtil.normalizeIdentifier(tableName);
 		HTable hDataTable = new HTable(conf, dataTable);
 		
 		// Auto configure partitioner and reducer according to the Main Data table
-	    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
+    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
 
-    		job.waitForCompletion(true);
+		job.waitForCompletion(true);
 	    
 		log("[TS - M-R HFile generated..Now dumping to HBase] :: " + new Date() + "\n");
 		
@@ -278,7 +277,6 @@ public class CSVBulkLoader {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}
 		}
-		
 	}
 	
 	private static String getUrl() {
@@ -294,8 +292,6 @@ public class CSVBulkLoader {
 		conf.set("hbase.zookeeper.quorum", zookeeperIP);
 		conf.set("fs.default.name", hdfsNameNode);
 		conf.set("mapred.job.tracker", mapredIP);
-		if(createPSQL[0] != null) conf.set("createTableDDL", createPSQL[0]);
-		if(createPSQL[1] != null) conf.set("createIndexDDL", createPSQL[1]);
 		
 		//Load the other System-Configs
 		try {
