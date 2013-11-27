@@ -517,6 +517,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (SchemaUtil.isMetaTable(tableName)) {
                 descriptor.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
                 descriptor.setValue(SchemaUtil.UPGRADE_TO_2_1, Boolean.TRUE.toString());
+                descriptor.setValue(SchemaUtil.UPGRADE_TO_3_0, Boolean.TRUE.toString());
                 if (!descriptor.hasCoprocessor(MetaDataEndpointImpl.class.getName())) {
                     descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
                 }
@@ -652,6 +653,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 boolean updateTo2_0 = false;
                 boolean updateTo1_2 = false;
                 boolean updateTo2_1 = false;
+                boolean updateTo3_0 = false;
                 if (isMetaTable) {
                     /*
                      *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
@@ -667,9 +669,20 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     
                     updateTo2_0 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_2_0) == null;
                     updateTo2_1 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_2_1) == null;
+                    updateTo3_0 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_3_0) == null;
+                    if (updateTo3_0) {
+                        // Check if SYSTEM.TABLE has multiple regions which is problematic, as
+                        // we can't update it atomically. It's unlikely that this is the case
+                        // but we'll find out if it is.
+                        if (this.getAllTableRegions(tableName).size() > 1) {
+                            throw new SQLException("Unable to convert SYSTEM.TABLE automatically as it is too big. Please contact customer support.");
+                        }
+                    }
                 }
                 
                 // We'll do this alter at the end of the upgrade
+                // Just let the table metadata be updated for 3.0 here, as otherwise
+                // we have a potential race condition
                 if (!updateTo2_1 && !updateTo2_0) {
                     // Update metadata of table
                     // TODO: Take advantage of online schema change ability by setting "hbase.online.schema.update.enable" to true
@@ -1027,16 +1040,18 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     @Override
     public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps,
             final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         Mutation m = tableMetaData.get(0);
         byte[] key = m.getRow();
         SchemaUtil.getVarChars(key, rowKeyMetadata);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-        ensureTableCreated(tableName, tableType, tableProps, families, splits);
+        if (tenantIdBytes.length == 0)
+            ensureTableCreated(tableName, tableType, tableProps, families, splits);
 
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1048,23 +1063,27 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public MetaDataMutationResult getTable(final byte[] schemaBytes, final byte[] tableBytes,
+    public MetaDataMutationResult getTable(byte[] tenantId, final byte[] schemaBytes, final byte[] tableBytes,
             final long tableTimestamp, final long clientTimestamp) throws SQLException {
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        final byte[] nonNullTenantId = tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId;
+        byte[] tableKey = SchemaUtil.getTableKey(nonNullTenantId, schemaBytes, tableBytes);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
                     public MetaDataMutationResult call(MetaDataProtocol instance) throws IOException {
-                      return instance.getTable(schemaBytes, tableBytes, tableTimestamp, clientTimestamp);
+                      return instance.getTable(nonNullTenantId, schemaBytes, tableBytes, tableTimestamp, clientTimestamp);
                     }
                 });
     }
 
     @Override
     public MetaDataMutationResult dropTable(final List<Mutation> tableMetaData, final PTableType tableType) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
+        byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
+        byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantIdBytes, schemaBytes, tableBytes);
         final MetaDataMutationResult result =  metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override
@@ -1125,16 +1144,19 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult addColumn(final List<Mutation> tableMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families) throws SQLException {
-        byte[][] rowKeyMetaData = new byte[2][];
+        byte[][] rowKeyMetaData = new byte[3][];
+
         byte[] rowKey = tableMetaData.get(0).getRow();
         SchemaUtil.getVarChars(rowKey, rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
         for ( Pair<byte[],Map<String,Object>>  family : families) {
             
-            ensureFamilyCreated(tableName, tableType, family);
+            PTable table = latestMetaData.getTable(Bytes.toString(tableName));
+            ensureFamilyCreated(table.getPhysicalName().getBytes(), tableType, family);
         }
         // Special case for call during drop table to ensure that the empty column family exists.
         // In this, case we only include the table header row, as until we add schemaBytes and tableBytes
@@ -1156,11 +1178,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult dropColumn(final List<Mutation> tableMetaData, PTableType tableType) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
+        byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableKey = SchemaUtil.getTableKey(schemaBytes, tableBytes);
+        byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);
         MetaDataMutationResult result = metaDataCoprocessorExec(tableKey,
             new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                 @Override
@@ -1279,9 +1302,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public MetaDataMutationResult updateIndexState(final List<Mutation> tableMetaData, String parentTableName) throws SQLException {
-        byte[][] rowKeyMetadata = new byte[2][];
+        byte[][] rowKeyMetadata = new byte[3][];
         SchemaUtil.getVarChars(tableMetaData.get(0).getRow(), rowKeyMetadata);
-        byte[] tableKey = SchemaUtil.getTableKey(rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
+        byte[] tableKey = SchemaUtil.getTableKey(ByteUtil.EMPTY_BYTE_ARRAY, rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX], rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX]);
         return metaDataCoprocessorExec(tableKey,
                 new Batch.Call<MetaDataProtocol, MetaDataMutationResult>() {
                     @Override

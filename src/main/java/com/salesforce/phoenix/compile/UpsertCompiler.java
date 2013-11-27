@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static com.google.common.collect.Lists.newArrayListWithCapacity;
+
 import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -60,6 +62,7 @@ import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixResultSet;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnName;
@@ -67,6 +70,7 @@ import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -213,6 +217,11 @@ public class UpsertCompiler {
         }
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
+        final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+        if (tenantId != null && table.isTenantSpecificTable()) {
+            PColumn tenantIdColumn = table.getTenantIdColumn();
+            columnNodes.add(0, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
+        }
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
@@ -274,6 +283,9 @@ public class UpsertCompiler {
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
+            if (tenantId != null && table.isTenantSpecificTable()) {
+                select = cloneAndPrependTenantIdToSelect(select, tenantId);
+            }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
             /* We can run the upsert in a coprocessor if:
@@ -315,6 +327,9 @@ public class UpsertCompiler {
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
         } else {
+            if (tenantId != null && table.isTenantSpecificTable()) {
+                valueNodes.add(0, new LiteralParseNode(tenantId));
+            }
             nValuesToSet = valueNodes.size();
         }
         final RowProjector projector = rowProjectorToBe;
@@ -634,5 +649,12 @@ public class UpsertCompiler {
             }
             return super.visit(node);
         }
+    }
+    
+    private static SelectStatement cloneAndPrependTenantIdToSelect(SelectStatement statement, String tenantId) {
+        List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
+        select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+        select.addAll(1, statement.getSelect());
+        return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
 }

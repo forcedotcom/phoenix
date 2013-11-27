@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.ENTITY_HISTORY_TABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.FUNKY_NAME;
@@ -67,6 +68,10 @@ public class BaseConnectionlessQueryTest extends BaseTest {
     
     protected static String getUrl() {
         return TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
+    }
+    
+    protected static String getUrl(String tenantId) {
+        return getUrl() + ';' + TENANT_ID_ATTRIB + '=' + tenantId;
     }
 
     @BeforeClass

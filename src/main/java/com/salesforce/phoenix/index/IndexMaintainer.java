@@ -89,7 +89,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         IndexMaintainer maintainer = new IndexMaintainer(
                 dataTable.getRowKeySchema(),
                 dataTable.getBucketNum() != null,
-                index.getName().getBytes(), 
+                index.getPhysicalName().getBytes(), 
                 nIndexColumns,
                 nIndexPKColumns,
                 index.getBucketNum(),

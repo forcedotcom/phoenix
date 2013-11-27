@@ -916,4 +916,40 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         10)))).toString(),
                 filter.toString());
     }
+    
+    @Test
+    public void testTenantIdRowKeyFilterAddedToScan() throws SQLException {
+
+        String tenantId = "000000000000123";
+        String url = getUrl(tenantId);
+        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='ATABLE'");
+        
+        String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement statement = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = Arrays.<Object>asList(tenantId);
+        PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
+        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        statement = compileStatement(context, statement, resolver, binds, scan, 1, null);
+        Filter filter = scan.getFilter();
+        
+        assertEquals(
+            multiKVFilter(and(
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_INTEGER,
+                    0),
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_STRING,
+                    "foo"))),
+            filter);
+        
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = startRow;
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+    }
 }

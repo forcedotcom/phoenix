@@ -51,7 +51,7 @@ public final class TableRef {
         this.timeStamp = timeStamp;
         this.hasDynamicCols = hasDynamicCols;
     }
-
+    
     public PTable getTable() {
         return table;
     }

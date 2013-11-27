@@ -1560,18 +1560,16 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            int size = Bytes.SIZEOF_LONG;
             Timestamp value = (Timestamp)object;
-            offset = Bytes.putLong(bytes, offset, value.getTime());
+            DATE.getCodec().encodeLong(value.getTime(), bytes, offset);
             
             /*
              * By not getting the stuff that got spilled over from the millis part,
              * it leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos.
              * Also, it enables timestamp bytes to be directly compared with date/time bytes.   
              */
-            Bytes.putInt(bytes, offset, value.getNanos() % 1000000);  
-            size += Bytes.SIZEOF_INT;
-            return size;
+            Bytes.putInt(bytes, offset + Bytes.SIZEOF_LONG, value.getNanos() % 1000000);  
+            return getByteSize();
         }
 
         @Override
@@ -1581,10 +1579,12 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
-                return new Timestamp(((Date)object).getTime());
             case TIME:
-                return new Timestamp(((Time)object).getTime());
+            case UNSIGNED_DATE:
+            case UNSIGNED_TIME:
+                return new Timestamp(((java.util.Date)object).getTime());
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 return object;
             default:
                 return super.toObject(object, actualType);
@@ -1598,7 +1598,8 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIMESTAMP:
-                long millisDeserialized = Bytes.toLong(b, o, Bytes.SIZEOF_LONG);
+            case UNSIGNED_TIMESTAMP:
+                long millisDeserialized = (actualType == TIMESTAMP ? DATE : UNSIGNED_DATE).getCodec().decodeLong(b, o, null);
                 Timestamp v = new Timestamp(millisDeserialized);
                 int nanosDeserialized = Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT);
                 /*
@@ -1610,7 +1611,9 @@ public enum PDataType {
                 return v;
             case DATE:
             case TIME:
-                return new Timestamp(getCodec().decodeLong(b, o, null));
+            case UNSIGNED_DATE:
+            case UNSIGNED_TIME:
+                return new Timestamp(actualType.getCodec().decodeLong(b, o, null));
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) actualType.toObject(b, o, l);
                 long ms = bd.longValue();
@@ -1629,18 +1632,23 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            return DATE.isCoercibleTo(targetType, value) && (targetType == UNSIGNED_TIMESTAMP || targetType == this || ((Timestamp)value).getNanos() == 0);
+        }
+        
+        @Override
         public boolean isFixedWidth() {
             return true;
         }
 
         @Override
         public Integer getByteSize() {
-            return Bytes.SIZEOF_LONG + Bytes.SIZEOF_INT;
+            return MAX_TIMESTAMP_BYTES;
         }
 
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
-            if (rhsType == TIMESTAMP) {
+            if (rhsType == TIMESTAMP || rhsType == UNSIGNED_TIMESTAMP) {
                 return ((Timestamp)lhs).compareTo((Timestamp)rhs);
             }
             int c = ((Date)rhs).compareTo((Date)lhs);
@@ -1671,19 +1679,12 @@ public enum PDataType {
 
         @Override
         public byte[] toBytes(Object object) {
-            if (object == null) {
-                throw new ConstraintViolationException(this + " may not be null");
-            }
-            return Bytes.toBytes(((Time)object).getTime());
+            return DATE.toBytes(object);
         }
 
         @Override
         public int toBytes(Object object, byte[] bytes, int offset) {
-            if (object == null) {
-                throw new ConstraintViolationException(this + " may not be null");
-            }
-            Bytes.putLong(bytes, offset, ((Time)object).getTime());
-            return this.getByteSize();
+            return DATE.toBytes(object, bytes, offset);
         }
 
         @Override
@@ -1693,9 +1694,12 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIMESTAMP: // TODO: throw if nanos?
+            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Time(this.getCodec().decodeLong(b, o, null));
+            case UNSIGNED_DATE:
+            case UNSIGNED_TIME:
+                return new Time(actualType.getCodec().decodeLong(b, o, null));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -1708,10 +1712,13 @@ public enum PDataType {
             }
             switch (actualType) {
             case DATE:
+            case UNSIGNED_DATE:
                 return new Time(((Date)object).getTime());
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 return new Time(((Timestamp)object).getTime());
             case TIME:
+            case UNSIGNED_TIME:
                 return object;
             default:
                 return super.toObject(object, actualType);
@@ -1725,6 +1732,11 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            return DATE.isCoercibleTo(targetType, value);
+        }
+        
+        @Override
         public boolean isFixedWidth() {
             return true;
         }
@@ -1736,10 +1748,7 @@ public enum PDataType {
 
         @Override
         public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
-            if (rhsType == TIMESTAMP) {
-                return -TIMESTAMP.compareTo(rhs, lhs, TIME);
-            }
-            return ((Date)rhs).compareTo((Date)lhs);
+            return DATE.compareTo(lhs, rhs, rhsType);
         }
 
         @Override
@@ -1757,12 +1766,8 @@ public enum PDataType {
         
         @Override
         public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
-            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
-                // If default formatter has not been overridden,
-                // use one that displays milliseconds.
-                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
-            }
-            return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+            // TODO: different default formatter for TIME?
+            return DATE.toStringLiteral(b, offset, length, formatter);
         }
     },
     DATE("DATE", Types.DATE, Date.class, new DateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
@@ -1772,7 +1777,9 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return Bytes.toBytes(((Date)object).getTime());
+            byte[] bytes = new byte[getByteSize()];
+            toBytes(object, bytes, 0);
+            return bytes;
         }
 
         @Override
@@ -1780,7 +1787,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            Bytes.putLong(bytes, offset, ((Date)object).getTime());
+            getCodec().encodeLong(((java.util.Date)object).getTime(), bytes, offset);
             return this.getByteSize();
         }
 
@@ -1791,10 +1798,13 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIME:
+            case UNSIGNED_TIME:
                 return new Date(((Time)object).getTime());
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 return new Date(((Timestamp)object).getTime());
             case DATE:
+            case UNSIGNED_DATE:
                 return object;
             default:
                 return super.toObject(object, actualType);
@@ -1808,9 +1818,12 @@ public enum PDataType {
             }
             switch (actualType) {
             case TIMESTAMP: // TODO: throw if nanos?
+            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
             case DATE:
             case TIME:
-                return new Date(this.getCodec().decodeLong(b, o, null));
+            case UNSIGNED_DATE:
+            case UNSIGNED_TIME:
+                return new Date(actualType.getCodec().decodeLong(b, o, null));
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
             }
@@ -1819,6 +1832,166 @@ public enum PDataType {
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == TIME || targetType == TIMESTAMP
+                    || targetType == VARBINARY || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType, Object value) {
+            if (value != null) {
+                switch (targetType) {
+                    case UNSIGNED_DATE:
+                    case UNSIGNED_TIME:
+                    case UNSIGNED_TIMESTAMP:
+                        return ((java.util.Date)value).getTime() >= 0;
+                    default:
+                        break;
+                }
+            }
+            return super.isCoercibleTo(targetType, value);
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return Bytes.SIZEOF_LONG;
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            if (rhsType == TIMESTAMP || rhsType == UNSIGNED_TIMESTAMP) {
+                return -rhsType.compareTo(rhs, lhs, TIME);
+            }
+            return ((java.util.Date)rhs).compareTo((java.util.Date)lhs);
+        }
+
+        @Override
+        public Object toObject(String value) {
+            if (value == null || value.length() == 0) {
+                return null;
+            }
+            return DateUtil.parseDate(value);
+        }
+
+        @Override
+        public boolean isBytesComparableWith(PDataType otherType) {
+            return super.isBytesComparableWith(otherType) || this == TIME;
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
+    },
+    UNSIGNED_TIMESTAMP("UNSIGNED_TIMESTAMP", 19, Timestamp.class, null) {
+
+        @Override
+        public byte[] toBytes(Object object) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            byte[] bytes = new byte[getByteSize()];
+            toBytes(object, bytes, 0);
+            return bytes;
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            Timestamp value = (Timestamp)object;
+            UNSIGNED_DATE.getCodec().encodeLong(value.getTime(), bytes, offset);
+            
+            /*
+             * By not getting the stuff that got spilled over from the millis part,
+             * it leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos.
+             * Also, it enables timestamp bytes to be directly compared with date/time bytes.   
+             */
+            Bytes.putInt(bytes, offset + Bytes.SIZEOF_LONG, value.getNanos() % 1000000);  
+            return getByteSize();
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            return TIMESTAMP.toObject(object, actualType);
+        }
+
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            return TIMESTAMP.toObject(b, o, l, actualType);
+        }
+        
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == TIMESTAMP || targetType == UNSIGNED_DATE || targetType == DATE || targetType == UNSIGNED_TIME  || targetType == TIME 
+                    || targetType == VARBINARY || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return TIMESTAMP.getByteSize();
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            return TIMESTAMP.compareTo(lhs, rhs, rhsType);
+        }
+
+        @Override
+        public Object toObject(String value) {
+            return TIMESTAMP.toObject(value);
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            Timestamp value = (Timestamp)toObject(b,offset,length);
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
+        }
+    },
+    UNSIGNED_TIME("UNSIGNED_TIME", 18, Time.class, new UnsignedDateCodec()) {
+
+        @Override
+        public byte[] toBytes(Object object) {
+            return UNSIGNED_DATE.toBytes(object);
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            return UNSIGNED_DATE.toBytes(object, bytes, offset);
+        }
+
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            return TIME.toObject(b, o, l, actualType);
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            return TIME.toObject(object, actualType);
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == TIME || targetType == UNSIGNED_DATE || targetType == DATE || targetType == UNSIGNED_TIMESTAMP || targetType == TIMESTAMP
                     || targetType == VARBINARY || targetType == BINARY;
         }
 
@@ -1839,20 +2012,90 @@ public enum PDataType {
 
         @Override
         public Object toObject(String value) {
-            if (value == null || value.length() == 0) {
-                return null;
-            }
-            return DateUtil.parseDate(value);
+            return TIME.toObject(value);
         }
 
         @Override
         public boolean isBytesComparableWith(PDataType otherType) {
-            return super.isBytesComparableWith(otherType) || this == TIME;
+            return super.isBytesComparableWith(otherType) ||  this == UNSIGNED_DATE;
         }
         
         @Override
         public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
-            return TIME.toStringLiteral(b, offset, length, formatter);
+            return UNSIGNED_DATE.toStringLiteral(b, offset, length, formatter);
+        }
+    },
+    UNSIGNED_DATE("UNSIGNED_DATE", 19, Date.class, new UnsignedDateCodec()) { // After TIMESTAMP and DATE to ensure toLiteral finds those first
+
+        @Override
+        public byte[] toBytes(Object object) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            byte[] bytes = new byte[getByteSize()];
+            toBytes(object, bytes, 0);
+            return bytes;
+        }
+
+        @Override
+        public int toBytes(Object object, byte[] bytes, int offset) {
+            if (object == null) {
+                throw new ConstraintViolationException(this + " may not be null");
+            }
+            getCodec().encodeLong(((java.util.Date)object).getTime(), bytes, offset);
+            return this.getByteSize();
+        }
+
+        @Override
+        public Object toObject(Object object, PDataType actualType) {
+            return DATE.toObject(object, actualType);
+        }
+
+        @Override
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            return DATE.toObject(b,o,l,actualType);
+        }
+
+        @Override
+        public boolean isCoercibleTo(PDataType targetType) {
+            return this == targetType || targetType == DATE || targetType == UNSIGNED_TIME || targetType == TIME || targetType == UNSIGNED_TIMESTAMP || targetType == TIMESTAMP
+                    || targetType == VARBINARY || targetType == BINARY;
+        }
+
+        @Override
+        public boolean isFixedWidth() {
+            return true;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return DATE.getByteSize();
+        }
+
+        @Override
+        public int compareTo(Object lhs, Object rhs, PDataType rhsType) {
+            return DATE.compareTo(lhs, rhs, rhsType);
+        }
+
+        @Override
+        public Object toObject(String value) {
+            return DATE.toObject(value);
+        }
+
+        @Override
+        public boolean isBytesComparableWith(PDataType otherType) {
+            return super.isBytesComparableWith(otherType) || this == UNSIGNED_TIME;
+        }
+        
+        @Override
+        public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
+            // Can't delegate, as the super.toStringLiteral calls this.toBytes
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
         }
     },
     /**
@@ -4176,9 +4419,20 @@ public enum PDataType {
         }
     }
 
-    public static class DateCodec extends UnsignedLongCodec {
+    public static class DateCodec extends LongCodec {
 
         private DateCodec() {
+        }
+
+        @Override
+        public int decodeInt(byte[] b, int o, ColumnModifier columnModifier) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    public static class UnsignedDateCodec extends UnsignedLongCodec {
+
+        private UnsignedDateCodec() {
         }
 
         @Override
@@ -4193,6 +4447,7 @@ public enum PDataType {
     public static final int DEFAULT_SCALE = 0;
 
     private static final Integer MAX_BIG_DECIMAL_BYTES = 21;
+    private static final Integer MAX_TIMESTAMP_BYTES = Bytes.SIZEOF_LONG + Bytes.SIZEOF_INT;
 
     private static final byte ZERO_BYTE = (byte)0x80;
     private static final byte NEG_TERMINAL_BYTE = (byte)102;
@@ -4652,7 +4907,7 @@ public enum PDataType {
         }
     }
 
-    public static PDataType fromSqlType(Integer sqlType) {
+    public static PDataType fromSqlType(int sqlType) {
         int offset = sqlType - SQL_TYPE_OFFSET;
         if (offset >= 0 && offset < SQL_TYPE_TO_PCOLUMN_DATA_TYPE.length) {
             PDataType type = SQL_TYPE_TO_PCOLUMN_DATA_TYPE[offset];

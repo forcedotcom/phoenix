@@ -58,7 +58,7 @@ public class SkipRangeParallelIteratorRegionSplitter extends DefaultParallelIter
 
     @Override
     protected List<HRegionLocation> getAllRegions() throws SQLException {
-        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
+        List<HRegionLocation> allTableRegions = context.getConnection().getQueryServices().getAllTableRegions(tableRef.getTable().getPhysicalName().getBytes());
         return filterRegions(allTableRegions, context.getScanRanges());
     }
 
