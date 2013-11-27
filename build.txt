@@ -6,6 +6,10 @@ Phoenix uses Maven (3.X) to build all its necessary resources.
 ## Building from source
 =======================
 
+On first setup, you may need to run
+	$ mvn install -DskipTests
+to install the local jars. This is a side-effect of multi-module maven projects
+
 1. To re-generate the antlr based files:
 	$ mvn process-sources
 
