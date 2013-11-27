@@ -109,7 +109,6 @@ public class MutableIndexFailureTest extends BaseMutableIndexTest {
             conn.commit();
             fail();
         } catch (SQLException e) {
-            
         }
         
         // Verify the metadata for index is correct.

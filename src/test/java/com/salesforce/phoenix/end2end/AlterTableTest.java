@@ -611,6 +611,100 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
     }
 
     @Test
+    public void testDisableWAL() throws Exception {
+
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+
+        try {
+            conn.createStatement()
+                    .execute(
+                            "CREATE TABLE test_table "
+                                    + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true, disable_wal=true ");
+
+            Connection conn2 = DriverManager.getConnection(getUrl(), props);
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn2.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+            assertTrue(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+            conn2.close();
+            assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+
+            conn.createStatement().execute("CREATE INDEX i ON test_table (col1) include (cf1.col2) SALT_BUCKETS=4");
+            conn2 = DriverManager.getConnection(getUrl(), props);
+            query = "SELECT * FROM i";
+            rs = conn2.createStatement().executeQuery(query);
+            assertTrue(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            assertFalse(rs.next());
+            conn2.close();
+            assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            
+            conn.createStatement().execute("DROP TABLE test_table");
+        } finally {
+            conn.close();
+        }
+        conn = DriverManager.getConnection(getUrl(), props);
+
+        try {
+            conn.createStatement()
+                    .execute(
+                            "CREATE TABLE test_table "
+                                    + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string)) immutable_rows=true");
+
+            Connection conn2 = DriverManager.getConnection(getUrl(), props);
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn2.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+            assertFalse(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+            conn2.close();
+            assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+
+            conn.createStatement().execute("CREATE INDEX i ON test_table (col1) include (cf1.col2) SALT_BUCKETS=4");
+            conn2 = DriverManager.getConnection(getUrl(), props);
+            query = "SELECT * FROM i";
+            rs = conn2.createStatement().executeQuery(query);
+            assertTrue(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            assertFalse(rs.next());
+            conn2.close();
+            assertTrue(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            conn.createStatement().execute("DROP TABLE test_table");
+        } finally {
+            conn.close();
+        }
+        conn = DriverManager.getConnection(getUrl(), props);
+
+        try {
+            conn.createStatement()
+                    .execute(
+                            "CREATE TABLE test_table "
+                                    + "  (a_string varchar not null, col1 integer, cf1.col2 integer, col3 integer , cf2.col4 integer "
+                                    + "  CONSTRAINT pk PRIMARY KEY (a_string))");
+
+            Connection conn2 = DriverManager.getConnection(getUrl(), props);
+            String query = "SELECT * FROM test_table";
+            ResultSet rs = conn2.createStatement().executeQuery(query);
+            assertFalse(rs.next());
+            assertFalse(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+            conn2.close();
+            assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("TEST_TABLE").isWALDisabled());
+
+            conn.createStatement().execute("CREATE INDEX i ON test_table (col1) include (cf1.col2) SALT_BUCKETS=4");
+            conn2 = DriverManager.getConnection(getUrl(), props);
+            query = "SELECT * FROM i";
+            rs = conn2.createStatement().executeQuery(query);
+            assertFalse(conn2.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            assertFalse(rs.next());
+            conn2.close();
+            assertFalse(conn.unwrap(PhoenixConnection.class).getPMetaData().getTable("I").isWALDisabled());
+            
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
     public void testDropColumnsWithImutability() throws Exception {
 
         Properties props = new Properties(TEST_PROPERTIES);
