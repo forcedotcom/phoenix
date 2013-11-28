@@ -38,16 +38,20 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.StringUtil;
 
 /**
@@ -59,8 +63,17 @@ import com.salesforce.phoenix.util.StringUtil;
  * @since 2.1
  */
 public class MutableIndexFailureTest extends BaseMutableIndexTest {
+    @BeforeClass 
+    public static void doSetup() throws Exception {
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
+        props.put("hbase.client.retries.number", Integer.toString(2));
+        props.put("hbase.client.pause", Integer.toString(5000));
+        // Must update config before starting server
+        startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
+    }
+    
+    
     private static void destroyIndexTable() throws Exception {
-        // Physically delete HBase table so that splits occur as expected for each test
         Properties props = new Properties(TEST_PROPERTIES);
         ConnectionQueryServices services = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class).getQueryServices();
         HBaseAdmin admin = services.getAdmin();

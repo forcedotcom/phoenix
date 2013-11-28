@@ -348,7 +348,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         if (valueGetter.getLatestValue(dataEmptyKeyValueRef) == null) {
             byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
             put = new Put(indexRowKey);
-            put.setWriteToWAL(indexWALDisabled);
+            put.setWriteToWAL(!indexWALDisabled);
             put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
         }
         int i = 0;
@@ -359,7 +359,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 if (put == null) {
                     byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
                     put = new Put(indexRowKey);
-                    put.setWriteToWAL(indexWALDisabled);
+                    put.setWriteToWAL(!indexWALDisabled);
                 }
                 put.add(ref.getFamily(), cq, ts, value.copyBytesIfNecessary());
             }
@@ -428,7 +428,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         // Delete the entire row if any of the indexed columns changed
         if (oldState == null || isRowDeleted(pendingUpdates) || hasIndexedColumnChanged(oldState, pendingUpdates)) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
-            delete.setWriteToWAL(indexWALDisabled);
+            delete.setWriteToWAL(!indexWALDisabled);
             return delete;
         }
         Delete delete = null;
@@ -439,7 +439,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 if (coveredColumns.contains(ref)) {
                     if (delete == null) {
                         delete = new Delete(indexRowKey);                    
-                        delete.setWriteToWAL(indexWALDisabled);
+                        delete.setWriteToWAL(!indexWALDisabled);
                     }
                     delete.deleteColumns(ref.getFamily(), IndexUtil.getIndexColumnName(ref.getFamily(), ref.getQualifier()), ts);
                 }

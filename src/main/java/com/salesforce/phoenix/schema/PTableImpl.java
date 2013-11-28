@@ -473,8 +473,8 @@ public class PTableImpl implements PTable {
         private void newMutations() {
             this.setValues = new Put(this.key);
             this.unsetValues = new Delete(this.key);
-            this.setValues.setWriteToWAL(isWALDisabled());
-            this.unsetValues.setWriteToWAL(isWALDisabled());
+            this.setValues.setWriteToWAL(!isWALDisabled());
+            this.unsetValues.setWriteToWAL(!isWALDisabled());
        }
 
         @Override
@@ -550,7 +550,7 @@ public class PTableImpl implements PTable {
             // of the client.
             Delete delete = new Delete(key,ts,null);
             deleteRow = delete;
-            deleteRow.setWriteToWAL(isWALDisabled());
+            deleteRow.setWriteToWAL(!isWALDisabled());
         }
     }
 
