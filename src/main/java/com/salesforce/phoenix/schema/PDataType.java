@@ -1416,7 +1416,7 @@ public enum PDataType {
                     case UNSIGNED_FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
+                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxFloat)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1425,8 +1425,10 @@ public enum PDataType {
                     case FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
-                            BigDecimal minFloat = BigDecimal.valueOf(Float.MIN_VALUE);
+                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
+                            // Float.MIN_VALUE should not be used here, as this is the
+                            // smallest in terms of closest to zero.
+                            BigDecimal minFloat = MIN_FLOAT_AS_BIG_DECIMAL;
                             return bd.compareTo(maxFloat)<=0 && bd.compareTo(minFloat)>=0;
                         } catch(Exception e) {
                             return false;
@@ -1434,7 +1436,7 @@ public enum PDataType {
                     case UNSIGNED_DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
+                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxDouble)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1443,8 +1445,8 @@ public enum PDataType {
                     case DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
-                            BigDecimal minDouble = BigDecimal.valueOf(Double.MIN_VALUE);
+                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
+                            BigDecimal minDouble = MIN_DOUBLE_AS_BIG_DECIMAL;
                             return bd.compareTo(maxDouble)<=0 && bd.compareTo(minDouble)>=0;
                         } catch(Exception e) {
                             return false;
@@ -3101,6 +3103,10 @@ public enum PDataType {
     },
     ;
 
+    private static final BigDecimal MIN_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(-Double.MAX_VALUE);
+    private static final BigDecimal MAX_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(Double.MAX_VALUE);
+    private static final BigDecimal MIN_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(-Float.MAX_VALUE);
+    private static final BigDecimal MAX_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(Float.MAX_VALUE);
     private final String sqlTypeName;
     private final int sqlType;
     private final Class clazz;
