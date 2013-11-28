@@ -29,52 +29,27 @@ package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.RoundParseNode;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
+public class RoundTimestampFunction extends RoundFunction {
 
-/**
- * 
- * Function used to bucketize date/time values by rounding them to
- * an even increment.  Usage:
- * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
- * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
- *
- * @author jtaylor
- * @since 0.1
- */
-@BuiltInFunction(name = RoundFunction.NAME, 
-                 nodeClass = RoundParseNode.class,
-                 args = {
-                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
-                        @Argument(allowedTypes={PDataType.VARCHAR}, defaultValue = "null", isConstant=true),
-                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
-                        } 
-                )
-public abstract class RoundFunction extends ScalarFunction {
-    
-    public static final String NAME = "ROUND";
-    
-    public RoundFunction(List<Expression> children) {
+    public RoundTimestampFunction(List<Expression> children) {
         super(children);
     }
-    
+
     @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public OrderPreserving preservesOrder() {
-        return OrderPreserving.YES;
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        // TODO Auto-generated method stub
+        return false;
     }
 
     @Override
-    public int getKeyFormationTraversalIndex() {
-        return 0;
+    public PDataType getDataType() {
+        return PDataType.TIMESTAMP;
     }
+
 }

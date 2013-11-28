@@ -53,7 +53,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.expression.function.RoundFunction;
+import com.salesforce.phoenix.expression.function.RoundDateFunction;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -109,7 +109,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         Date date = new Date(System.currentTimeMillis());
         List<Object> binds = Arrays.<Object>asList(date);
         Expressions expressions = compileStatement(query,binds);
-        Expression w = constantComparison(CompareOp.GREATER, new RoundFunction(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
+        Expression w = constantComparison(CompareOp.GREATER, new RoundDateFunction(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
         assertEquals(w, expressions.whereClause);
         assertNull(expressions.havingClause);
     }

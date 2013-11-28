@@ -59,7 +59,7 @@ import com.salesforce.phoenix.expression.function.ToCharFunction;
 import com.salesforce.phoenix.expression.function.ToDateFunction;
 import com.salesforce.phoenix.expression.function.ToNumberFunction;
 import com.salesforce.phoenix.expression.function.TrimFunction;
-import com.salesforce.phoenix.expression.function.TruncFunction;
+import com.salesforce.phoenix.expression.function.TruncDateFunction;
 import com.salesforce.phoenix.expression.function.UpperFunction;
 
 /**
@@ -77,7 +77,7 @@ public enum ExpressionType {
     KeyValue(KeyValueColumnExpression.class),
     LiteralValue(LiteralExpression.class),
     RoundFunction(RoundFunction.class),
-    TruncFunction(TruncFunction.class),
+    TruncDateFunction(TruncDateFunction.class),
     ToDateFunction(ToDateFunction.class),
     ToCharFunction(ToCharFunction.class),
     ToNumberFunction(ToNumberFunction.class),

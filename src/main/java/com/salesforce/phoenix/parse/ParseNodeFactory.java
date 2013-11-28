@@ -94,7 +94,12 @@ public class ParseNodeFactory {
             this.upperName = lowerName;
             this.argCount = argCount;
         }
-
+        
+        @Override
+        public String toString() {
+            return upperName;
+        }
+        
         @Override
         public int hashCode() {
             final int prime = 31;
@@ -164,6 +169,9 @@ public class ParseNodeFactory {
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed initialization of built-in functions at class '" + f + "'", e);
+        }
+        for(BuiltInFunctionKey k : BUILT_IN_FUNCTION_MAP.keySet()) {
+            System.out.println(k);
         }
     }
 

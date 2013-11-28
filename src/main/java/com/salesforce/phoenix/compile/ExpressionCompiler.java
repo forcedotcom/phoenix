@@ -451,7 +451,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             Object value = null;
             PDataType type = func.getDataType();
             if (func.evaluate(null, ptr)) {
-                value = type.toObject(ptr);
             }
             return LiteralExpression.newConstant(value, type);
         }

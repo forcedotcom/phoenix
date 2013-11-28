@@ -25,56 +25,45 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.parse;
 
+import java.sql.SQLException;
 import java.util.List;
 
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.RoundParseNode;
+import com.salesforce.phoenix.expression.function.RoundDateFunction;
+import com.salesforce.phoenix.expression.function.RoundDecimalFunction;
+import com.salesforce.phoenix.expression.function.RoundFunction;
+import com.salesforce.phoenix.expression.function.RoundTimestampFunction;
 import com.salesforce.phoenix.schema.PDataType;
-
 
 /**
  * 
- * Function used to bucketize date/time values by rounding them to
- * an even increment.  Usage:
- * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
- * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
+ * Describe your class here.
  *
- * @author jtaylor
- * @since 0.1
+ * @author samarth.jain
+ * @since 2.1.3
  */
-@BuiltInFunction(name = RoundFunction.NAME, 
-                 nodeClass = RoundParseNode.class,
-                 args = {
-                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
-                        @Argument(allowedTypes={PDataType.VARCHAR}, defaultValue = "null", isConstant=true),
-                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
-                        } 
-                )
-public abstract class RoundFunction extends ScalarFunction {
-    
-    public static final String NAME = "ROUND";
-    
-    public RoundFunction(List<Expression> children) {
-        super(children);
-    }
-    
-    @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public OrderPreserving preservesOrder() {
-        return OrderPreserving.YES;
+public class RoundParseNode extends FunctionParseNode {
+
+    RoundParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
+        super(name, children, info);
     }
 
     @Override
-    public int getKeyFormationTraversalIndex() {
-        return 0;
+    public RoundFunction create(List<Expression> children, StatementContext context) throws SQLException {
+        final Expression firstChild = children.get(0);
+        final PDataType firstChildDataType = firstChild.getDataType();
+        if(firstChildDataType == PDataType.DATE) {
+            return new RoundDateFunction(children);
+        } else if(firstChildDataType == PDataType.TIMESTAMP) {
+            return new RoundTimestampFunction(children) ;
+        } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
+            return new RoundDecimalFunction(children);
+        } else {
+            throw new IllegalArgumentException();
+        }
     }
+
 }

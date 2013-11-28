@@ -27,54 +27,43 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.util.List;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.RoundParseNode;
 import com.salesforce.phoenix.schema.PDataType;
-
-
+import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
  * 
- * Function used to bucketize date/time values by rounding them to
- * an even increment.  Usage:
- * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
- * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
+ * Describe your class here.
  *
- * @author jtaylor
- * @since 0.1
+ * @author samarth.jain
+ * @since 2.1.3
  */
-@BuiltInFunction(name = RoundFunction.NAME, 
-                 nodeClass = RoundParseNode.class,
-                 args = {
-                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
-                        @Argument(allowedTypes={PDataType.VARCHAR}, defaultValue = "null", isConstant=true),
-                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
-                        } 
-                )
-public abstract class RoundFunction extends ScalarFunction {
+@BuiltInFunction(name=FloorFunction.NAME, args= {
+        @Argument(allowedTypes={PDataType.DATE}),
+        @Argument(enumeration="TimeUnit"),
+        @Argument(allowedTypes={PDataType.INTEGER}, isConstant=true, defaultValue="1")} )
+public class FloorFunction extends ScalarFunction {
     
-    public static final String NAME = "ROUND";
-    
-    public RoundFunction(List<Expression> children) {
-        super(children);
-    }
+    public static final String NAME = "FLOOR";
     
     @Override
-    public String getName() {
-        return NAME;
-    }
-    
-    @Override
-    public OrderPreserving preservesOrder() {
-        return OrderPreserving.YES;
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        // TODO Auto-generated method stub
+        return false;
     }
 
     @Override
-    public int getKeyFormationTraversalIndex() {
-        return 0;
+    public PDataType getDataType() {
+        // TODO Auto-generated method stub
+        return null;
     }
+
+    @Override
+    public String getName() {
+        // TODO Auto-generated method stub
+        return NAME;
+    }
+
 }
