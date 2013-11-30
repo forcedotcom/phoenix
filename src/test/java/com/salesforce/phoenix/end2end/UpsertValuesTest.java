@@ -331,4 +331,44 @@ public class UpsertValuesTest extends BaseClientMangedTimeTest {
             closeStmtAndConn(stmt, conn);
         }
     }
+    
+    @Test
+    public void testUpsertIntoFloat() throws Exception {
+        long ts = nextTimestamp();
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("create table UpsertFloat (k varchar primary key, v float)");
+            stmt.execute();
+        } finally {
+            closeStmtAndConn(stmt, conn);
+        }
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("upsert into UpsertFloat values ('a', 0.0)");
+            stmt.executeUpdate();
+            conn.commit();
+        } finally {
+             closeStmtAndConn(stmt, conn);
+        }
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+        try {
+            conn = DriverManager.getConnection(getUrl(), props);
+            stmt = conn.prepareStatement("select * from UpsertFloat");
+            ResultSet rs = stmt.executeQuery();
+            assertTrue(rs.next());
+            assertEquals("a", rs.getString(1));
+            assertTrue(Float.valueOf(0.0f).equals(rs.getFloat(2)));
+            assertFalse(rs.next());
+        } finally {
+             closeStmtAndConn(stmt, conn);
+        }
+    }
+        
 }
