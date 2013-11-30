@@ -27,37 +27,23 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.lang.reflect.Constructor;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
-import org.apache.hadoop.hbase.util.Pair;
-
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.UnknownFunctionException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
-import com.salesforce.phoenix.expression.function.AvgAggregateFunction;
-import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.expression.function.CurrentDateFunction;
-import com.salesforce.phoenix.expression.function.CurrentTimeFunction;
-import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
-import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.expression.function.*;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.util.SchemaUtil;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.util.Pair;
+
+import java.lang.reflect.Constructor;
+import java.sql.SQLException;
+import java.util.*;
 
 
 /**
@@ -261,6 +247,10 @@ public class ParseNodeFactory {
     
     public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
         return new CreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
+    }
+
+    public CreateTableLikeStatement createTableLike(TableName newTable, TableName baseTable, int bindCount){
+        return new CreateTableLikeStatement(newTable, baseTable, bindCount);
     }
     
     public CreateIndexStatement createIndex(NamedNode indexName, NamedTableNode dataTable, PrimaryKeyConstraint pkConstraint, List<ColumnName> includeColumns, List<ParseNode> splits, ListMultimap<String,Pair<String,Object>> props, boolean ifNotExists, int bindCount) {
