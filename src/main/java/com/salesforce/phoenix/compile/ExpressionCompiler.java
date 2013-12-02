@@ -1071,7 +1071,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         theType = type;
                         foundDate = true;
                     }else if (type == PDataType.DECIMAL) {
-                        if (theType == null || !theType.isCoercibleTo(PDataType.DATE)) {
+                        if (theType == null || !theType.isCoercibleTo(PDataType.TIMESTAMP)) {
                             theType = PDataType.DECIMAL;
                         }
                     } else if (type.isCoercibleTo(PDataType.LONG)) {
