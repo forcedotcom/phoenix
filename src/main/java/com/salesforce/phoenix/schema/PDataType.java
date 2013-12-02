@@ -1285,9 +1285,13 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
             if (l == 0) {
                 return null;
+            }
+            if (columnModifier != null) {
+                b = columnModifier.apply(b, o, new byte[l], 0, l);
+                o = 0;
             }
             switch (actualType) {
             case DECIMAL:
@@ -1594,9 +1598,13 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
-            if (l == 0) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
+            if (actualType == null || l == 0) {
                 return null;
+            }
+            if (columnModifier != null) {
+                b = columnModifier.apply(b, o, new byte[l], 0, l);
+                o = 0;
             }
             switch (actualType) {
             case TIMESTAMP:
@@ -1629,8 +1637,7 @@ public enum PDataType {
         
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIME 
-                    || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1934,8 +1941,7 @@ public enum PDataType {
         
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == TIMESTAMP || targetType == UNSIGNED_DATE || targetType == DATE || targetType == UNSIGNED_TIME  || targetType == TIME 
-                    || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || targetType == TIMESTAMP || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -4837,10 +4843,10 @@ public enum PDataType {
         if (actualType == null) {
             return null;
         }
-        	if (columnModifier != null) {
-        	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
-        	    offset = 0;
-        	}
+    	if (columnModifier != null) {
+    	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
+    	    offset = 0;
+    	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }
