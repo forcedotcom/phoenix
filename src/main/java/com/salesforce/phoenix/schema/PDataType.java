@@ -1636,6 +1636,11 @@ public enum PDataType {
         }
         
         @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DATE.isComparableTo(targetType);
+        }
+
+       @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == VARBINARY || targetType == BINARY;
         }
@@ -1732,6 +1737,11 @@ public enum PDataType {
             default:
                 return super.toObject(object, actualType);
             }
+        }
+
+        @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DATE.isComparableTo(targetType);
         }
 
         @Override
@@ -1839,6 +1849,11 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return super.isComparableTo(targetType) || DECIMAL.isComparableTo(targetType);
+        }
+
+        @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == TIME || targetType == TIMESTAMP
                     || targetType == VARBINARY || targetType == BINARY;
@@ -1940,6 +1955,11 @@ public enum PDataType {
         }
         
         @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return TIMESTAMP.isComparableTo(targetType);
+        }
+
+        @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == TIMESTAMP || targetType == VARBINARY || targetType == BINARY;
         }
@@ -1995,6 +2015,11 @@ public enum PDataType {
         @Override
         public Object toObject(Object object, PDataType actualType) {
             return TIME.toObject(object, actualType);
+        }
+
+        @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return TIME.isComparableTo(targetType);
         }
 
         @Override
@@ -2062,6 +2087,11 @@ public enum PDataType {
         @Override
         public Object toObject(byte[] b, int o, int l, PDataType actualType) {
             return DATE.toObject(b,o,l,actualType);
+        }
+
+        @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DATE.isComparableTo(targetType);
         }
 
         @Override

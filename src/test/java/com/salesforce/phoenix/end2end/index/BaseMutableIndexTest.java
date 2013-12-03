@@ -31,6 +31,7 @@ import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -38,6 +39,7 @@ import java.util.Properties;
 
 import com.salesforce.phoenix.end2end.BaseHBaseManagedTimeTest;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.TestUtil;
 
 public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
     public static final String SCHEMA_NAME = "";
@@ -65,7 +67,8 @@ public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
                 "   b.char_col2 CHAR(5), " +
                 "   b.int_col2 INTEGER, " +
                 "   b.long_col2 BIGINT, " +
-                "   b.decimal_col2 DECIMAL(31, 10) " +
+                "   b.decimal_col2 DECIMAL(31, 10), " +
+                "   b.date_col DATE " + 
                 "   CONSTRAINT pk PRIMARY KEY (varchar_pk, char_pk, int_pk, long_pk DESC, decimal_pk))";
             Properties props = new Properties(TEST_PROPERTIES);
             Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -75,11 +78,15 @@ public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
     
     // Populate the test table with data.
     protected static void populateTestTable() throws SQLException {
+        populateTestTable(null);
+    }
+    // Populate the test table with data.
+    protected static void populateTestTable(Date date) throws SQLException {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
             String upsert = "UPSERT INTO " + DATA_TABLE_FULL_NAME
-                    + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    + " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement stmt = conn.prepareStatement(upsert);
             stmt.setString(1, "varchar1");
             stmt.setString(2, "char1");
@@ -96,6 +103,7 @@ public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
             stmt.setInt(13, 3);
             stmt.setLong(14, 3L);
             stmt.setBigDecimal(15, new BigDecimal(3.0));
+            stmt.setDate(16, date == null ? null : new Date(date.getTime() + TestUtil.MILLIS_IN_DAY));
             stmt.executeUpdate();
             
             stmt.setString(1, "varchar2");
@@ -113,6 +121,7 @@ public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
             stmt.setInt(13, 4);
             stmt.setLong(14, 4L);
             stmt.setBigDecimal(15, new BigDecimal(4.0));
+            stmt.setDate(16, date);
             stmt.executeUpdate();
             
             stmt.setString(1, "varchar3");
@@ -130,6 +139,7 @@ public class BaseMutableIndexTest extends BaseHBaseManagedTimeTest {
             stmt.setInt(13, 5);
             stmt.setLong(14, 5L);
             stmt.setBigDecimal(15, new BigDecimal(5.0));
+            stmt.setDate(16, date == null ? null : new Date(date.getTime() + 2 * TestUtil.MILLIS_IN_DAY));
             stmt.executeUpdate();
             
             conn.commit();
