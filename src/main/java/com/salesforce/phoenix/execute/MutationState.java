@@ -198,7 +198,7 @@ public class MutationState implements SQLCloseable {
             public Pair<byte[], List<Mutation>> next() {
                 if (isFirst) {
                     isFirst = false;
-                    return new Pair<byte[],List<Mutation>>(tableRef.getTable().getName().getBytes(),mutations);
+                    return new Pair<byte[],List<Mutation>>(tableRef.getTable().getPhysicalName().getBytes(),mutations);
                 }
                 PTable index = indexes.next();
                 List<Mutation> indexMutations;
@@ -207,7 +207,7 @@ public class MutationState implements SQLCloseable {
                 } catch (SQLException e) {
                     throw new IllegalDataException(e);
                 }
-                return new Pair<byte[],List<Mutation>>(index.getName().getBytes(),indexMutations);
+                return new Pair<byte[],List<Mutation>>(index.getPhysicalName().getBytes(),indexMutations);
             }
 
             @Override
@@ -325,7 +325,7 @@ public class MutationState implements SQLCloseable {
     
     public void commit() throws SQLException {
         int i = 0;
-        byte[] tenantId = connection.getTenantId();
+        byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
         long[] serverTimeStamps = validate();
         Iterator<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> iterator = this.mutations.entrySet().iterator();
         List<Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>>> committedList = Lists.newArrayListWithCapacity(this.mutations.size());

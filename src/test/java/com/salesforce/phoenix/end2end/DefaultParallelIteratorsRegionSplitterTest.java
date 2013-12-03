@@ -133,7 +133,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
             throws SQLException {
         TableRef tableRef = getTableRef(conn, ts);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        final List<HRegionLocation> regions =  pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getName().getBytes());
+        final List<HRegionLocation> regions =  pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getPhysicalName().getBytes());
         StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, pconn, null, Collections.emptyList(), scan);
         DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, tableRef, HintNode.EMPTY_HINT_NODE) {
             @Override

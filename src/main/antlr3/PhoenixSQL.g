@@ -632,7 +632,7 @@ join_spec returns [TableNode ret]
     ;
 
 join_type returns [JoinTableNode.JoinType ret]
-    :   INNER   { $ret = JoinTableNode.JoinType.Inner; }
+    :   INNER?   { $ret = JoinTableNode.JoinType.Inner; }
     |   LEFT OUTER?   { $ret = JoinTableNode.JoinType.Left; }
     |   RIGHT OUTER?  { $ret = JoinTableNode.JoinType.Right; }
     |   FULL  OUTER?  { $ret = JoinTableNode.JoinType.Full; }

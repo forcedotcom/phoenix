@@ -25,57 +25,48 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.util;
 
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import com.salesforce.phoenix.schema.PDataType;
+import java.sql.Timestamp;
 
-
+import org.junit.Test;
 
 /**
  * 
- * Node representing literal expressions such as 1,2.5,'foo', and NULL in SQL
+ * Test class for {@link DateUtil}
  *
- * @author jtaylor
- * @since 0.1
+ * @author samarth.jain
+ * @since 2.1.3
  */
-public class LiteralParseNode extends TerminalParseNode {
-    public static final List<ParseNode> STAR = Collections.<ParseNode>singletonList(new LiteralParseNode(1));
-    private final Object value;
-    private final PDataType type;
+public class DateUtilTest {
     
-    public LiteralParseNode(Object value) {
-        this.value = value;
-        this.type = PDataType.fromLiteral(value);
-    }
-
-    public PDataType getType() {
-        return type;
-    }
-    
-    public Object getValue() {
-        return value;
-    }
-
-    @Override
-    public boolean isConstant() {
-        return true;
-    }
-    
-    @Override
-    public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
-        return visitor.visit(this);
-    }
-
-    public byte[] getBytes() {
-        return type == null ? null : type.toBytes(value);
-    }
-    
-    @Override
-    public String toString() {
-        return type == PDataType.VARCHAR ? ("'" + value.toString() + "'") : value == null ? "null" : value.toString();
+    @Test
+    public void testDemonstrateSetNanosOnTimestampLosingMillis() {
+        Timestamp ts1 = new Timestamp(120055);
+        ts1.setNanos(60);
+        
+        Timestamp ts2 = new Timestamp(120100);
+        ts2.setNanos(60);
+        
+        /*
+         * This really should have been assertFalse() because we started with timestamps that 
+         * had different milliseconds 120055 and 120100. THe problem is that the timestamp's 
+         * constructor converts the milliseconds passed into seconds and assigns the left-over
+         * milliseconds to the nanos part of the timestamp. If setNanos() is called after that
+         * then the previous value of nanos gets overwritten resulting in loss of milliseconds.
+         */
+        assertTrue(ts1.equals(ts2));
+        
+        /*
+         * The right way to deal with timestamps when you have both milliseconds and nanos to assign
+         * is to use the DateUtil.getTimestamp(long millis, int nanos).
+         */
+        ts1 = DateUtil.getTimestamp(120055,  60);
+        ts2 = DateUtil.getTimestamp(120100, 60);
+        assertFalse(ts1.equals(ts2));
+        assertTrue(ts2.after(ts1));
     }
 }

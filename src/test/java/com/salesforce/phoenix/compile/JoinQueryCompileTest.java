@@ -50,7 +50,7 @@ public class JoinQueryCompileTest extends BaseConnectionlessQueryTest {
     @Test
     public void testExplainPlan() throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
-        String query = "EXPLAIN SELECT s.supplier_id, order_id, c.name, i.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
+        String query = "EXPLAIN SELECT s.supplier_id, order_id, c.name, i.name, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
     	+ JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id AND c.name LIKE 'C%' LEFT JOIN " 
     	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN " 
     	+ JOIN_SUPPLIER_TABLE + " s ON s.supplier_id = i.supplier_id WHERE i.name LIKE 'T%'";
@@ -67,7 +67,7 @@ public class JoinQueryCompileTest extends BaseConnectionlessQueryTest {
         		"                    SERVER FILTER BY NAME LIKE 'C%'\n" +
         		"            BUILD HASH TABLE 1\n" +
         		"                CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
-        		"    AFTER-JOIN SERVER FILTER BY JOIN_ITEM_TABLE.NAME(PROJECTED[9]) LIKE 'T%'", QueryUtil.getExplainPlan(rs));
+        		"    AFTER-JOIN SERVER FILTER BY JOIN_ITEM_TABLE.NAME(PROJECTED[8]) LIKE 'T%'", QueryUtil.getExplainPlan(rs));
     }
 
 }

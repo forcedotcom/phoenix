@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -102,11 +103,12 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce.phoenix.jdbc.Jdbc7Shim.DatabaseMetaData {
-    public static final int INDEX_NAME_INDEX = 3; // Shared with FAMILY_NAME_INDEX
-    public static final int FAMILY_NAME_INDEX = 3;
-    public static final int COLUMN_NAME_INDEX = 2;
-    public static final int TABLE_NAME_INDEX = 1;
-    public static final int SCHEMA_NAME_INDEX = 0;
+    public static final int INDEX_NAME_INDEX = 4; // Shared with FAMILY_NAME_INDEX
+    public static final int FAMILY_NAME_INDEX = 4;
+    public static final int COLUMN_NAME_INDEX = 3;
+    public static final int TABLE_NAME_INDEX = 2;
+    public static final int SCHEMA_NAME_INDEX = 1;
+    public static final int TENANT_ID_INDEX = 0;
 
     public static final String TYPE_SCHEMA = "SYSTEM";
     public static final String TYPE_TABLE = "TABLE";
@@ -142,9 +144,14 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] DATA_TABLE_NAME_BYTES = Bytes.toBytes(DATA_TABLE_NAME);
     public static final String INDEX_STATE = "INDEX_STATE";
     public static final byte[] INDEX_STATE_BYTES = Bytes.toBytes(INDEX_STATE);
+
+    public static final String TENANT_ID = "TENANT_ID";
+    public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
+    public static final String BASE_TABLE = "BASE_TABLE";
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
+    public static final byte[] DATA_TYPE_BYTES = Bytes.toBytes(DATA_TYPE);
     public static final String TYPE_NAME = "TYPE_NAME";
     public static final String COLUMN_SIZE = "COLUMN_SIZE";
     public static final String BUFFER_LENGTH = "BUFFER_LENGTH";
@@ -165,6 +172,13 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String COLUMN_MODIFIER = "COLUMN_MODIFIER";
     public static final String IMMUTABLE_ROWS = "IMMUTABLE_ROWS";
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
+    public static final String DEFAULT_COLUMN_FAMILY_NAME = "DEFAULT_COLUMN_FAMILY";
+    public static final byte[] DEFAULT_COLUMN_FAMILY_NAME_BYTES = Bytes.toBytes(DEFAULT_COLUMN_FAMILY_NAME);
+    public static final String TENANT_TYPE_ID = "TENANT_TYPE_ID";
+    public static final byte[] TENANT_TYPE_ID_BYTES = Bytes.toBytes(TENANT_TYPE_ID);
+    public static final String DISABLE_WAL = "DISABLE_WAL";
+    public static final byte[] DISABLE_WAL_BYTES = Bytes.toBytes(DISABLE_WAL);
+    
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
@@ -258,6 +272,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             throws SQLException {
         return emptyResultSet;
     }
+    
+    private String getTenantIdWhereClause() {
+        return TENANT_ID + (connection.getTenantId() == null ? 
+            " IS NULL " : 
+            " = '" + StringEscapeUtils.escapeSql(connection.getTenantId().getString()) + "' ");
+    }
 
     @Override
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
@@ -286,28 +306,25 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SOURCE_DATA_TYPE + "," +
                 IS_AUTOINCREMENT +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
-                " where");
-        String conjunction = " ";
+                " where ");
+        buf.append(getTenantIdWhereClause());
         if (schemaPattern != null) {
-            buf.append(conjunction + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
-            conjunction = " and ";
+            buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
         }
         if (tableNamePattern != null && tableNamePattern.length() > 0) {
-            buf.append(conjunction + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
-            conjunction = " and ";
+            buf.append(" and " + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
         }
         if (catalog != null && catalog.length() > 0) { // if null or empty, will pick up all columns
             // Will pick up only KV columns
             // We supported only getting the PK columns by using catalog="", but some clients pass this through
             // instead of null (namely SQLLine), so better to just treat these the same. If only PK columns are
             // wanted, you can just stop the scan when you get to a non null TABLE_CAT_NAME
-            buf.append(conjunction + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
-            conjunction = " and ";
+            buf.append(" and " + TABLE_CAT_NAME + " like '" + SchemaUtil.normalizeIdentifier(catalog) + "'" );
         }
         if (columnNamePattern != null && columnNamePattern.length() > 0) {
-            buf.append(conjunction + COLUMN_NAME + " like '" + SchemaUtil.normalizeIdentifier(columnNamePattern) + "'" );
+            buf.append(" and " + COLUMN_NAME + " like '" + SchemaUtil.normalizeIdentifier(columnNamePattern) + "'" );
         } else {
-            buf.append(conjunction + COLUMN_NAME + " is not null" );
+            buf.append(" and " + COLUMN_NAME + " is not null" );
         }
         buf.append(" order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION);
         Statement stmt = connection.createStatement();
@@ -429,7 +446,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME + 
                 "\nfrom " + TYPE_SCHEMA_AND_TABLE + 
                 "\nwhere ");
-        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
+        buf.append(getTenantIdWhereClause());
+        buf.append("\nand " + TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
         buf.append("\nand " + DATA_TABLE_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
         buf.append("\nand " + COLUMN_NAME + " is not null" );
         buf.append("\norder by INDEX_NAME," + ORDINAL_POSITION);
@@ -576,7 +594,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where ");
-        buf.append(TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
+        buf.append(getTenantIdWhereClause());
+        buf.append(" and " + TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
         buf.append(" and " + TABLE_NAME_NAME + " = '" + SchemaUtil.normalizeIdentifier(table) + "'" );
         buf.append(" and " + TABLE_CAT_NAME + " is null" );
         buf.append(" order by " + ORDINAL_POSITION);
@@ -842,6 +861,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");
+        buf.append(" and " + getTenantIdWhereClause());
         if (schemaPattern != null) {
             buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
         }
@@ -1377,7 +1397,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         }
         return (T)this;
     }
-
 
     @Override
     public ResultSet getPseudoColumns(String catalog, String schemaPattern, String tableNamePattern,

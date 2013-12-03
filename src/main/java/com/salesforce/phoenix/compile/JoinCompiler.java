@@ -45,7 +45,10 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
@@ -61,6 +64,7 @@ import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
+import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.LikeParseNode;
 import com.salesforce.phoenix.parse.NotParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
@@ -72,12 +76,12 @@ import com.salesforce.phoenix.parse.StatelessTraverseAllParseNodeVisitor;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.TraverseNoParseNodeVisitor;
 import com.salesforce.phoenix.parse.WildcardParseNode;
-import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnImpl;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PNameFactory;
 import com.salesforce.phoenix.schema.PTable;
@@ -254,7 +258,7 @@ public class JoinCompiler {
                 }            	
             }
             
-            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows());
+            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), null, null, null, table.isWALDisabled());
             return new ProjectedPTableWrapper(t, columnNameMap, sourceExpressions);
         }
         
@@ -462,10 +466,20 @@ public class JoinCompiler {
             expressionCompiler = new ExpressionCompiler(context);
             Iterator<Pair<Expression, Expression>> iter = compiled.iterator();
             for (ParseNode condition : conditions) {
+                Pair<Expression, Expression> p = iter.next();
                 EqualParseNode equalNode = (EqualParseNode) condition;
                 expressionCompiler.reset();
                 Expression right = equalNode.getRHS().accept(expressionCompiler);
-                iter.next().setSecond(right);
+                Expression left = p.getFirst();
+                PDataType toType = getCommonType(left.getDataType(), right.getDataType());
+                if (left.getDataType() != toType) {
+                    left = CoerceExpression.create(left, toType);
+                    p.setFirst(left);
+                }
+                if (right.getDataType() != toType) {
+                    right = CoerceExpression.create(right, toType);
+                }
+                p.setSecond(right);
             }
             context.setResolver(resolver); // recover the resolver
             Collections.sort(compiled, new Comparator<Pair<Expression, Expression>>() {
@@ -495,11 +509,38 @@ public class JoinCompiler {
             List<Expression> lConditions = new ArrayList<Expression>(compiled.size());
             List<Expression> rConditions = new ArrayList<Expression>(compiled.size());
             for (Pair<Expression, Expression> pair : compiled) {
-            	lConditions.add(pair.getFirst());
-            	rConditions.add(pair.getSecond());
+                lConditions.add(pair.getFirst());
+                rConditions.add(pair.getSecond());
             }
             
             return new Pair<List<Expression>, List<Expression>>(lConditions, rConditions);
+        }
+        
+        private PDataType getCommonType(PDataType lType, PDataType rType) throws SQLException {
+            if (lType == rType)
+                return lType;
+            
+            if (!lType.isComparableTo(rType))
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
+                    .setMessage("On-clause LHS expression and RHS expression must be comparable. LHS type: " + lType + ", RHS type: " + rType)
+                    .build().buildException();
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.DECIMAL))
+                    && (rType == null || rType.isCoercibleTo(PDataType.DECIMAL))) {
+                return PDataType.DECIMAL;
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.TIMESTAMP))
+                    && (rType == null || rType.isCoercibleTo(PDataType.TIMESTAMP))) {
+                return PDataType.TIMESTAMP;
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
+                    && (rType == null || rType.isCoercibleTo(PDataType.VARCHAR))) {
+                return PDataType.VARCHAR;
+            }
+
+            return PDataType.VARBINARY;
         }
         
         private class OnNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
@@ -787,7 +828,7 @@ public class JoinCompiler {
     			merged.add(column);
     		}
     	}
-        PTable t = PTableImpl.makePTable(left.getSchemaName(), PNameFactory.newName(SchemaUtil.getTableName(left.getName().getString(), right.getName().getString())), left.getType(), left.getIndexState(), left.getTimeStamp(), left.getSequenceNumber(), left.getPKName(), left.getBucketNum(), merged, left.getParentTableName(), left.getIndexes(), left.isImmutableRows());
+        PTable t = PTableImpl.makePTable(left.getSchemaName(), PNameFactory.newName(SchemaUtil.getTableName(left.getName().getString(), right.getName().getString())), left.getType(), left.getIndexState(), left.getTimeStamp(), left.getSequenceNumber(), left.getPKName(), left.getBucketNum(), merged, left.getParentTableName(), left.getIndexes(), left.isImmutableRows(), null, null, null, PTable.DEFAULT_DISABLE_WAL);
 
         ListMultimap<String, String> mergedMap = ArrayListMultimap.<String, String>create();
         mergedMap.putAll(lWrapper.getColumnNameMap());

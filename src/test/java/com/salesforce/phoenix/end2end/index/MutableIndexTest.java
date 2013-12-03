@@ -34,6 +34,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -90,6 +91,37 @@ public class MutableIndexTest extends BaseMutableIndexTest {
             assertTrue(rs.next());
             assertEquals("chara", rs.getString(1));
             assertEquals(4, rs.getInt(2));
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testIndexWithNullableDateCol() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        conn.setAutoCommit(false);
+        try {
+            Date date = new Date(System.currentTimeMillis());
+            
+            createTestTable();
+            populateTestTable(date);
+            String ddl = "CREATE INDEX " + INDEX_TABLE_NAME + " ON " + DATA_TABLE_FULL_NAME + " (date_col)";
+            PreparedStatement stmt = conn.prepareStatement(ddl);
+            stmt.execute();
+            
+            String query = "SELECT int_pk from " + DATA_TABLE_FULL_NAME ;
+            ResultSet rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+            assertEquals("CLIENT PARALLEL 1-WAY FULL SCAN OVER " + INDEX_TABLE_FULL_NAME, QueryUtil.getExplainPlan(rs));
+            
+            rs = conn.createStatement().executeQuery(query);
+            assertTrue(rs.next());
+            assertEquals(2, rs.getInt(1));
+            assertTrue(rs.next());
+            assertEquals(1, rs.getInt(1));
+            assertTrue(rs.next());
+            assertEquals(3, rs.getInt(1));
             assertFalse(rs.next());
         } finally {
             conn.close();

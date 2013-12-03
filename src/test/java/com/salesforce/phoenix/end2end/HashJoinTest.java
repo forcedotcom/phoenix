@@ -38,15 +38,21 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.Properties;
 
 import org.junit.Test;
+
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 
 public class HashJoinTest extends BaseClientMangedTimeTest {
     
@@ -57,48 +63,55 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             // Insert into order table
             PreparedStatement stmt = conn.prepareStatement(
                     "upsert into " + JOIN_ORDER_TABLE +
                     "   (ORDER_ID, " +
                     "    CUSTOMER_ID, " +
                     "    ITEM_ID, " +
+                    "    PRICE, " +
                     "    QUANTITY," +
                     "    DATE) " +
-                    "values (?, ?, ?, ?, ?)");
+                    "values (?, ?, ?, ?, ?, ?)");
             stmt.setString(1, "000000000000001");
             stmt.setString(2, "0000000004");
             stmt.setString(3, "0000000001");
-            stmt.setInt(4, 1000);
-            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.setInt(4, 100);
+            stmt.setInt(5, 1000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-22 14:22:56").getTime()));
             stmt.execute();
 
             stmt.setString(1, "000000000000002");
             stmt.setString(2, "0000000003");
             stmt.setString(3, "0000000006");
-            stmt.setInt(4, 2000);
-            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.setInt(4, 552);
+            stmt.setInt(5, 2000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 10:06:29").getTime()));
             stmt.execute();
 
             stmt.setString(1, "000000000000003");
             stmt.setString(2, "0000000002");
             stmt.setString(3, "0000000002");
-            stmt.setInt(4, 3000);
-            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.setInt(4, 190);
+            stmt.setInt(5, 3000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 16:45:07").getTime()));
             stmt.execute();
 
             stmt.setString(1, "000000000000004");
             stmt.setString(2, "0000000004");
             stmt.setString(3, "0000000006");
-            stmt.setInt(4, 4000);
-            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.setInt(4, 510);
+            stmt.setInt(5, 4000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-26 13:26:04").getTime()));
             stmt.execute();
 
             stmt.setString(1, "000000000000005");
             stmt.setString(2, "0000000005");
             stmt.setString(3, "0000000003");
-            stmt.setInt(4, 5000);
-            stmt.setDate(5, new Date(System.currentTimeMillis()));
+            stmt.setInt(4, 264);
+            stmt.setInt(5, 5000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-27 09:37:50").getTime()));
             stmt.execute();
 
             conn.commit();
@@ -115,6 +128,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             // Insert into customer table
             PreparedStatement stmt = conn.prepareStatement(
                     "upsert into " + JOIN_CUSTOMER_TABLE +
@@ -122,13 +136,15 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
                     "    NAME, " +
                     "    PHONE, " +
                     "    ADDRESS, " +
-                    "    LOC_ID) " +
-                    "values (?, ?, ?, ?, ?)");
+                    "    LOC_ID, " +
+                    "    DATE) " +
+                    "values (?, ?, ?, ?, ?, ?)");
             stmt.setString(1, "0000000001");
             stmt.setString(2, "C1");
             stmt.setString(3, "999-999-1111");
             stmt.setString(4, "101 XXX Street");
             stmt.setString(5, "10001");
+            stmt.setDate(6, new Date(format.parse("2013-11-01 10:20:36").getTime()));
             stmt.execute();
                 
             stmt.setString(1, "0000000002");
@@ -136,6 +152,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(3, "999-999-2222");
             stmt.setString(4, "202 XXX Street");
             stmt.setString(5, null);
+            stmt.setDate(6, new Date(format.parse("2013-11-25 16:45:07").getTime()));
             stmt.execute();
 
             stmt.setString(1, "0000000003");
@@ -143,6 +160,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(3, "999-999-3333");
             stmt.setString(4, "303 XXX Street");
             stmt.setString(5, null);
+            stmt.setDate(6, new Date(format.parse("2013-11-25 10:06:29").getTime()));
             stmt.execute();
 
             stmt.setString(1, "0000000004");
@@ -150,6 +168,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(3, "999-999-4444");
             stmt.setString(4, "404 XXX Street");
             stmt.setString(5, "10004");
+            stmt.setDate(6, new Date(format.parse("2013-11-22 14:22:56").getTime()));
             stmt.execute();
 
             stmt.setString(1, "0000000005");
@@ -157,6 +176,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(3, "999-999-5555");
             stmt.setString(4, "505 XXX Street");
             stmt.setString(5, "10005");
+            stmt.setDate(6, new Date(format.parse("2013-11-27 09:37:50").getTime()));
             stmt.execute();
 
             stmt.setString(1, "0000000006");
@@ -164,6 +184,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(3, "999-999-6666");
             stmt.setString(4, "606 XXX Street");
             stmt.setString(5, "10001");
+            stmt.setDate(6, new Date(format.parse("2013-11-01 10:20:36").getTime()));
             stmt.execute();
             
             // Insert into item table
@@ -172,56 +193,72 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
                     "   (ITEM_ID, " +
                     "    NAME, " +
                     "    PRICE, " +
+                    "    DISCOUNT1, " +
+                    "    DISCOUNT2, " +
                     "    SUPPLIER_ID, " +
                     "    DESCRIPTION) " +
-                    "values (?, ?, ?, ?, ?)");
+                    "values (?, ?, ?, ?, ?, ?, ?)");
             stmt.setString(1, "0000000001");
             stmt.setString(2, "T1");
             stmt.setInt(3, 100);
-            stmt.setString(4, "0000000001");
-            stmt.setString(5, "Item T1");
+            stmt.setInt(4, 5);
+            stmt.setInt(5, 10);
+            stmt.setString(6, "0000000001");
+            stmt.setString(7, "Item T1");
             stmt.execute();
 
             stmt.setString(1, "0000000002");
             stmt.setString(2, "T2");
             stmt.setInt(3, 200);
-            stmt.setString(4, "0000000001");
-            stmt.setString(5, "Item T2");
+            stmt.setInt(4, 5);
+            stmt.setInt(5, 8);
+            stmt.setString(6, "0000000001");
+            stmt.setString(7, "Item T2");
             stmt.execute();
 
             stmt.setString(1, "0000000003");
             stmt.setString(2, "T3");
             stmt.setInt(3, 300);
-            stmt.setString(4, "0000000002");
-            stmt.setString(5, "Item T3");
+            stmt.setInt(4, 8);
+            stmt.setInt(5, 12);
+            stmt.setString(6, "0000000002");
+            stmt.setString(7, "Item T3");
             stmt.execute();
 
             stmt.setString(1, "0000000004");
             stmt.setString(2, "T4");
             stmt.setInt(3, 400);
-            stmt.setString(4, "0000000002");
-            stmt.setString(5, "Item T4");
+            stmt.setInt(4, 6);
+            stmt.setInt(5, 10);
+            stmt.setString(6, "0000000002");
+            stmt.setString(7, "Item T4");
             stmt.execute();
 
             stmt.setString(1, "0000000005");
             stmt.setString(2, "T5");
             stmt.setInt(3, 500);
-            stmt.setString(4, "0000000005");
-            stmt.setString(5, "Item T5");
+            stmt.setInt(4, 8);
+            stmt.setInt(5, 15);
+            stmt.setString(6, "0000000005");
+            stmt.setString(7, "Item T5");
             stmt.execute();
 
             stmt.setString(1, "0000000006");
             stmt.setString(2, "T6");
             stmt.setInt(3, 600);
-            stmt.setString(4, "0000000006");
-            stmt.setString(5, "Item T6");
+            stmt.setInt(4, 8);
+            stmt.setInt(5, 15);
+            stmt.setString(6, "0000000006");
+            stmt.setString(7, "Item T6");
             stmt.execute();
             
             stmt.setString(1, "invalid001");
             stmt.setString(2, "INVALID-1");
             stmt.setInt(3, 0);
-            stmt.setString(4, "0000000000");
-            stmt.setString(5, "Invalid item for join test");
+            stmt.setInt(4, 0);
+            stmt.setInt(5, 0);
+            stmt.setString(6, "0000000000");
+            stmt.setString(7, "Invalid item for join test");
             stmt.execute();
 
             // Insert into supplier table
@@ -276,6 +313,52 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.execute();
 
             conn.commit();
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testDefaultJoin() throws Exception {
+        initMetaInfoTableValues();
+        String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000001");
+            assertEquals(rs.getString(2), "T1");
+            assertEquals(rs.getString(3), "0000000001");
+            assertEquals(rs.getString(4), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000002");
+            assertEquals(rs.getString(2), "T2");
+            assertEquals(rs.getString(3), "0000000001");
+            assertEquals(rs.getString(4), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000003");
+            assertEquals(rs.getString(2), "T3");
+            assertEquals(rs.getString(3), "0000000002");
+            assertEquals(rs.getString(4), "S2");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000004");
+            assertEquals(rs.getString(2), "T4");
+            assertEquals(rs.getString(3), "0000000002");
+            assertEquals(rs.getString(4), "S2");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000005");
+            assertEquals(rs.getString(2), "T5");
+            assertEquals(rs.getString(3), "0000000005");
+            assertEquals(rs.getString(4), "S5");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000006");
+            assertEquals(rs.getString(2), "T6");
+            assertEquals(rs.getString(3), "0000000006");
+            assertEquals(rs.getString(4), "S6");
+
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }
@@ -609,7 +692,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     @Test
     public void testStarJoin() throws Exception {
         initAllTableValues();
-        String query = "SELECT order_id, c.name, i.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
+        String query = "SELECT order_id, c.name, i.name, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
         	+ JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
         	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -920,79 +1003,93 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             assertEquals(rs.getString(1), "0000000001");
             assertEquals(rs.getString(2), "T1");
             assertEquals(rs.getInt(3), 100);
-            assertEquals(rs.getString(4), "0000000001");
-            assertEquals(rs.getString(5), "Item T1");
+            assertEquals(rs.getInt(4), 5);
+            assertEquals(rs.getInt(5), 10);
             assertEquals(rs.getString(6), "0000000001");
-            assertEquals(rs.getString(7), "S1");
-            assertEquals(rs.getString(8), "888-888-1111");
-            assertEquals(rs.getString(9), "101 YYY Street");
-            assertEquals(rs.getString(10), "10001");            
+            assertEquals(rs.getString(7), "Item T1");
+            assertEquals(rs.getString(8), "0000000001");
+            assertEquals(rs.getString(9), "S1");
+            assertEquals(rs.getString(10), "888-888-1111");
+            assertEquals(rs.getString(11), "101 YYY Street");
+            assertEquals(rs.getString(12), "10001");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000002");
             assertEquals(rs.getString(2), "T2");
             assertEquals(rs.getInt(3), 200);
-            assertEquals(rs.getString(4), "0000000001");
-            assertEquals(rs.getString(5), "Item T2");
+            assertEquals(rs.getInt(4), 5);
+            assertEquals(rs.getInt(5), 8);
             assertEquals(rs.getString(6), "0000000001");
-            assertEquals(rs.getString(7), "S1");
-            assertEquals(rs.getString(8), "888-888-1111");
-            assertEquals(rs.getString(9), "101 YYY Street");
-            assertEquals(rs.getString(10), "10001");            
+            assertEquals(rs.getString(7), "Item T2");
+            assertEquals(rs.getString(8), "0000000001");
+            assertEquals(rs.getString(9), "S1");
+            assertEquals(rs.getString(10), "888-888-1111");
+            assertEquals(rs.getString(11), "101 YYY Street");
+            assertEquals(rs.getString(12), "10001");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000003");
             assertEquals(rs.getString(2), "T3");
             assertEquals(rs.getInt(3), 300);
-            assertEquals(rs.getString(4), "0000000002");
-            assertEquals(rs.getString(5), "Item T3");
+            assertEquals(rs.getInt(4), 8);
+            assertEquals(rs.getInt(5), 12);
             assertEquals(rs.getString(6), "0000000002");
-            assertEquals(rs.getString(7), "S2");
-            assertEquals(rs.getString(8), "888-888-2222");
-            assertEquals(rs.getString(9), "202 YYY Street");
-            assertEquals(rs.getString(10), "10002");            
+            assertEquals(rs.getString(7), "Item T3");
+            assertEquals(rs.getString(8), "0000000002");
+            assertEquals(rs.getString(9), "S2");
+            assertEquals(rs.getString(10), "888-888-2222");
+            assertEquals(rs.getString(11), "202 YYY Street");
+            assertEquals(rs.getString(12), "10002");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000004");
             assertEquals(rs.getString(2), "T4");
             assertEquals(rs.getInt(3), 400);
-            assertEquals(rs.getString(4), "0000000002");
-            assertEquals(rs.getString(5), "Item T4");
+            assertEquals(rs.getInt(4), 6);
+            assertEquals(rs.getInt(5), 10);
             assertEquals(rs.getString(6), "0000000002");
-            assertEquals(rs.getString(7), "S2");
-            assertEquals(rs.getString(8), "888-888-2222");
-            assertEquals(rs.getString(9), "202 YYY Street");
-            assertEquals(rs.getString(10), "10002");            
+            assertEquals(rs.getString(7), "Item T4");
+            assertEquals(rs.getString(8), "0000000002");
+            assertEquals(rs.getString(9), "S2");
+            assertEquals(rs.getString(10), "888-888-2222");
+            assertEquals(rs.getString(11), "202 YYY Street");
+            assertEquals(rs.getString(12), "10002");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000005");
             assertEquals(rs.getString(2), "T5");
             assertEquals(rs.getInt(3), 500);
-            assertEquals(rs.getString(4), "0000000005");
-            assertEquals(rs.getString(5), "Item T5");
+            assertEquals(rs.getInt(4), 8);
+            assertEquals(rs.getInt(5), 15);
             assertEquals(rs.getString(6), "0000000005");
-            assertEquals(rs.getString(7), "S5");
-            assertEquals(rs.getString(8), "888-888-5555");
-            assertEquals(rs.getString(9), "505 YYY Street");
-            assertEquals(rs.getString(10), "10005");            
+            assertEquals(rs.getString(7), "Item T5");
+            assertEquals(rs.getString(8), "0000000005");
+            assertEquals(rs.getString(9), "S5");
+            assertEquals(rs.getString(10), "888-888-5555");
+            assertEquals(rs.getString(11), "505 YYY Street");
+            assertEquals(rs.getString(12), "10005");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000006");
             assertEquals(rs.getString(2), "T6");
             assertEquals(rs.getInt(3), 600);
-            assertEquals(rs.getString(4), "0000000006");
-            assertEquals(rs.getString(5), "Item T6");
+            assertEquals(rs.getInt(4), 8);
+            assertEquals(rs.getInt(5), 15);
             assertEquals(rs.getString(6), "0000000006");
-            assertEquals(rs.getString(7), "S6");
-            assertEquals(rs.getString(8), "888-888-6666");
-            assertEquals(rs.getString(9), "606 YYY Street");
-            assertEquals(rs.getString(10), "10006");            
+            assertEquals(rs.getString(7), "Item T6");
+            assertEquals(rs.getString(8), "0000000006");
+            assertEquals(rs.getString(9), "S6");
+            assertEquals(rs.getString(10), "888-888-6666");
+            assertEquals(rs.getString(11), "606 YYY Street");
+            assertEquals(rs.getString(12), "10006");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "invalid001");
             assertEquals(rs.getString(2), "INVALID-1");
             assertEquals(rs.getInt(3), 0);
-            assertEquals(rs.getString(4), "0000000000");
-            assertEquals(rs.getString(5), "Invalid item for join test");
-            assertNull(rs.getString(6));
-            assertNull(rs.getString(7));
+            assertEquals(rs.getInt(4), 0);
+            assertEquals(rs.getInt(5), 0);
+            assertEquals(rs.getString(6), "0000000000");
+            assertEquals(rs.getString(7), "Invalid item for join test");
             assertNull(rs.getString(8));
             assertNull(rs.getString(9));
             assertNull(rs.getString(10));
+            assertNull(rs.getString(11));
+            assertNull(rs.getString(12));
 
             assertFalse(rs.next());
         } finally {
@@ -1029,6 +1126,81 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             assertNull(rs.getString(2));
 
             assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinWithDifferentNumericJoinKeyTypes() throws Exception {
+        initAllTableValues();
+        String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
+        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price = (i.price * (100 - discount2)) / 100.0 WHERE quantity < 5000";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000004");
+            assertEquals(rs.getString(2), "T6");
+            assertEquals(rs.getInt(3), 600);
+            assertEquals(rs.getInt(4), 15);
+            assertEquals(rs.getInt(5), 4000);
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinWithDifferentDateJoinKeyTypes() throws Exception {
+        initAllTableValues();
+        String query = "SELECT order_id, c.name, o.date FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
+            + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id AND o.date = c.date";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000001");
+            assertEquals(rs.getString(2), "C4");
+            assertEquals(rs.getTimestamp(3), new Timestamp(format.parse("2013-11-22 14:22:56").getTime()));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000002");
+            assertEquals(rs.getString(2), "C3");
+            assertEquals(rs.getTimestamp(3), new Timestamp(format.parse("2013-11-25 10:06:29").getTime()));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000003");
+            assertEquals(rs.getString(2), "C2");
+            assertEquals(rs.getTimestamp(3), new Timestamp(format.parse("2013-11-25 16:45:07").getTime()));
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "000000000000005");
+            assertEquals(rs.getString(2), "C5");
+            assertEquals(rs.getTimestamp(3), new Timestamp(format.parse("2013-11-27 09:37:50").getTime()));
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinWithIncomparableJoinKeyTypes() throws Exception {
+        initAllTableValues();
+        String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price / 100 = substr(i.name, 2, 1)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.executeQuery();
+            fail("Should have got SQLException.");
+        } catch (SQLException e) {
+            assertEquals(e.getErrorCode(), SQLExceptionCode.CANNOT_CONVERT_TYPE.getErrorCode());
         } finally {
             conn.close();
         }

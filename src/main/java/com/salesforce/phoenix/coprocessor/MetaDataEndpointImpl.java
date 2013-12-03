@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.coprocessor;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME_INDEX;
@@ -34,6 +35,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
@@ -46,8 +49,13 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_B
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES;
+import static com.salesforce.phoenix.schema.PTableType.INDEX;
+import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
+import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
@@ -68,6 +76,7 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -80,6 +89,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
@@ -130,6 +140,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue DATA_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
     private static final KeyValue INDEX_STATE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
     private static final KeyValue IMMUTABLE_ROWS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, IMMUTABLE_ROWS_BYTES);
+    private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES);
+    private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
+    private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -138,7 +151,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PK_NAME_KV,
             DATA_TABLE_NAME_KV,
             INDEX_STATE_KV,
-            IMMUTABLE_ROWS_KV
+            IMMUTABLE_ROWS_KV,
+            TENANT_TYPE_ID_KV,
+            DEFAULT_COLUMN_FAMILY_KV,
+            DISABLE_WAL_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -151,6 +167,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int DATA_TABLE_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(DATA_TABLE_NAME_KV);
     private static final int INDEX_STATE_INDEX = TABLE_KV_COLUMNS.indexOf(INDEX_STATE_KV);
     private static final int IMMUTABLE_ROWS_INDEX = TABLE_KV_COLUMNS.indexOf(IMMUTABLE_ROWS_KV);
+    private static final int TENANT_TYPE_ID_INDEX = TABLE_KV_COLUMNS.indexOf(TENANT_TYPE_ID_KV);
+    private static final int DEFAULT_COLUMN_FAMILY_INDEX = TABLE_KV_COLUMNS.indexOf(DEFAULT_COLUMN_FAMILY_KV);
+    private static final int DISABLE_WAL_INDEX = TABLE_KV_COLUMNS.indexOf(DISABLE_WAL_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -235,8 +254,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private void addIndexToTable(PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
-        byte[] key = SchemaUtil.getTableKey(schemaName.getBytes(), indexName.getBytes());
+    private void addIndexToTable(PName tenantId, PName schemaName, PName indexName, PName tableName, long clientTimeStamp, List<PTable> indexes) throws IOException, SQLException {
+        byte[] key = SchemaUtil.getTableKey(tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId.getBytes(), schemaName.getBytes(), indexName.getBytes());
         PTable indexTable = doGetTable(key, clientTimeStamp);
         if (indexTable == null) {
             ServerUtil.throwIOException("Index not found", new TableNotFoundException(schemaName.getString(), indexName.getString()));
@@ -298,14 +317,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[] keyBuffer = keyValue.getBuffer();
         int keyLength = keyValue.getRowLength();
         int keyOffset = keyValue.getRowOffset();
-        PName schemaName = newPName(keyBuffer, keyOffset, keyLength);
+        PName tenantId = newPName(keyBuffer, keyOffset, keyLength);
+        int tenantIdLength = tenantId.getBytes().length;
+        PName schemaName = newPName(keyBuffer, keyOffset+tenantIdLength+1, keyLength);
         int schemaNameLength = schemaName.getBytes().length;
-        int tableNameLength = keyLength-schemaNameLength-1;
+        int tableNameLength = keyLength-schemaNameLength-1-tenantIdLength-1;
         byte[] tableNameBytes = new byte[tableNameLength];
-        System.arraycopy(keyBuffer, keyOffset+schemaNameLength+1, tableNameBytes, 0, tableNameLength);
+        System.arraycopy(keyBuffer, keyOffset+schemaNameLength+1+tenantIdLength+1, tableNameBytes, 0, tableNameLength);
         PName tableName = PNameFactory.newName(tableNameBytes);
         
-        int offset = schemaNameLength + tableNameLength + 2;
+        int offset = tenantIdLength + schemaNameLength + tableNameLength + 3;
         // This will prevent the client from continually looking for the current
         // table when we know that there will never be one since we disallow updates
         // unless the table is the latest
@@ -357,6 +378,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         PIndexState indexState = indexStateKv == null ? null : PIndexState.fromSerializedValue(indexStateKv.getBuffer()[indexStateKv.getValueOffset()]);
         KeyValue immutableRowsKv = tableKeyValues[IMMUTABLE_ROWS_INDEX];
         boolean isImmutableRows = immutableRowsKv == null ? false : (Boolean)PDataType.BOOLEAN.toObject(immutableRowsKv.getBuffer(), immutableRowsKv.getValueOffset(), immutableRowsKv.getValueLength());
+        KeyValue defaultFamilyNameKv = tableKeyValues[DEFAULT_COLUMN_FAMILY_INDEX];
+        PName defaultFamilyName = defaultFamilyNameKv != null ? newPName(defaultFamilyNameKv.getBuffer(), defaultFamilyNameKv.getValueOffset(), defaultFamilyNameKv.getValueLength()) : null;
+        KeyValue tenantTypeIdKv = tableKeyValues[TENANT_TYPE_ID_INDEX];
+        PName tenantTypeId = tenantTypeIdKv != null ? newPName(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
+        KeyValue disableWALKv = tableKeyValues[DISABLE_WAL_INDEX];
+        boolean disableWAL = disableWALKv == null ? PTable.DEFAULT_DISABLE_WAL : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(disableWALKv.getBuffer(), disableWALKv.getValueOffset(), disableWALKv.getValueLength()));
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -371,14 +398,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             PName colName = newPName(colKv.getBuffer(), colKv.getRowOffset() + offset, colKeyLength-offset);
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
-            if (colName.getString().isEmpty() && famName != null) {
-                addIndexToTable(schemaName, famName, tableName, clientTimeStamp, indexes);                
+            if (colName.getString().isEmpty() && famName != null) {              
+                addIndexToTable(tenantId, schemaName, famName, tableName, clientTimeStamp, indexes);                              
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns);
             }
         }
         
-        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, dataTableName, indexes, isImmutableRows);
+        return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
+                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId, disableWAL);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -428,17 +456,20 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return null;
     }
     
+    
     @Override
     public MetaDataMutationResult createTable(List<Mutation> tableMetadata) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[][] rowKeyMetaData = new byte[3][];
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
+        
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] lockKey = SchemaUtil.getTableKey(tenantIdBytes, schemaName, lockTableName);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
             byte[] parentKey = parentTableName == null ? null : lockKey;
             
             RegionCoprocessorEnvironment env = getEnvironment();
@@ -482,6 +513,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     } else {
                         return new MetaDataMutationResult(MutationCode.NEWER_TABLE_FOUND, EnvironmentEdgeManager.currentTimeMillis(), table);
                     }
+                } else {
+                    // If we're attempting to create the SYSTEM.TABLE,
+                    // then is the first cluster connection to Phoenix v 3.0, in which case we
+                    // need to upgrade from 2.x to 3.0. Since our updates are additive, we do
+                    // not need to delete any rows, but can just allow the mutation to complete.
+                    if (SchemaUtil.isMetaTable(schemaName, tableName)) {
+                        SchemaUtil.upgradeTo3(region, tableMetadata);
+                    }
                 }
                 // TODO: Switch this to HRegion#batchMutate when we want to support indexes on the system
                 // table. Basically, we get all the locks that we don't already hold for all the
@@ -524,11 +563,32 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
     
+    /**
+     * @param tableName parent table's name
+     * @return true if there exist tenant-specific tables that use this table as their parent.
+     */
+    private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
+        Scan scan = new Scan();
+        scan.setStartRow(KeyRange.IS_NOT_NULL_RANGE.getLowerRange());
+        SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
+        filter.setFilterIfMissing(true);
+        scan.setFilter(filter);
+        RegionScanner scanner = region.getScanner(scan);
+        try {
+            List<KeyValue> results = newArrayList();
+            scanner.next(results);
+            return results.size() > 0;
+        }
+        finally {
+            scanner.close();
+        }
+    }
     
     @Override
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, String tableType) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[][] rowKeyMetaData = new byte[3][];
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantIdBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         // Disallow deletion of a system table
@@ -539,8 +599,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         try {
             byte[] parentTableName = MetaDataUtil.getParentTableName(tableMetadata);
             byte[] lockTableName = parentTableName == null ? tableName : parentTableName;
-            byte[] lockKey = SchemaUtil.getTableKey(schemaName, lockTableName);
-            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] lockKey = SchemaUtil.getTableKey(tenantIdBytes, schemaName, lockTableName);
+            byte[] key = parentTableName == null ? lockKey : SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
             
             RegionCoprocessorEnvironment env = getEnvironment();
             HRegion region = env.getRegion();
@@ -554,8 +614,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (key != lockKey) {
                     acquireLock(region, key, lids);
                 }
+                if (hasTenantSpecificTables(region, tableName)) {
+                    return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
-                result = doDropTable(key, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids, tableNamesToDelete);
+                result = doDropTable(key, tenantIdBytes, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids, tableNamesToDelete);
                 if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                     return result;
                 }
@@ -580,7 +643,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
 
-    private MetaDataMutationResult doDropTable(byte[] key, byte[] schemaName, byte[] tableName, PTableType tableType, 
+    private MetaDataMutationResult doDropTable(byte[] key, byte[] tenantId, byte[] schemaName, byte[] tableName, PTableType tableType, 
             List<Mutation> rowsToDelete, List<ImmutableBytesPtr> invalidateList, List<Integer> lids, List<byte[]> tableNamesToDelete) throws IOException, SQLException {
         long clientTimeStamp = MetaDataUtil.getClientTimeStamp(rowsToDelete);
 
@@ -626,12 +689,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         tableNamesToDelete.add(table.getName().getBytes());
         List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
-        byte[][] rowKeyMetaData = new byte[4][];
+        byte[][] rowKeyMetaData = new byte[5][];
         byte[] rowKey;
         do {
             rowKey = results.get(0).getRow();
             int nColumns = getVarChars(rowKey, rowKeyMetaData);
-            if (nColumns == 4 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
+            if (nColumns == 5 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
                 indexNames.add(rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX]);
             }
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
@@ -646,7 +709,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         
         // Recursively delete indexes
         for (byte[] indexName : indexNames) {
-            byte[] indexKey = SchemaUtil.getTableKey(schemaName, indexName);
+            byte[] indexKey = SchemaUtil.getTableKey(tenantId, schemaName, indexName);
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
@@ -654,7 +717,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             Delete delete = new Delete(indexKey, clientTimeStamp, null);
             rowsToDelete.add(delete);
             acquireLock(region, indexKey, lids);
-            MetaDataMutationResult result = doDropTable(indexKey, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids, tableNamesToDelete);
+            MetaDataMutationResult result = doDropTable(indexKey, tenantId, schemaName, indexName, PTableType.INDEX, rowsToDelete, invalidateList, lids, tableNamesToDelete);
             if (result.getMutationCode() != MutationCode.TABLE_ALREADY_EXISTS || result.getTable() == null) {
                 return result;
             }
@@ -668,13 +731,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     private MetaDataMutationResult mutateColumn(List<Mutation> tableMetadata, ColumnMutator mutator) throws IOException {
-        byte[][] rowKeyMetaData = new byte[4][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[][] rowKeyMetaData = new byte[5][];
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {
@@ -721,10 +785,15 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return new MetaDataMutationResult(MutationCode.CONCURRENT_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), table);
                 }
                 
-                // Disallow mutation of an index table
                 PTableType type = table.getType();
-                if (type == PTableType.INDEX) {
+                if (type == PTableType.INDEX) { 
+                    // Disallow mutation of an index table
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                } else if (type == PTableType.USER && !table.isTenantSpecificTable()) {
+                    // Disallow any column mutations for parents of tenant tables
+                    if (hasTenantSpecificTables(region, tableName)) {
+                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
                 }
                 result = mutator.updateMutation(table, rowKeyMetaData, tableMetadata, region, invalidateList, lids);
                 if (result != null) {
@@ -760,6 +829,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         return mutateColumn(tableMetaData, new ColumnMutator() {
             @Override
             public MetaDataMutationResult updateMutation(PTable table, byte[][] rowKeyMetaData, List<Mutation> tableMetaData, HRegion region, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) {
+                byte[] tenantId = rowKeyMetaData[TENANT_ID_INDEX];
                 byte[] schemaName = rowKeyMetaData[SCHEMA_NAME_INDEX];
                 byte[] tableName = rowKeyMetaData[TABLE_NAME_INDEX];
                 for (Mutation m : tableMetaData) {
@@ -787,7 +857,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                 // Add all indexes to invalidate list, as they will all be adding the same PK column
                                 // No need to lock them, as we have the parent table lock at this point
                                 for (PTable index : table.getIndexes()) {
-                                    invalidateList.add(new ImmutableBytesPtr(SchemaUtil.getTableKey(index.getSchemaName().getBytes(),index.getTableName().getBytes())));
+                                    invalidateList.add(new ImmutableBytesPtr(SchemaUtil.getTableKey(tenantId, index.getSchemaName().getBytes(),index.getTableName().getBytes())));
                                 }
                             }
                             continue;
@@ -807,6 +877,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             @SuppressWarnings("deprecation")
             @Override
             public MetaDataMutationResult updateMutation(PTable table, byte[][] rowKeyMetaData, List<Mutation> tableMetaData, HRegion region, List<ImmutableBytesPtr> invalidateList, List<Integer> lids) throws IOException, SQLException {
+                byte[] tenantId = rowKeyMetaData[TENANT_ID_INDEX];
                 byte[] schemaName = rowKeyMetaData[SCHEMA_NAME_INDEX];
                 byte[] tableName = rowKeyMetaData[TABLE_NAME_INDEX];
                 boolean deletePKColumn = false;
@@ -835,7 +906,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                     try {
                                         String indexColumnName = IndexUtil.getIndexColumnName(columnToDelete);
                                         PColumn indexColumn = index.getColumn(indexColumnName);
-                                        byte[] indexKey = SchemaUtil.getTableKey(index.getSchemaName().getBytes(), index.getTableName().getBytes());
+                                        byte[] indexKey = SchemaUtil.getTableKey(tenantId, index.getSchemaName().getBytes(), index.getTableName().getBytes());
                                         // If index contains the column in it's PK, then drop it
                                         if (SchemaUtil.isPKColumn(indexColumn)) {
                                             // Since we're dropping the index, lock it to ensure that a change in index state doesn't
@@ -843,10 +914,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                             acquireLock(region, indexKey, lids);
                                             // Drop the index table. The doDropTable will expand this to all of the table rows and invalidate the index table
                                             additionalTableMetaData.add(new Delete(indexKey, clientTimeStamp, null));
-                                            byte[] linkKey = MetaDataUtil.getParentLinkKey(schemaName, tableName, index.getTableName().getBytes());
+                                            byte[] linkKey = MetaDataUtil.getParentLinkKey(tenantId, schemaName, tableName, index.getTableName().getBytes());
                                             // Drop the link between the data table and the index table
                                             additionalTableMetaData.add(new Delete(linkKey, clientTimeStamp, null));
-                                            doDropTable(indexKey, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids, tableNamesToDelete);
+                                            doDropTable(indexKey, tenantId, index.getSchemaName().getBytes(), index.getTableName().getBytes(), index.getType(), additionalTableMetaData, invalidateList, lids, tableNamesToDelete);
                                             // TODO: return in result?
                                         } else {
                                             invalidateList.add(new ImmutableBytesPtr(indexKey));
@@ -885,9 +956,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     }
 
     @Override
-    public MetaDataMutationResult getTable(byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
+    public MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimeStamp, long clientTimeStamp) throws IOException {
         try {
-            byte[] key = SchemaUtil.getTableKey(schemaName, tableName);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             
             // get the co-processor environment
             RegionCoprocessorEnvironment env = getEnvironment();
@@ -988,13 +1059,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
 
     @Override
     public MetaDataMutationResult updateIndexState(List<Mutation> tableMetadata) throws IOException {
-        byte[][] rowKeyMetaData = new byte[2][];
-        MetaDataUtil.getSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[][] rowKeyMetaData = new byte[3][];
+        MetaDataUtil.getTenantIdAndSchemaAndTableName(tableMetadata,rowKeyMetaData);
+        byte[] tenantId = rowKeyMetaData[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaName = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableName = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
         try {
             RegionCoprocessorEnvironment env = getEnvironment();
-            byte[] key = SchemaUtil.getTableKey(schemaName,tableName);
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             HRegion region = env.getRegion();
             MetaDataMutationResult result = checkTableKeyInRegion(key, region);
             if (result != null) {

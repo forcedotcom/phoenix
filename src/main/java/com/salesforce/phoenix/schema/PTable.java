@@ -29,6 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
@@ -45,6 +47,8 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 public interface PTable extends Writable {
     public static final long INITIAL_SEQ_NUM = 0;
     public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
+    public static final String BASE_TABLE_PROP_NAME = "BASE_TABLE"; // specifies the base table when creating tenant-specific tables
+    public static final boolean DEFAULT_DISABLE_WAL = false;
 
     long getTimeStamp();
     long getSequenceNumber();
@@ -175,13 +179,30 @@ public interface PTable extends Writable {
     PIndexState getIndexState();
 
     /**
-     * For a table of index type, return the name of the data table.
+     * For a table of index type or a tenant-specific table, return the name of the data table.
      * @return the name of the data table that this index is on.
      */
     PName getParentTableName();
-    PName getParentName();
-    boolean isImmutableRows();
     
+    /**
+     * For a tenant-specific table, return the name of table in Phoenix that physically stores data.
+     * @return the name of the data table that tenant-specific table points to or null if this table is not tenant-specifidc.
+     * @see #isTenantSpecificTable()
+     */
+    @Nullable PName getBaseTableName();
+    PName getParentName();
+    PName getPhysicalName();
+    boolean isImmutableRows();
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
+    boolean isTenantSpecificTable();
+    /**
+     * Return the column that identifies tenants.  If non-null, this column is always the leading column.   
+     * @see #isTenantSpecificTable()
+     */
+    @Nullable PColumn getTenantIdColumn();
+    PName getDefaultFamilyName();
+    PName getTenantTypeId();
+    
+    boolean isWALDisabled();
 }

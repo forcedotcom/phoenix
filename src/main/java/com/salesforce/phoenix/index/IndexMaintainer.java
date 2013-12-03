@@ -89,11 +89,12 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         IndexMaintainer maintainer = new IndexMaintainer(
                 dataTable.getRowKeySchema(),
                 dataTable.getBucketNum() != null,
-                index.getName().getBytes(), 
+                index.getPhysicalName().getBytes(), 
                 nIndexColumns,
                 nIndexPKColumns,
                 index.getBucketNum(),
-                dataTable.getColumnFamilies());
+                dataTable.getColumnFamilies(),
+                index.isWALDisabled());
         RowKeyMetaData rowKeyMetaData = maintainer.getRowKeyMetaData();
         for (int i = indexPosOffset; i < index.getPKColumns().size(); i++) {
             PColumn indexColumn = index.getPKColumns().get(i);
@@ -207,6 +208,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     private int nIndexSaltBuckets;
     private byte[] dataEmptyKeyValueCF;
     private int nDataCFs;
+    private boolean indexWALDisabled;
 
     // Transient state
     private final boolean isDataTableSalted;
@@ -225,7 +227,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     }
 
     private IndexMaintainer(RowKeySchema dataRowKeySchema, boolean isDataTableSalted, byte[] indexTableName,
-            int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets, List<PColumnFamily> cfs) {
+            int nIndexColumns, int nIndexPKColumns, Integer nIndexSaltBuckets, List<PColumnFamily> cfs, boolean indexWALDisabled) {
         this(dataRowKeySchema, isDataTableSalted);
         int nDataPKColumns = dataRowKeySchema.getFieldCount() - (isDataTableSalted ? 1 : 0);
         this.indexTableName = indexTableName;
@@ -240,6 +242,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         this.nIndexSaltBuckets  = nIndexSaltBuckets == null ? 0 : nIndexSaltBuckets;
         this.dataEmptyKeyValueCF = SchemaUtil.getEmptyColumnFamily(cfs);
         this.nDataCFs = cfs.size();
+        this.indexWALDisabled = indexWALDisabled;
     }
 
     public byte[] buildRowKey(ValueGetter valueGetter, ImmutableBytesWritable rowKeyPtr)  {
@@ -338,12 +341,14 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         }
     }
 
+    @SuppressWarnings("deprecation")
     public Put buildUpdateMutation(ValueGetter valueGetter, ImmutableBytesWritable dataRowKeyPtr, long ts) throws IOException {
         Put put = null;
         // New row being inserted: add the empty key value
         if (valueGetter.getLatestValue(dataEmptyKeyValueRef) == null) {
             byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
             put = new Put(indexRowKey);
+            put.setWriteToWAL(!indexWALDisabled);
             put.add(this.getEmptyKeyValueFamily(), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
         }
         int i = 0;
@@ -354,6 +359,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 if (put == null) {
                     byte[] indexRowKey = this.buildRowKey(valueGetter, dataRowKeyPtr);
                     put = new Put(indexRowKey);
+                    put.setWriteToWAL(!indexWALDisabled);
                 }
                 put.add(ref.getFamily(), cq, ts, value.copyBytesIfNecessary());
             }
@@ -422,6 +428,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         // Delete the entire row if any of the indexed columns changed
         if (oldState == null || isRowDeleted(pendingUpdates) || hasIndexedColumnChanged(oldState, pendingUpdates)) { // Deleting the entire row
             Delete delete = new Delete(indexRowKey, ts, null);
+            delete.setWriteToWAL(!indexWALDisabled);
             return delete;
         }
         Delete delete = null;
@@ -432,6 +439,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 if (coveredColumns.contains(ref)) {
                     if (delete == null) {
                         delete = new Delete(indexRowKey);                    
+                        delete.setWriteToWAL(!indexWALDisabled);
                     }
                     delete.deleteColumns(ref.getFamily(), IndexUtil.getIndexColumnName(ref.getFamily(), ref.getQualifier()), ts);
                 }
@@ -506,11 +514,42 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         dataEmptyKeyValueCF = Bytes.readByteArray(input);
         rowKeyMetaData = newRowKeyMetaData();
         rowKeyMetaData.readFields(input);
-        nDataCFs = WritableUtils.readVInt(input);
+        int nDataCFs = WritableUtils.readVInt(input);
+        // Encode indexWALDisabled in nDataCFs
+        indexWALDisabled = nDataCFs < 0;
+        this.nDataCFs = Math.abs(nDataCFs) - 1;
         
         initCachedState();
     }
     
+    @Override
+    public void write(DataOutput output) throws IOException {
+        WritableUtils.writeVInt(output, nIndexSaltBuckets);
+        WritableUtils.writeVInt(output, indexedColumns.size());
+        for (ColumnReference ref : indexedColumns) {
+            Bytes.writeByteArray(output, ref.getFamily());
+            Bytes.writeByteArray(output, ref.getQualifier());
+        }
+        for (int i = 0; i < indexedColumnTypes.size(); i++) {
+            PDataType type = indexedColumnTypes.get(i);
+            WritableUtils.writeVInt(output, type.ordinal());
+        }
+        for (int i = 0; i < indexedColumnByteSizes.size(); i++) {
+            Integer byteSize = indexedColumnByteSizes.get(i);
+            WritableUtils.writeVInt(output, byteSize == null ? 0 : byteSize);
+        }
+        WritableUtils.writeVInt(output, coveredColumns.size());
+        for (ColumnReference ref : coveredColumns) {
+            Bytes.writeByteArray(output, ref.getFamily());
+            Bytes.writeByteArray(output, ref.getQualifier());
+        }
+        Bytes.writeByteArray(output, indexTableName);
+        Bytes.writeByteArray(output, dataEmptyKeyValueCF);
+        rowKeyMetaData.write(output);
+        // Encode indexWALDisabled in nDataCFs
+        WritableUtils.writeVInt(output, (nDataCFs + 1) * (indexWALDisabled ? -1 : 1));
+    }
+
     private int estimateIndexRowKeyByteSize() {
         int estimatedIndexRowKeyBytes = dataRowKeySchema.getEstimatedValueLength() + (nIndexSaltBuckets == 0 ?  0 : SaltingUtil.NUM_SALTING_BYTES);
         for (Integer byteSize : indexedColumnByteSizes) {
@@ -608,37 +647,10 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         size += indexTableName.length + WritableUtils.getVIntSize(indexTableName.length);
         size += rowKeyMetaData.getByteSize();
         size += dataEmptyKeyValueCF.length + + WritableUtils.getVIntSize(dataEmptyKeyValueCF.length);
-        size += WritableUtils.getVIntSize(nDataCFs);
+        size += WritableUtils.getVIntSize(nDataCFs+1);
         return size;
     }
     
-    @Override
-    public void write(DataOutput output) throws IOException {
-        WritableUtils.writeVInt(output, nIndexSaltBuckets);
-        WritableUtils.writeVInt(output, indexedColumns.size());
-        for (ColumnReference ref : indexedColumns) {
-            Bytes.writeByteArray(output, ref.getFamily());
-            Bytes.writeByteArray(output, ref.getQualifier());
-        }
-        for (int i = 0; i < indexedColumnTypes.size(); i++) {
-            PDataType type = indexedColumnTypes.get(i);
-            WritableUtils.writeVInt(output, type.ordinal());
-        }
-        for (int i = 0; i < indexedColumnByteSizes.size(); i++) {
-            Integer byteSize = indexedColumnByteSizes.get(i);
-            WritableUtils.writeVInt(output, byteSize == null ? 0 : byteSize);
-        }
-        WritableUtils.writeVInt(output, coveredColumns.size());
-        for (ColumnReference ref : coveredColumns) {
-            Bytes.writeByteArray(output, ref.getFamily());
-            Bytes.writeByteArray(output, ref.getQualifier());
-        }
-        Bytes.writeByteArray(output, indexTableName);
-        Bytes.writeByteArray(output, dataEmptyKeyValueCF);
-        rowKeyMetaData.write(output);
-        WritableUtils.writeVInt(output, nDataCFs);
-    }
-
     private static void writeInverted(byte[] buf, int offset, int length, DataOutput output) throws IOException {
         for (int i = offset; i < offset + length; i++) {
             byte b = ColumnModifier.SORT_DESC.apply(buf[i]);
