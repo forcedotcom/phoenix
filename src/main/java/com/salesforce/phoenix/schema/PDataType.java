@@ -1636,8 +1636,8 @@ public enum PDataType {
         }
         
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return DATE.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
         }
 
        @Override
@@ -1740,8 +1740,8 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return DATE.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
         }
 
         @Override
@@ -1849,8 +1849,8 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return super.isComparableTo(targetType) || DECIMAL.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return super.isCastableTo(targetType) || DECIMAL.isCastableTo(targetType);
         }
 
         @Override
@@ -1955,8 +1955,8 @@ public enum PDataType {
         }
         
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return TIMESTAMP.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return TIMESTAMP.isCastableTo(targetType);
         }
 
         @Override
@@ -2018,8 +2018,8 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return TIME.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return TIME.isCastableTo(targetType);
         }
 
         @Override
@@ -2090,8 +2090,8 @@ public enum PDataType {
         }
 
         @Override
-        public boolean isComparableTo(PDataType targetType) {
-            return DATE.isComparableTo(targetType);
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
         }
 
         @Override
@@ -3419,6 +3419,10 @@ public enum PDataType {
         this.clazzNameBytes = Bytes.toBytes(clazz.getName());
         this.sqlTypeNameBytes = Bytes.toBytes(sqlTypeName);
         this.codec = codec;
+    }
+
+    public boolean isCastableTo(PDataType targetType) {
+        return isComparableTo(targetType);
     }
 
     public final PDataCodec getCodec() {

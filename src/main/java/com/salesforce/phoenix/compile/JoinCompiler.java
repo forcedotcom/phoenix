@@ -520,7 +520,7 @@ public class JoinCompiler {
             if (lType == rType)
                 return lType;
             
-            if (!lType.isComparableTo(rType))
+            if (!lType.isCastableTo(rType))
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
                     .setMessage("On-clause LHS expression and RHS expression must be comparable. LHS type: " + lType + ", RHS type: " + rType)
                     .build().buildException();
