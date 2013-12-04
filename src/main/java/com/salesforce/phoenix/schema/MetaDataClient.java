@@ -309,29 +309,35 @@ public class MetaDataClient {
                     .setMessage("CREATE TABLE LIKE only for USER TABLE")
                     .build().buildException();
         }
+        boolean wasAutoCommit = connection.getAutoCommit();
         connection.rollback();
-        List<Mutation> tableMetaData = Lists.newArrayList();
-        addTableMutation(basePTable, newTable);
-
-        tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
-        connection.rollback();
-        PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
-        for (PColumn column : basePTable.getColumns()) {
-            addColumnMutation(newTable.getSchemaName(), newTable.getTableName(), column, colUpsert, null);
-        }
-        tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
-        connection.rollback();
-        Collections.reverse(tableMetaData);
         try {
-            HTableDescriptor baseTableDescriptor = hbaseAdmin.getTableDescriptor(SchemaUtil.getTableNameAsBytes(baseTable.getSchemaName(), baseTable.getTableName()));
-            baseTableDescriptor.setName(newTableNameBytes);
-            hbaseAdmin.createTable(baseTableDescriptor);
-        } catch (IOException e) {
-            throw new SQLException("failed to create new hbase table, name: " + newTableName, e);
+            connection.setAutoCommit(false);
+            List<Mutation> tableMetaData = Lists.newArrayList();
+            addTableMutation(basePTable, newTable);
+
+            tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+            connection.rollback();
+            PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
+            for (PColumn column : basePTable.getColumns()) {
+                addColumnMutation(newTable.getSchemaName(), newTable.getTableName(), column, colUpsert, null);
+            }
+            tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+            connection.rollback();
+            Collections.reverse(tableMetaData);
+            try {
+                HTableDescriptor baseTableDescriptor = hbaseAdmin.getTableDescriptor(SchemaUtil.getTableNameAsBytes(baseTable.getSchemaName(), baseTable.getTableName()));
+                baseTableDescriptor.setName(newTableNameBytes);
+                hbaseAdmin.createTable(baseTableDescriptor);
+            } catch (IOException e) {
+                throw new SQLException("failed to create new hbase table, name: " + newTableName, e);
+            }
+            PTable newPTable = addMetaData(newTable, basePTable, tableMetaData);
+            newPTable.getBaseTableName();
+            return this.afterCreateTable(newPTable);
+        } finally {
+            this.connection.setAutoCommit(wasAutoCommit);
         }
-        PTable newPTable = addMetaData(newTable, basePTable, tableMetaData);
-        newPTable.getBaseTableName();
-        return this.afterCreateTable(newPTable);
     }
 
     private PTable addMetaData(TableName newTable, PTable basePTable, List<Mutation> tableMetaData) throws SQLException {
