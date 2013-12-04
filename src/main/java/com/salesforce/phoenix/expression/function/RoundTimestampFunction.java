@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.Date;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -35,15 +37,32 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
-public class RoundTimestampFunction extends RoundFunction {
-
-    public RoundTimestampFunction(List<Expression> children) {
+public class RoundTimestampFunction extends RoundDateFunction {
+    
+    public RoundTimestampFunction(List<Expression> children) throws SQLException {
         super(children);
     }
 
     @Override
+    protected long roundTime(long time) {
+        if(timeUnit == TimeUnit.MILLISECOND) {
+            
+        } 
+        return super.roundTime(time);
+    }
+    
+    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // TODO Auto-generated method stub
+        // If divBy is 0 this means <time unit> or <multiplier> was null
+        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
+            //PDataType.TIMESTAMP.coerceBytes(b, object, actualType)
+            long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
+            long value = roundTime(time);
+            // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
+            byte[] byteValue = getDataType().toBytes(new Date(value));
+            ptr.set(byteValue);
+            return true;
+        }
         return false;
     }
 

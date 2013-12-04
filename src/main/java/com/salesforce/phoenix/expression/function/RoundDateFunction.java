@@ -51,7 +51,8 @@ import com.salesforce.phoenix.util.ByteUtil;
 
 public class RoundDateFunction extends RoundFunction {
 
-    private long divBy;
+    long divBy;
+    TimeUnit timeUnit;
     
     private static final long[] TIME_UNIT_MS = new long[] {
         24 * 60 * 60 * 1000,
@@ -70,17 +71,14 @@ public class RoundDateFunction extends RoundFunction {
          */
         String timeUnitValue = (String)((LiteralExpression)children.get(1)).getValue();
         Object multiplierValue = ((LiteralExpression)children.get(2)).getValue();
-        if (timeUnitValue != null)  {
-            TimeUnit timeUnit = null;
+        if (timeUnitValue != null && multiplierValue != null)  {
             try {
                 timeUnit = TimeUnit.valueOf(timeUnitValue.toUpperCase());
             } catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid value : " + timeUnitValue);
             }
-            if(multiplierValue != null) {
-                int multiplier = ((Number)multiplierValue).intValue(); 
-                divBy = multiplier * TIME_UNIT_MS[timeUnit.ordinal()];
-            }
+            int multiplier = ((Number)multiplierValue).intValue(); 
+            divBy = multiplier * TIME_UNIT_MS[timeUnit.ordinal()];
         }
     }
     
@@ -88,7 +86,7 @@ public class RoundDateFunction extends RoundFunction {
         return divBy/2;
     }
     
-    private long roundTime(long time) {
+    protected long roundTime(long time) {
         long value;
         long halfDivBy = getRoundUpAmount();
         if (time <= Long.MAX_VALUE - halfDivBy) { // If no overflow, add
@@ -148,7 +146,7 @@ public class RoundDateFunction extends RoundFunction {
     }
 
     @Override
-    public final PDataType getDataType() {
+    public PDataType getDataType() {
         return PDataType.DATE;
     }
     

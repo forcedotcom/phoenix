@@ -106,7 +106,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
     @Test
     public void testHavingFuncToWhere() throws SQLException {
         // TODO: confirm that this is a valid optimization
-        String query = "select count(1) from atable group by a_date having round(a_date,'hour') > ?";
+        String query = "select count(1) from atable group by a_date having round(a_date) > ?";
         Date date = new Date(System.currentTimeMillis());
         List<Object> binds = Arrays.<Object>asList(date);
         Expressions expressions = compileStatement(query,binds);
