@@ -25,53 +25,35 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.compile;
+package com.salesforce.phoenix.parse;
 
-import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
-import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.CreateTableLikeStatement;
-import com.salesforce.phoenix.schema.MetaDataClient;
 
-import java.sql.ParameterMetaData;
-import java.sql.SQLException;
-import java.util.Collections;
+public class CreateTableLikeStatement implements BindableStatement{
 
-/**
- * create table like implementation
- * @author  haitaoyao
- */
-public class CreateTableLikeCompiler {
-    private final PhoenixStatement statement;
+    private final TableName newTable;
 
-    public CreateTableLikeCompiler(PhoenixStatement statement){
-        this.statement = statement;
+    private final TableName baseTable;
+
+    private final int bindCount;
+
+    public CreateTableLikeStatement(TableName newTable,
+                                    TableName baseTable,
+                                    int bindCount){
+        this.newTable = newTable;
+        this.baseTable = baseTable;
+        this.bindCount = bindCount;
     }
 
-    public MutationPlan compile(final CreateTableLikeStatement create) throws SQLException {
-        final PhoenixConnection connection = statement.getConnection();
-        final MetaDataClient client = new MetaDataClient(connection);
-        return new MutationPlan(){
-            @Override
-            public PhoenixConnection getConnection() {
-                return connection;
-            }
+    public TableName getBaseTable(){
+        return this.baseTable;
+    }
 
-            @Override
-            public MutationState execute() throws SQLException {
-                return client.createTableLike(create);
-            }
+    public TableName getNewTable(){
+        return this.newTable;
+    }
 
-            @Override
-            public ParameterMetaData getParameterMetaData() {
-                return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
-            }
-
-            @Override
-            public ExplainPlan getExplainPlan() throws SQLException {
-                return new ExplainPlan(Collections.singletonList("CREATE TABLE LIKE"));
-            }
-        };
+    @Override
+    public int getBindCount() {
+        return this.bindCount;
     }
 }

@@ -27,77 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
-import static com.google.common.collect.Sets.newLinkedHashSet;
-import static com.google.common.collect.Sets.newLinkedHashSetWithExpectedSize;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
-import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
-import static com.salesforce.phoenix.schema.PDataType.CHAR;
-import static com.salesforce.phoenix.schema.PDataType.VARCHAR;
-import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
-
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-
-import org.apache.hadoop.hbase.HColumnDescriptor;
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.base.Objects;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
-import com.salesforce.phoenix.compile.ColumnResolver;
-import com.salesforce.phoenix.compile.FromCompiler;
-import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.compile.PostDDLCompiler;
-import com.salesforce.phoenix.compile.PostIndexDDLCompiler;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
@@ -106,27 +43,39 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.AddColumnStatement;
-import com.salesforce.phoenix.parse.AlterIndexStatement;
-import com.salesforce.phoenix.parse.ColumnDef;
-import com.salesforce.phoenix.parse.ColumnName;
-import com.salesforce.phoenix.parse.CreateIndexStatement;
-import com.salesforce.phoenix.parse.CreateTableStatement;
-import com.salesforce.phoenix.parse.DropColumnStatement;
-import com.salesforce.phoenix.parse.DropIndexStatement;
-import com.salesforce.phoenix.parse.DropTableStatement;
-import com.salesforce.phoenix.parse.NamedTableNode;
-import com.salesforce.phoenix.parse.ParseNodeFactory;
-import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
-import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.*;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.IndexUtil;
-import com.salesforce.phoenix.util.MetaDataUtil;
-import com.salesforce.phoenix.util.PhoenixRuntime;
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.*;
+import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.sql.*;
+import java.util.*;
+
+import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
+import static com.google.common.collect.Sets.newLinkedHashSet;
+import static com.google.common.collect.Sets.newLinkedHashSetWithExpectedSize;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
+import static com.salesforce.phoenix.schema.PDataType.CHAR;
+import static com.salesforce.phoenix.schema.PDataType.VARCHAR;
+import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 public class MetaDataClient {
     private static final Logger logger = LoggerFactory.getLogger(MetaDataClient.class);
@@ -268,6 +217,9 @@ public class MetaDataClient {
 
 
     private void addColumnMutation(String schemaName, String tableName, PColumn column, PreparedStatement colUpsert, String parentTableName) throws SQLException {
+        if(column.getName().getString().equals(SaltingUtil.SALTING_COLUMN_NAME)){
+            return;
+        }
         colUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
         colUpsert.setString(2, schemaName);
         colUpsert.setString(3, tableName);
@@ -336,12 +288,133 @@ public class MetaDataClient {
         }
     }
 
+    public MutationState createTableLike(CreateTableLikeStatement create) throws SQLException{
+        final TableName baseTable = create.getBaseTable();
+        final TableName newTable = create.getNewTable();
+        final String newTableName = SchemaUtil.getTableName(newTable.getSchemaName(), newTable.getTableName());
+        final byte[] newTableNameBytes = Bytes.toBytes(newTableName);
+        HBaseAdmin hbaseAdmin = connection.getQueryServices().getAdmin();
+        try {
+            if(hbaseAdmin.tableExists(newTableNameBytes)){
+                throw new TableAlreadyExistsException(newTable.getSchemaName(), newTable.getTableName(), null);
+            }
+        } catch (IOException e) {
+            new SQLException("failed to check table exits, hbase table name: " + newTableName, e);
+        }
+        this.updateCache(baseTable.getSchemaName(), baseTable.getTableName());
+        final PTable basePTable = resolveTable(this.connection, baseTable.getSchemaName(), baseTable.getTableName());
+        if(basePTable.getType() != PTableType.USER){
+            // only for USER table
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARSER_ERROR)
+                    .setMessage("CREATE TABLE LIKE only for USER TABLE")
+                    .build().buildException();
+        }
+        connection.rollback();
+        List<Mutation> tableMetaData = Lists.newArrayList();
+        addTableMutation(basePTable, newTable);
+
+        tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+        connection.rollback();
+        PreparedStatement colUpsert = connection.prepareStatement(INSERT_COLUMN);
+        for (PColumn column : basePTable.getColumns()) {
+            addColumnMutation(newTable.getSchemaName(), newTable.getTableName(), column, colUpsert, null);
+        }
+        tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
+        connection.rollback();
+        Collections.reverse(tableMetaData);
+        try {
+            HTableDescriptor baseTableDescriptor = hbaseAdmin.getTableDescriptor(SchemaUtil.getTableNameAsBytes(baseTable.getSchemaName(), baseTable.getTableName()));
+            baseTableDescriptor.setName(newTableNameBytes);
+            hbaseAdmin.createTable(baseTableDescriptor);
+        } catch (IOException e) {
+            throw new SQLException("failed to create new hbase table, name: " + newTableName, e);
+        }
+        PTable newPTable = addMetaData(newTable, basePTable, tableMetaData);
+        newPTable.getBaseTableName();
+        return this.afterCreateTable(newPTable);
+    }
+
+    private PTable addMetaData(TableName newTable, PTable basePTable, List<Mutation> tableMetaData) throws SQLException {
+        PTable newPTable = null;
+        final MetaDataMutationResult result = connection.getQueryServices().createTableMetaData(tableMetaData);
+        MutationCode code = result.getMutationCode();
+        String schemaName = newTable.getSchemaName();
+        String tableName = newTable.getTableName();
+        PName parent = basePTable.getParentName();
+        switch(code) {
+            case TABLE_ALREADY_EXISTS:
+                connection.addTable(result.getTable());
+                throw new TableAlreadyExistsException(schemaName, tableName, result.getTable());
+            case PARENT_TABLE_NOT_FOUND:
+                throw new TableNotFoundException(schemaName, parent.getString());
+            case NEWER_TABLE_FOUND:
+                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+            case UNALLOWED_TABLE_MUTATION:
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
+                        .setSchemaName(schemaName).setTableName(tableName).build().buildException();
+            case CONCURRENT_TABLE_MUTATION:
+                connection.addTable(result.getTable());
+                throw new ConcurrentTableMutationException(schemaName, tableName);
+            default:
+                List<PColumn> columns = new ArrayList(Collections2.filter(basePTable.getColumns(), new Predicate<PColumn>() {
+                    @Override
+                    public boolean apply(@Nullable PColumn pColumn) {
+                        return !pColumn.getName().getString().equals(SaltingUtil.SALTING_COLUMN_NAME);
+                    }
+                }));
+                PTable table =  PTableImpl.makePTable(
+                        PNameFactory.newName(schemaName), PNameFactory.newName(tableName), basePTable.getType(), basePTable.getIndexState(), result.getMutationTime(), PTable.INITIAL_SEQ_NUM,
+                        basePTable.getPKName(), basePTable.getBucketNum(), columns, basePTable.getParentTableName(),
+                        Collections.<PTable>emptyList(), basePTable.isImmutableRows(), basePTable.getBaseTableName(),
+                        basePTable.getDefaultFamilyName(), basePTable.getTenantTypeId(), basePTable.isWALDisabled());
+                connection.addTable(table);
+                newPTable = table;
+        }
+        return newPTable;
+    }
+
+    private void addTableMutation(PTable basePTable, TableName newTable) throws SQLException {
+        String dataTableName = SchemaUtil.getTableName(newTable.getSchemaName(), newTable.getTableName());
+        PIndexState indexState = null;
+        PreparedStatement tableUpsert = connection.prepareStatement(CREATE_TABLE);
+
+        // TODO what is tenantId
+        String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+        tableUpsert.setString(1, tenantId);
+        tableUpsert.setString(2, newTable.getSchemaName());
+        tableUpsert.setString(3, newTable.getTableName());
+        tableUpsert.setString(4, basePTable.getType().getSerializedValue());
+        tableUpsert.setLong(5, PTable.INITIAL_SEQ_NUM);
+        tableUpsert.setInt(6, basePTable.getColumns().size());
+        Integer saltBucketNum = basePTable.getBucketNum();
+        if (saltBucketNum != null) {
+            tableUpsert.setInt(7, saltBucketNum);
+        } else {
+            tableUpsert.setNull(7, Types.INTEGER);
+        }
+        tableUpsert.setString(8, basePTable.getPKName().getString());
+        tableUpsert.setString(9, dataTableName);
+        tableUpsert.setString(10, indexState == null ? null : indexState.getSerializedValue());
+        tableUpsert.setBoolean(11, basePTable.isImmutableRows());
+        final PName defaultFamilyName = basePTable.getDefaultFamilyName();
+        tableUpsert.setString(12, defaultFamilyName == null ? null : defaultFamilyName.getString());
+        final PName tenantTypeId = basePTable.getTenantTypeId();
+        tableUpsert.setString(13, tenantTypeId == null ? null : tenantTypeId.getString());
+        tableUpsert.setBoolean(14, basePTable.isWALDisabled());
+        tableUpsert.execute();
+    }
+
+
     public MutationState createTable(CreateTableStatement statement, byte[][] splits) throws SQLException {
         PTable table = createTable(statement, splits, null);
+        return afterCreateTable(table);
+    }
+
+    private MutationState afterCreateTable(PTable table) throws SQLException {
         if (table == null || table.getType() == PTableType.VIEW) {
             return new MutationState(0,connection);
         }
-        
+
         // Hack to get around the case when an SCN is specified on the connection.
         // In this case, we won't see the table we just created yet, so we hack
         // around it by forcing the compiler to not resolve anything.
@@ -362,7 +435,7 @@ public class MetaDataClient {
         // If our connection is at a fixed point-in-time, we need to open a new
         // connection so that our new index table is visible.
         Properties props = new Properties(connection.getClientInfo());
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN()+1));
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(connection.getSCN() + 1));
         PhoenixConnection conn = DriverManager.getConnection(connection.getURL(), props).unwrap(PhoenixConnection.class);
         MetaDataClient newClientAtNextTimeStamp = new MetaDataClient(conn);
         
