@@ -78,12 +78,14 @@ If you'd rather use a client GUI to interact with Phoenix, download and install 
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel (Note that on a Mac, this is the *internal* lib directory).
 3. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 4. In Add Driver dialog box, set Name to Phoenix
-5. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
+5. Enter com.salesforce.phoenix.jdbc.PhoenixDriver in the Class Name textbox. Press OK to close this dialog.
 6. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
 7. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
 8. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
 9. Press Test (which should succeed if everything is setup correctly) and press OK to close.
-10. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
+10. Now double click on your newly created Phoenix alias and click Connect.
+11. Navigate to File --> New Session Properties --> Tab SQL and uncheck the "Remove multi line comment (/.../) from SQL before sending it to database" so that hints you include in queries are not stripped.
+11. Now you are ready to run SQL queries against Phoenix.
 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 

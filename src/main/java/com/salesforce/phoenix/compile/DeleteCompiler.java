@@ -98,19 +98,20 @@ public class DeleteCompiler {
         try {
             PTable table = tableRef.getTable();
             List<PColumn> pkColumns = table.getPKColumns();
+            int offset = table.getBucketNum() == null ? 0 : 1; // Take into account salting
             byte[][] values = new byte[pkColumns.size()][];
             ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
             int rowCount = 0;
             while (rs.next()) {
-                for (int i = 0; i < values.length; i++) {
-                    byte[] byteValue = rs.getBytes(i+1);
+                for (int i = offset; i < values.length; i++) {
+                    byte[] byteValue = rs.getBytes(i+1-offset);
                     // The ResultSet.getBytes() call will have inverted it - we need to invert it back.
                     // TODO: consider going under the hood and just getting the bytes
                     if (pkColumns.get(i).getColumnModifier() == ColumnModifier.SORT_DESC) {
                         byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
                         byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                     }
-                     values[i] = byteValue;
+                    values[i] = byteValue;
                 }
                 ImmutableBytesPtr ptr = new ImmutableBytesPtr();
                 table.newKey(ptr, values);
@@ -191,7 +192,8 @@ public class DeleteCompiler {
 
         PTable table = tableRef.getTable();
         List<AliasedNode> aliasedNodes = Lists.newArrayListWithExpectedSize(table.getPKColumns().size());
-        for (PColumn column : table.getPKColumns()) {
+        for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getPKColumns().size(); i++) {
+            PColumn column = table.getPKColumns().get(i);
             String name = column.getName().getString();
             aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));
         }

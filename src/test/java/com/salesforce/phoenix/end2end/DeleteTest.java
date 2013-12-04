@@ -192,15 +192,26 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
     }
     
     @Test
-    public void testDeleteAllFromTableWithIndexAutoCommit() throws SQLException {
-        testDeleteAllFromTableWithIndex(true);
-    }
-    @Test
-    public void testDeleteAllFromTableWithIndexNoAutoCommit() throws SQLException {
-        testDeleteAllFromTableWithIndex(false);
+    public void testDeleteAllFromTableWithIndexAutoCommitSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(true, true);
     }
     
-    private void testDeleteAllFromTableWithIndex(boolean autoCommit) throws SQLException {
+    @Test
+    public void testDeleteAllFromTableWithIndexAutoCommitNoSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(true, false);
+    }
+    
+    @Test
+    public void testDeleteAllFromTableWithIndexNoAutoCommitNoSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(false,false);
+    }
+    
+    @Test
+    public void testDeleteAllFromTableWithIndexNoAutoCommitSalted() throws SQLException {
+        testDeleteAllFromTableWithIndex(false, true);
+    }
+    
+    private void testDeleteAllFromTableWithIndex(boolean autoCommit, boolean isSalted) throws SQLException {
         Connection con = null;
         try {
             con = DriverManager.getConnection(getUrl());
@@ -215,7 +226,7 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
             		"USAGE.CORE BIGINT," +
             		"USAGE.DB BIGINT," +
             		"STATS.ACTIVE_VISITOR INTEGER " +
-            		"CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))");
+            		"CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))" + (isSalted ? " SALT_BUCKETS=3" : ""));
             stm.execute("CREATE INDEX web_stats_idx ON web_stats (CORE,DB,ACTIVE_VISITOR)");
             stm.close();
 
