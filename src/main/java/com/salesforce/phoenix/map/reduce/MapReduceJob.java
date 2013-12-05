@@ -30,18 +30,27 @@ package com.salesforce.phoenix.map.reduce;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import au.com.bytecode.opencsv.CSVReader;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
-
-import au.com.bytecode.opencsv.CSVReader;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Mapper;
 
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -51,12 +60,10 @@ public class MapReduceJob {
 
 	public static class PhoenixMapper extends Mapper<LongWritable, Text, ImmutableBytesWritable, KeyValue>{
 		
-		private Connection conn_none 	= null;
 		private Connection conn_zk 	= null;
 		private PreparedStatement[] stmtCache;
 		private String tableName;
 		private String schemaName;
-		private String[] createDDL = new String[2];
 		Map<Integer, Integer> colDetails = new LinkedHashMap<Integer, Integer>();
 		boolean ignoreUpsertError = true;
 		private String zookeeperIP;
@@ -82,29 +89,12 @@ public class MapReduceJob {
 			try {
 				zookeeperIP 		= context.getConfiguration().get("zk");
 				
-				//Connectionless mode used for upsert and iterate over KeyValue pairs
-				conn_none			= DriverManager.getConnection(getUrl(PhoenixRuntime.CONNECTIONLESS), props);
 				//ZK connection used to get the table meta-data
 				conn_zk				= DriverManager.getConnection(getUrl(zookeeperIP), props);
 				
 				schemaName			= context.getConfiguration().get("schemaName");
 				tableName 			= context.getConfiguration().get("tableName");
-				createDDL[0]		= context.getConfiguration().get("createTableDDL");
-				createDDL[1]		= context.getConfiguration().get("createIndexDDL");
 				ignoreUpsertError 	= context.getConfiguration().get("IGNORE.INVALID.ROW").equalsIgnoreCase("0") ? false : true;
-				
-				for(String s : createDDL){
-					if(s == null || s.trim().length() == 0) {
-						continue;
-				  	}
-
-					try {
-						PreparedStatement prepStmt = conn_none.prepareStatement(s);
-						prepStmt.execute();
-					} catch (SQLException e) {
-						System.err.println("Error creating the table in connectionless mode :: " + e.getMessage());
-					}
-				}
 				
 				//Get the resultset from the actual zookeeper connection. Connectionless mode throws "UnSupportedOperation" exception for this
 				ResultSet rs 		= conn_zk.getMetaData().getColumns(null, schemaName, tableName, null);
@@ -126,7 +116,7 @@ public class MapReduceJob {
 					else
 						upsertStmt = "upsert into " + tableName + " values (" + prepValues + ")";
 					try {
-						stmtCache[i] = conn_none.prepareStatement(upsertStmt);
+						stmtCache[i] = conn_zk.prepareStatement(upsertStmt);
 					} catch (SQLException e) {
 						System.err.println("Error preparing the upsert statement" + e.getMessage());
 						if(!ignoreUpsertError){
@@ -182,7 +172,7 @@ public class MapReduceJob {
 			
 			Iterator<Pair<byte[],List<KeyValue>>> dataIterator = null;
 			try {
-				dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn_none);
+				dataIterator = PhoenixRuntime.getUncommittedDataIterator(conn_zk);
 			} catch (SQLException e) {
 				System.err.println("Failed to retrieve the data iterator for Phoenix table :: " + e.getMessage());
 			}
@@ -190,12 +180,12 @@ public class MapReduceJob {
 			while(dataIterator != null && dataIterator.hasNext()){
 				Pair<byte[],List<KeyValue>> row = dataIterator.next();
 				for(KeyValue kv : row.getSecond()){
-					context.write(new ImmutableBytesWritable(kv.getKey()), kv);
+					context.write(new ImmutableBytesWritable(kv.getRow()), kv);
 				}
 			}
 			
 			try {
-				conn_none.rollback();
+			    conn_zk.rollback();
 			} catch (SQLException e) {
 				System.err.println("Transaction rollback failed.");
 			}
@@ -209,7 +199,6 @@ public class MapReduceJob {
 		public void cleanup(Context context) {
 	  		try {
 	  			conn_zk.close();
-				conn_none.close();
 			} catch (SQLException e) {
 				System.err.println("Failed to close the JDBC connection");
 			}

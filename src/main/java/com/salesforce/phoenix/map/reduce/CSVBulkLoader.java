@@ -162,9 +162,6 @@ public class CSVBulkLoader {
 		if(cmd.hasOption("sql")){
 			String sqlPath = cmd.getOptionValue("sql");
 			createPSQL = getCreatePSQLstmts(sqlPath);
-		}else{
-			System.err.println(parser_error + "Please provide Phoenix sql");
-			System.exit(0);
 		}
 		if(cmd.hasOption("zk")){
 			zookeeperIP = cmd.getOptionValue("zk");
@@ -218,8 +215,6 @@ public class CSVBulkLoader {
     		
     		log("[TS - Table created] :: " + new Date() + "\n");
 		}
-		
-		log("[TS - Table created] :: " + new Date() + "\n");
 
         String dataTable = ""; 
         if(schemaName != null && schemaName.trim().length() > 0)
@@ -255,9 +250,9 @@ public class CSVBulkLoader {
 		HTable hDataTable = new HTable(conf, dataTable);
 		
 		// Auto configure partitioner and reducer according to the Main Data table
-	    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
+    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
 
-    		job.waitForCompletion(true);
+		job.waitForCompletion(true);
 	    
 		log("[TS - M-R HFile generated..Now dumping to HBase] :: " + new Date() + "\n");
 		
@@ -296,7 +291,6 @@ public class CSVBulkLoader {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}
 		}
-		
 	}
 
 	/**
@@ -339,8 +333,6 @@ public class CSVBulkLoader {
 		conf.set("hbase.zookeeper.quorum", zookeeperIP);
 		conf.set("fs.default.name", hdfsNameNode);
 		conf.set("mapred.job.tracker", mapredIP);
-		if(createPSQL[0] != null) conf.set("createTableDDL", createPSQL[0]);
-		if(createPSQL[1] != null) conf.set("createIndexDDL", createPSQL[1]);
 		
 		//Load the other System-Configs
 		try {
