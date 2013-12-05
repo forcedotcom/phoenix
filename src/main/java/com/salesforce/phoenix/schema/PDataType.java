@@ -1633,6 +1633,11 @@ public enum PDataType {
         }
         
         @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DATE.isComparableTo(targetType);
+        }
+
+       @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == VARBINARY || targetType == BINARY;
         }
@@ -1725,6 +1730,11 @@ public enum PDataType {
             default:
                 return super.toObject(object, actualType);
             }
+        }
+
+        @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return DATE.isComparableTo(targetType);
         }
 
         @Override
@@ -1826,6 +1836,11 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isComparableTo(PDataType targetType) {
+            return super.isComparableTo(targetType) || DECIMAL.isComparableTo(targetType);
+        }
+
+        @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == TIME || targetType == TIMESTAMP
                     || targetType == VARBINARY || targetType == BINARY;
@@ -1861,7 +1876,12 @@ public enum PDataType {
         
         @Override
         public String toStringLiteral(byte[] b, int offset, int length, Format formatter) {
-            return TIME.toStringLiteral(b, offset, length, formatter);
+            if (formatter == null || formatter == DateUtil.DEFAULT_DATE_FORMATTER) {
+                // If default formatter has not been overridden,
+                // use one that displays milliseconds.
+                formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
+            }
+            return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
         }
     },
     /**
