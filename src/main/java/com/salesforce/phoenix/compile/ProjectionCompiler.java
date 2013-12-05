@@ -215,10 +215,10 @@ public class ProjectionCompiler {
                     PDatum targetColumn = targetColumns.get(index);
                     if (targetColumn.getDataType() != expression.getDataType()) {
                         PDataType targetType = targetColumn.getDataType();
-                        // Check if coerce allowed using more relaxed isComparable check, since we promote INTEGER to LONG 
+                        // Check if coerce allowed using more relaxed isCastableTo check, since we promote INTEGER to LONG 
                         // during expression evaluation and then convert back to INTEGER on UPSERT SELECT (and we don't have
                         // (an actual value we can specifically check against).
-                        if (expression.getDataType() != null && !expression.getDataType().isComparableTo(targetType)) {
+                        if (expression.getDataType() != null && !expression.getDataType().isCastableTo(targetType)) {
                             throw new ArgumentTypeMismatchException(targetType, expression.getDataType(), "column: " + targetColumn);
                         }
                         expression = CoerceExpression.create(expression, targetType);
