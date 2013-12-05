@@ -27,11 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
+import com.salesforce.phoenix.compile.MutationPlan;
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.schema.PTableType;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
@@ -40,11 +40,10 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
-import com.salesforce.phoenix.execute.MutationState;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.PTableType;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
@@ -75,6 +74,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     public MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaName, byte[] tableName, long tableTimestamp, long clientTimetamp) throws SQLException;
     public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps, List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException;
+    public MetaDataMutationResult createTableMetaData(List<Mutation> tableMetaData) throws SQLException;
     public MetaDataMutationResult dropTable(List<Mutation> tableMetadata, PTableType tableType) throws SQLException;
     public MetaDataMutationResult addColumn(List<Mutation> tableMetaData, PTableType tableType, List<Pair<byte[],Map<String,Object>>> families) throws SQLException;
     public MetaDataMutationResult dropColumn(List<Mutation> tableMetadata, PTableType tableType) throws SQLException;

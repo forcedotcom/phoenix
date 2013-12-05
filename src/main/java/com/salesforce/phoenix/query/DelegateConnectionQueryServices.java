@@ -27,19 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import org.apache.hadoop.hbase.HRegionLocation;
-import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
-import org.apache.hadoop.hbase.client.HTableInterface;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Pair;
-
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
@@ -48,6 +35,18 @@ import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import org.apache.hadoop.hbase.HRegionLocation;
+import org.apache.hadoop.hbase.HTableDescriptor;
+import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Pair;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -119,6 +118,11 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
             Map<String, Object> tableProps, List<Pair<byte[], Map<String, Object>>> families, byte[][] splits)
             throws SQLException {
         return getDelegate().createTable(tableMetaData, tableType, tableProps, families, splits);
+    }
+
+    @Override
+    public MetaDataMutationResult createTableMetaData(List<Mutation> tableMetaData) throws SQLException {
+        return getDelegate().createTableMetaData(tableMetaData);
     }
 
     @Override

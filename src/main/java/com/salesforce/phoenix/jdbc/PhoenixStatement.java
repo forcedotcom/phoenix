@@ -27,94 +27,29 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.sql.ParameterMetaData;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLWarning;
-import java.sql.Statement;
-import java.text.Format;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
-import org.apache.hadoop.hbase.util.Pair;
-
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.BindManager;
-import com.salesforce.phoenix.compile.ColumnProjector;
-import com.salesforce.phoenix.compile.CreateIndexCompiler;
-import com.salesforce.phoenix.compile.CreateTableCompiler;
-import com.salesforce.phoenix.compile.DeleteCompiler;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.ExpressionProjector;
-import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.compile.QueryCompiler;
-import com.salesforce.phoenix.compile.QueryPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.compile.StatementPlan;
-import com.salesforce.phoenix.compile.UpsertCompiler;
+import com.salesforce.phoenix.compile.*;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
-import com.salesforce.phoenix.parse.AddColumnStatement;
-import com.salesforce.phoenix.parse.AliasedNode;
-import com.salesforce.phoenix.parse.AlterIndexStatement;
-import com.salesforce.phoenix.parse.BindableStatement;
-import com.salesforce.phoenix.parse.ColumnDef;
-import com.salesforce.phoenix.parse.ColumnName;
-import com.salesforce.phoenix.parse.CreateIndexStatement;
-import com.salesforce.phoenix.parse.CreateTableStatement;
-import com.salesforce.phoenix.parse.DeleteStatement;
-import com.salesforce.phoenix.parse.DropColumnStatement;
-import com.salesforce.phoenix.parse.DropIndexStatement;
-import com.salesforce.phoenix.parse.DropTableStatement;
-import com.salesforce.phoenix.parse.ExplainStatement;
-import com.salesforce.phoenix.parse.HintNode;
-import com.salesforce.phoenix.parse.LimitNode;
-import com.salesforce.phoenix.parse.NamedNode;
-import com.salesforce.phoenix.parse.NamedTableNode;
-import com.salesforce.phoenix.parse.OrderByNode;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.ParseNodeFactory;
-import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
-import com.salesforce.phoenix.parse.SQLParser;
-import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.ShowTablesStatement;
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.parse.TableNode;
-import com.salesforce.phoenix.parse.UpsertStatement;
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.query.*;
 import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.query.WrappedScanner;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.schema.ExecuteQueryNotApplicableException;
-import com.salesforce.phoenix.schema.ExecuteUpdateNotApplicableException;
-import com.salesforce.phoenix.schema.MetaDataClient;
-import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PDatum;
-import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.RowKeyValueAccessor;
+import com.salesforce.phoenix.schema.*;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.KeyValueUtil;
-import com.salesforce.phoenix.util.SQLCloseable;
-import com.salesforce.phoenix.util.SQLCloseables;
-import com.salesforce.phoenix.util.SchemaUtil;
-import com.salesforce.phoenix.util.ServerUtil;
+import com.salesforce.phoenix.util.*;
+import org.apache.hadoop.hbase.util.Pair;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.sql.*;
+import java.text.Format;
+import java.util.*;
 
 
 /**
@@ -332,6 +267,51 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public MutationPlan optimizePlan() throws SQLException {
             return compilePlan();
+        }
+    }
+
+    private class ExecutableCreateTableLikeStatement extends CreateTableLikeStatement implements ExecutableStatement{
+
+        public ExecutableCreateTableLikeStatement(TableName newTable, TableName baseTable, int bindCount) {
+            super(newTable, baseTable, bindCount);
+        }
+
+        @Override
+        public boolean execute() throws SQLException {
+            this.executeUpdate();
+            return false;
+        }
+
+        @Override
+        public int executeUpdate() throws SQLException {
+            MutationPlan plan = optimizePlan();
+            MutationState state = plan.execute();
+            lastQueryPlan = null;
+            lastResultSet = null;
+            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
+            lastUpdateOperation = UpdateOperation.UPSERTED;
+            return lastUpdateCount;
+        }
+
+        @Override
+        public PhoenixResultSet executeQuery() throws SQLException {
+            throw new ExecuteQueryNotApplicableException("CREATE TABLE LIKE", this.toString());
+        }
+
+        @Override
+        public ResultSetMetaData getResultSetMetaData() throws SQLException {
+            return null;
+        }
+
+        @Override
+        public MutationPlan optimizePlan() throws SQLException {
+            return this.compilePlan();
+        }
+
+        @Override
+        public MutationPlan compilePlan() throws SQLException {
+            CreateTableLikeCompiler compiler = new CreateTableLikeCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
         }
     }
     
@@ -873,6 +853,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public ExecutableDeleteStatement delete(NamedTableNode table, HintNode hint, ParseNode whereNode, List<OrderByNode> orderBy, LimitNode limit, int bindCount) {
             return new ExecutableDeleteStatement(table, hint, whereNode, orderBy, limit, bindCount);
+        }
+
+        @Override
+        public CreateTableLikeStatement createTableLike(TableName a, TableName b, int bindCount){
+            return new ExecutableCreateTableLikeStatement(a, b, bindCount);
         }
         
         @Override

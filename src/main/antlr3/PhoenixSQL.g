@@ -355,6 +355,7 @@ non_select_node returns [BindableStatement ret]
     :  (s=upsert_node
     |   s=delete_node
     |   s=create_table_node
+    |   s=create_table_like_node
     |   s=create_index_node
     |   s=drop_table_node
     |   s=drop_index_node
@@ -379,6 +380,11 @@ create_table_node returns [CreateTableStatement ret]
         (p=fam_properties)?
         (SPLIT ON v=list_expressions)?
         {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
+    ;
+    
+create_table_like_node returns [CreateTableLikeStatement ret]
+    :   CREATE TABLE new_table=from_table_name LIKE base_table=from_table_name
+    	{ret = factory.createTableLike(new_table, base_table, getBindCount());}
     ;
 
 // Parse a create index statement.
