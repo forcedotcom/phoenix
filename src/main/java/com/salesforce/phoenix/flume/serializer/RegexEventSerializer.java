@@ -96,7 +96,7 @@ public class RegexEventSerializer implements EventSerializer {
            colNames.add(s);
         }
         
-        logger.error(" columns configured are {}",colNames.toString());
+        logger.info(" columns configured are {}",colNames.toString());
         
         final String headersStr = context.getString(HEADER_NAME_CONFIG);
         if(!Strings.isNullOrEmpty(headersStr)) {
@@ -104,9 +104,9 @@ public class RegexEventSerializer implements EventSerializer {
                 headers.add(s);
              }
         }
-        logger.error(" headers configured are {}",headersStr);
+        logger.info(" headers configured are {}",headersStr);
         final String keyGeneratorType = context.getString(ROWKEY_TYPE_CONFIG);
-        logger.error(" the keyGenerator is {} passed as argment ",keyGeneratorType);
+        logger.info(" the keyGenerator is {} passed as argment ",keyGeneratorType);
         if(!Strings.isNullOrEmpty(keyGeneratorType)) {
             try {
                 keyGenerator =  DefaultKeyGenerator.valueOf(keyGeneratorType.toUpperCase());
@@ -140,7 +140,6 @@ public class RegexEventSerializer implements EventSerializer {
             final Map<String,Integer> allColumnsInfoMap = Maps.newLinkedHashMap();
             final String schemaName = SchemaUtil.getSchemaNameFromFullName(tableName);
             table = SchemaUtil.getTableNameFromFullName(tableName);
-            logger.error(" the table in initialize is {}",table);
             String rowkey = null;
             String  cq = null;
             String  cf = null;
@@ -165,7 +164,6 @@ public class RegexEventSerializer implements EventSerializer {
             
             this.addToColumnMetadataInfo(colNames, allColumnsInfoMap, position);
             this.addToColumnMetadataInfo(headers, allColumnsInfoMap, position);
-            logger.error(" the table in initialize autoGenerateKey {}",autoGenerateKey);
             if(autoGenerateKey) {
                 Integer sqlType = allColumnsInfoMap.get(rowkey);
                 if (sqlType == null) {
@@ -176,11 +174,9 @@ public class RegexEventSerializer implements EventSerializer {
                 position++;
             }
             
-            logger.error(" the column metadata length is {}",columnMetadata.length);
-            
             //c) 
             this.upsertStatement = QueryUtil.constructUpsertStatement(columnMetadata, tableName, columnMetadata.length);
-            logger.error(" the upsert statement is {} " ,this.upsertStatement);
+            logger.info(" the upsert statement is {} " ,this.upsertStatement);
             
         } catch(TableNotFoundException ex){
             logger.error(" the table {} doesn't exist in Hbase.",tableName);
@@ -233,11 +229,11 @@ public class RegexEventSerializer implements EventSerializer {
                Matcher m = inputPattern.matcher(payload);
                
                if (!m.matches()) {
-                 logger.error("payload {} doesn't match the pattern {} ", payload, inputPattern.toString());  
+                 logger.info("payload {} doesn't match the pattern {} ", payload, inputPattern.toString());  
                  continue;
                }
                if (m.groupCount() != colNames.size()) {
-                 logger.error("payload {} size doesn't match the pattern {} ", m.groupCount(), colNames.size());
+                 logger.info("payload {} size doesn't match the pattern {} ", m.groupCount(), colNames.size());
                  continue;
                }
                int index = 1 ;
@@ -272,8 +268,7 @@ public class RegexEventSerializer implements EventSerializer {
                    }
                }
                
-               logger.error("the row key index in upsert events is {} ", autoGenerateKey);
-               //add primary key value
+              //add primary key value
                if(autoGenerateKey) {
                    sqlType = columnMetadata[offset].getSqlType();
                    String generatedRowValue = this.keyGenerator.generate();

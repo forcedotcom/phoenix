@@ -102,7 +102,7 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
         if(!Strings.isNullOrEmpty(zookeeperQuorum)) {
             this.config.set(HConstants.ZOOKEEPER_QUORUM, zookeeperQuorum);
         }
-        logger.error(" the zookeer quorum is {}",zookeeperQuorum);
+        logger.info(" the zookeer quorum is {}",zookeeperQuorum);
         initializeSerializer(context,eventSerializerType);
         this.sinkCounter = new SinkCounter(this.getName());
     }
@@ -138,7 +138,7 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
 
     @Override
     public void start() {
-        logger.error("Starting sink {} ",this.getName());
+        logger.info("Starting sink {} ",this.getName());
         openConnection();  
         try {
             serializer.initialize(this.connection, this.tableName);
@@ -157,14 +157,12 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
     }
 
     private void openConnection () {
-        logger.error("Opening connection {} ",this.getName());
+        logger.info("Opening connection {} ",this.getName());
         final Properties props = new Properties();
         props.setProperty(UPSERT_BATCH_SIZE_ATTRIB, String.valueOf(this.batchSize)); 
         final String zookeeperQuorum = this.config.get(HConstants.ZOOKEEPER_QUORUM);
-        logger.error("in open connection , zookeeper quorum {}",zookeeperQuorum);
         try {
             connection = DriverManager.getConnection(QueryUtil.getUrl(zookeeperQuorum), props).unwrap(PhoenixConnection.class);
-            logger.error(" Successful in establishing connection to quorum {} ",zookeeperQuorum);
             connection.setAutoCommit(false);
             if(this.createTableDdl != null) {
                  SchemaHandler.createTable(connection,createTableDdl);
@@ -226,7 +224,7 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
                 sinkCounter.addToEventDrainSuccessCount(events.size());
             }
             else {
-                logger.error("no events to process ");
+                logger.info("no events to process ");
                 sinkCounter.incrementBatchEmptyCount();
                 status = Status.BACKOFF;
             }
