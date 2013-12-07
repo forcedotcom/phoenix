@@ -58,12 +58,12 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public class HashJoinPlan implements QueryPlan {
     
-    private BasicQueryPlan plan;
+    private QueryPlan plan;
     private HashJoinInfo joinInfo;
     private List<Expression>[] hashExpressions;
     private QueryPlan[] hashPlans;
     
-    public HashJoinPlan(BasicQueryPlan plan, HashJoinInfo joinInfo,
+    public HashJoinPlan(QueryPlan plan, HashJoinInfo joinInfo,
             List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {
         this.plan = plan;
         this.joinInfo = joinInfo;
@@ -91,7 +91,7 @@ public class HashJoinPlan implements QueryPlan {
         ImmutableBytesPtr[] joinIds = joinInfo.getJoinIds();
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
-        final HashCacheClient hashClient = plan.getContext().getHashClient();
+        final HashCacheClient hashClient = new HashCacheClient(plan.getContext().getConnection());
         Scan scan = plan.getContext().getScan();
         final ScanRanges ranges = plan.getContext().getScanRanges();
         

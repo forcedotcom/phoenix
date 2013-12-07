@@ -36,7 +36,6 @@ import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -74,14 +73,13 @@ public class StatementContext {
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
     private KeyRange minMaxRange = null;
 
-    private final HashCacheClient hashClient;
     private TableRef currentTable;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
         this(statement, connection, resolver, binds, scan, null);
     }
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, HashCacheClient hashClient) {
+    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, TableRef table) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -93,10 +91,7 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.hashClient = hashClient;
-        if (resolver != null && !resolver.getTables().isEmpty()) {
-            this.currentTable = resolver.getTables().get(0);
-        }
+        this.currentTable = table != null ? table : (resolver != null && !resolver.getTables().isEmpty()) ? resolver.getTables().get(0) : null;
     }
 
     public String getDateFormat() {
@@ -121,10 +116,6 @@ public class StatementContext {
 
     public BindManager getBindManager() {
         return binds;
-    }
-    
-    public HashCacheClient getHashClient() {
-        return hashClient;
     }
     
     public TableRef getCurrentTable() {

@@ -5,8 +5,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.Scan;
+
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ColumnProjector;
+import com.salesforce.phoenix.compile.ColumnResolver;
 import com.salesforce.phoenix.compile.IndexStatementRewriter;
 import com.salesforce.phoenix.compile.QueryCompiler;
 import com.salesforce.phoenix.compile.QueryPlan;
@@ -41,9 +44,17 @@ public class QueryOptimizer {
         return optimize(select, statement, Collections.<PColumn>emptyList(), null);
     }
 
+    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, Scan scan, ColumnResolver resolver) throws SQLException {
+        return optimize(select, statement, Collections.<PColumn>emptyList(), null, scan, resolver);
+    }
+
     public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+        return optimize(select, statement, targetColumns, parallelIteratorFactory, null, null);
+    }
+    
+    public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, Scan scan, ColumnResolver resolver) throws SQLException {
         QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
-        QueryPlan dataPlan = compiler.compile(select);
+        QueryPlan dataPlan = compiler.compile(select, scan, resolver);
         if (!useIndexes) {
             return dataPlan;
         }
