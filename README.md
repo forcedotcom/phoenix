@@ -67,7 +67,7 @@ In addition, you can use the bin/psql.sh to load CSV data or execute SQL scripts
 
 Other alternatives include:
 * Using our [map-reduce based CSV loader](https://github.com/forcedotcom/phoenix/wiki/Bulk-CSV-loading-through-map-reduce) for bigger data sets
-* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
+* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki/Phoenix-Introduction#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
 * Populating the table through our [UPSERT VALUES](http://forcedotcom.github.io/phoenix/#upsert_values) command.
 
 <h4>SQL Client</h4>
