@@ -38,7 +38,7 @@ To install a pre-built phoenix, use these directions:
 * Remove prior phoenix-[version]-client.jar from the classpath of any Phoenix client.
 * Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
-Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
+Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/phoenix/wiki/Building-Project).
 
 
 ## Getting Started ##
