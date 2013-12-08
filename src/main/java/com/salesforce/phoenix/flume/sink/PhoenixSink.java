@@ -46,8 +46,6 @@ import org.apache.flume.Transaction;
 import org.apache.flume.conf.Configurable;
 import org.apache.flume.instrumentation.SinkCounter;
 import org.apache.flume.sink.AbstractSink;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HConstants;
 import org.jboss.netty.channel.ChannelException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,30 +61,23 @@ import com.salesforce.phoenix.flume.SchemaHandler;
 import com.salesforce.phoenix.flume.serializer.EventSerializer;
 import com.salesforce.phoenix.flume.serializer.EventSerializers;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.query.HBaseFactoryProvider;
 import com.salesforce.phoenix.util.QueryUtil;
 
 public final class PhoenixSink  extends AbstractSink implements Configurable {
     private static final Logger logger = LoggerFactory.getLogger(PhoenixSink.class);
     private static AtomicInteger counter = new AtomicInteger();
     private static final String NAME   = "Phoenix Sink__";
-    
-    private Configuration config;
+  
     private SinkCounter sinkCounter;
     private Connection connection;
     private String     createTableDdl;
     private String     tableName;
     private Integer    batchSize;
     private EventSerializer serializer;
+    private String     jdbcUrl;
 
     public PhoenixSink(){
-      this(HBaseFactoryProvider.getConfigurationFactory().getConfiguration());
     }
-
-    public PhoenixSink(Configuration conf){
-      this.config = conf;
-    }
-
     
     @Override
     public void configure(Context context){
@@ -95,14 +86,19 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
         this.tableName = context.getString(FlumeConstants.CONFIG_TABLE);
         this.batchSize = context.getInteger(FlumeConstants.CONFIG_BATCHSIZE, FlumeConstants.DEFAULT_BATCH_SIZE);
         final String eventSerializerType = context.getString(FlumeConstants.CONFIG_SERIALIZER);
-        final String zookeeperQuorum = context.getString(FlumeConstants.ZK_QUORUM);
+        final String zookeeperQuorum = context.getString(FlumeConstants.CONFIG_ZK_QUORUM);
+        final String ipJdbcURL = context.getString(FlumeConstants.CONFIG_JDBC_URL);
         
         Preconditions.checkNotNull(this.tableName,"Table name cannot be empty, please specify in the configuration file");
         Preconditions.checkNotNull(eventSerializerType,"Event serializer cannot be empty, please specify in the configuration file");
         if(!Strings.isNullOrEmpty(zookeeperQuorum)) {
-            this.config.set(HConstants.ZOOKEEPER_QUORUM, zookeeperQuorum);
+            this.jdbcUrl = QueryUtil.getUrl(zookeeperQuorum);
         }
-        logger.info(" the zookeer quorum is {}",zookeeperQuorum);
+        if(!Strings.isNullOrEmpty(ipJdbcURL)) {
+            this.jdbcUrl = ipJdbcURL;
+        }
+        Preconditions.checkNotNull(this.jdbcUrl,"Please specify either the zookeeper quorum or the jdbc url in the configuration file");
+        logger.debug(" the jdbcUrl is {}",jdbcUrl);
         initializeSerializer(context,eventSerializerType);
         this.sinkCounter = new SinkCounter(this.getName());
     }
@@ -144,13 +140,15 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
             serializer.initialize(this.connection, this.tableName);
         } catch(Exception ex) {
             logger.error("Error {} in initializing the serializer.",ex.getMessage());
+            Throwables.propagate(ex);
        }
-        super.start();
         sinkCounter.start();
+        super.start();
     }
     
     @Override
     public void stop(){
+      super.stop();
       closeConnectionQuietly();
       sinkCounter.incrementConnectionClosedCount();
       sinkCounter.stop();
@@ -160,9 +158,8 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
         logger.info("Opening connection {} ",this.getName());
         final Properties props = new Properties();
         props.setProperty(UPSERT_BATCH_SIZE_ATTRIB, String.valueOf(this.batchSize)); 
-        final String zookeeperQuorum = this.config.get(HConstants.ZOOKEEPER_QUORUM);
         try {
-            connection = DriverManager.getConnection(QueryUtil.getUrl(zookeeperQuorum), props).unwrap(PhoenixConnection.class);
+            connection = DriverManager.getConnection(this.jdbcUrl, props).unwrap(PhoenixConnection.class);
             connection.setAutoCommit(false);
             if(this.createTableDdl != null) {
                  SchemaHandler.createTable(connection,createTableDdl);
@@ -224,7 +221,7 @@ public final class PhoenixSink  extends AbstractSink implements Configurable {
                 sinkCounter.addToEventDrainSuccessCount(events.size());
             }
             else {
-                logger.info("no events to process ");
+                logger.debug("no events to process ");
                 sinkCounter.incrementBatchEmptyCount();
                 status = Status.BACKOFF;
             }

@@ -53,7 +53,12 @@ public final class FlumeConstants {
     /**
      * Configuration for the zookeeper quorum.
      */
-    public static final String ZK_QUORUM = "zookeeperQuorum";
+    public static final String CONFIG_ZK_QUORUM = "zookeeperQuorum";
+    
+    /**
+     * Configuration for the jdbc url.
+     */
+    public static final String CONFIG_JDBC_URL = "jdbcUrl";
 
     /**
      * Default batch size .
@@ -61,7 +66,7 @@ public final class FlumeConstants {
     public static final Integer DEFAULT_BATCH_SIZE = 100;
 
     /** Regular expression used to parse groups from event data. */
-    public static final String REGEX_CONFIG = "regex";
+    public static final String CONFIG_REGULAR_EXPRESSION = "regex";
     public static final String REGEX_DEFAULT = "(.*)";
 
     /** Whether to ignore case when performing regex matches. */
@@ -69,13 +74,13 @@ public final class FlumeConstants {
     public static final boolean IGNORE_CASE_DEFAULT = false;
 
     /** Comma separated list of column names . */
-    public static final String COL_NAME_CONFIG = "columns";
+    public static final String CONFIG_COLUMN_NAMES = "columns";
 
-    /** The header columns to persist as dynamic columns into the default column family. */
-    public static final String HEADER_NAME_CONFIG = "headers";
+    /** The header columns to persist as columns into the default column family. */
+    public static final String CONFIG_HEADER_NAMES = "headers";
 
     /** The rowkey type generator . */
-    public static final String ROWKEY_TYPE_CONFIG = "rowkeyType";
+    public static final String CONFIG_ROWKEY_TYPE_GENERATOR = "rowkeyType";
 
     /**
      * The default delimiter for columns and headers

@@ -27,14 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.flume.serializer;
 
-import static com.salesforce.phoenix.flume.FlumeConstants.COL_NAME_CONFIG;
+import static com.salesforce.phoenix.flume.FlumeConstants.CONFIG_COLUMN_NAMES;
+import static com.salesforce.phoenix.flume.FlumeConstants.CONFIG_HEADER_NAMES;
+import static com.salesforce.phoenix.flume.FlumeConstants.CONFIG_REGULAR_EXPRESSION;
+import static com.salesforce.phoenix.flume.FlumeConstants.CONFIG_ROWKEY_TYPE_GENERATOR;
 import static com.salesforce.phoenix.flume.FlumeConstants.DEFAULT_COLUMNS_DELIMITER;
-import static com.salesforce.phoenix.flume.FlumeConstants.HEADER_NAME_CONFIG;
 import static com.salesforce.phoenix.flume.FlumeConstants.IGNORE_CASE_CONFIG;
 import static com.salesforce.phoenix.flume.FlumeConstants.IGNORE_CASE_DEFAULT;
-import static com.salesforce.phoenix.flume.FlumeConstants.REGEX_CONFIG;
 import static com.salesforce.phoenix.flume.FlumeConstants.REGEX_DEFAULT;
-import static com.salesforce.phoenix.flume.FlumeConstants.ROWKEY_TYPE_CONFIG;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -86,27 +86,28 @@ public class RegexEventSerializer implements EventSerializer {
      */
     @Override
     public void configure(Context context) {
-        final String regex    = context.getString(REGEX_CONFIG, REGEX_DEFAULT);
+        final String regex    = context.getString(CONFIG_REGULAR_EXPRESSION, REGEX_DEFAULT);
         final boolean regexIgnoreCase = context.getBoolean(IGNORE_CASE_CONFIG,IGNORE_CASE_DEFAULT);
         inputPattern = Pattern.compile(regex, Pattern.DOTALL + (regexIgnoreCase ? Pattern.CASE_INSENSITIVE : 0));
         
-        final String columnNames = context.getString(COL_NAME_CONFIG);
+        final String columnNames = context.getString(CONFIG_COLUMN_NAMES);
         Preconditions.checkNotNull(columnNames,"Column names cannot be empty, please specify in configuration file");
         for(String s : Splitter.on(DEFAULT_COLUMNS_DELIMITER).split(columnNames)) {
            colNames.add(s);
         }
         
-        logger.info(" columns configured are {}",colNames.toString());
+        logger.debug(" columns configured are {}",colNames.toString());
         
-        final String headersStr = context.getString(HEADER_NAME_CONFIG);
+        final String headersStr = context.getString(CONFIG_HEADER_NAMES);
         if(!Strings.isNullOrEmpty(headersStr)) {
             for(String s : Splitter.on(DEFAULT_COLUMNS_DELIMITER).split(headersStr)) {
                 headers.add(s);
              }
         }
-        logger.info(" headers configured are {}",headersStr);
-        final String keyGeneratorType = context.getString(ROWKEY_TYPE_CONFIG);
-        logger.info(" the keyGenerator is {} passed as argment ",keyGeneratorType);
+        logger.debug(" headers configured are {}",headersStr);
+        final String keyGeneratorType = context.getString(CONFIG_ROWKEY_TYPE_GENERATOR);
+        
+        logger.debug(" the keyGenerator is {} passed as argment ",keyGeneratorType);
         if(!Strings.isNullOrEmpty(keyGeneratorType)) {
             try {
                 keyGenerator =  DefaultKeyGenerator.valueOf(keyGeneratorType.toUpperCase());
@@ -131,12 +132,6 @@ public class RegexEventSerializer implements EventSerializer {
     
         ResultSet rs = null;
         try {
-           
-            //a) generate the column name to data type mapping of all the columns for the table
-            //b) for the list of columns passed through configuration , generate the ColumnInfo
-            //c) for the ColumnInfo information , generate a upsert statement.
-            
-            //a)
             final Map<String,Integer> allColumnsInfoMap = Maps.newLinkedHashMap();
             final String schemaName = SchemaUtil.getSchemaNameFromFullName(tableName);
             table = SchemaUtil.getTableNameFromFullName(tableName);
@@ -154,16 +149,21 @@ public class RegexEventSerializer implements EventSerializer {
                 }
                 allColumnsInfoMap.put(SchemaUtil.getColumnDisplayName(cf, cq), dt);
              }
-                 
-            //b)
+            
+            //can happen when table not found in Hbase.
+            if(allColumnsInfoMap.isEmpty()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.TABLE_UNDEFINED)
+                        .setTableName(table).build().buildException();
+            }
+       
             int colSize = colNames.size();
             int headersSize = headers.size();
             int totalSize = colSize + headersSize + ( autoGenerateKey ? 1 : 0);
             columnMetadata = new ColumnInfo[totalSize] ;
-            Integer position = 0;
+            int position = 0;
             
-            this.addToColumnMetadataInfo(colNames, allColumnsInfoMap, position);
-            this.addToColumnMetadataInfo(headers, allColumnsInfoMap, position);
+            position = this.addToColumnMetadataInfo(colNames, allColumnsInfoMap, position);
+            position = this.addToColumnMetadataInfo(headers,  allColumnsInfoMap, position);
             if(autoGenerateKey) {
                 Integer sqlType = allColumnsInfoMap.get(rowkey);
                 if (sqlType == null) {
@@ -174,7 +174,6 @@ public class RegexEventSerializer implements EventSerializer {
                 position++;
             }
             
-            //c) 
             this.upsertStatement = QueryUtil.constructUpsertStatement(columnMetadata, tableName, columnMetadata.length);
             logger.info(" the upsert statement is {} " ,this.upsertStatement);
             
@@ -192,11 +191,11 @@ public class RegexEventSerializer implements EventSerializer {
        
     }
     
-    private void addToColumnMetadataInfo(final List<String> columns , final Map<String,Integer> allColumnsInfoMap, Integer position) throws SQLException {
+    private int addToColumnMetadataInfo(final List<String> columns , final Map<String,Integer> allColumnsInfoMap, int position) throws SQLException {
         Preconditions.checkNotNull(columns);
         Preconditions.checkNotNull(allColumnsInfoMap);
-        for (int i = 0 ; i < columns.size() ; i++) {
-            String columnName = SchemaUtil.normalizeIdentifier(colNames.get(i).trim());
+       for (int i = 0 ; i < columns.size() ; i++) {
+            String columnName = SchemaUtil.normalizeIdentifier(columns.get(i).trim());
             Integer sqlType = allColumnsInfoMap.get(columnName);
             if (sqlType == null) {
                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_NOT_FOUND)
@@ -205,8 +204,8 @@ public class RegexEventSerializer implements EventSerializer {
                 columnMetadata[position] = new ColumnInfo(columnName, sqlType);
                 position++;
             }
-        }
-        
+       }
+       return position;
     }
 
    
@@ -229,11 +228,11 @@ public class RegexEventSerializer implements EventSerializer {
                Matcher m = inputPattern.matcher(payload);
                
                if (!m.matches()) {
-                 logger.info("payload {} doesn't match the pattern {} ", payload, inputPattern.toString());  
+                 logger.debug("payload {} doesn't match the pattern {} ", payload, inputPattern.toString());  
                  continue;
                }
                if (m.groupCount() != colNames.size()) {
-                 logger.info("payload {} size doesn't match the pattern {} ", m.groupCount(), colNames.size());
+                 logger.debug("payload {} size doesn't match the pattern {} ", m.groupCount(), colNames.size());
                  continue;
                }
                int index = 1 ;
@@ -267,8 +266,7 @@ public class RegexEventSerializer implements EventSerializer {
                        colUpsert.setNull(index++, sqlType);
                    }
                }
-               
-              //add primary key value
+  
                if(autoGenerateKey) {
                    sqlType = columnMetadata[offset].getSqlType();
                    String generatedRowValue = this.keyGenerator.generate();
@@ -278,7 +276,10 @@ public class RegexEventSerializer implements EventSerializer {
                colUpsert.execute();
            }
            connection.commit();
-       } finally {
+       } catch(Exception ex){
+           logger.error("An error {} occurred during persisting the event ",ex.getMessage());
+           throw new SQLException(ex.getMessage());
+       }finally {
            if(wasAutoCommit) {
                connection.setAutoCommit(true);
            }
