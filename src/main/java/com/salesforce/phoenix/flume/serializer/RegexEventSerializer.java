@@ -224,8 +224,11 @@ public class RegexEventSerializer implements EventSerializer {
        try {
            for(Event event : events) {
                byte [] payloadBytes = event.getBody();
+               if(payloadBytes == null || payloadBytes.length == 0) {
+                   continue;
+               }
                String payload = new String(payloadBytes);
-               Matcher m = inputPattern.matcher(payload);
+               Matcher m = inputPattern.matcher(payload.trim());
                
                if (!m.matches()) {
                  logger.debug("payload {} doesn't match the pattern {} ", payload, inputPattern.toString());  
