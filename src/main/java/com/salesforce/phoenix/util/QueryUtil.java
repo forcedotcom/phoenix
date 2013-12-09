@@ -1,10 +1,17 @@
 package com.salesforce.phoenix.util;
 
-import java.sql.*;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 public class QueryUtil {
 	
-	/**
+    /**
+     *  Column family name index within ResultSet resulting from {@link DatabaseMetaData#getColumns(String, String, String, String)}
+     */
+    public static final int COLUMN_FAMILY_POSITION = 1;
+
+ 	/**
 	 *  Column name index within ResultSet resulting from {@link DatabaseMetaData#getColumns(String, String, String, String)}
 	 */
 	public static final int COLUMN_NAME_POSITION = 4;

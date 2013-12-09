@@ -942,6 +942,14 @@ public class SchemaUtil {
         }
         return tableName.substring(0, index);
     }
+    
+    public static String getTableNameFromFullName(String tableName) {
+        int index = tableName.indexOf(QueryConstants.NAME_SEPARATOR);
+        if (index < 0) {
+            return tableName; 
+        }
+        return tableName.substring(index+1, tableName.length());
+    }
 
     public static byte[] getTableKeyFromFullName(String fullTableName) {
         int index = fullTableName.indexOf(QueryConstants.NAME_SEPARATOR);
