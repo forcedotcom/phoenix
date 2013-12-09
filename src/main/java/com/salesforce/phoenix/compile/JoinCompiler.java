@@ -721,7 +721,8 @@ public class JoinCompiler {
     private static List<AliasedNode> extractFromSelect(List<AliasedNode> select, TableRef table, ColumnResolver resolver) throws SQLException {
         List<AliasedNode> ret = new ArrayList<AliasedNode>();
         if (isWildCardSelect(select)) {
-            ret.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE));
+            // TODO : Need to check here        	
+            ret.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE, select.get(0).getArrayColumnNode()));
             return ret;
         }
         
@@ -734,6 +735,7 @@ public class JoinCompiler {
             } else if (type == ColumnParseNodeVisitor.ContentType.COMPLEX) {
                 for (Map.Entry<ColumnRef, ColumnParseNode> entry : visitor.getColumnRefMap().entrySet()) {
                     if (entry.getKey().getTableRef().equals(table)) {
+                    	// TODO : Need to check here
                         ret.add(NODE_FACTORY.aliasedNode(null, entry.getValue()));
                     }
                 }

@@ -97,6 +97,7 @@ tokens
     UNUSABLE='unusable';
     DISABLE='disable';
     REBUILD='rebuild';
+    ARRAY='array';
 }
 
 
@@ -482,8 +483,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        { $ret = factory.columnDef(c, dt, n==null,
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (ar=ARRAY (LSQUARE (a=NUMBER)? RSQUARE))? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, ar != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
@@ -583,7 +584,7 @@ select_list returns [List<AliasedNode> ret]
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
-    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a == null ? field.getAlias() : a, field); }
+    :   field=expression (ar=(LSQUARE (index=NUMBER)? RSQUARE))? (a=parseAlias)? { $ret = (ar == null ? factory.aliasedNode(a == null ? field.getAlias() : a, field) : factory.aliasedNode(a == null ? field.getAlias() : a, field, factory.arrayNode(true, Integer.parseInt( index.getText() )))); }
     | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 

@@ -192,7 +192,11 @@ public class ParseNodeFactory {
     }
 
     public AliasedNode aliasedNode(String alias, ParseNode expression) {
-        return new AliasedNode(alias, expression);
+        return aliasedNode(alias, expression, new ArrayColumnNode(false, 0));
+    }
+    
+    public AliasedNode aliasedNode(String alias, ParseNode expression, ArrayColumnNode arrayNode) {
+        return new AliasedNode(alias, expression, arrayNode);
     }
 
     public AddParseNode add(List<ParseNode> children) {
@@ -209,6 +213,10 @@ public class ParseNodeFactory {
 
     public AndParseNode and(List<ParseNode> children) {
         return new AndParseNode(children);
+    }
+    
+    public ArrayColumnNode arrayNode(boolean arrayType, Integer index) {
+    	return new ArrayColumnNode(arrayType, index);
     }
 
     public FamilyWildcardParseNode family(String familyName){
@@ -253,6 +261,11 @@ public class ParseNodeFactory {
 
     public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
+    }
+    
+    public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isArray, Integer arrSize, boolean isNull, Integer maxLength, Integer scale, boolean isPK, 
+        	ColumnModifier columnModifier) {
+        return new ColumnDef(columnDefName, sqlTypeName, isArray, arrSize, isNull, maxLength, scale, isPK, columnModifier);
     }
 
     public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnName, ColumnModifier>> columnNameAndModifier) {

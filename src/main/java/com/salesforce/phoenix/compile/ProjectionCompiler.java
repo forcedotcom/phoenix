@@ -54,6 +54,7 @@ import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
+import com.salesforce.phoenix.parse.ParseException;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.WildcardParseNode;
@@ -222,6 +223,15 @@ public class ProjectionCompiler {
                         if (expression.getDataType() != null && !expression.getDataType().isCastableTo(targetType)) {
                             throw new ArgumentTypeMismatchException(targetType, expression.getDataType(), "column: " + targetColumn);
                         }
+                        if(expression.getDataType()!= null && !expression.getDataType().isArrayType()) {
+                        	if(aliasedNode.getArrayColumnNode().isArrayType()) {
+                        		throw new ArgumentTypeMismatchException(targetType, expression.getDataType(), "column: " + targetColumn);
+                        	}
+                        } else if(expression.getDataType()!= null && !expression.getDataType().isArrayType()) {
+                        	if(aliasedNode.getArrayColumnNode().isArrayType() && (aliasedNode.getArrayColumnNode().getIndex() < 0)) {
+                        		throw new ParseException("The index cannot be negative for the column "+targetColumn);
+                        	}
+                        }
                         expression = CoerceExpression.create(expression, targetType);
                     }
                 }
@@ -236,7 +246,24 @@ public class ProjectionCompiler {
                 String columnAlias = aliasedNode.getAlias();
                 boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
                 String name = columnAlias == null ? expression.toString() : columnAlias;
-                projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
+                if(aliasedNode.getArrayColumnNode() != null) {
+                	if(aliasedNode.getArrayColumnNode().isArrayType()) {
+						if (expression.getDataType() != null
+								&& !expression.getDataType().isArrayType()) {
+							throw new ParseException("The column "+name+" should be of type array");
+
+						}
+                		projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive, aliasedNode.getArrayColumnNode().getIndex()));
+                	} else {
+                		projectedColumns
+						.add(new ExpressionProjector(name, table.getName()
+								.getString(), expression, isCaseSensitive));
+                	}
+				} else {
+					projectedColumns
+							.add(new ExpressionProjector(name, table.getName()
+									.getString(), expression, isCaseSensitive));
+				}
             }
             selectVisitor.reset();
             index++;

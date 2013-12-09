@@ -195,6 +195,7 @@ public class DeleteCompiler {
         for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getPKColumns().size(); i++) {
             PColumn column = table.getPKColumns().get(i);
             String name = column.getName().getString();
+            //TODO : Should not make this false by default
             aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));
         }
         SelectStatement select = FACTORY.select(

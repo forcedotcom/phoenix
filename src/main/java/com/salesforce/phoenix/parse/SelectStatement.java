@@ -46,6 +46,7 @@ public class SelectStatement implements FilterableStatement {
     public static final SelectStatement SELECT_ONE =
             new SelectStatement(
                     Collections.<TableNode>emptyList(), null, false, 
+                    // TODO : need to check here
                     Collections.<AliasedNode>singletonList(new AliasedNode(null,new LiteralParseNode(1))),
                     null, Collections.<ParseNode>emptyList(),
                     null, Collections.<OrderByNode>emptyList(),
@@ -58,6 +59,7 @@ public class SelectStatement implements FilterableStatement {
                         new AggregateFunctionParseNode(
                                 CountAggregateFunction.NORMALIZED_NAME, 
                                 LiteralParseNode.STAR, 
+                                // TODO : need to check here
                                 new BuiltInFunctionInfo(CountAggregateFunction.class, CountAggregateFunction.class.getAnnotation(BuiltInFunction.class))))),
                     null, Collections.<ParseNode>emptyList(), 
                     null, Collections.<OrderByNode>emptyList(), 

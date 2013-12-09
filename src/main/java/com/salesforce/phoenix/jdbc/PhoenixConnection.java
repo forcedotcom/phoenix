@@ -73,6 +73,7 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDataTypeForArray;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
@@ -289,7 +290,8 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
 
     @Override
     public Array createArrayOf(String typeName, Object[] elements) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+    	PDataType arrayPrimitiveType = PDataType.fromSqlTypeName(typeName);
+    	return PDataTypeForArray.instantiatePhoenixArray(arrayPrimitiveType, elements);
     }
 
     @Override
