@@ -76,10 +76,6 @@ public class StatementContext {
     private TableRef currentTable;
     
     public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
-        this(statement, connection, resolver, binds, scan, null);
-    }
-    
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan, TableRef table) {
         this.connection = connection;
         this.resolver = resolver;
         this.scan = scan;
@@ -91,7 +87,7 @@ public class StatementContext {
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
-        this.currentTable = table != null ? table : (resolver != null && !resolver.getTables().isEmpty()) ? resolver.getTables().get(0) : null;
+        this.currentTable = resolver != null && !resolver.getTables().isEmpty() ? resolver.getTables().get(0) : null;
     }
 
     public String getDateFormat() {

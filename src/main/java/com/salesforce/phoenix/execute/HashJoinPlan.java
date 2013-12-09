@@ -58,12 +58,12 @@ import com.salesforce.phoenix.schema.TableRef;
 
 public class HashJoinPlan implements QueryPlan {
     
-    private QueryPlan plan;
+    private BasicQueryPlan plan;
     private HashJoinInfo joinInfo;
     private List<Expression>[] hashExpressions;
     private QueryPlan[] hashPlans;
     
-    public HashJoinPlan(QueryPlan plan, HashJoinInfo joinInfo,
+    public HashJoinPlan(BasicQueryPlan plan, HashJoinInfo joinInfo,
             List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {
         this.plan = plan;
         this.joinInfo = joinInfo;
