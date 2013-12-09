@@ -222,8 +222,8 @@ public class TestRegexEventSerializer extends BaseHBaseManagedTimeTest {
         final String columns = "host,identity,user,time,method,request,protocol,status,size,referer,agent";
         
         String ddl = "CREATE TABLE " + fullTableName +
-                "  (user VARCHAR not null, time varchar not null, host varchar , identity varchar, method varchar, request varchar , protocol varchar," +
-                "  status integer , size integer , referer varchar , agent varchar CONSTRAINT pk PRIMARY KEY (user,time))\n";
+                "  (uid VARCHAR NOT NULL, user VARCHAR, time varchar, host varchar , identity varchar, method varchar, request varchar , protocol varchar," +
+                "  status integer , size integer , referer varchar , agent varchar CONSTRAINT pk PRIMARY KEY (uid))\n";
        
         sinkContext.put(FlumeConstants.CONFIG_TABLE, fullTableName);
         sinkContext.put(FlumeConstants.CONFIG_JDBC_URL, TestUtil.PHOENIX_JDBC_URL);
@@ -231,6 +231,7 @@ public class TestRegexEventSerializer extends BaseHBaseManagedTimeTest {
         sinkContext.put(FlumeConstants.CONFIG_TABLE_DDL, ddl);
         sinkContext.put(FlumeConstants.CONFIG_SERIALIZER_PREFIX + FlumeConstants.CONFIG_REGULAR_EXPRESSION,logRegex);
         sinkContext.put(FlumeConstants.CONFIG_SERIALIZER_PREFIX + FlumeConstants.CONFIG_COLUMN_NAMES,columns);
+        sinkContext.put(FlumeConstants.CONFIG_SERIALIZER_PREFIX + FlumeConstants.CONFIG_ROWKEY_TYPE_GENERATOR,DefaultKeyGenerator.UUID.name());
        
         String message1 = "33.22.11.00 - user1 [12/Dec/2013:07:01:19 +0000] " +
                 "\"GET /wp-admin/css/install.css HTTP/1.0\" 200 813 " + 
@@ -271,12 +272,8 @@ public class TestRegexEventSerializer extends BaseHBaseManagedTimeTest {
         try{
             rs = conn.createStatement().executeQuery(query);
             assertTrue(rs.next());
-            assertEquals("33.22.11.00",rs.getString("host"));
-            assertEquals("user1",rs.getString("user"));
-            
             assertTrue(rs.next());
-            assertEquals("192.168.20.1",rs.getString("host"));
-            assertEquals("user2",rs.getString("user")); 
+             
         }finally {
             if(conn != null) {
                 conn.close();
@@ -286,7 +283,8 @@ public class TestRegexEventSerializer extends BaseHBaseManagedTimeTest {
         assertEquals(LifecycleState.STOP, sink.getLifecycleState());
         
     }
-              
+    
+   
     @Test
     public void testEventsWithHeaders() throws Exception {
         
