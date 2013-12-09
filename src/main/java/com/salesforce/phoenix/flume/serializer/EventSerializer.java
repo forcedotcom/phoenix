@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.flume.serializer;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -35,23 +34,20 @@ import org.apache.flume.Event;
 import org.apache.flume.conf.Configurable;
 import org.apache.flume.conf.ConfigurableComponent;
 
-public interface EventSerializer extends Configurable,ConfigurableComponent {
+import com.salesforce.phoenix.util.SQLCloseable;
+
+public interface EventSerializer extends Configurable,ConfigurableComponent,SQLCloseable {
 
     /**
      * called during the start of the process to initialize the table columns.
      * @param connection
      */
-    public void initialize(Connection connection,String table) throws SQLException;
+    public void initialize() throws SQLException;
     
     /**
      * @param Events to be written to HBase.
      * @throws SQLException 
      */
-    public void upsertEvents(List<Event> events,Connection connection) throws SQLException;
+    public void upsertEvents(List<Event> events) throws SQLException;
     
-    /**
-     * Clean up any state. This will be called when the sink is being stopped.
-     */
-    public void close();
-
 }
