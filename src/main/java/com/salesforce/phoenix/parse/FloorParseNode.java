@@ -34,10 +34,20 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.FloorFunction;
 import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
+/**
+ * Parse node corresponding to {@link FloorFunction}. 
+ * It also acts as a factory for creating the right kind of
+ * floor expression according to the data type of the 
+ * first child.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
 public class FloorParseNode extends FunctionParseNode {
 
     FloorParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
@@ -46,6 +56,10 @@ public class FloorParseNode extends FunctionParseNode {
 
     @Override
     public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+        return getFloorExpression(children);
+    }
+
+    public static ScalarFunction getFloorExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
@@ -62,7 +76,7 @@ public class FloorParseNode extends FunctionParseNode {
     /**
      * When rounding off decimals, user need not specify the scale. In such cases, 
      * we need to prevent the function from getting evaluated as null. This is really
-     * a hack. A better way would have been if {@link BuiltInFunctionInfo} provided a 
+     * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
      * Till then, this will have to do.
      */

@@ -39,7 +39,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -74,8 +73,6 @@ import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.TimestampAddExpression;
 import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
-import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
-import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.ArithmeticParseNode;
@@ -104,7 +101,6 @@ import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
-import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
@@ -671,30 +667,14 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             context.getBindManager().addParamMetaData((BindParseNode)childNode, childExpr);
         }
         
+        Expression expr = childExpr;
         if(fromDataType != null) {
-            /* 
-             * We allow casting from DECIMAL to INTEGER OR LONG. But we don't allow coercion. 
-             * When casting from a decimal to a long or int, we round up the value. When casting 
-             * time stamp to some other coercible data type, we end up rounding the time stamp 
-             * depending on whether or not the corresponding nanos value of the time stamp is greater 
-             * than half a millisecond or 1000000/2 nano seconds.  
-             */
-            if (fromDataType.equals(PDataType.DECIMAL) && (targetDataType.equals(PDataType.LONG) || targetDataType.equals(PDataType.INTEGER))) {
-                childExpr = new RoundDecimalExpression(Lists.newArrayList(childExpr));
-            } else if (fromDataType.equals(PDataType.TIMESTAMP) && fromDataType.isCoercibleTo(targetDataType)) {
-                childExpr = new RoundTimestampExpression(Lists.newArrayList(childExpr));
-            } else if (!fromDataType.isCoercibleTo(targetDataType)) {
-                // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
-                if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
-                    throw new TypeMismatchException(fromDataType, targetDataType, childExpr.toString());
-                }
-            }
+            expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
         }
-        
-        return CoerceExpression.create(childExpr, targetDataType); 
+        return CoerceExpression.create(expr, targetDataType); 
     }
-
-    @Override
+    
+   @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
         return true;
     }

@@ -38,7 +38,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
- * Class encapsulating the CEIL operation on {@link PDataType.TIMESTAMP}
+ * Class encapsulating the CEIL operation on {@link com.salesforce.phoenix.schema.PDataType#TIMESTAMP}
  *
  * @author samarth.jain
  * @since 3.0.0

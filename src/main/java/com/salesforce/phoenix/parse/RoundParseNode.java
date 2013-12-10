@@ -34,16 +34,20 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
+import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Describe your class here.
+ * Parse node corresponding to {@link RoundFunction}. 
+ * It also acts as a factory for creating the right kind of
+ * round expression according to the data type of the 
+ * first child.
  *
  * @author samarth.jain
- * @since 2.1.3
+ * @since 3.0.0
  */
 public class RoundParseNode extends FunctionParseNode {
 
@@ -53,6 +57,10 @@ public class RoundParseNode extends FunctionParseNode {
 
     @Override
     public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+        return getRoundExpression(children);
+    }
+
+    public static ScalarFunction getRoundExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
@@ -69,7 +77,7 @@ public class RoundParseNode extends FunctionParseNode {
     /**
      * When rounding off decimals, user need not specify the scale. In such cases, 
      * we need to prevent the function from getting evaluated as null. This is really
-     * a hack. A better way would have been if {@link BuiltInFunctionInfo} provided a 
+     * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
      * Till then, this will have to do.
      */

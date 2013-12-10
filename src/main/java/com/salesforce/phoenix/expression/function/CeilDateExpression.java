@@ -30,14 +30,13 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
- * Class encapsulating ceil operation on {@link PDataType.DATE}.
+ * Class encapsulating ceil operation on {@link com.salesforce.phoenix.schema.PDataType#DATE}.
  *
  * @author samarth.jain
- * @since 2.1.3
+ * @since 3.0.0
  */
 public class CeilDateExpression extends RoundDateExpression {
     

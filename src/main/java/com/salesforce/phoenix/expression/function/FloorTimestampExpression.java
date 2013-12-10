@@ -39,7 +39,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
  * 
  * Class encapsulating the FLOOR operation on 
- * a column/literal of type {@link PDataType.TIMESTAMP}.
+ * a column/literal of type {@link com.salesforce.phoenix.schema.PDataType#TIMESTAMP}.
  *
  * @author samarth.jain
  * @since 3.0.0

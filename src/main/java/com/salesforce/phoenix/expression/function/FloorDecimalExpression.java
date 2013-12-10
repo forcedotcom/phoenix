@@ -31,12 +31,11 @@ import java.math.RoundingMode;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
  * Class encapsulating the FLOOR operation on 
- * a column/literal of type {@link PDataType.DECIMAL}.
+ * a column/literal of type {@link com.salesforce.phoenix.schema.PDataType#DECIMAL}.
  *
  * @author samarth.jain
  * @since 3.0.0

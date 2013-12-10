@@ -32,6 +32,13 @@ import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
 
+/**
+ * 
+ * Class encapsulating the CEIL operation on a {@link com.salesforce.phoenix.schema.PDataType#DECIMAL}
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
 public class CeilDecimalExpression extends RoundDecimalExpression {
 
     public CeilDecimalExpression(List<Expression> children) {

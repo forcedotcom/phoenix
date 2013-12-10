@@ -34,18 +34,32 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.CeilDateExpression;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
+import com.salesforce.phoenix.expression.function.CeilFunction;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
+/**
+ * Parse node corresponding to {@link CeilFunction}. 
+ * It also acts as a factory for creating the right kind of
+ * ceil expression according to the data type of the 
+ * first child.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
 public class CeilParseNode extends FunctionParseNode {
     
     CeilParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
         super(name, children, info);
     }
-
+    
     @Override
     public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+        return getCeilExpression(children);
+    }
+    
+    public static ScalarFunction getCeilExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
@@ -62,7 +76,7 @@ public class CeilParseNode extends FunctionParseNode {
     /**
      * When ceiling off decimals, user need not specify the scale. In such cases, 
      * we need to prevent the function from getting evaluated as null. This is really
-     * a hack. A better way would have been if {@link BuiltInFunctionInfo} provided a 
+     * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
      * Till then, this will have to do.
      */
@@ -70,5 +84,6 @@ public class CeilParseNode extends FunctionParseNode {
     public boolean evalToNullIfParamIsNull(StatementContext context, int index) throws SQLException {
         return false;
     }
-
-}
+    
+    
+}   

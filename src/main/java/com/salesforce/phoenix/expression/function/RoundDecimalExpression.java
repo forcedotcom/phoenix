@@ -45,7 +45,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
  * 
  * Class encapsulating the process for rounding off a column/literal of 
- * type {@link PDataType.DECIMAL}
+ * type {@link com.salesforce.phoenix.schema.PDataType#DECIMAL}
  *
  * @author samarth.jain
  * @since 3.0.0
