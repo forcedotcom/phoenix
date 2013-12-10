@@ -155,6 +155,8 @@ public enum ExpressionType {
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),
     ProjectedColumnExpression(ProjectedColumnExpression.class),
+    TimestampAddExpression(TimestampAddExpression.class),
+    TimestampSubtractExpression(TimestampSubtractExpression.class),
     ;
     
     ExpressionType(Class<? extends Expression> clazz) {
