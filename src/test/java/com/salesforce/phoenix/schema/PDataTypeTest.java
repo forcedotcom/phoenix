@@ -1465,8 +1465,8 @@ public class PDataTypeTest {
         // Testing coercing Date types
         assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIMESTAMP));
         assertTrue(PDataType.DATE.isCoercibleTo(PDataType.TIME));
-        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.DATE));
-        assertTrue(PDataType.TIMESTAMP.isCoercibleTo(PDataType.TIME));
+        assertFalse(PDataType.TIMESTAMP.isCoercibleTo(PDataType.DATE));
+        assertFalse(PDataType.TIMESTAMP.isCoercibleTo(PDataType.TIME));
         assertTrue(PDataType.TIME.isCoercibleTo(PDataType.TIMESTAMP));
         assertTrue(PDataType.TIME.isCoercibleTo(PDataType.DATE));
     }

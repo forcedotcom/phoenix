@@ -81,6 +81,7 @@
     <sqlline.version>1.1.2</sqlline.version>
     <guava.version>12.0.1</guava.version>
     <jackson.version>1.8.8</jackson.version>
+    <flume.version>1.4.0</flume.version>
 
     <!-- Test Dependencies -->
     <mockito-all.version>1.8.5</mockito-all.version>
@@ -400,7 +401,13 @@
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
     </dependency>
+     <dependency>
+	  <groupId>org.apache.flume</groupId>
+	  <artifactId>flume-ng-core</artifactId>
+	  <version>${flume.version}</version>
+	</dependency>
     
+   
     <!-- Test Dependencies -->
     <dependency>
       <groupId>org.apache.hbase</groupId>

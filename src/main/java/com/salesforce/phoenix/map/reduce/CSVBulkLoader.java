@@ -35,6 +35,8 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Date;
 import java.util.Map;
 
@@ -59,10 +61,13 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.map.reduce.util.ConfigReader;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.util.StringUtil;
 
 public class CSVBulkLoader {
+	private static final String UNDERSCORE = "_";
 	
 	static FileWriter wr = null;
 	static BufferedWriter bw = null;
@@ -157,9 +162,6 @@ public class CSVBulkLoader {
 		if(cmd.hasOption("sql")){
 			String sqlPath = cmd.getOptionValue("sql");
 			createPSQL = getCreatePSQLstmts(sqlPath);
-		}else{
-			System.err.println(parser_error + "Please provide Phoenix sql");
-			System.exit(0);
 		}
 		if(cmd.hasOption("zk")){
 			zookeeperIP = cmd.getOptionValue("zk");
@@ -203,15 +205,31 @@ public class CSVBulkLoader {
 		Path outPath = new Path(outFile);
 		
 		//Create the Phoenix table in HBase
-		for(String s : createPSQL){
-			if(s == null || s.trim().length() == 0)
-				continue;
-				createPTable(s);
+		if (createPSQL != null) {
+    		for(String s : createPSQL){
+    			if(s == null || s.trim().length() == 0) {
+    				continue;
+    			}
+				createTable(s);
+    		}
+    		
+    		log("[TS - Table created] :: " + new Date() + "\n");
 		}
-		
-		log("[TS - Table created] :: " + new Date() + "\n");
 
-		Configuration conf = new Configuration();
+        String dataTable = ""; 
+        if(schemaName != null && schemaName.trim().length() > 0)
+            dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
+        else
+            dataTable = SchemaUtil.normalizeIdentifier(tableName);
+        
+        try {
+            validateTable();
+        } catch (SQLException e) {
+            System.err.println(e.getMessage());
+            System.exit(0);
+        }
+
+        Configuration conf = new Configuration();
 		loadMapRedConfigs(conf);
 		
 		Job job = new Job(conf, "MapReduce - Phoenix bulk import");
@@ -229,17 +247,12 @@ public class CSVBulkLoader {
 		
 		SchemaMetrics.configureGlobally(conf);
 
-		String dataTable = ""; 
-        	if(schemaName != null && schemaName.trim().length() > 0)
-        		dataTable = SchemaUtil.normalizeIdentifier(schemaName) + "." + SchemaUtil.normalizeIdentifier(tableName);
-        	else
-        		dataTable = SchemaUtil.normalizeIdentifier(tableName);
 		HTable hDataTable = new HTable(conf, dataTable);
 		
 		// Auto configure partitioner and reducer according to the Main Data table
-	    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
+    	HFileOutputFormat.configureIncrementalLoad(job, hDataTable);
 
-    		job.waitForCompletion(true);
+		job.waitForCompletion(true);
 	    
 		log("[TS - M-R HFile generated..Now dumping to HBase] :: " + new Date() + "\n");
 		
@@ -251,7 +264,7 @@ public class CSVBulkLoader {
 		
 	}
 	
-	public static void createPTable(String stmt) {
+	private static void createTable(String stmt) {
 		
 		Connection conn = null;
 		PreparedStatement statement = null;
@@ -278,9 +291,35 @@ public class CSVBulkLoader {
 				System.err.println("Failed to close connection :: " + e.getMessage());
 			}
 		}
-		
 	}
-	
+
+	/**
+	 * Perform any required validation on the table being bulk loaded into:
+	 * - ensure no column family names start with '_', as they'd be ignored leading to problems.
+	 * @throws SQLException
+	 */
+    private static void validateTable() throws SQLException {
+        
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            ResultSet rs = conn.getMetaData().getColumns(null, StringUtil.escapeLike(schemaName), StringUtil.escapeLike(tableName), null);
+            while (rs.next()) {
+                String familyName = rs.getString(1);
+                if (familyName != null && familyName.startsWith(UNDERSCORE)) {
+                    String msg;
+                    if (QueryConstants.DEFAULT_COLUMN_FAMILY.equals(familyName)) {
+                        msg = "CSV Bulk Loader error: All column names that are not part of the primary key constraint must be prefixed with a column family name (i.e. f.my_column VARCHAR)";
+                    } else {
+                        msg = "CSV Bulk Loader error: Column family name must not start with '_': " + familyName;
+                    }
+                    throw new SQLException(msg);
+                }
+            }
+        } finally{
+             conn.close();
+        }
+    }
+    
 	private static String getUrl() {
         	return PhoenixRuntime.JDBC_PROTOCOL + PhoenixRuntime.JDBC_PROTOCOL_SEPARATOR + zookeeperIP;
     	}
@@ -294,8 +333,6 @@ public class CSVBulkLoader {
 		conf.set("hbase.zookeeper.quorum", zookeeperIP);
 		conf.set("fs.default.name", hdfsNameNode);
 		conf.set("mapred.job.tracker", mapredIP);
-		if(createPSQL[0] != null) conf.set("createTableDDL", createPSQL[0]);
-		if(createPSQL[1] != null) conf.set("createIndexDDL", createPSQL[1]);
 		
 		//Load the other System-Configs
 		try {

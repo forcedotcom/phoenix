@@ -1285,9 +1285,13 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
             if (l == 0) {
                 return null;
+            }
+            if (columnModifier != null) {
+                b = columnModifier.apply(b, o, new byte[l], 0, l);
+                o = 0;
             }
             switch (actualType) {
             case DECIMAL:
@@ -1423,7 +1427,7 @@ public enum PDataType {
                     case UNSIGNED_FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
+                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxFloat)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1432,8 +1436,10 @@ public enum PDataType {
                     case FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
-                            BigDecimal minFloat = BigDecimal.valueOf(Float.MIN_VALUE);
+                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
+                            // Float.MIN_VALUE should not be used here, as this is the
+                            // smallest in terms of closest to zero.
+                            BigDecimal minFloat = MIN_FLOAT_AS_BIG_DECIMAL;
                             return bd.compareTo(maxFloat)<=0 && bd.compareTo(minFloat)>=0;
                         } catch(Exception e) {
                             return false;
@@ -1441,7 +1447,7 @@ public enum PDataType {
                     case UNSIGNED_DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
+                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxDouble)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1450,8 +1456,8 @@ public enum PDataType {
                     case DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
-                            BigDecimal minDouble = BigDecimal.valueOf(Double.MIN_VALUE);
+                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
+                            BigDecimal minDouble = MIN_DOUBLE_AS_BIG_DECIMAL;
                             return bd.compareTo(maxDouble)<=0 && bd.compareTo(minDouble)>=0;
                         } catch(Exception e) {
                             return false;
@@ -1592,9 +1598,13 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
-            if (l == 0) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
+            if (actualType == null || l == 0) {
                 return null;
+            }
+            if (columnModifier != null) {
+                b = columnModifier.apply(b, o, new byte[l], 0, l);
+                o = 0;
             }
             switch (actualType) {
             case TIMESTAMP:
@@ -1626,9 +1636,13 @@ public enum PDataType {
         }
         
         @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
+        }
+
+       @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == DATE || targetType == TIME 
-                    || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1723,6 +1737,11 @@ public enum PDataType {
             default:
                 return super.toObject(object, actualType);
             }
+        }
+
+        @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
         }
 
         @Override
@@ -1830,6 +1849,11 @@ public enum PDataType {
         }
 
         @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return super.isCastableTo(targetType) || DECIMAL.isCastableTo(targetType);
+        }
+
+        @Override
         public boolean isCoercibleTo(PDataType targetType) {
             return this == targetType || targetType == TIME || targetType == TIMESTAMP
                     || targetType == VARBINARY || targetType == BINARY;
@@ -1931,9 +1955,13 @@ public enum PDataType {
         }
         
         @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return TIMESTAMP.isCastableTo(targetType);
+        }
+
+        @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == TIMESTAMP || targetType == UNSIGNED_DATE || targetType == DATE || targetType == UNSIGNED_TIME  || targetType == TIME 
-                    || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || targetType == TIMESTAMP || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -1987,6 +2015,11 @@ public enum PDataType {
         @Override
         public Object toObject(Object object, PDataType actualType) {
             return TIME.toObject(object, actualType);
+        }
+
+        @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return TIME.isCastableTo(targetType);
         }
 
         @Override
@@ -2054,6 +2087,11 @@ public enum PDataType {
         @Override
         public Object toObject(byte[] b, int o, int l, PDataType actualType) {
             return DATE.toObject(b,o,l,actualType);
+        }
+
+        @Override
+        public boolean isCastableTo(PDataType targetType) {
+            return DATE.isCastableTo(targetType);
         }
 
         @Override
@@ -3363,6 +3401,10 @@ public enum PDataType {
     },
     ;
 
+    private static final BigDecimal MIN_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(-Double.MAX_VALUE);
+    private static final BigDecimal MAX_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(Double.MAX_VALUE);
+    private static final BigDecimal MIN_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(-Float.MAX_VALUE);
+    private static final BigDecimal MAX_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(Float.MAX_VALUE);
     private final String sqlTypeName;
     private final int sqlType;
     private final Class clazz;
@@ -3377,6 +3419,10 @@ public enum PDataType {
         this.clazzNameBytes = Bytes.toBytes(clazz.getName());
         this.sqlTypeNameBytes = Bytes.toBytes(sqlTypeName);
         this.codec = codec;
+    }
+
+    public boolean isCastableTo(PDataType targetType) {
+        return isComparableTo(targetType);
     }
 
     public final PDataCodec getCodec() {
@@ -4831,10 +4877,10 @@ public enum PDataType {
         if (actualType == null) {
             return null;
         }
-        	if (columnModifier != null) {
-        	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
-        	    offset = 0;
-        	}
+    	if (columnModifier != null) {
+    	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
+    	    offset = 0;
+    	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }

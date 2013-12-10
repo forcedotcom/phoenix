@@ -36,6 +36,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
@@ -141,6 +142,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue IMMUTABLE_ROWS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, IMMUTABLE_ROWS_BYTES);
     private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES);
     private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
+    private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -151,7 +153,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             INDEX_STATE_KV,
             IMMUTABLE_ROWS_KV,
             TENANT_TYPE_ID_KV,
-            DEFAULT_COLUMN_FAMILY_KV
+            DEFAULT_COLUMN_FAMILY_KV,
+            DISABLE_WAL_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -166,6 +169,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int IMMUTABLE_ROWS_INDEX = TABLE_KV_COLUMNS.indexOf(IMMUTABLE_ROWS_KV);
     private static final int TENANT_TYPE_ID_INDEX = TABLE_KV_COLUMNS.indexOf(TENANT_TYPE_ID_KV);
     private static final int DEFAULT_COLUMN_FAMILY_INDEX = TABLE_KV_COLUMNS.indexOf(DEFAULT_COLUMN_FAMILY_KV);
+    private static final int DISABLE_WAL_INDEX = TABLE_KV_COLUMNS.indexOf(DISABLE_WAL_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -378,6 +382,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         PName defaultFamilyName = defaultFamilyNameKv != null ? newPName(defaultFamilyNameKv.getBuffer(), defaultFamilyNameKv.getValueOffset(), defaultFamilyNameKv.getValueLength()) : null;
         KeyValue tenantTypeIdKv = tableKeyValues[TENANT_TYPE_ID_INDEX];
         PName tenantTypeId = tenantTypeIdKv != null ? newPName(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
+        KeyValue disableWALKv = tableKeyValues[DISABLE_WAL_INDEX];
+        boolean disableWAL = disableWALKv == null ? PTable.DEFAULT_DISABLE_WAL : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(disableWALKv.getBuffer(), disableWALKv.getValueOffset(), disableWALKv.getValueLength()));
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -400,7 +406,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         
         return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
-                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId);
+                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId, disableWAL);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -680,7 +686,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
-        tableNamesToDelete.add(table.getName().getBytes());
+        if (table.getType() != PTableType.VIEW) { // Add to list of HTables to delete, unless it's a view
+            tableNamesToDelete.add(table.getName().getBytes());
+        }
         List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
         byte[][] rowKeyMetaData = new byte[5][];

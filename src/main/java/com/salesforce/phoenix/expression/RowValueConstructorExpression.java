@@ -172,7 +172,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         } else if (rhs == null) {
             return LiteralExpression.newConstant(null, lhs.getDataType());
         } else {
-            if (rhs.getDataType() != null && lhs.getDataType() != null && !rhs.getDataType().isComparableTo(lhs.getDataType())) {
+            if (rhs.getDataType() != null && lhs.getDataType() != null && !rhs.getDataType().isCastableTo(lhs.getDataType())) {
                 throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType());
             }
             return wrapper.wrap(lhs, rhs);

@@ -958,7 +958,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         /*
                          * FIXME: Could be either a Date or BigDecimal, but we
                          * don't know if we're comparing to a date or a number
-                         * which would be rdisambiguate it.
+                         * which would be disambiguate it.
                          */
                         i = 2;
                         theType = null;
@@ -1067,14 +1067,16 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     PDataType type = children.get(i).getDataType();
                     if (type == null) {
                         continue; 
-                    } else if (type.isCoercibleTo(PDataType.DATE)) {
+                    } else if (type.isCoercibleTo(PDataType.TIMESTAMP)) {
                         if (foundDate) {
                             throw new TypeMismatchException(type, node.toString());
                         }
-                        theType = type;
+                        if (theType == null || theType != PDataType.TIMESTAMP) {
+                            theType = type;
+                        }
                         foundDate = true;
                     }else if (type == PDataType.DECIMAL) {
-                        if (theType == null || !theType.isCoercibleTo(PDataType.DATE)) {
+                        if (theType == null || !theType.isCoercibleTo(PDataType.TIMESTAMP)) {
                             theType = PDataType.DECIMAL;
                         }
                     } else if (type.isCoercibleTo(PDataType.LONG)) {

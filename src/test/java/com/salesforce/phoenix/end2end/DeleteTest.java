@@ -192,15 +192,26 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
     }
     
     @Test
-    public void testDeleteAllFromTableWithIndexAutoCommit() throws SQLException {
-        testDeleteAllFromTableWithIndex(true);
-    }
-    @Test
-    public void testDeleteAllFromTableWithIndexNoAutoCommit() throws SQLException {
-        testDeleteAllFromTableWithIndex(false);
+    public void testDeleteAllFromTableWithIndexAutoCommitSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(true, true);
     }
     
-    private void testDeleteAllFromTableWithIndex(boolean autoCommit) throws SQLException {
+    @Test
+    public void testDeleteAllFromTableWithIndexAutoCommitNoSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(true, false);
+    }
+    
+    @Test
+    public void testDeleteAllFromTableWithIndexNoAutoCommitNoSalting() throws SQLException {
+        testDeleteAllFromTableWithIndex(false,false);
+    }
+    
+    @Test
+    public void testDeleteAllFromTableWithIndexNoAutoCommitSalted() throws SQLException {
+        testDeleteAllFromTableWithIndex(false, true);
+    }
+    
+    private void testDeleteAllFromTableWithIndex(boolean autoCommit, boolean isSalted) throws SQLException {
         Connection con = null;
         try {
             con = DriverManager.getConnection(getUrl());
@@ -215,7 +226,7 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
             		"USAGE.CORE BIGINT," +
             		"USAGE.DB BIGINT," +
             		"STATS.ACTIVE_VISITOR INTEGER " +
-            		"CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))");
+            		"CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE))" + (isSalted ? " SALT_BUCKETS=3" : ""));
             stm.execute("CREATE INDEX web_stats_idx ON web_stats (CORE,DB,ACTIVE_VISITOR)");
             stm.close();
 
@@ -235,6 +246,69 @@ public class DeleteTest extends BaseHBaseManagedTimeTest {
             }
             
             con.createStatement().execute("DELETE FROM web_stats");
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            ResultSet rs = con.createStatement().executeQuery("SELECT /*+ NO_INDEX */ count(*) FROM web_stats");
+            assertTrue(rs.next());
+            assertEquals(0, rs.getLong(1));
+
+            rs = con.createStatement().executeQuery("SELECT count(*) FROM web_stats_idx");
+            assertTrue(rs.next());
+            assertEquals(0, rs.getLong(1));
+
+        } finally {
+            try {
+                con.close();
+            } catch (Exception ex) {
+            }
+        }
+    }
+    
+    @Test
+    public void testDeleteRowFromTableWithImmutableIndex() throws SQLException {
+        Connection con = null;
+        try {
+            boolean autoCommit = false;
+            con = DriverManager.getConnection(getUrl());
+            con.setAutoCommit(autoCommit);
+
+            Statement stm = con.createStatement();
+            stm.execute("CREATE TABLE IF NOT EXISTS web_stats (" +
+                    "HOST CHAR(2) NOT NULL," +
+                    "DOMAIN VARCHAR NOT NULL, " +
+                    "FEATURE VARCHAR NOT NULL, " +
+                    "DATE DATE NOT NULL, \n" + 
+                    "USAGE.CORE BIGINT," +
+                    "USAGE.DB BIGINT," +
+                    "STATS.ACTIVE_VISITOR INTEGER " +
+                    "CONSTRAINT PK PRIMARY KEY (HOST, DOMAIN, FEATURE, DATE)) IMMUTABLE_ROWS=true");
+            stm.execute("CREATE INDEX web_stats_idx ON web_stats (DATE, FEATURE)");
+            stm.close();
+
+            Date date = new Date(0);
+            PreparedStatement psInsert = con
+                    .prepareStatement("UPSERT INTO web_stats(HOST, DOMAIN, FEATURE, DATE, CORE, DB, ACTIVE_VISITOR) VALUES(?,?, ? , ?, ?, ?, ?)");
+            psInsert.setString(1, "AA");
+            psInsert.setString(2, "BB");
+            psInsert.setString(3, "CC");
+            psInsert.setDate(4, date);
+            psInsert.setLong(5, 1L);
+            psInsert.setLong(6, 2L);
+            psInsert.setLong(7, 3);
+            psInsert.execute();
+            psInsert.close();
+            if (!autoCommit) {
+                con.commit();
+            }
+            
+            psInsert = con.prepareStatement("DELETE FROM web_stats WHERE (HOST, DOMAIN, FEATURE, DATE) = (?,?,?,?)");
+            psInsert.setString(1, "AA");
+            psInsert.setString(2, "BB");
+            psInsert.setString(3, "CC");
+            psInsert.setDate(4, date);
+            psInsert.execute();
             if (!autoCommit) {
                 con.commit();
             }
