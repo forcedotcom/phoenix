@@ -130,6 +130,14 @@ public class QueryCompiler {
         if (select.getFrom().size() == 1)
             return compileSingleQuery(context, select, binds);
         
+        if (!asSubquery) {
+            SelectStatement optimized = JoinCompiler.optimize(context, select, statement);
+            if (optimized != select) {
+                select = optimized;
+                resolver = FromCompiler.getMultiTableResolver(select, connection);
+                context.setResolver(resolver);
+            }
+        }
         JoinSpec join = JoinCompiler.getJoinSpec(context, select);
         return compileJoinQuery(context, select, binds, join, asSubquery);
     }

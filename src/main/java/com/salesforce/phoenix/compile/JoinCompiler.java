@@ -45,25 +45,32 @@ import org.apache.hadoop.hbase.util.Pair;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.BetweenParseNode;
+import com.salesforce.phoenix.parse.BindTableNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
 import com.salesforce.phoenix.parse.CastParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.ConcreteTableNode;
+import com.salesforce.phoenix.parse.DerivedTableNode;
 import com.salesforce.phoenix.parse.EqualParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
+import com.salesforce.phoenix.parse.NamedTableNode;
+import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.TableNodeVisitor;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.LikeParseNode;
 import com.salesforce.phoenix.parse.NotParseNode;
@@ -745,6 +752,109 @@ public class JoinCompiler {
     
     public static JoinSpec getJoinSpec(StatementContext context, SelectStatement statement) throws SQLException {
         return new JoinSpec(statement, context.getResolver());
+    }
+    
+    public static SelectStatement optimize(StatementContext context, SelectStatement select, PhoenixStatement statement) throws SQLException {
+        ColumnResolver resolver = context.getResolver();
+        JoinSpec join = new JoinSpec(select, resolver);
+        Map<TableRef, TableRef> replacement = new HashMap<TableRef, TableRef>();
+        List<TableNode> from = select.getFrom();
+        List<TableNode> newFrom = Lists.newArrayListWithExpectedSize(from.size());
+
+        class TableNodeRewriter implements TableNodeVisitor {
+            private TableRef table;
+            private TableNode replaced;
+            
+            TableNodeRewriter(TableRef table) {
+                this.table = table;
+            }
+            
+            public TableNode getReplacedTableNode() {
+                return replaced;
+            }
+
+            @Override
+            public void visit(BindTableNode boundTableNode) throws SQLException {
+                replaced = NODE_FACTORY.bindTable(boundTableNode.getAlias(), getReplacedTableName());
+            }
+
+            @Override
+            public void visit(JoinTableNode joinNode) throws SQLException {
+                joinNode.getTable().accept(this);
+                replaced = NODE_FACTORY.join(joinNode.getType(), joinNode.getOnNode(), replaced);
+            }
+
+            @Override
+            public void visit(NamedTableNode namedTableNode)
+                    throws SQLException {
+                replaced = NODE_FACTORY.namedTable(namedTableNode.getAlias(), getReplacedTableName(), namedTableNode.getDynamicColumns());
+            }
+
+            @Override
+            public void visit(DerivedTableNode subselectNode)
+                    throws SQLException {
+                throw new SQLFeatureNotSupportedException();
+            }
+            
+            private TableName getReplacedTableName() {
+                String schemaName = table.getTable().getSchemaName().getString();
+                schemaName = schemaName.length() == 0 ? null : '"' + schemaName + '"';
+                String tableName = '"' + table.getTable().getTableName().getString() + '"';
+                return NODE_FACTORY.table(schemaName, tableName);
+            }
+        };
+        
+        // get optimized plans for join tables
+        for (int i = 1; i < from.size(); i++) {
+            TableNode jNode = from.get(i);
+            assert (jNode instanceof JoinTableNode);
+            TableNode tNode = ((JoinTableNode) jNode).getTable();
+            for (JoinTable jTable : join.getJoinTables()) {
+                if (jTable.getTableNode() != tNode)
+                    continue;
+                TableRef table = jTable.getTable();
+                SelectStatement stmt = getSubqueryForOptimizedPlan(table, join.columnRefs, jTable.getPreFiltersCombined());
+                QueryPlan plan = context.getConnection().getQueryServices().getOptimizer().optimize(stmt, statement);
+                if (!plan.getTableRef().equals(table)) {
+                    TableNodeRewriter rewriter = new TableNodeRewriter(plan.getTableRef());
+                    jNode.accept(rewriter);
+                    newFrom.add(rewriter.getReplacedTableNode());
+                    replacement.put(table, plan.getTableRef());
+                } else {
+                    newFrom.add(jNode);
+                }
+            }
+        }
+        // get optimized plan for main table
+        TableRef table = join.getMainTable();
+        SelectStatement stmt = getSubqueryForOptimizedPlan(table, join.columnRefs, join.getPreFiltersCombined());
+        QueryPlan plan = context.getConnection().getQueryServices().getOptimizer().optimize(stmt, statement);
+        if (!plan.getTableRef().equals(table)) {
+            TableNodeRewriter rewriter = new TableNodeRewriter(plan.getTableRef());
+            from.get(0).accept(rewriter);
+            newFrom.add(0, rewriter.getReplacedTableNode());
+            replacement.put(table, plan.getTableRef());            
+        } else {
+            newFrom.add(0, from.get(0));
+        }
+        
+        if (replacement.isEmpty()) 
+            return select;
+        
+        return IndexStatementRewriter.translate(NODE_FACTORY.select(select, newFrom), resolver, replacement);        
+    }
+    
+    private static SelectStatement getSubqueryForOptimizedPlan(TableRef table, Set<ColumnRef> columnRefs, ParseNode where) {
+        TableName tName = NODE_FACTORY.table(table.getTable().getSchemaName().getString(), table.getTable().getTableName().getString());
+        List<AliasedNode> selectList = new ArrayList<AliasedNode>();
+        for (ColumnRef colRef : columnRefs) {
+            if (colRef.getTableRef().equals(table)) {
+                selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, colRef.getColumn().getName().getString(), null)));
+            }
+        }
+        List<? extends TableNode> from = Collections.singletonList(NODE_FACTORY.namedTable(table.getTableAlias(), tName));
+
+        return NODE_FACTORY.select(from, null, false, selectList, where, null, null, null, null, 0, false);
     }
     
     /**
