@@ -813,7 +813,7 @@ public class JoinCompiler {
                 if (jTable.getTableNode() != tNode)
                     continue;
                 TableRef table = jTable.getTable();
-                SelectStatement stmt = getSubqueryForOptimizedPlan(table, join.columnRefs, jTable.getPreFiltersCombined());
+                SelectStatement stmt = getSubqueryForOptimizedPlan(select, table, join.columnRefs, jTable.getPreFiltersCombined());
                 QueryPlan plan = context.getConnection().getQueryServices().getOptimizer().optimize(stmt, statement);
                 if (!plan.getTableRef().equals(table)) {
                     TableNodeRewriter rewriter = new TableNodeRewriter(plan.getTableRef());
@@ -827,7 +827,7 @@ public class JoinCompiler {
         }
         // get optimized plan for main table
         TableRef table = join.getMainTable();
-        SelectStatement stmt = getSubqueryForOptimizedPlan(table, join.columnRefs, join.getPreFiltersCombined());
+        SelectStatement stmt = getSubqueryForOptimizedPlan(select, table, join.columnRefs, join.getPreFiltersCombined());
         QueryPlan plan = context.getConnection().getQueryServices().getOptimizer().optimize(stmt, statement);
         if (!plan.getTableRef().equals(table)) {
             TableNodeRewriter rewriter = new TableNodeRewriter(plan.getTableRef());
@@ -844,17 +844,21 @@ public class JoinCompiler {
         return IndexStatementRewriter.translate(NODE_FACTORY.select(select, newFrom), resolver, replacement);        
     }
     
-    private static SelectStatement getSubqueryForOptimizedPlan(TableRef table, Set<ColumnRef> columnRefs, ParseNode where) {
+    private static SelectStatement getSubqueryForOptimizedPlan(SelectStatement select, TableRef table, Set<ColumnRef> columnRefs, ParseNode where) {
         TableName tName = NODE_FACTORY.table(table.getTable().getSchemaName().getString(), table.getTable().getTableName().getString());
         List<AliasedNode> selectList = new ArrayList<AliasedNode>();
-        for (ColumnRef colRef : columnRefs) {
-            if (colRef.getTableRef().equals(table)) {
-                selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, colRef.getColumn().getName().getString(), null)));
+        if (isWildCardSelect(select.getSelect())) {
+            selectList.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE));
+        } else {
+            for (ColumnRef colRef : columnRefs) {
+                if (colRef.getTableRef().equals(table)) {
+                    selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, colRef.getColumn().getName().getString(), null)));
+                }
             }
         }
         List<? extends TableNode> from = Collections.singletonList(NODE_FACTORY.namedTable(table.getTableAlias(), tName));
 
-        return NODE_FACTORY.select(from, null, false, selectList, where, null, null, null, null, 0, false);
+        return NODE_FACTORY.select(from, select.getHint(), false, selectList, where, null, null, null, null, 0, false);
     }
     
     /**
