@@ -91,7 +91,7 @@ public class HashJoinPlan implements QueryPlan {
         ImmutableBytesPtr[] joinIds = joinInfo.getJoinIds();
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
-        final HashCacheClient hashClient = plan.getContext().getHashClient();
+        final HashCacheClient hashClient = new HashCacheClient(plan.getContext().getConnection());
         Scan scan = plan.getContext().getScan();
         final ScanRanges ranges = plan.getContext().getScanRanges();
         
