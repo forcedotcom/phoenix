@@ -187,10 +187,6 @@ public class ParseNodeFactory {
         return new ExplainStatement(statement);
     }
 
-    public ShowTablesStatement showTables() {
-        return new ShowTablesStatement();
-    }
-
     public AliasedNode aliasedNode(String alias, ParseNode expression) {
         return new AliasedNode(alias, expression);
     }
