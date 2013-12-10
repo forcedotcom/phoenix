@@ -214,7 +214,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 // Results are potentially returned even when the return value of s.next is false
                 // since this is an indication of whether or not there are more values after the
                 // ones returned
-                hasMore = innerScanner.nextRaw(results, null) && !innerScanner.isFilterDone();
+                hasMore = innerScanner.nextRaw(results, null);
                 if (!results.isEmpty()) {
                 	rowCount++;
                     result.setKeyValues(results);
