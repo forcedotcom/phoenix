@@ -27,38 +27,33 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
+import java.math.RoundingMode;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-
 
 /**
  * 
- * Function used to bucketize date/time values by truncating them to
- * an even increment.  Usage:
- * TRUNC(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,[<optional integer multiplier>])
- * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
+ * Class encapsulating the FLOOR operation on 
+ * a column/literal of type {@link PDataType.DECIMAL}.
  *
- * @author jtaylor
- * @since 0.1
+ * @author samarth.jain
+ * @since 3.0.0
  */
-@BuiltInFunction(name="TRUNC", args= {
-    @Argument(allowedTypes={PDataType.TIME}),
-    @Argument(enumeration="TimeUnit"),
-    @Argument(allowedTypes={PDataType.INTEGER}, isConstant=true, defaultValue="1")} )
-public class TruncDateFunction extends RoundDateFunction {
-    
-    public TruncDateFunction(List<Expression> children) throws SQLException {
+public class FloorDecimalExpression extends RoundDecimalExpression {
+
+    public FloorDecimalExpression(List<Expression> children) {
         super(children);
     }
     
     @Override
-    protected long getRoundUpAmount() {
-        return 0;
+    protected RoundingMode getRoundingMode() {
+        return RoundingMode.FLOOR;
+    }
+    
+    @Override
+    public String getName() {
+        return FloorFunction.NAME;
     }
 }

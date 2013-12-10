@@ -27,17 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
 import java.sql.Date;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
@@ -49,10 +44,21 @@ import com.salesforce.phoenix.schema.PDataType.PDataCodec;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 
-public class RoundDateFunction extends RoundFunction {
+/**
+ * Function used to bucketize date/time values by rounding them to
+ * an even increment.  Usage:
+ * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
+ * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
+ * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
 
+ * @author jtaylor, samarth.jain
+ * @since 0.1
+ */
+public class RoundDateExpression extends ScalarFunction {
+    
     long divBy;
-    TimeUnit timeUnit;
+    
+    public static final String NAME = "ROUND";
     
     private static final long[] TIME_UNIT_MS = new long[] {
         24 * 60 * 60 * 1000,
@@ -61,38 +67,31 @@ public class RoundDateFunction extends RoundFunction {
         1000,
         1
     };
-
-    public RoundDateFunction(List<Expression> children) throws SQLException {
+    
+    public RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
-        /*
-         * Because the permissible data type for the second argument of round function 
-         * is VARCHAR, we need to check whether the user did indeed supply a valid value 
-         * which belongs to PDataType.TimeUnit
-         */
-        String timeUnitValue = (String)((LiteralExpression)children.get(1)).getValue();
+        Object timeUnitValue = ((LiteralExpression)children.get(1)).getValue();
         Object multiplierValue = ((LiteralExpression)children.get(2)).getValue();
-        if (timeUnitValue != null && multiplierValue != null)  {
-            try {
-                timeUnit = TimeUnit.valueOf(timeUnitValue.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new SQLException("Invalid value : " + timeUnitValue);
-            }
-            int multiplier = ((Number)multiplierValue).intValue(); 
+        if (multiplierValue != null) {
+            TimeUnit timeUnit = TimeUnit.getTimeUnit(timeUnitValue != null ? timeUnitValue.toString().toUpperCase() : null); 
+            int multiplier = ((Number)multiplierValue).intValue();
             divBy = multiplier * TIME_UNIT_MS[timeUnit.ordinal()];
         }
     }
+    
     
     protected long getRoundUpAmount() {
         return divBy/2;
     }
     
+    
     protected long roundTime(long time) {
         long value;
-        long halfDivBy = getRoundUpAmount();
-        if (time <= Long.MAX_VALUE - halfDivBy) { // If no overflow, add
-            value = (time + halfDivBy) / divBy;
+        long roundUpAmount = getRoundUpAmount();
+        if (time <= Long.MAX_VALUE - roundUpAmount) { // If no overflow, add
+            value = (time + roundUpAmount) / divBy;
         } else { // Else subtract and add one
-            value = (time - halfDivBy) / divBy + 1;
+            value = (time - roundUpAmount) / divBy + 1;
         }
         return value * divBy;
     }
@@ -127,22 +126,10 @@ public class RoundDateFunction extends RoundFunction {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        RoundDateFunction other = (RoundDateFunction)obj;
+        RoundDateExpression other = (RoundDateExpression)obj;
         if (divBy != other.divBy) return false;
         if (getRoundUpAmount() != other.getRoundUpAmount()) return false;
         return children.get(0).equals(other.children.get(0));
-    }
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-        super.readFields(input);
-        divBy = WritableUtils.readVLong(input);
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-        super.write(output);
-        WritableUtils.writeVLong(output, divBy);
     }
 
     @Override
@@ -167,7 +154,7 @@ public class RoundDateFunction extends RoundFunction {
     @Override
     public KeyPart newKeyPart(final KeyPart childPart) {
         return new KeyPart() {
-            private final List<Expression> extractNodes = Collections.<Expression>singletonList(RoundDateFunction.this);
+            private final List<Expression> extractNodes = Collections.<Expression>singletonList(RoundDateExpression.this);
 
             @Override
             public PColumn getColumn() {
@@ -218,4 +205,19 @@ public class RoundDateFunction extends RoundFunction {
         };
     }
 
+
+    @Override
+    public String getName() {
+        return NAME;
+    }
+    
+    @Override
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.YES;
+    }
+
+    @Override
+    public int getKeyFormationTraversalIndex() {
+        return 0;
+    }
 }

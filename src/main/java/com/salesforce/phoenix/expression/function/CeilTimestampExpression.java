@@ -25,57 +25,52 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 
-import com.salesforce.phoenix.compile.StatementContext;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.function.RoundDateExpression;
-import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
-import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
  * 
- * Describe your class here.
+ * Class encapsulating the CEIL operation on {@link PDataType.TIMESTAMP}
  *
  * @author samarth.jain
- * @since 2.1.3
+ * @since 3.0.0
  */
-public class RoundParseNode extends FunctionParseNode {
+public class CeilTimestampExpression extends CeilDateExpression {
 
-    RoundParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
-        super(name, children, info);
-    }
-
-    @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
-        final Expression firstChild = children.get(0);
-        final PDataType firstChildDataType = firstChild.getDataType();
-        if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return new RoundDateExpression(children);
-        } else if(firstChildDataType == PDataType.TIMESTAMP) {
-            return new RoundTimestampExpression(children) ;
-        } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
-            return new RoundDecimalExpression(children);
-        } else {
-            throw new SQLException("Invalid data type: " + firstChildDataType);
-        }
+    public CeilTimestampExpression(List<Expression> children) {
+        super(children);
     }
     
-    /**
-     * When rounding off decimals, user need not specify the scale. In such cases, 
-     * we need to prevent the function from getting evaluated as null. This is really
-     * a hack. A better way would have been if {@link BuiltInFunctionInfo} provided a 
-     * way of associating default values for each permissible data type.
-     * Till then, this will have to do.
-     */
     @Override
-    public boolean evalToNullIfParamIsNull(StatementContext context, int index) throws SQLException {
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        // If divBy is 0 this means <time unit> or <multiplier> was null
+        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
+            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
+            Timestamp roundedTs;
+            
+            if(divBy == 1 && ts.getNanos() > 0) {
+                roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
+            } else {    
+                roundedTs = new Timestamp(roundTime(ts.getTime()));
+            }
+            byte[] byteValue = getDataType().toBytes(roundedTs);
+            ptr.set(byteValue);
+            return true;
+        }
         return false;
+    }
+
+    @Override
+    public PDataType getDataType() {
+        return PDataType.TIMESTAMP;
     }
 
 }

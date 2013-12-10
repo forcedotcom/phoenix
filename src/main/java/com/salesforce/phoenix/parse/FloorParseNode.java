@@ -32,22 +32,15 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.function.RoundDateExpression;
-import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
-import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
+import com.salesforce.phoenix.expression.function.FloorDateExpression;
+import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
-/**
- * 
- * Describe your class here.
- *
- * @author samarth.jain
- * @since 2.1.3
- */
-public class RoundParseNode extends FunctionParseNode {
+public class FloorParseNode extends FunctionParseNode {
 
-    RoundParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
+    FloorParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
         super(name, children, info);
     }
 
@@ -56,11 +49,11 @@ public class RoundParseNode extends FunctionParseNode {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return new RoundDateExpression(children);
+            return new FloorDateExpression(children);
         } else if(firstChildDataType == PDataType.TIMESTAMP) {
-            return new RoundTimestampExpression(children) ;
+            return new FloorTimestampExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
-            return new RoundDecimalExpression(children);
+            return new FloorDecimalExpression(children);
         } else {
             throw new SQLException("Invalid data type: " + firstChildDataType);
         }

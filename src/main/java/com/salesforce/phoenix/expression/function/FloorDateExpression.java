@@ -25,35 +25,34 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.math.MathContext;
-import java.math.RoundingMode;
+import java.util.List;
 
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.PDataType;
 
-public class FloorDecimalExpression extends CeilingDecimalExpression {
-    private static final MathContext FLOOR_CONTEXT = new MathContext(0, RoundingMode.FLOOR);
-    
-    public FloorDecimalExpression() {
-    }
-    
-    public FloorDecimalExpression(Expression child) {
-        super(child);
+/**
+ * 
+ * Class encapsulating the FLOOR operation on 
+ * a column/literal of type {@link PDataType.DATE}.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+public class FloorDateExpression extends RoundDateExpression {
+
+    public FloorDateExpression(List<Expression> children) {
+        super(children);
     }
     
     @Override
-    protected MathContext getMathContext() {
-        return FLOOR_CONTEXT;
+    protected long getRoundUpAmount() {
+        return 0;
     }
     
-    
     @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("FLOOR(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
+    public String getName() {
+        return FloorFunction.NAME;
     }
 }

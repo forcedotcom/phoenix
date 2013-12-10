@@ -25,50 +25,50 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.function;
+package com.salesforce.phoenix.parse;
 
-import java.sql.Date;
 import java.sql.SQLException;
 import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
+import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.function.CeilDateExpression;
+import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
+import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
+import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 
-public class RoundTimestampFunction extends RoundDateFunction {
+public class CeilParseNode extends FunctionParseNode {
     
-    public RoundTimestampFunction(List<Expression> children) throws SQLException {
-        super(children);
+    CeilParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
+        super(name, children, info);
     }
 
     @Override
-    protected long roundTime(long time) {
-        if(timeUnit == TimeUnit.MILLISECOND) {
-            
-        } 
-        return super.roundTime(time);
-    }
-    
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // If divBy is 0 this means <time unit> or <multiplier> was null
-        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
-            //PDataType.TIMESTAMP.coerceBytes(b, object, actualType)
-            long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
-            long value = roundTime(time);
-            // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
-            byte[] byteValue = getDataType().toBytes(new Date(value));
-            ptr.set(byteValue);
-            return true;
+    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+        final Expression firstChild = children.get(0);
+        final PDataType firstChildDataType = firstChild.getDataType();
+        if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
+            return new CeilDateExpression(children);
+        } else if(firstChildDataType == PDataType.TIMESTAMP) {
+            return new CeilTimestampExpression(children) ;
+        } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
+            return new CeilDecimalExpression(children);
+        } else {
+            throw new SQLException("Invalid data type: " + firstChildDataType);
         }
-        return false;
     }
-
+    
+    /**
+     * When ceiling off decimals, user need not specify the scale. In such cases, 
+     * we need to prevent the function from getting evaluated as null. This is really
+     * a hack. A better way would have been if {@link BuiltInFunctionInfo} provided a 
+     * way of associating default values for each permissible data type.
+     * Till then, this will have to do.
+     */
     @Override
-    public PDataType getDataType() {
-        return PDataType.TIMESTAMP;
+    public boolean evalToNullIfParamIsNull(StatementContext context, int index) throws SQLException {
+        return false;
     }
 
 }

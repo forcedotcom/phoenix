@@ -39,6 +39,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -67,14 +68,14 @@ import com.salesforce.phoenix.expression.LongMultiplyExpression;
 import com.salesforce.phoenix.expression.LongSubtractExpression;
 import com.salesforce.phoenix.expression.NotExpression;
 import com.salesforce.phoenix.expression.OrExpression;
-import com.salesforce.phoenix.expression.RoundHalfUpDecimalExpression;
-import com.salesforce.phoenix.expression.RoundUpTimestampExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.TimestampAddExpression;
 import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
+import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.ArithmeticParseNode;
@@ -679,9 +680,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
              * than half a millisecond or 1000000/2 nano seconds.  
              */
             if (fromDataType.equals(PDataType.DECIMAL) && (targetDataType.equals(PDataType.LONG) || targetDataType.equals(PDataType.INTEGER))) {
-                childExpr = new RoundHalfUpDecimalExpression(childExpr);
+                childExpr = new RoundDecimalExpression(Lists.newArrayList(childExpr));
             } else if (fromDataType.equals(PDataType.TIMESTAMP) && fromDataType.isCoercibleTo(targetDataType)) {
-                childExpr = new RoundUpTimestampExpression(childExpr);
+                childExpr = new RoundTimestampExpression(Lists.newArrayList(childExpr));
             } else if (!fromDataType.isCoercibleTo(targetDataType)) {
                 // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
                 if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {

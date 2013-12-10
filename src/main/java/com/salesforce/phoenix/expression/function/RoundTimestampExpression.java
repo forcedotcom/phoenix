@@ -25,68 +25,54 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
-public class RoundUpTimestampExpression extends BaseSingleExpression {
-    private static final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+/**
+ * 
+ * Class encapsulating the process for rounding off a column/literal of 
+ * type {@link PDataType.TIMESTAMP}
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
 
-    public RoundUpTimestampExpression() {
-    }
-
-    public RoundUpTimestampExpression(Expression child) {
-        super(child);
-    }
-
-    protected int getRoundUpAmount() {
-        return 1;
+public class RoundTimestampExpression extends RoundDateExpression {
+    
+    public RoundTimestampExpression(List<Expression> children) throws SQLException {
+        super(children);
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child = children.get(0);
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            tempPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
-            childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
-            Timestamp value = (Timestamp) childType.toObject(tempPtr);
-            if (value.getNanos() >= TimeUnit.MILLISECONDS.toNanos(1)/2) {
-                value = new Timestamp(value.getTime() + getRoundUpAmount());
-                byte[] b = childType.toBytes(value, child.getColumnModifier());
-                ptr.set(b);
+        // If divBy is 0 this means <time unit> or <multiplier> was null
+        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
+            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
+            Timestamp roundedTs;
+            if(divBy == 1 && ts.getNanos() > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1)/2) {
+                roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
+            } else {    
+                roundedTs = new Timestamp(roundTime(ts.getTime()));
             }
+            byte[] byteValue = getDataType().toBytes(roundedTs , children.get(0).getColumnModifier());
+            ptr.set(byteValue);
             return true;
         }
         return false;
     }
 
     @Override
-    public final PDataType getDataType() {
-        return children.get(0).getDataType();
-    }
-
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-
-
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("ROUND_TIMESTAMP(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
+    public PDataType getDataType() {
+        return PDataType.TIMESTAMP;
     }
 
 }

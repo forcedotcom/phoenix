@@ -27,4 +27,32 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-public enum TimeUnit{DAY, HOUR, MINUTE, SECOND, MILLISECOND}
+import com.google.common.base.Joiner;
+
+public enum TimeUnit {
+    DAY("day"), 
+    HOUR("hour"), 
+    MINUTE("minute"), 
+    SECOND("second"), 
+    MILLISECOND("millisecond");
+    
+    private String value;
+    
+    private TimeUnit(String value) {
+        this.value = value;
+    }
+    
+    private static String VALID_VALUES = Joiner.on(", ").join(TimeUnit.values());
+    
+    public static TimeUnit getTimeUnit(String timeUnit) {
+        if(timeUnit == null) {
+            throw new IllegalArgumentException("No time unit value specified. Only a time unit value that belongs to one of these : " + VALID_VALUES + " is allowed.");
+        }
+        for(TimeUnit tu : values()) {
+            if(timeUnit.equalsIgnoreCase(tu.value)) {
+                return tu;
+            }    
+        }
+        throw new IllegalArgumentException("Only a time unit value that belongs to one of these : " + VALID_VALUES + " is allowed.");
+    }
+}

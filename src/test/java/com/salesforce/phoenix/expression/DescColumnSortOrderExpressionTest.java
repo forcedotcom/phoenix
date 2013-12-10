@@ -49,7 +49,7 @@ import com.salesforce.phoenix.expression.function.LowerFunction;
 import com.salesforce.phoenix.expression.function.RTrimFunction;
 import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
 import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
-import com.salesforce.phoenix.expression.function.RoundDateFunction;
+import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.expression.function.ToCharFunction;
@@ -126,7 +126,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void round() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE), getLiteral("hour"), getLiteral(1));
-        evaluateAndAssertResult(new RoundDateFunction(args), date(12, 11, 2001));
+        evaluateAndAssertResult(new RoundDateExpression(args), date(12, 11, 2001));
     }
     
     @Test

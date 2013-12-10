@@ -25,33 +25,27 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
+import java.math.RoundingMode;
+import java.util.List;
 
+import com.salesforce.phoenix.expression.Expression;
 
-public class FloorTimestampExpression extends CeilingTimestampExpression {
-    
-    public FloorTimestampExpression() {
-    }
-    
-    public FloorTimestampExpression(Expression child) {
-        super(child);
+public class CeilDecimalExpression extends RoundDecimalExpression {
+
+    public CeilDecimalExpression(List<Expression> children) {
+        super(children);
     }
     
     @Override
-    protected int getRoundUpAmount() {
-        return 0;
+    protected RoundingMode getRoundingMode() {
+        return RoundingMode.CEILING;
     }
-
     
     @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("FLOOR(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
+    public String getName() {
+        return CeilFunction.NAME;
     }
     
 }

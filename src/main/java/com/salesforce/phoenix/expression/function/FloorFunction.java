@@ -27,12 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import java.util.List;
 
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FloorParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
  * 
  * Describe your class here.
@@ -40,30 +41,24 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @author samarth.jain
  * @since 2.1.3
  */
-@BuiltInFunction(name=FloorFunction.NAME, args= {
-        @Argument(allowedTypes={PDataType.DATE}),
-        @Argument(enumeration="TimeUnit"),
-        @Argument(allowedTypes={PDataType.INTEGER}, isConstant=true, defaultValue="1")} )
-public class FloorFunction extends ScalarFunction {
+@BuiltInFunction(name = FloorFunction.NAME,
+                 nodeClass = FloorParseNode.class,
+                 args = {
+                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+                        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+                        } 
+                )
+public abstract class FloorFunction extends ScalarFunction {
     
     public static final String NAME = "FLOOR";
     
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // TODO Auto-generated method stub
-        return false;
+    public FloorFunction(List<Expression> children) {
+        super(children);
     }
-
-    @Override
-    public PDataType getDataType() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
+    
     @Override
     public String getName() {
-        // TODO Auto-generated method stub
         return NAME;
     }
-
 }

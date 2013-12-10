@@ -170,9 +170,6 @@ public class ParseNodeFactory {
         } catch (Exception e) {
             throw new RuntimeException("Failed initialization of built-in functions at class '" + f + "'", e);
         }
-        for(BuiltInFunctionKey k : BUILT_IN_FUNCTION_MAP.keySet()) {
-            System.out.println(k);
-        }
     }
 
     private static BuiltInFunctionInfo getInfo(String name, List<ParseNode> children) {

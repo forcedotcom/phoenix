@@ -37,21 +37,16 @@ import com.salesforce.phoenix.schema.PDataType;
 
 
 /**
+ * Base class for RoundFunction.
  * 
- * Function used to bucketize date/time values by rounding them to
- * an even increment.  Usage:
- * ROUND(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,<optional integer multiplier>)
- * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
- * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
- *
- * @author jtaylor
+ * @author jtaylor, samarth.jain
  * @since 0.1
  */
 @BuiltInFunction(name = RoundFunction.NAME, 
                  nodeClass = RoundParseNode.class,
                  args = {
                         @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
-                        @Argument(allowedTypes={PDataType.VARCHAR}, defaultValue = "null", isConstant=true),
+                        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
                         @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
                         } 
                 )
@@ -66,15 +61,5 @@ public abstract class RoundFunction extends ScalarFunction {
     @Override
     public String getName() {
         return NAME;
-    }
-    
-    @Override
-    public OrderPreserving preservesOrder() {
-        return OrderPreserving.YES;
-    }
-
-    @Override
-    public int getKeyFormationTraversalIndex() {
-        return 0;
     }
 }

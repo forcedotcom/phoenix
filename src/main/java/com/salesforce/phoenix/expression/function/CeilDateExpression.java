@@ -25,67 +25,34 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.Timestamp;
+import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 
-
-public class CeilingTimestampExpression extends BaseSingleExpression {
-    private static final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+/**
+ * 
+ * Class encapsulating ceil operation on {@link PDataType.DATE}.
+ *
+ * @author samarth.jain
+ * @since 2.1.3
+ */
+public class CeilDateExpression extends RoundDateExpression {
     
-    public CeilingTimestampExpression() {
-    }
-    
-    public CeilingTimestampExpression(Expression child) {
-        super(child);
-    }
-    
-    protected int getRoundUpAmount() {
-        return 1;
+    public CeilDateExpression(List<Expression> children) {
+        super(children);
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child = children.get(0);
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            tempPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
-            childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
-            Timestamp value = (Timestamp) childType.toObject(tempPtr);
-            if (value.getNanos() > 0) {
-                value = new Timestamp(value.getTime()+getRoundUpAmount());
-                byte[] b = childType.toBytes(value, child.getColumnModifier());
-                ptr.set(b);
-            }
-            return true;
-        }
-        return false;
+    protected long getRoundUpAmount() {
+        return divBy - 1;
+    }
+    
+    @Override
+    public String getName() {
+        return CeilFunction.NAME;
     }
 
-    @Override
-    public final PDataType getDataType() {
-        return children.get(0).getDataType();
-    }
-    
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-    
-    
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
 }

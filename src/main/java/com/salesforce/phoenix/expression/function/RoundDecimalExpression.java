@@ -25,71 +25,93 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.WritableUtils;
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
+/**
+ * 
+ * Class encapsulating the process for rounding off a column/literal of 
+ * type {@link PDataType.DECIMAL}
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
 
-public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
+public class RoundDecimalExpression extends ScalarFunction {
     
-    public CeilingDecimalExpression() {
+    private int scale;
+    
+    public RoundDecimalExpression(List<Expression> children) {
+        super(children);
+        int numChildren = children.size();
+        LiteralExpression secondChild = null;
+        if(numChildren > 1) {
+            secondChild = (LiteralExpression)children.get(1);
+        }
+        if(secondChild != null && secondChild.getValue() instanceof Integer) {
+            scale = (Integer)secondChild.getValue();
+        }
     }
-    
-    public CeilingDecimalExpression(Expression child)  {
-        super(child);
-    }
-    
-    protected MathContext getMathContext() {
-        return CEILING_CONTEXT;
-    }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child =  getChild();
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
-            BigDecimal value = (BigDecimal) childType.toObject(ptr);
-            value = value.round(getMathContext());
-            byte[] b = childType.toBytes(value, child.getColumnModifier());
-            ptr.set(b);
+        if(children.get(0).evaluate(tuple, ptr)) {
+            BigDecimal value = (BigDecimal)PDataType.DECIMAL.toObject(ptr, children.get(0).getColumnModifier());
+            BigDecimal scaledValue = value.setScale(scale, getRoundingMode());
+            ptr.set(getDataType().toBytes(scaledValue));
             return true;
         }
         return false;
     }
 
     @Override
-    public ColumnModifier getColumnModifier() {
-            return getChild().getColumnModifier();
-    }    
+    public PDataType getDataType() {
+        return PDataType.DECIMAL;
+    }
+    
+    protected RoundingMode getRoundingMode() {
+        return RoundingMode.HALF_UP;
+    }
+    
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+        scale = WritableUtils.readVInt(input);
+    }
 
     @Override
-    public final PDataType getDataType() {
-        return  getChild().getDataType();
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        WritableUtils.writeVInt(output, scale);
+    }
+
+    @Override
+    public String getName() {
+        return RoundFunction.NAME;
     }
     
     @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
+    public OrderPreserving preservesOrder() {
+        return OrderPreserving.YES;
+    }
+
+    @Override
+    public int getKeyFormationTraversalIndex() {
+        return 0;
     }
     
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
 }

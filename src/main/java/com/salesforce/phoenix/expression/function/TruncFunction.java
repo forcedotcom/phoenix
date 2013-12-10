@@ -25,34 +25,49 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.math.MathContext;
-import java.math.RoundingMode;
+import java.sql.SQLException;
+import java.util.List;
 
-public class RoundHalfUpDecimalExpression extends CeilingDecimalExpression {
-    private static final MathContext ROUND_HALF_UP_CONTEXT = new MathContext(1, RoundingMode.HALF_UP);
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FloorParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 
-    public RoundHalfUpDecimalExpression() {
-    }
 
-    public RoundHalfUpDecimalExpression(Expression child) {
-        super(child);
+/**
+ * 
+ * Function used to bucketize date/time values by truncating them to
+ * an even increment.  Usage:
+ * TRUNC(<date/time col ref>,<'day'|'hour'|'minute'|'second'|'millisecond'>,[<optional integer multiplier>])
+ * The integer multiplier is optional and is used to do rollups to a partial time unit (i.e. 10 minute rollup)
+ * The function returns a {@link com.salesforce.phoenix.schema.PDataType#DATE}
+ *
+ * @author jtaylor
+ * @since 0.1
+ */
+@BuiltInFunction(name = TruncFunction.NAME,
+nodeClass = FloorParseNode.class,
+args = {
+       @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+       @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+       @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+       } 
+)
+public abstract class TruncFunction extends ScalarFunction {
+    
+    public static final String NAME = "TRUNC";
+    
+    public TruncFunction(List<Expression> children) throws SQLException {
+        super(children);
     }
 
     @Override
-    protected MathContext getMathContext() {
-        return ROUND_HALF_UP_CONTEXT;
+    public String getName() {
+        return NAME;
     }
-
-
-    @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("ROUNDHALFUP(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
+    
+    
 }

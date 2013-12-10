@@ -45,6 +45,10 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
+import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
+import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
@@ -80,9 +84,9 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new FloorDecimalExpression(rhs);
+                    e = new FloorDecimalExpression(Lists.newArrayList(rhs));
                 } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new FloorTimestampExpression(rhs);
+                    e = new FloorTimestampExpression(Lists.newArrayList(rhs));
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;
@@ -99,9 +103,9 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new CeilingDecimalExpression(rhs);
+                    e = new CeilDecimalExpression(Lists.newArrayList(rhs));
                 } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new CeilingTimestampExpression(rhs);
+                    e = new CeilTimestampExpression(Lists.newArrayList(rhs));
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;
