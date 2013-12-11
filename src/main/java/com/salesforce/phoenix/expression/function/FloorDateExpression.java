@@ -40,7 +40,9 @@ import com.salesforce.phoenix.expression.Expression;
  * @since 3.0.0
  */
 public class FloorDateExpression extends RoundDateExpression {
-
+    
+    public FloorDateExpression() {}
+    
     public FloorDateExpression(List<Expression> children) {
         super(children);
     }

@@ -41,7 +41,9 @@ import com.salesforce.phoenix.expression.Expression;
  * @since 3.0.0
  */
 public class FloorDecimalExpression extends RoundDecimalExpression {
-
+    
+    public FloorDecimalExpression() {}
+    
     public FloorDecimalExpression(List<Expression> children) {
         super(children);
     }

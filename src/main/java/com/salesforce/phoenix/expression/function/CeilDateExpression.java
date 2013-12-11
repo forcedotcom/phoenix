@@ -40,6 +40,8 @@ import com.salesforce.phoenix.expression.Expression;
  */
 public class CeilDateExpression extends RoundDateExpression {
     
+    public CeilDateExpression() {}
+    
     public CeilDateExpression(List<Expression> children) {
         super(children);
     }

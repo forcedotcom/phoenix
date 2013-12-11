@@ -48,6 +48,8 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class RoundTimestampExpression extends RoundDateExpression {
     
+    public RoundTimestampExpression() {}
+    
     public RoundTimestampExpression(List<Expression> children) throws SQLException {
         super(children);
     }

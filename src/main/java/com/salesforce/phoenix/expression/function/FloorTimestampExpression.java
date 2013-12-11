@@ -45,7 +45,9 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 3.0.0
  */
 public class FloorTimestampExpression extends FloorDateExpression {
-
+    
+    public FloorTimestampExpression() {}
+    
     public FloorTimestampExpression(List<Expression> children) {
         super(children);
     }

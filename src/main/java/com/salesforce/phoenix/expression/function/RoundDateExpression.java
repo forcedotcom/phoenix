@@ -27,12 +27,16 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.Date;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
@@ -67,6 +71,8 @@ public class RoundDateExpression extends ScalarFunction {
         1000,
         1
     };
+    
+    public RoundDateExpression() {}
     
     public RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
@@ -131,7 +137,19 @@ public class RoundDateExpression extends ScalarFunction {
         if (getRoundUpAmount() != other.getRoundUpAmount()) return false;
         return children.get(0).equals(other.children.get(0));
     }
+    
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+        divBy = WritableUtils.readVLong(input);
+    }
 
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        WritableUtils.writeVLong(output, divBy);
+    }
+    
     @Override
     public PDataType getDataType() {
         return PDataType.DATE;

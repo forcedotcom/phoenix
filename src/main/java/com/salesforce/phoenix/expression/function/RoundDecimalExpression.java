@@ -55,6 +55,8 @@ public class RoundDecimalExpression extends ScalarFunction {
     
     private int scale;
     
+    public RoundDecimalExpression() {}
+    
     public RoundDecimalExpression(List<Expression> children) {
         super(children);
         int numChildren = children.size();

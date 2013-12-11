@@ -40,7 +40,9 @@ import com.salesforce.phoenix.expression.Expression;
  * @since 3.0.0
  */
 public class CeilDecimalExpression extends RoundDecimalExpression {
-
+    
+    public CeilDecimalExpression() {}
+    
     public CeilDecimalExpression(List<Expression> children) {
         super(children);
     }

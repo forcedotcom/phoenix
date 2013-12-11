@@ -44,7 +44,9 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 3.0.0
  */
 public class CeilTimestampExpression extends CeilDateExpression {
-
+    
+    public CeilTimestampExpression() {}
+    
     public CeilTimestampExpression(List<Expression> children) {
         super(children);
     }

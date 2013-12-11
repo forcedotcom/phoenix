@@ -101,6 +101,7 @@ import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
@@ -450,6 +451,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             Object value = null;
             PDataType type = func.getDataType();
             if (func.evaluate(null, ptr)) {
+                value = type.toObject(ptr);
             }
             return LiteralExpression.newConstant(value, type);
         }
@@ -669,7 +671,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         
         Expression expr = childExpr;
         if(fromDataType != null) {
-            expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
+            if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
+                expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
+            }
         }
         return CoerceExpression.create(expr, targetDataType); 
     }
