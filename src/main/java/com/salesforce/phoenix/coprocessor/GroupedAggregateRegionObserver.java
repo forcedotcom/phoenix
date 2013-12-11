@@ -224,7 +224,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     // Results are potentially returned even when the return value of s.next is false
                     // since this is an indication of whether or not there are more values after the
                     // ones returned
-                    hasMore = s.nextRaw(results, null) && !s.isFilterDone();
+                    hasMore = s.nextRaw(results, null);
                     if (!results.isEmpty()) {
                         result.setKeyValues(results);
                         ImmutableBytesWritable key = TupleUtil.getConcatenatedValue(result, expressions);
@@ -349,7 +349,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                         // Results are potentially returned even when the return value of s.next is false
                         // since this is an indication of whether or not there are more values after the
                         // ones returned
-                        hasMore = s.nextRaw(kvs, null) && !s.isFilterDone();
+                        hasMore = s.nextRaw(kvs, null);
                         if (!kvs.isEmpty()) {
                             result.setKeyValues(kvs);
                             key = TupleUtil.getConcatenatedValue(result, expressions);

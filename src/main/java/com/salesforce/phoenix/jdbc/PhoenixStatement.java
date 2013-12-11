@@ -89,7 +89,6 @@ import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.ShowTablesStatement;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
@@ -113,7 +112,6 @@ import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.SQLCloseables;
-import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.ServerUtil;
 
 
@@ -795,68 +793,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
     }
 
-    private class ExecutableShowTablesStatement extends ShowTablesStatement implements ExecutableStatement {
-
-        ExecutableShowTablesStatement() {
-        }
-
-        @Override
-        public PhoenixResultSet executeQuery() throws SQLException {
-            throw new ExecuteQueryNotApplicableException("SHOW TABLES", this.toString());
-        }
-
-        @Override
-        public boolean execute() throws SQLException {
-            executeUpdate();
-            return false;
-        }
-
-        @Override
-        public int executeUpdate() throws SQLException {
-            ResultSet rs = null;
-            try {
-                rs = connection.getMetaData().getTables(null,null,null,null);
-                while (rs.next()) {
-                    String schema = rs.getString(2);
-                    String table = rs.getString(3);
-                    SchemaUtil.getTableName(schema,table);
-                }
-                return 0;
-            } finally {
-                if(rs != null) {
-                    rs.close();
-                }
-            }
-            
-        }
-
-        @Override
-        public ResultSetMetaData getResultSetMetaData() throws SQLException {
-            return null;
-        }
-
-        @Override
-        public StatementPlan compilePlan() throws SQLException {
-            return new StatementPlan() {
-
-                @Override
-                public ParameterMetaData getParameterMetaData() {
-                    return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
-                }
-
-                @Override
-                public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("SHOW TABLES"));
-                }
-            };
-        }
-        
-        @Override
-        public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan();
-        }
-    }
-
     protected class ExecutableNodeFactory extends ParseNodeFactory {
         @Override
         public ExecutableSelectStatement select(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select,
@@ -913,11 +849,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public ExplainStatement explain(BindableStatement statement) {
             return new ExecutableExplainStatement(statement);
-        }
-
-        @Override
-        public ShowTablesStatement showTables() {
-            return new ExecutableShowTablesStatement();
         }
     }
     
