@@ -48,24 +48,91 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.List;
 import java.util.Properties;
 
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.schema.TableAlreadyExistsException;
+import com.salesforce.phoenix.util.QueryUtil;
 
+@RunWith(Parameterized.class)
 public class HashJoinTest extends BaseClientMangedTimeTest {
     
-    protected void createIndices() throws Exception {
+    private String[] indexDDL;
+    private String[] plans;
+    
+    public HashJoinTest(String[] indexDDL, String[] plans) {
+        this.indexDDL = indexDDL;
+        this.plans = plans;
     }
+    
+    @Before
+    public void initTable() throws Exception {
+        initTableValues();
+        if (indexDDL != null && indexDDL.length > 0) {
+            Properties props = new Properties(TEST_PROPERTIES);
+            Connection conn = DriverManager.getConnection(getUrl(), props);
+            for (String ddl : indexDDL) {
+                try {
+                    conn.createStatement().execute(ddl);
+                } catch (TableAlreadyExistsException e) {
+                }
+            }
+            conn.close();
+        }
+    }
+    
+    @Parameters(name="{0}")
+    public static Collection<Object> data() {
+        List<Object> testCases = Lists.newArrayList();
+        testCases.add(new String[][] {
+                {}, {
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
+                "    SERVER FILTER BY (NAME >= 'T1' AND NAME <= 'T5')\n" +
+                "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_SUPPLIER_TABLE\n" +
+                "            SERVER FILTER BY (NAME >= 'S1' AND NAME <= 'S5')",
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
+                "    SERVER FILTER BY (NAME = 'T1' OR NAME = 'T5')\n" +
+                "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_SUPPLIER_TABLE\n" +
+                "            SERVER FILTER BY (NAME = 'S1' OR NAME = 'S5')"
+                }});
+        testCases.add(new String[][] {
+                {
+                "CREATE INDEX INDEX_" + JOIN_CUSTOMER_TABLE + " ON " + JOIN_CUSTOMER_TABLE + " (name)",
+                "CREATE INDEX INDEX_" + JOIN_ITEM_TABLE + " ON " + JOIN_ITEM_TABLE + " (name)",
+                "CREATE INDEX INDEX_" + JOIN_SUPPLIER_TABLE + " ON " + JOIN_SUPPLIER_TABLE + " (name)"
+                }, {
+                "CLIENT PARALLEL 1-WAY RANGE SCAN OVER INDEX_JOIN_ITEM_TABLE ['T1'] - ['T5']\n" +
+                "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0\n" +
+                "        CLIENT PARALLEL 1-WAY RANGE SCAN OVER INDEX_JOIN_SUPPLIER_TABLE ['S1'] - ['S5']",
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
+                "    SERVER FILTER BY (NAME = 'T1' OR NAME = 'T5')\n" +
+                "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0\n" +
+                "        CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 KEYS OVER INDEX_JOIN_SUPPLIER_TABLE ['S1'] - ['S5']"
+                }});
+        return testCases;
+    }
+    
     
     protected void initTableValues() throws Exception {
         ensureTableCreated(getUrl(), JOIN_CUSTOMER_TABLE);
         ensureTableCreated(getUrl(), JOIN_ITEM_TABLE);
         ensureTableCreated(getUrl(), JOIN_SUPPLIER_TABLE);
         ensureTableCreated(getUrl(), JOIN_ORDER_TABLE);
-        
-        createIndices();
         
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -312,7 +379,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDefaultJoin() throws Exception {
-        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -358,7 +424,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testInnerJoin() throws Exception {
-        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -404,7 +469,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             
     @Test
     public void testLeftJoin() throws Exception {
-        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -455,7 +519,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testRightJoin() throws Exception {
-        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_SUPPLIER_TABLE + " supp RIGHT JOIN " + JOIN_ITEM_TABLE + " item ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -506,7 +569,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testInnerJoinWithPreFilters() throws Exception {
-        initTableValues();
         String query1 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND supp.supplier_id BETWEEN '0000000001' AND '0000000005'";
         String query2 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND (supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005')";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -569,7 +631,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftJoinWithPreFilters() throws Exception {
-        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND (supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005')";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -620,7 +681,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithPostFilters() throws Exception {
-        initTableValues();
         String query1 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_SUPPLIER_TABLE + " supp RIGHT JOIN " + JOIN_ITEM_TABLE + " item ON item.supplier_id = supp.supplier_id WHERE supp.supplier_id BETWEEN '0000000001' AND '0000000005'";
         String query2 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id WHERE supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005'";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -683,7 +743,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testStarJoin() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, c.name, i.name, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
             + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
@@ -731,7 +790,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftJoinWithAggregation() throws Exception {
-        initTableValues();
         String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -760,7 +818,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testRightJoinWithAggregation() throws Exception {
-        initTableValues();
         String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o RIGHT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -798,7 +855,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftRightJoin() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
             + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
@@ -864,7 +920,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMultiLeftJoin() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id LEFT JOIN "
             + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
@@ -912,7 +967,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMultiRightJoin() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o RIGHT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
             + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
@@ -984,7 +1038,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithWildcard() throws Exception {
-        initTableValues();
         String query = "SELECT * FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -1091,7 +1144,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinMultiJoinKeys() throws Exception {
-        initTableValues();
         String query = "SELECT c.name, s.name FROM " + JOIN_CUSTOMER_TABLE + " c LEFT JOIN " + JOIN_SUPPLIER_TABLE + " s ON customer_id = supplier_id AND c.loc_id = s.loc_id AND substr(s.name, 2, 1) = substr(c.name, 2, 1)";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -1125,7 +1177,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithDifferentNumericJoinKeyTypes() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price = (i.price * (100 - discount2)) / 100.0 WHERE quantity < 5000";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1148,7 +1199,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithDifferentDateJoinKeyTypes() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, c.name, o.date FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
             + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id AND o.date = c.date";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1182,7 +1232,6 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithIncomparableJoinKeyTypes() throws Exception {
-        initTableValues();
         String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price / 100 = substr(i.name, 2, 1)";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1193,6 +1242,69 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             fail("Should have got SQLException.");
         } catch (SQLException e) {
             assertEquals(e.getErrorCode(), SQLExceptionCode.CANNOT_CONVERT_TYPE.getErrorCode());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinPlanWithIndex() throws Exception {
+        String query1 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON substr(item.name, 2, 1) = substr(supp.name, 2, 1) AND (supp.name BETWEEN 'S1' AND 'S5') WHERE item.name BETWEEN 'T1' AND 'T5'";
+        String query2 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND (supp.name = 'S1' OR supp.name = 'S5') WHERE item.name = 'T1' OR item.name = 'T5'";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query1);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000001");
+            assertEquals(rs.getString(2), "T1");
+            assertEquals(rs.getString(3), "0000000001");
+            assertEquals(rs.getString(4), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000002");
+            assertEquals(rs.getString(2), "T2");
+            assertEquals(rs.getString(3), "0000000002");
+            assertEquals(rs.getString(4), "S2");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000003");
+            assertEquals(rs.getString(2), "T3");
+            assertEquals(rs.getString(3), "0000000003");
+            assertEquals(rs.getString(4), "S3");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000004");
+            assertEquals(rs.getString(2), "T4");
+            assertEquals(rs.getString(3), "0000000004");
+            assertEquals(rs.getString(4), "S4");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000005");
+            assertEquals(rs.getString(2), "T5");
+            assertEquals(rs.getString(3), "0000000005");
+            assertEquals(rs.getString(4), "S5");
+
+            assertFalse(rs.next());
+            
+            rs = conn.createStatement().executeQuery("EXPLAIN " + query1);
+            assertEquals(plans[0], QueryUtil.getExplainPlan(rs));
+            
+            
+            statement = conn.prepareStatement(query2);
+            rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000001");
+            assertEquals(rs.getString(2), "T1");
+            assertEquals(rs.getString(3), "0000000001");
+            assertEquals(rs.getString(4), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000005");
+            assertEquals(rs.getString(2), "T5");
+            assertEquals(rs.getString(3), "0000000005");
+            assertEquals(rs.getString(4), "S5");
+
+            assertFalse(rs.next());
+            
+            rs = conn.createStatement().executeQuery("EXPLAIN " + query2);
+            assertEquals(plans[1], QueryUtil.getExplainPlan(rs));
         } finally {
             conn.close();
         }
