@@ -56,74 +56,16 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 
 public class HashJoinTest extends BaseClientMangedTimeTest {
     
-    private void initAllTableValues() throws Exception {
-    	initMetaInfoTableValues();
-        ensureTableCreated(getUrl(), JOIN_ORDER_TABLE);
-        
-        Properties props = new Properties(TEST_PROPERTIES);
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        try {
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            // Insert into order table
-            PreparedStatement stmt = conn.prepareStatement(
-                    "upsert into " + JOIN_ORDER_TABLE +
-                    "   (ORDER_ID, " +
-                    "    CUSTOMER_ID, " +
-                    "    ITEM_ID, " +
-                    "    PRICE, " +
-                    "    QUANTITY," +
-                    "    DATE) " +
-                    "values (?, ?, ?, ?, ?, ?)");
-            stmt.setString(1, "000000000000001");
-            stmt.setString(2, "0000000004");
-            stmt.setString(3, "0000000001");
-            stmt.setInt(4, 100);
-            stmt.setInt(5, 1000);
-            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-22 14:22:56").getTime()));
-            stmt.execute();
-
-            stmt.setString(1, "000000000000002");
-            stmt.setString(2, "0000000003");
-            stmt.setString(3, "0000000006");
-            stmt.setInt(4, 552);
-            stmt.setInt(5, 2000);
-            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 10:06:29").getTime()));
-            stmt.execute();
-
-            stmt.setString(1, "000000000000003");
-            stmt.setString(2, "0000000002");
-            stmt.setString(3, "0000000002");
-            stmt.setInt(4, 190);
-            stmt.setInt(5, 3000);
-            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 16:45:07").getTime()));
-            stmt.execute();
-
-            stmt.setString(1, "000000000000004");
-            stmt.setString(2, "0000000004");
-            stmt.setString(3, "0000000006");
-            stmt.setInt(4, 510);
-            stmt.setInt(5, 4000);
-            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-26 13:26:04").getTime()));
-            stmt.execute();
-
-            stmt.setString(1, "000000000000005");
-            stmt.setString(2, "0000000005");
-            stmt.setString(3, "0000000003");
-            stmt.setInt(4, 264);
-            stmt.setInt(5, 5000);
-            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-27 09:37:50").getTime()));
-            stmt.execute();
-
-            conn.commit();
-        } finally {
-            conn.close();
-        }
+    protected void createIndices() throws Exception {
     }
     
-    private void initMetaInfoTableValues() throws Exception {
+    protected void initTableValues() throws Exception {
         ensureTableCreated(getUrl(), JOIN_CUSTOMER_TABLE);
         ensureTableCreated(getUrl(), JOIN_ITEM_TABLE);
         ensureTableCreated(getUrl(), JOIN_SUPPLIER_TABLE);
+        ensureTableCreated(getUrl(), JOIN_ORDER_TABLE);
+        
+        createIndices();
         
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -312,6 +254,56 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             stmt.setString(5, "10006");
             stmt.execute();
 
+            // Insert into order table
+            stmt = conn.prepareStatement(
+                    "upsert into " + JOIN_ORDER_TABLE +
+                    "   (ORDER_ID, " +
+                    "    CUSTOMER_ID, " +
+                    "    ITEM_ID, " +
+                    "    PRICE, " +
+                    "    QUANTITY," +
+                    "    DATE) " +
+                    "values (?, ?, ?, ?, ?, ?)");
+            stmt.setString(1, "000000000000001");
+            stmt.setString(2, "0000000004");
+            stmt.setString(3, "0000000001");
+            stmt.setInt(4, 100);
+            stmt.setInt(5, 1000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-22 14:22:56").getTime()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000002");
+            stmt.setString(2, "0000000003");
+            stmt.setString(3, "0000000006");
+            stmt.setInt(4, 552);
+            stmt.setInt(5, 2000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 10:06:29").getTime()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000003");
+            stmt.setString(2, "0000000002");
+            stmt.setString(3, "0000000002");
+            stmt.setInt(4, 190);
+            stmt.setInt(5, 3000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-25 16:45:07").getTime()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000004");
+            stmt.setString(2, "0000000004");
+            stmt.setString(3, "0000000006");
+            stmt.setInt(4, 510);
+            stmt.setInt(5, 4000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-26 13:26:04").getTime()));
+            stmt.execute();
+
+            stmt.setString(1, "000000000000005");
+            stmt.setString(2, "0000000005");
+            stmt.setString(3, "0000000003");
+            stmt.setInt(4, 264);
+            stmt.setInt(5, 5000);
+            stmt.setTimestamp(6, new Timestamp(format.parse("2013-11-27 09:37:50").getTime()));
+            stmt.execute();
+
             conn.commit();
         } finally {
             conn.close();
@@ -320,7 +312,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testDefaultJoin() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -366,7 +358,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
 
     @Test
     public void testInnerJoin() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -412,7 +404,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             
     @Test
     public void testLeftJoin() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -463,7 +455,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testRightJoin() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_SUPPLIER_TABLE + " supp RIGHT JOIN " + JOIN_ITEM_TABLE + " item ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -514,7 +506,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testInnerJoinWithPreFilters() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query1 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND supp.supplier_id BETWEEN '0000000001' AND '0000000005'";
         String query2 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item INNER JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND (supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005')";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -577,7 +569,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftJoinWithPreFilters() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id AND (supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005')";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -628,7 +620,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithPostFilters() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query1 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_SUPPLIER_TABLE + " supp RIGHT JOIN " + JOIN_ITEM_TABLE + " item ON item.supplier_id = supp.supplier_id WHERE supp.supplier_id BETWEEN '0000000001' AND '0000000005'";
         String query2 = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id WHERE supp.supplier_id = '0000000001' OR supp.supplier_id = '0000000005'";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -691,10 +683,10 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testStarJoin() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, c.name, i.name, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
-        	+ JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
-        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
+            + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -739,9 +731,9 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftJoinWithAggregation() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
-        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -768,9 +760,9 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testRightJoinWithAggregation() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT i.name, sum(quantity) FROM " + JOIN_ORDER_TABLE + " o RIGHT JOIN " 
-        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id GROUP BY i.name ORDER BY i.name";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -806,10 +798,10 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testLeftRightJoin() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
-			+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
-			+ JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
+            + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -872,10 +864,10 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMultiLeftJoin() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
-			+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id LEFT JOIN "
-			+ JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id LEFT JOIN "
+            + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -920,10 +912,10 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testMultiRightJoin() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, i.name, s.name, quantity, date FROM " + JOIN_ORDER_TABLE + " o RIGHT JOIN " 
-			+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
-			+ JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id RIGHT JOIN "
+            + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id ORDER BY order_id, s.supplier_id DESC";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -992,7 +984,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithWildcard() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT * FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -1099,7 +1091,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinMultiJoinKeys() throws Exception {
-        initMetaInfoTableValues();
+        initTableValues();
         String query = "SELECT c.name, s.name FROM " + JOIN_CUSTOMER_TABLE + " c LEFT JOIN " + JOIN_SUPPLIER_TABLE + " s ON customer_id = supplier_id AND c.loc_id = s.loc_id AND substr(s.name, 2, 1) = substr(c.name, 2, 1)";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -1133,9 +1125,9 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithDifferentNumericJoinKeyTypes() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
-        	+ JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price = (i.price * (100 - discount2)) / 100.0 WHERE quantity < 5000";
+            + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price = (i.price * (100 - discount2)) / 100.0 WHERE quantity < 5000";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -1156,7 +1148,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithDifferentDateJoinKeyTypes() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, c.name, o.date FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
             + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id AND o.date = c.date";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -1190,7 +1182,7 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testJoinWithIncomparableJoinKeyTypes() throws Exception {
-        initAllTableValues();
+        initTableValues();
         String query = "SELECT order_id, i.name, i.price, discount2, quantity FROM " + JOIN_ORDER_TABLE + " o INNER JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id AND o.price / 100 = substr(i.name, 2, 1)";
         Properties props = new Properties(TEST_PROPERTIES);
