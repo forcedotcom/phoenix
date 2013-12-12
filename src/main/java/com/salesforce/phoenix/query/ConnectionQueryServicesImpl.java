@@ -54,6 +54,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
@@ -625,10 +626,16 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 if (isMetaTable) {
                     newDesc.remove(HTableDescriptor.SPLIT_POLICY);
                 }
-                if (splits == null) {
-                    admin.createTable(newDesc);
-                } else {
-                    admin.createTable(newDesc, splits);
+                try {
+                    if (splits == null) {
+                        admin.createTable(newDesc);
+                    } else {
+                        admin.createTable(newDesc, splits);
+                    }
+                } catch (TableExistsException e) {
+                    // We can ignore this, as it just means that another client beat us
+                    // to creating the HBase metadata.
+                    return false;
                 }
                 if (isMetaTable) {
                     checkClientServerCompatibility();
