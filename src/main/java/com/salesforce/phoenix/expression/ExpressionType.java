@@ -40,7 +40,6 @@ import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
 import com.salesforce.phoenix.expression.function.FloorFunction;
-import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.function.IndexStateNameFunction;
 import com.salesforce.phoenix.expression.function.InvertFunction;
 import com.salesforce.phoenix.expression.function.LTrimFunction;
@@ -94,7 +93,6 @@ public enum ExpressionType {
     FloorDateExpression(FloorDateExpression.class),
     CeilDateExpression(CeilDateExpression.class),
     RoundTimestampExpression(RoundTimestampExpression.class),
-    FloorTimestampExpression(FloorTimestampExpression.class),
     CeilTimestampExpression(CeilTimestampExpression.class),
     RoundDecimalExpression(RoundDecimalExpression.class),
     FloorDecimalExpression(FloorDecimalExpression.class),

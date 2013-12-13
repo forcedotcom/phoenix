@@ -53,6 +53,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.CountAggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.jdbc.PhoenixPreparedStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -1111,4 +1112,40 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
         }
     }
-}
+    
+    @Test
+    public void testWrongDataTypeInRoundFunction() throws Exception {
+        String query = "SELECT ROUND(a_string, 'day', 1) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since VARCHAR is not a valid data type for ROUND");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testWrongTimeUnitInRoundDateFunction() throws Exception {
+        String query = "SELECT ROUND(a_date, 'dayss', 1) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since dayss is not a valid time unit type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(TimeUnit.VALID_VALUES));
+        }
+    }
+    
+    @Test
+    public void testWrongMultiplierInRoundDateFunction() throws Exception {
+        String query = "SELECT ROUND(a_date, 'days', 1.23) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since multiplier can be an INTEGER only");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
+ }

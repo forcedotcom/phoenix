@@ -35,9 +35,9 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
 import com.salesforce.phoenix.expression.function.FloorFunction;
-import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 
 /**
  * Parse node corresponding to {@link FloorFunction}. 
@@ -62,14 +62,15 @@ public class FloorParseNode extends FunctionParseNode {
     public static ScalarFunction getFloorExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
-        if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
+        
+        //FLOOR on timestamp doesn't really care about the nanos part i.e. it just sets it to zero. 
+        //Which is exactly what FloorDateExpression does too. 
+        if(firstChildDataType.isCoercibleTo(PDataType.DATE) || firstChildDataType == PDataType.TIMESTAMP) {
             return new FloorDateExpression(children);
-        } else if(firstChildDataType == PDataType.TIMESTAMP) {
-            return new FloorTimestampExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new FloorDecimalExpression(children);
         } else {
-            throw new SQLException("Invalid data type: " + firstChildDataType);
+            throw new TypeMismatchException(firstChildDataType, "1");
         }
     }
     
@@ -78,6 +79,7 @@ public class FloorParseNode extends FunctionParseNode {
      * we need to prevent the function from getting evaluated as null. This is really
      * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
+     * Something like: @ Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValues = {"null", "1"} isConstant=true)
      * Till then, this will have to do.
      */
     @Override

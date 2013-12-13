@@ -48,6 +48,8 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class RoundTimestampExpression extends RoundDateExpression {
     
+    private static final long HALF_OF_NANOS_IN_MILLI = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1)/2;
+
     public RoundTimestampExpression() {}
     
     public RoundTimestampExpression(List<Expression> children) throws SQLException {
@@ -60,12 +62,12 @@ public class RoundTimestampExpression extends RoundDateExpression {
         if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
             Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
             Timestamp roundedTs;
-            if(divBy == 1 && ts.getNanos() > java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1)/2) {
+            if(divBy == 1 && ts.getNanos() > HALF_OF_NANOS_IN_MILLI) {
                 roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
             } else {    
                 roundedTs = new Timestamp(roundTime(ts.getTime()));
             }
-            byte[] byteValue = getDataType().toBytes(roundedTs , children.get(0).getColumnModifier());
+            byte[] byteValue = getDataType().toBytes(roundedTs);
             ptr.set(byteValue);
             return true;
         }

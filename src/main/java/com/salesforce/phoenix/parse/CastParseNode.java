@@ -33,12 +33,11 @@ import java.util.List;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
-import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
+import com.salesforce.phoenix.util.DateUtil;
 
 /**
  * 
@@ -77,11 +76,12 @@ public class CastParseNode extends UnaryParseNode {
 	
 	public static Expression convertToRoundExpressionIfNeeded(PDataType fromDataType, PDataType targetDataType, List<Expression> expressions) throws SQLException {
 	    Expression firstChildExpr = expressions.get(0);
-	    if(fromDataType == PDataType.DECIMAL && targetDataType.isCoercibleTo(PDataType.LONG)) {
+	    if(fromDataType == targetDataType) {
+	        return firstChildExpr;
+	    } else if(fromDataType == PDataType.DECIMAL && targetDataType.isCoercibleTo(PDataType.LONG)) {
 	        return new RoundDecimalExpression(expressions);
 	    } else if(fromDataType == PDataType.TIMESTAMP && targetDataType.isCoercibleTo(PDataType.DATE)) {
-	        Expression millisLiteral = LiteralExpression.newConstant(TimeUnit.MILLISECOND.name(), PDataType.VARCHAR);
-	        return new RoundTimestampExpression(Lists.newArrayList(expressions.get(0), millisLiteral));
+	        return new RoundTimestampExpression(Lists.newArrayList(expressions.get(0), DateUtil.millisLiteralExpression));
 	    } else if(!fromDataType.isCoercibleTo(targetDataType)) {
 	        throw new TypeMismatchException(fromDataType, targetDataType, firstChildExpr.toString());
 	    }

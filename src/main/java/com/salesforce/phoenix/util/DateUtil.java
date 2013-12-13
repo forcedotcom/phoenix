@@ -29,6 +29,7 @@ package com.salesforce.phoenix.util;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.Format;
@@ -38,8 +39,12 @@ import java.util.TimeZone;
 
 import org.apache.commons.lang.time.FastDateFormat;
 
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 
@@ -54,8 +59,19 @@ public class DateUtil {
 
     private DateUtil() {
     }
-    
-	public static Format getDateParser(String pattern) {
+
+    public static final Expression millisLiteralExpression = init();
+
+    private static Expression init() {
+        try {
+            return LiteralExpression.newConstant(TimeUnit.MILLISECOND.name(), PDataType.VARCHAR);
+        } catch (SQLException e) {
+            //not possible
+            return null;
+        }
+    }
+
+    public static Format getDateParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
             @Override
             public java.util.Date parseObject(String source) throws ParseException {
@@ -66,7 +82,7 @@ public class DateUtil {
         format.setTimeZone(DateUtil.DATE_TIME_ZONE);
         return format;
     }
-    
+
     public static Format getTimeParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
             @Override
@@ -78,7 +94,7 @@ public class DateUtil {
         format.setTimeZone(DateUtil.DATE_TIME_ZONE);
         return format;
     }
-    
+
     public static Format getTimestampParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
             @Override
@@ -90,18 +106,18 @@ public class DateUtil {
         format.setTimeZone(DateUtil.DATE_TIME_ZONE);
         return format;
     }
-    
+
     public static Format getDateFormatter(String pattern) {
         return DateUtil.DEFAULT_DATE_FORMAT.equals(pattern) ? DateUtil.DEFAULT_DATE_FORMATTER : FastDateFormat.getInstance(pattern, DateUtil.DATE_TIME_ZONE);
     }
-    
+
     private static ThreadLocal<Format> dateFormat =
-        new ThreadLocal < Format > () {
-            @Override protected Format initialValue() {
-                return getDateParser(DEFAULT_DATE_FORMAT);
-            }
-        };
-    
+            new ThreadLocal < Format > () {
+        @Override protected Format initialValue() {
+            return getDateParser(DEFAULT_DATE_FORMAT);
+        }
+    };
+
     public static Date parseDate(String dateValue) {
         try {
             return (Date)dateFormat.get().parseObject(dateValue);
@@ -109,14 +125,14 @@ public class DateUtil {
             throw new IllegalDataException(e);
         }
     }
-    
+
     private static ThreadLocal<Format> timeFormat =
-        new ThreadLocal < Format > () {
-            @Override protected Format initialValue() {
-                return getTimeParser(DEFAULT_DATE_FORMAT);
-            }
-        };
-    
+            new ThreadLocal < Format > () {
+        @Override protected Format initialValue() {
+            return getTimeParser(DEFAULT_DATE_FORMAT);
+        }
+    };
+
     public static Time parseTime(String timeValue) {
         try {
             return (Time)timeFormat.get().parseObject(timeValue);
@@ -124,14 +140,14 @@ public class DateUtil {
             throw new IllegalDataException(e);
         }
     }
-    
+
     private static ThreadLocal<Format> timestampFormat =
-        new ThreadLocal < Format > () {
-            @Override protected Format initialValue() {
-                return getTimestampParser(DEFAULT_DATE_FORMAT);
-            }
-        };
-    
+            new ThreadLocal < Format > () {
+        @Override protected Format initialValue() {
+            return getTimestampParser(DEFAULT_DATE_FORMAT);
+        }
+    };
+
     public static Timestamp parseTimestamp(String timeValue) {
         try {
             return (Timestamp)timestampFormat.get().parseObject(timeValue);
@@ -139,7 +155,7 @@ public class DateUtil {
             throw new IllegalDataException(e);
         }
     }
-    
+
     /**
      * Utility function to work around the weirdness of the {@link Timestamp} constructor.
      * This method takes the milli-seconds that spills over to the nanos part as part of 
@@ -152,7 +168,7 @@ public class DateUtil {
         ts.setNanos(ts.getNanos() + nanos);
         return ts;
     }
-    
+
     /**
      * Utility function to convert a {@link BigDecimal} value to {@link Timestamp}.
      */

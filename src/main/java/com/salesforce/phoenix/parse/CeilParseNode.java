@@ -32,12 +32,15 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CeilDateExpression;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilFunction;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 
 /**
  * Parse node corresponding to {@link CeilFunction}. 
@@ -62,14 +65,22 @@ public class CeilParseNode extends FunctionParseNode {
     public static ScalarFunction getCeilExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
+        final Object obj = children.get(1);
+        TimeUnit tu = null;
+        if(obj instanceof LiteralExpression) {
+            tu = TimeUnit.getTimeUnitIfValid((LiteralExpression)obj);
+        }
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
             return new CeilDateExpression(children);
         } else if(firstChildDataType == PDataType.TIMESTAMP) {
-            return new CeilTimestampExpression(children) ;
+            if(tu == TimeUnit.MILLISECOND) {
+                return new CeilTimestampExpression(children);
+            }
+            return new CeilDateExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new CeilDecimalExpression(children);
         } else {
-            throw new SQLException("Invalid data type: " + firstChildDataType);
+            throw new TypeMismatchException(firstChildDataType, "1");
         }
     }
     
@@ -78,6 +89,7 @@ public class CeilParseNode extends FunctionParseNode {
      * we need to prevent the function from getting evaluated as null. This is really
      * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
+     * Something like: @ Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValues = {"null", "1"} isConstant=true)
      * Till then, this will have to do.
      */
     @Override

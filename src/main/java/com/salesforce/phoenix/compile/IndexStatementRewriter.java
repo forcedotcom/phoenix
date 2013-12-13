@@ -30,7 +30,7 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
      * Rewrite the select statement by translating all data table column references to
      * references to the corresponding index column.
      * @param statement the select statement
-     * @param resolver the column resolver
+     * @param dataResolver the column resolver
      * @return new select statement or the same one if nothing was rewritten.
      * @throws SQLException 
      */
@@ -42,7 +42,7 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
      * Rewrite the select statement containing multiple tables by translating all 
      * data table column references to references to the corresponding index column.
      * @param statement the select statement
-     * @param resolver the column resolver
+     * @param dataResolver the column resolver
      * @param multiTableRewriteMap the data table to index table map
      * @return new select statement or the same one if nothing was rewritten.
      * @throws SQLException 

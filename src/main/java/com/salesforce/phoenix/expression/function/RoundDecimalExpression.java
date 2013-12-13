@@ -59,20 +59,27 @@ public class RoundDecimalExpression extends ScalarFunction {
     
     public RoundDecimalExpression(List<Expression> children) {
         super(children);
+        //add null value validation
         int numChildren = children.size();
         LiteralExpression secondChild = null;
         if(numChildren > 1) {
             secondChild = (LiteralExpression)children.get(1);
         }
-        if(secondChild != null && secondChild.getValue() instanceof Integer) {
-            scale = (Integer)secondChild.getValue();
-        }
+        if(secondChild != null && secondChild.getValue() != null) {
+            Object obj = secondChild.getValue();
+            if(obj instanceof Integer) {
+                scale = (Integer)obj;
+            } else {
+                throw new IllegalArgumentException("Invalid value " + obj + " of type " + secondChild.getDataType() + " passed at position 2 ");
+            }
+        } 
     }
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if(children.get(0).evaluate(tuple, ptr)) {
-            BigDecimal value = (BigDecimal)PDataType.DECIMAL.toObject(ptr, children.get(0).getColumnModifier());
+        Expression childExpr = children.get(0);
+        if(childExpr.evaluate(tuple, ptr)) {
+            BigDecimal value = (BigDecimal)PDataType.DECIMAL.toObject(ptr, childExpr.getColumnModifier());
             BigDecimal scaledValue = value.setScale(scale, getRoundingMode());
             ptr.set(getDataType().toBytes(scaledValue));
             return true;
@@ -111,9 +118,4 @@ public class RoundDecimalExpression extends ScalarFunction {
         return OrderPreserving.YES;
     }
 
-    @Override
-    public int getKeyFormationTraversalIndex() {
-        return 0;
-    }
-    
 }

@@ -39,6 +39,7 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -47,14 +48,15 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
+import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
-import com.salesforce.phoenix.expression.function.FloorTimestampExpression;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 public class RowValueConstructorExpression extends BaseCompoundExpression {
@@ -84,9 +86,9 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new FloorDecimalExpression(Lists.newArrayList(rhs));
+                    e = new FloorDecimalExpression(Collections.singletonList(rhs));
                 } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new FloorTimestampExpression(Lists.newArrayList(rhs));
+                    e = new FloorDateExpression(Lists.newArrayList(rhs, DateUtil.millisLiteralExpression));
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;
@@ -103,9 +105,9 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new CeilDecimalExpression(Lists.newArrayList(rhs));
+                    e = new CeilDecimalExpression(Collections.singletonList(rhs));
                 } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new CeilTimestampExpression(Lists.newArrayList(rhs));
+                    e = new CeilTimestampExpression(Lists.newArrayList(rhs, DateUtil.millisLiteralExpression));
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;

@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.expression.function;
 
 import com.google.common.base.Joiner;
+import com.salesforce.phoenix.expression.LiteralExpression;
 
 public enum TimeUnit {
     DAY("day"), 
@@ -42,7 +43,7 @@ public enum TimeUnit {
         this.value = value;
     }
     
-    private static String VALID_VALUES = Joiner.on(", ").join(TimeUnit.values());
+    public static final String VALID_VALUES = Joiner.on(", ").join(TimeUnit.values());
     
     public static TimeUnit getTimeUnit(String timeUnit) {
         if(timeUnit == null) {
@@ -54,5 +55,28 @@ public enum TimeUnit {
             }    
         }
         throw new IllegalArgumentException("Only a time unit value that belongs to one of these : " + VALID_VALUES + " is allowed.");
+    }
+    
+    /**
+     * 
+     * @param timeUnit
+     * @return {@link TimeUnit} if @param timeUnit is a valid string representing a time unit. Otherwise, null.
+     */
+    public static TimeUnit getTimeUnitIfValid(String timeUnit) {
+        try {
+            return getTimeUnit(timeUnit); 
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+    
+    /**
+     * @param expr - {@link LiteralExpression} representing a string.
+     * @return {@link TimeUnit} if @param expr represents a valid string for a time unit. Otherwise, null.
+     */
+    public static TimeUnit getTimeUnitIfValid(LiteralExpression expr) {
+        Object timeUnitValue = expr.getValue();
+        String timeUnitString = timeUnitValue == null ? null : timeUnitValue.toString();
+        return TimeUnit.getTimeUnitIfValid(timeUnitString);
     }
 }

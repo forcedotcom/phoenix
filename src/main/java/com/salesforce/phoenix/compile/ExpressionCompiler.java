@@ -671,6 +671,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         
         Expression expr = childExpr;
         if(fromDataType != null) {
+            /*
+             * IndexStatementRewriter creates a CAST parse node when rewriting the query to use
+             * indexed columns. Without this check present we wrongly and unnecessarily
+             * end up creating a RoundExpression. 
+             */
             if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
                 expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
             }

@@ -33,6 +33,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -53,11 +54,10 @@ public class CeilTimestampExpression extends CeilDateExpression {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // If divBy is 0 this means <time unit> or <multiplier> was null
-        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
-            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
+        if (children.get(0).evaluate(tuple, ptr)) {
+            ColumnModifier cm = children.get(0).getColumnModifier();
+            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, cm);
             Timestamp roundedTs;
-            
             if(divBy == 1 && ts.getNanos() > 0) {
                 roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
             } else {    
@@ -68,7 +68,7 @@ public class CeilTimestampExpression extends CeilDateExpression {
             return true;
         }
         return false;
-    }
+    }   
 
     @Override
     public PDataType getDataType() {

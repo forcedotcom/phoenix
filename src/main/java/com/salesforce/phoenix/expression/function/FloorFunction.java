@@ -36,10 +36,10 @@ import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
 /**
  * 
- * Describe your class here.
+ * Base class for built-in FLOOR function.
  *
  * @author samarth.jain
- * @since 2.1.3
+ * @since 3.0.0
  */
 @BuiltInFunction(name = FloorFunction.NAME,
                  nodeClass = FloorParseNode.class,

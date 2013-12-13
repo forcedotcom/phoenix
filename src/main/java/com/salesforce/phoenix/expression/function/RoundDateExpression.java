@@ -76,13 +76,15 @@ public class RoundDateExpression extends ScalarFunction {
     
     public RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
-        Object timeUnitValue = ((LiteralExpression)children.get(1)).getValue();
-        Object multiplierValue = ((LiteralExpression)children.get(2)).getValue();
-        if (multiplierValue != null) {
-            TimeUnit timeUnit = TimeUnit.getTimeUnit(timeUnitValue != null ? timeUnitValue.toString().toUpperCase() : null); 
-            int multiplier = ((Number)multiplierValue).intValue();
-            divBy = multiplier * TIME_UNIT_MS[timeUnit.ordinal()];
+        int numChildren = children.size();
+        if(numChildren < 2) {
+            throw new IllegalArgumentException("Wrong number of arguments : " + numChildren);
         }
+        Object timeUnitValue = ((LiteralExpression)children.get(1)).getValue();
+        Object multiplierValue = numChildren > 2 ? ((LiteralExpression)children.get(2)).getValue() : null;
+        int multiplier = multiplierValue == null ? 1 :((Number)multiplierValue).intValue();
+        TimeUnit timeUnit = TimeUnit.getTimeUnit(timeUnitValue != null ? timeUnitValue.toString() : null); 
+        divBy = multiplier * TIME_UNIT_MS[timeUnit.ordinal()];
     }
     
     
@@ -104,7 +106,6 @@ public class RoundDateExpression extends ScalarFunction {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // If divBy is 0 this means <time unit> or <multiplier> was null
         if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
             long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
             long value = roundTime(time);

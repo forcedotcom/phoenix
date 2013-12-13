@@ -40,12 +40,11 @@ public interface EventSerializer extends Configurable,ConfigurableComponent,SQLC
 
     /**
      * called during the start of the process to initialize the table columns.
-     * @param connection
      */
     public void initialize() throws SQLException;
     
     /**
-     * @param Events to be written to HBase.
+     * @param events to be written to HBase.
      * @throws SQLException 
      */
     public void upsertEvents(List<Event> events) throws SQLException;

@@ -32,12 +32,15 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 
 /**
  * 
@@ -63,14 +66,22 @@ public class RoundParseNode extends FunctionParseNode {
     public static ScalarFunction getRoundExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
+        final Object obj = children.get(1);
+        TimeUnit tu = null;
+        if(obj instanceof LiteralExpression) {
+            tu = TimeUnit.getTimeUnitIfValid((LiteralExpression)obj);
+        }
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
             return new RoundDateExpression(children);
         } else if(firstChildDataType == PDataType.TIMESTAMP) {
-            return new RoundTimestampExpression(children) ;
+            if(tu == TimeUnit.MILLISECOND) {
+                return new RoundTimestampExpression(children);
+            }
+            return new RoundDateExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new RoundDecimalExpression(children);
         } else {
-            throw new SQLException("Invalid data type: " + firstChildDataType);
+            throw new TypeMismatchException(firstChildDataType, "1");
         }
     }
     
@@ -79,6 +90,7 @@ public class RoundParseNode extends FunctionParseNode {
      * we need to prevent the function from getting evaluated as null. This is really
      * a hack. A better way would have been if {@link com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo} provided a 
      * way of associating default values for each permissible data type.
+     * Something like: @ Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValues = {"null", "1"} isConstant=true)
      * Till then, this will have to do.
      */
     @Override
