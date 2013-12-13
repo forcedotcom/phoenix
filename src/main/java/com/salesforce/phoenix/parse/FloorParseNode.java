@@ -65,7 +65,7 @@ public class FloorParseNode extends FunctionParseNode {
         
         //FLOOR on timestamp doesn't really care about the nanos part i.e. it just sets it to zero. 
         //Which is exactly what FloorDateExpression does too. 
-        if(firstChildDataType.isCoercibleTo(PDataType.DATE) || firstChildDataType == PDataType.TIMESTAMP) {
+        if(firstChildDataType.isCoercibleTo(PDataType.TIMESTAMP)) {
             return new FloorDateExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new FloorDecimalExpression(children);

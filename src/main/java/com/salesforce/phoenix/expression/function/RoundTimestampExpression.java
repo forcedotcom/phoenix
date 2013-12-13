@@ -58,8 +58,7 @@ public class RoundTimestampExpression extends RoundDateExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        // If divBy is 0 this means <time unit> or <multiplier> was null
-        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
+        if (children.get(0).evaluate(tuple, ptr)) {
             Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
             Timestamp roundedTs;
             if(divBy == 1 && ts.getNanos() > HALF_OF_NANOS_IN_MILLI) {

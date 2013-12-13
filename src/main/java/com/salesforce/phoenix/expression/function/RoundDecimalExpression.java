@@ -39,6 +39,7 @@ import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -70,7 +71,7 @@ public class RoundDecimalExpression extends ScalarFunction {
             if(obj instanceof Integer) {
                 scale = (Integer)obj;
             } else {
-                throw new IllegalArgumentException("Invalid value " + obj + " of type " + secondChild.getDataType() + " passed at position 2 ");
+                throw new IllegalDataException("Invalid value " + obj + " of type " + secondChild.getDataType() + " passed at position 2 ");
             }
         } 
     }

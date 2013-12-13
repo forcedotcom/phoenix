@@ -77,7 +77,7 @@ public class RoundDateExpression extends ScalarFunction {
     public RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
         int numChildren = children.size();
-        if(numChildren < 2) {
+        if(numChildren < 2 || numChildren > 3) {
             throw new IllegalArgumentException("Wrong number of arguments : " + numChildren);
         }
         Object timeUnitValue = ((LiteralExpression)children.get(1)).getValue();
@@ -106,7 +106,7 @@ public class RoundDateExpression extends ScalarFunction {
     
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        if (divBy != 0 && children.get(0).evaluate(tuple, ptr)) {
+        if (children.get(0).evaluate(tuple, ptr)) {
             long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
             long value = roundTime(time);
             // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
