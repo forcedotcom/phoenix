@@ -48,7 +48,6 @@ import com.google.common.primitives.Booleans;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Longs;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
@@ -1285,13 +1284,9 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
             if (l == 0) {
                 return null;
-            }
-            if (columnModifier != null) {
-                b = columnModifier.apply(b, o, new byte[l], 0, l);
-                o = 0;
             }
             switch (actualType) {
             case DECIMAL:
@@ -1315,10 +1310,10 @@ public enum PDataType {
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             case TIMESTAMP:
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
-                long millisPart = ts.getTime();
-                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
-                return value;
+                BigDecimal v = BigDecimal.valueOf(ts.getTime());
+                int nanos = ts.getNanos();
+                v = v.add(BigDecimal.valueOf(nanos, 9));
+                return v;
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1350,12 +1345,6 @@ public enum PDataType {
                 return BigDecimal.valueOf((Double)object);
             case DECIMAL:
                 return object;
-            case TIMESTAMP:
-                Timestamp ts = (Timestamp)object;
-                long millisPart = ts.getTime();
-                BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
-                return value;
             default:
                 return super.toObject(object, actualType);
             }
@@ -1427,7 +1416,7 @@ public enum PDataType {
                     case UNSIGNED_FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
+                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxFloat)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1436,10 +1425,8 @@ public enum PDataType {
                     case FLOAT:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxFloat = MAX_FLOAT_AS_BIG_DECIMAL;
-                            // Float.MIN_VALUE should not be used here, as this is the
-                            // smallest in terms of closest to zero.
-                            BigDecimal minFloat = MIN_FLOAT_AS_BIG_DECIMAL;
+                            BigDecimal maxFloat = BigDecimal.valueOf(Float.MAX_VALUE);
+                            BigDecimal minFloat = BigDecimal.valueOf(Float.MIN_VALUE);
                             return bd.compareTo(maxFloat)<=0 && bd.compareTo(minFloat)>=0;
                         } catch(Exception e) {
                             return false;
@@ -1447,7 +1434,7 @@ public enum PDataType {
                     case UNSIGNED_DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
+                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
                             boolean isNegtive = (bd.signum() == -1);
                             return bd.compareTo(maxDouble)<=0 && !isNegtive;
                         } catch(Exception e) {
@@ -1456,8 +1443,8 @@ public enum PDataType {
                     case DOUBLE:
                         bd = (BigDecimal) value;
                         try {
-                            BigDecimal maxDouble = MAX_DOUBLE_AS_BIG_DECIMAL;
-                            BigDecimal minDouble = MIN_DOUBLE_AS_BIG_DECIMAL;
+                            BigDecimal maxDouble = BigDecimal.valueOf(Double.MAX_VALUE);
+                            BigDecimal minDouble = BigDecimal.valueOf(Double.MIN_VALUE);
                             return bd.compareTo(maxDouble)<=0 && bd.compareTo(minDouble)>=0;
                         } catch(Exception e) {
                             return false;
@@ -1569,13 +1556,7 @@ public enum PDataType {
             int size = Bytes.SIZEOF_LONG;
             Timestamp value = (Timestamp)object;
             offset = Bytes.putLong(bytes, offset, value.getTime());
-            
-            /*
-             * By not getting the stuff that got spilled over from the millis part,
-             * it leaves the timestamp's byte representation saner - 8 bytes of millis | 4 bytes of nanos.
-             * Also, it enables timestamp bytes to be directly compared with date/time bytes.   
-             */
-            Bytes.putInt(bytes, offset, value.getNanos() % 1000000);  
+            Bytes.putInt(bytes, offset, value.getNanos());
             size += Bytes.SIZEOF_INT;
             return size;
         }
@@ -1598,25 +1579,14 @@ public enum PDataType {
         }
 
         @Override
-        public Object toObject(byte[] b, int o, int l, PDataType actualType, ColumnModifier columnModifier) {
-            if (actualType == null || l == 0) {
+        public Object toObject(byte[] b, int o, int l, PDataType actualType) {
+            if (l == 0) {
                 return null;
-            }
-            if (columnModifier != null) {
-                b = columnModifier.apply(b, o, new byte[l], 0, l);
-                o = 0;
             }
             switch (actualType) {
             case TIMESTAMP:
-                long millisDeserialized = Bytes.toLong(b, o, Bytes.SIZEOF_LONG);
-                Timestamp v = new Timestamp(millisDeserialized);
-                int nanosDeserialized = Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT);
-                /*
-                 * There was a bug in serialization of timestamps which was causing the sub-second millis part
-                 * of time stamp to be present both in the LONG and INT bytes. Having the <100000 check
-                 * makes this serialization fix backward compatible.
-                 */
-                v.setNanos(nanosDeserialized < 1000000 ? v.getNanos() + nanosDeserialized : nanosDeserialized);
+                Timestamp v = new Timestamp(Bytes.toLong(b, o, Bytes.SIZEOF_LONG));
+                v.setNanos(Bytes.toInt(b, o + Bytes.SIZEOF_LONG, Bytes.SIZEOF_INT));
                 return v;
             case DATE:
             case TIME:
@@ -1624,8 +1594,9 @@ public enum PDataType {
             case DECIMAL:
                 BigDecimal bd = (BigDecimal) actualType.toObject(b, o, l);
                 long ms = bd.longValue();
-                int nanos = (bd.remainder(BigDecimal.ONE).multiply(QueryConstants.BD_MILLIS_NANOS_CONVERSION)).intValue();
-                v = DateUtil.getTimestamp(ms, nanos);
+                int nanos = bd.remainder(BigDecimal.ONE).intValue();
+                v = new Timestamp(ms);
+                v.setNanos(nanos);
                 return v;
             default:
                 throw new ConstraintViolationException(actualType + " cannot be coerced to " + this);
@@ -1634,7 +1605,8 @@ public enum PDataType {
         
         @Override
         public boolean isCoercibleTo(PDataType targetType) {
-            return this == targetType || targetType == VARBINARY || targetType == BINARY;
+            return this == targetType || targetType == DATE || targetType == TIME 
+                    || targetType == VARBINARY || targetType == BINARY;
         }
 
         @Override
@@ -3129,10 +3101,6 @@ public enum PDataType {
     },
     ;
 
-    private static final BigDecimal MIN_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(-Double.MAX_VALUE);
-    private static final BigDecimal MAX_DOUBLE_AS_BIG_DECIMAL = BigDecimal.valueOf(Double.MAX_VALUE);
-    private static final BigDecimal MIN_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(-Float.MAX_VALUE);
-    private static final BigDecimal MAX_FLOAT_AS_BIG_DECIMAL = BigDecimal.valueOf(Float.MAX_VALUE);
     private final String sqlTypeName;
     private final int sqlType;
     private final Class clazz;
@@ -4589,10 +4557,10 @@ public enum PDataType {
         if (actualType == null) {
             return null;
         }
-    	if (columnModifier != null) {
-    	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
-    	    offset = 0;
-    	}
+        	if (columnModifier != null) {
+        	    bytes = columnModifier.apply(bytes, offset, new byte[length], 0, length);
+        	    offset = 0;
+        	}
         Object o = actualType.toObject(bytes, offset, length);
         return this.toObject(o, actualType);
     }
@@ -4750,4 +4718,5 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
+    
 }

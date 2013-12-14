@@ -70,8 +70,6 @@ import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
-import com.salesforce.phoenix.expression.TimestampAddExpression;
-import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
@@ -932,16 +930,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                  * become a number. For date1-5, we want to preserve the DATE
                  * type because this can still be compared against another date
                  * and cannot be multiplied or divided. Any other time occurs is
-                 * an error. For example, 5-date1 is an error. The nulls occur if
-                 * we have bind variables.
+                 * an error. For example, 5-date1 is an error The nulls occur if
+                 * we have bind variables
                  */
-                boolean isType1Date = 
-                        type1 != null 
-                        && type1 != PDataType.TIMESTAMP
+                boolean isType1Date = type1 != null
                         && type1.isCoercibleTo(PDataType.DATE);
-                boolean isType2Date = 
-                        type2 != null
-                        && type2 != PDataType.TIMESTAMP
+                boolean isType2Date = type2 != null
                         && type2.isCoercibleTo(PDataType.DATE);
                 if (isType1Date || isType2Date) {
                     if (isType1Date && isType2Date) {
@@ -955,16 +949,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         /*
                          * FIXME: Could be either a Date or BigDecimal, but we
                          * don't know if we're comparing to a date or a number
-                         * which would be disambiguate it.
+                         * which would be rdisambiguate it.
                          */
                         i = 2;
                         theType = null;
                     }
-                } else if(type1 == PDataType.TIMESTAMP || type2 == PDataType.TIMESTAMP) {
-                    i = 2;
-                    theType = PDataType.TIMESTAMP;
                 }
-                
                 for (; i < children.size(); i++) {
                     // This logic finds the common type to which all child types are coercible
                     // without losing precision.
@@ -1001,8 +991,6 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     return new DoubleSubtractExpression(children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
-                } else if (theType == PDataType.TIMESTAMP) {
-                    return new TimestampSubtractExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
                 } else {
@@ -1064,16 +1052,14 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     PDataType type = children.get(i).getDataType();
                     if (type == null) {
                         continue; 
-                    } else if (type.isCoercibleTo(PDataType.TIMESTAMP)) {
+                    } else if (type.isCoercibleTo(PDataType.DATE)) {
                         if (foundDate) {
                             throw new TypeMismatchException(type, node.toString());
                         }
-                        if (theType == null || theType != PDataType.TIMESTAMP) {
-                            theType = type;
-                        }
+                        theType = type;
                         foundDate = true;
                     }else if (type == PDataType.DECIMAL) {
-                        if (theType == null || !theType.isCoercibleTo(PDataType.TIMESTAMP)) {
+                        if (theType == null || !theType.isCoercibleTo(PDataType.DATE)) {
                             theType = PDataType.DECIMAL;
                         }
                     } else if (type.isCoercibleTo(PDataType.LONG)) {
@@ -1089,17 +1075,15 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     }
                 }
                 if (theType == PDataType.DECIMAL) {
-                    return new DecimalAddExpression(children);
+                    return new DecimalAddExpression( children);
                 } else if (theType == PDataType.LONG) {
-                    return new LongAddExpression(children);
+                    return new LongAddExpression( children);
                 } else if (theType == PDataType.DOUBLE) {
-                    return new DoubleAddExpression(children);
+                    return new DoubleAddExpression( children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
-                } else if (theType == PDataType.TIMESTAMP) {
-                    return new TimestampAddExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
-                    return new DateAddExpression(children);
+                    return new DateAddExpression( children);
                 } else {
                     throw new TypeMismatchException(theType, node.toString());
                 }

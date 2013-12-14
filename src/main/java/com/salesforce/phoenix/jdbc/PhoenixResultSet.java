@@ -32,22 +32,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.NClob;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.text.Format;
 import java.util.Calendar;
 import java.util.Map;
@@ -63,7 +48,6 @@ import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
 
 
@@ -641,8 +625,9 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
         if (value == null) {
             return null;
         }
-        cal.setTime(value); //this resets the millisecond part of timestamp according to the time zone of the calendar.
-        return DateUtil.getTimestamp(cal.getTimeInMillis(), value.getNanos());
+        cal.setTime(value);
+        value.setTime(cal.getTimeInMillis()); // TODO: are nanos preserved?
+        return value;
     }
 
     @Override

@@ -136,8 +136,6 @@ public enum ExpressionType {
     IndexKeyValue(IndexKeyValueColumnExpression.class),
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),
-    TimestampAddExpression(TimestampAddExpression.class),
-    TimestampSubtractExpression(TimestampSubtractExpression.class),
     ;
     
     ExpressionType(Class<? extends Expression> clazz) {
