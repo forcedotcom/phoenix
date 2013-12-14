@@ -77,6 +77,14 @@ abstract public class Aggregators {
         }
         return buf.toString();
     }
+    
+    /**
+     * Return the aggregate functions
+     */
+    public SingleAggregateFunction[] getFunctions() {
+        return functions;
+    }
+    
     /**
      * Aggregate over aggregators
      * @param result the single row Result from scan iteration

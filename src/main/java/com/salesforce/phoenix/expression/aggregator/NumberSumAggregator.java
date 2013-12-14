@@ -104,4 +104,15 @@ abstract public class NumberSumAggregator extends BaseAggregator {
     public int getSize() {
         return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getBufferLength();
     }
+    
+    @Override
+    public void init(Aggregator clientAgg) {
+        // TODO move into a new constrcutor
+        // type safety on clientAgg
+        ImmutableBytesWritable ptr = evalClientAggs(clientAgg);
+        sum = getDataType().getCodec().decodeLong(ptr, columnModifier);
+        if(buffer == null) {
+            initBuffer();
+        }       
+    }
 }

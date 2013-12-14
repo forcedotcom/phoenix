@@ -78,7 +78,7 @@ public class CountAggregator extends BaseAggregator {
         count = 0;
         buffer = null;
         super.reset();
-    }
+    }      
     
     @Override
     public String toString() {
@@ -88,5 +88,16 @@ public class CountAggregator extends BaseAggregator {
     @Override
     public int getSize() {
         return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getByteSize();
+    }
+    
+    @Override
+    public void init(Aggregator clientAgg) {
+        // FIXME move into a new constructor
+        // FIXME type safety for clientAgg, casting to LongSumAggregator doesnt look right here...
+        ImmutableBytesWritable ptr = evalClientAggs(clientAgg);
+        count = getDataType().getCodec().decodeLong(ptr, columnModifier);
+        if (buffer == null) {
+            buffer = new byte[getDataType().getByteSize()];
+        }
     }
 }
