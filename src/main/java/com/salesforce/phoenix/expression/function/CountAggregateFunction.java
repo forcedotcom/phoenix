@@ -32,9 +32,12 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.CountAggregator;
+import com.salesforce.phoenix.expression.aggregator.LongSumAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -90,7 +93,7 @@ public class CountAggregateFunction extends SingleAggregateFunction {
     }
 
     @Override 
-    public Aggregator newClientAggregator() {
+    public LongSumAggregator newClientAggregator() {
         // Since COUNT can never be null, ensure the aggregator is not nullable.
         // This allows COUNT(*) to return 0 with the initial state of ClientAggregators
         // when no rows are returned. 
@@ -110,5 +113,12 @@ public class CountAggregateFunction extends SingleAggregateFunction {
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Override
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesPtr ptr) {
+        LongSumAggregator sumAgg = newClientAggregator();
+        sumAgg.aggregate(null, ptr);
+        return new CountAggregator(sumAgg);
     }
 }

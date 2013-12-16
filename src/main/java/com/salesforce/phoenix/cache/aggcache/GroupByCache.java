@@ -54,7 +54,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
      * @param ctxt
      */
     public GroupByCache( long estSize, int estValueSize, ServerAggregators aggs,
-                         ObserverContext<RegionCoprocessorEnvironment> ctxt ) {
+                         final ObserverContext<RegionCoprocessorEnvironment> ctxt ) {
         context = ctxt; 
         this.estValueSize = estValueSize;
         curNumCacheElements = 0;
@@ -79,7 +79,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
                                         // Lazy instantiation of spillable data structures
                                         //
                                         // Only create spill data structs if LRU cache is too small
-                                        spillManager = new SpillManager(NUM_SPILLFILES, aggregators);
+                                        spillManager = new SpillManager(NUM_SPILLFILES, aggregators, context.getEnvironment().getConfiguration());
                                     }
                                     spillManager.spill(notification.getKey(), notification.getValue());
                                     // keep track of elements in cache       

@@ -31,50 +31,28 @@ import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
 import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
-import com.salesforce.phoenix.expression.aggregator.PercentileDiscClientAggregator;
-import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
-import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.PDataType;
 
+public abstract class DistinctValueWithCountAggregateFunction extends SingleAggregateFunction {
 
-/**
- * 
- * Built-in function for PERCENTILE_DISC(<expression>) WITHIN GROUP (ORDER BY <expression> ASC/DESC) aggregate function
- *
- * @author ramkrishna
- * @since 1.2.1
- */
-@BuiltInFunction(name = PercentileDiscAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
-        @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
-        @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
-public class PercentileDiscAggregateFunction extends DistinctValueWithCountAggregateFunction {
+    public DistinctValueWithCountAggregateFunction() {
+    }
 
-	public static final String NAME = "PERCENTILE_DISC";
+    public DistinctValueWithCountAggregateFunction(List<Expression> children) {
+        super(children);
+    }
 
-	public PercentileDiscAggregateFunction() {
-	}
-
-	public PercentileDiscAggregateFunction(List<Expression> childern) {
-		super(childern);
-	}
-	
-	@Override
-	public Aggregator newServerAggregator(Configuration conf) {
-		return new DistinctValueWithCountServerAggregator(conf);
-	}
-	
-	@Override
-	public DistinctValueWithCountClientAggregator newClientAggregator() {
-		return new PercentileDiscClientAggregator(children, getAggregatorExpression().getColumnModifier());
-	}
-
-	@Override
-	public String getName() {
-		return NAME;
-	}
-	
+    @Override
+    abstract public DistinctValueWithCountClientAggregator newClientAggregator();
+    
+    @Override
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesPtr ptr) {
+        DistinctValueWithCountClientAggregator clientAgg = newClientAggregator();
+        clientAgg.aggregate(null, ptr);
+        return new DistinctValueWithCountServerAggregator(config, clientAgg);
+    }
 }

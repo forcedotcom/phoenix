@@ -32,7 +32,10 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.PercentRankClientAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -46,7 +49,7 @@ import com.salesforce.phoenix.schema.PDataType;
  */
 @BuiltInFunction(name = PercentRankAggregateFunction.NAME, args = { @Argument(),
         @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true), @Argument(isConstant = true) })
-public class PercentRankAggregateFunction extends SingleAggregateFunction {
+public class PercentRankAggregateFunction extends DistinctValueWithCountAggregateFunction {
     public static final String NAME = "PERCENT_RANK";
 
     public PercentRankAggregateFunction() {
@@ -63,7 +66,7 @@ public class PercentRankAggregateFunction extends SingleAggregateFunction {
     }
 
     @Override
-    public Aggregator newClientAggregator() {
+    public DistinctValueWithCountClientAggregator newClientAggregator() {
         return new PercentRankClientAggregator(children, getAggregatorExpression().getColumnModifier());
     }
 

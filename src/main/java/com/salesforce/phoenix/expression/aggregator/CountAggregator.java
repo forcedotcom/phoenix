@@ -48,6 +48,11 @@ public class CountAggregator extends BaseAggregator {
         super(null);
     }
     
+    public CountAggregator(LongSumAggregator clientAgg) {
+        this();
+        count = clientAgg.getSum();
+    }
+
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         count++;

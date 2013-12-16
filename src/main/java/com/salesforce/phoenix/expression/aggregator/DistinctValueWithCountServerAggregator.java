@@ -29,7 +29,8 @@ package com.salesforce.phoenix.expression.aggregator;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.hadoop.conf.Configuration;
@@ -45,7 +46,8 @@ import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.util.ByteUtil;
+import com.salesforce.phoenix.util.SizedUtil;
 
 /**
  * Server side Aggregator which will aggregate data and find distinct values with number of occurrences for each.
@@ -67,6 +69,11 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
         super(null);
         compressThreshold = conf.getInt(QueryServices.DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB,
                 QueryServicesOptions.DEFAULT_DISTINCT_VALUE_COMPRESS_THRESHOLD);
+    }
+
+    public DistinctValueWithCountServerAggregator(Configuration conf, DistinctValueWithCountClientAggregator clientAgg) {
+        this(conf);
+        valueVsCount = clientAgg.valueVsCount;
     }
 
     @Override

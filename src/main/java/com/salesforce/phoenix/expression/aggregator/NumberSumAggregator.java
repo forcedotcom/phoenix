@@ -50,6 +50,10 @@ abstract public class NumberSumAggregator extends BaseAggregator {
         super(columnModifier);
     }
 
+    public long getSum() {
+        return sum;
+    }
+    
     abstract protected PDataType getInputDataType();
     
     private int getBufferLength() {
