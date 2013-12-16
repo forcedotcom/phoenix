@@ -107,7 +107,8 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
     
     @Override
     public Aggregator newServerAggregator(Configuration conf, ImmutableBytesWritable ptr) {
-        return newAggregator(getDataType(), null, ptr);
+        Expression child = getAggregatorExpression();
+        return newAggregator(child.getDataType(), child.getColumnModifier(), ptr);
     }
     
     @Override
