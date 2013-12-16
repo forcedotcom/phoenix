@@ -62,7 +62,7 @@ public class CeilDecimalExpression extends RoundDecimalExpression {
    }
    
    /**
-    * Creates a {@link FloorDecimalExpression} with a default scale of 0 used for rounding. 
+    * Creates a {@link CeilDecimalExpression} with a default scale of 0 used for rounding. 
     *
     */
    public static CeilDecimalExpression create(Expression expr) throws SQLException {

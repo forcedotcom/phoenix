@@ -55,17 +55,6 @@ public class DateUtil {
     private DateUtil() {
     }
 
-    /*public static final Expression millisLiteralExpression = init();
-
-    private static Expression init() {
-        try {
-            return LiteralExpression.newConstant(TimeUnit.MILLISECOND.name(), PDataType.VARCHAR);
-        } catch (SQLException e) {
-            //not possible
-            return null;
-        }
-    }*/
-
     public static Format getDateParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
             @Override
