@@ -27,8 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
 
 /**
@@ -47,6 +49,26 @@ public class FloorDateExpression extends RoundDateExpression {
         super(children);
     }
     
+    /**
+     * @param timeUnit - unit of time to round up to.
+     * Creates a {@link FloorDateExpression} with default multiplier of 1.
+     */
+    public static FloorDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+        return create(expr, timeUnit, 1);
+    }
+    
+    /**
+     * @param timeUnit - unit of time to round up to
+     * @param multiplier - determines the roll up window size.
+     * Create a {@link FloorDateExpression}. 
+     */
+    public static FloorDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+        Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
+        Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
+        List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
+        return new FloorDateExpression(expressions);
+    }
+   
     @Override
     protected long getRoundUpAmount() {
         return 0;

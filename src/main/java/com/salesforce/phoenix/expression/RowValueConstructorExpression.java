@@ -39,7 +39,6 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -50,13 +49,13 @@ import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
 
 public class RowValueConstructorExpression extends BaseCompoundExpression {
@@ -67,7 +66,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     private int estimatedByteSize;
     
     public static interface ExpressionComparabilityWrapper {
-        public Expression wrap(Expression lhs, Expression rhs);
+        public Expression wrap(Expression lhs, Expression rhs) throws SQLException;
     }
     /*
      * Used to coerce the RHS to the expected type based on the LHS. In some circumstances,
@@ -81,14 +80,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         WRAPPERS[CompareOp.LESS.ordinal()] = new ExpressionComparabilityWrapper() {
 
             @Override
-            public Expression wrap(Expression lhs, Expression rhs) {
+            public Expression wrap(Expression lhs, Expression rhs) throws SQLException {
                 Expression e = rhs;
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new FloorDecimalExpression(Collections.singletonList(rhs));
-                } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new FloorDateExpression(Lists.newArrayList(rhs, DateUtil.millisLiteralExpression));
+                    e = FloorDecimalExpression.create(rhs);
+                } else if ((rhsType == PDataType.TIMESTAMP || rhsType == PDataType.UNSIGNED_TIMESTAMP)  && (lhsType != PDataType.TIMESTAMP && lhsType != PDataType.UNSIGNED_TIMESTAMP)) {
+                    e = FloorDateExpression.create(rhs, TimeUnit.MILLISECOND);
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;
@@ -100,14 +99,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         WRAPPERS[CompareOp.GREATER.ordinal()] = new ExpressionComparabilityWrapper() {
 
             @Override
-            public Expression wrap(Expression lhs, Expression rhs) {
+            public Expression wrap(Expression lhs, Expression rhs) throws SQLException {
                 Expression e = rhs;
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new CeilDecimalExpression(Collections.singletonList(rhs));
-                } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new CeilTimestampExpression(Lists.newArrayList(rhs, DateUtil.millisLiteralExpression));
+                    e = CeilDecimalExpression.create(rhs);
+                } else if ((rhsType == PDataType.TIMESTAMP || rhsType == PDataType.UNSIGNED_TIMESTAMP)  && (lhsType != PDataType.TIMESTAMP && lhsType != PDataType.UNSIGNED_TIMESTAMP)) {
+                    e = CeilTimestampExpression.create(rhs);
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;

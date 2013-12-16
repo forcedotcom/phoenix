@@ -50,12 +50,12 @@ import com.salesforce.phoenix.util.DateUtil;
 
 /**
  * 
- * Tests for {@link RoundFunction}, {@link FloorFunction}, {@link CeilFunction} 
+ * End to end tests for {@link RoundFunction}, {@link FloorFunction}, {@link CeilFunction} 
  *
  * @author samarth.jain
  * @since 3.0.0
  */
-public class RoundFloorCeilFunctionsTest extends BaseClientMangedTimeTest {
+public class RoundFloorCeilFunctionsEnd2EndTest extends BaseClientMangedTimeTest {
     
     private static long millisPart = 660;
     private static int nanosPart = 500100;
@@ -104,7 +104,6 @@ public class RoundFloorCeilFunctionsTest extends BaseClientMangedTimeTest {
         assertEquals(expectedDate, rs.getDate(3));
         expectedDate = DateUtil.parseDate("2012-01-01 14:25:29");
         assertEquals(expectedDate, rs.getDate(4));
-        System.out.println(rs.getDate(5));
     }
     
     @Test
@@ -149,8 +148,6 @@ public class RoundFloorCeilFunctionsTest extends BaseClientMangedTimeTest {
         expectedDate = DateUtil.parseDate("2012-01-01 14:26:00");
         assertEquals(expectedDate, rs.getDate(3));
         expectedDate = DateUtil.parseDate("2012-01-01 14:25:29");
-        System.out.println(expectedDate.getTime());
-        System.out.println(rs.getDate(4).getTime());
         assertEquals(expectedDate, rs.getDate(4));
     }
     

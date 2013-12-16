@@ -27,8 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
 
 /**
@@ -41,6 +43,26 @@ import com.salesforce.phoenix.expression.Expression;
 public class CeilDateExpression extends RoundDateExpression {
     
     public CeilDateExpression() {}
+    
+    /**
+     * @param timeUnit - unit of time to round up to.
+     * Creates a {@link CeilDateExpression} with default multiplier of 1.
+     */
+    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+        return create(expr, timeUnit, 1);
+    }
+    
+    /**
+     * @param timeUnit - unit of time to round up to
+     * @param multiplier - determines the roll up window size.
+     * Create a {@link CeilDateExpression}. 
+     */
+    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+        Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
+        Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
+        List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
+        return new CeilDateExpression(expressions);
+    }
     
     public CeilDateExpression(List<Expression> children) {
         super(children);

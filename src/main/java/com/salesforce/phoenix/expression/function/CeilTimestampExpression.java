@@ -27,12 +27,15 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -40,7 +43,9 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
  * 
  * Class encapsulating the CEIL operation on {@link com.salesforce.phoenix.schema.PDataType#TIMESTAMP}
- *
+ * This class only supports CEIL {@link TimeUnit#MILLISECOND}. If you want more options of CEIL like 
+ * using {@link TimeUnit#HOUR} use {@link CeilDateExpression}
+ * 
  * @author samarth.jain
  * @since 3.0.0
  */
@@ -48,31 +53,51 @@ public class CeilTimestampExpression extends CeilDateExpression {
     
     public CeilTimestampExpression() {}
     
-    public CeilTimestampExpression(List<Expression> children) {
+    private CeilTimestampExpression(List<Expression> children) {
         super(children);
     }
     
+    /**
+     * Creates a {@link CeilTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding. 
+     */
+    public static CeilTimestampExpression create(Expression expr, LiteralExpression multiplierExpr) throws SQLException {
+        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), multiplierExpr);
+        return new CeilTimestampExpression(childExprs); 
+    }
+    
+    /**
+     * Creates a {@link CeilTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding. 
+     */
+    public static CeilTimestampExpression create(Expression expr, int multiplier) throws SQLException {
+        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), getMultiplierExpr(multiplier));
+        return new CeilTimestampExpression(childExprs); 
+    }
+    
+    /**
+     * Creates a {@link CeilTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding. 
+     */
+    public static CeilTimestampExpression create (Expression expr) throws SQLException {
+        return create(expr, 1);
+    }
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (children.get(0).evaluate(tuple, ptr)) {
-            ColumnModifier cm = children.get(0).getColumnModifier();
-            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, cm);
-            Timestamp roundedTs;
-            if(divBy == 1 && ts.getNanos() > 0) {
-                roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
-            } else {    
-                roundedTs = new Timestamp(roundTime(ts.getTime()));
+            ColumnModifier columnModifier = children.get(0).getColumnModifier();
+            PDataType dataType = getDataType();
+            int nanos = dataType.getNanos(ptr, columnModifier);
+            if (nanos > 0) {
+                long millis = dataType.getMillis(ptr, columnModifier); 
+                Timestamp roundedTs = new Timestamp(millis + 1);
+                byte[] byteValue = dataType.toBytes(roundedTs);
+                ptr.set(byteValue);
             }
-            byte[] byteValue = getDataType().toBytes(roundedTs);
-            ptr.set(byteValue);
-            return true;
+            return true; // for timestamp we only support rounding up the milliseconds.
         }
         return false;
     }   
-
-    @Override
-    public PDataType getDataType() {
-        return PDataType.TIMESTAMP;
-    }
 
 }

@@ -65,16 +65,15 @@ public class CeilParseNode extends FunctionParseNode {
     public static ScalarFunction getCeilExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
-        final Object obj = children.get(1);
-        TimeUnit tu = null;
-        if(obj instanceof LiteralExpression) {
-            tu = TimeUnit.getTimeUnitIfValid((LiteralExpression)obj);
-        }
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
             return new CeilDateExpression(children);
-        } else if(firstChildDataType == PDataType.TIMESTAMP) {
+        } else if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP) {
+            Object secondChild = ((LiteralExpression)children.get(1)).getValue();
+            String timeUnit = secondChild == null ? null : secondChild.toString(); 
+            TimeUnit tu = TimeUnit.getTimeUnit(timeUnit);
+            LiteralExpression multiplierExpr = (LiteralExpression)children.get(2);
             if(tu == TimeUnit.MILLISECOND) {
-                return new CeilTimestampExpression(children);
+                return CeilTimestampExpression.create(firstChild, multiplierExpr);
             }
             return new CeilDateExpression(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
@@ -94,7 +93,7 @@ public class CeilParseNode extends FunctionParseNode {
      */
     @Override
     public boolean evalToNullIfParamIsNull(StatementContext context, int index) throws SQLException {
-        return false;
+        return index == 0;
     }
     
     

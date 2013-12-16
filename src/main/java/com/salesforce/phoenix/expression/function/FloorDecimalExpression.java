@@ -28,9 +28,13 @@
 package com.salesforce.phoenix.expression.function;
 
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.util.List;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
@@ -46,6 +50,24 @@ public class FloorDecimalExpression extends RoundDecimalExpression {
     
     public FloorDecimalExpression(List<Expression> children) {
         super(children);
+    }
+    
+    /**
+     * Creates a {@link FloorDecimalExpression} with rounding scale given by @param scale. 
+     *
+     */
+    public static FloorDecimalExpression create(Expression expr, int scale) throws SQLException {
+        Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
+        List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
+        return new FloorDecimalExpression(expressions);
+    }
+    
+    /**
+     * Creates a {@link FloorDecimalExpression} with a default scale of 0 used for rounding. 
+     *
+     */
+    public static FloorDecimalExpression create(Expression expr) throws SQLException {
+        return create(expr, 0);
     }
     
     @Override

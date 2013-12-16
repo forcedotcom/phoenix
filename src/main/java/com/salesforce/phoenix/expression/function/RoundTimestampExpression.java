@@ -33,7 +33,10 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
@@ -41,6 +44,9 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * 
  * Class encapsulating the process for rounding off a column/literal of 
  * type {@link com.salesforce.phoenix.schema.PDataType#TIMESTAMP}
+ * This class only supports rounding off the milliseconds that is for
+ * {@link TimeUnit#MILLISECOND}. If you want more options of rounding like 
+ * using {@link TimeUnit#HOUR} use {@link RoundDateExpression}
  *
  * @author samarth.jain
  * @since 3.0.0
@@ -52,30 +58,51 @@ public class RoundTimestampExpression extends RoundDateExpression {
 
     public RoundTimestampExpression() {}
     
-    public RoundTimestampExpression(List<Expression> children) throws SQLException {
+    private RoundTimestampExpression(List<Expression> children) {
         super(children);
     }
-
+    
+    /**
+     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding. 
+     */
+    public static RoundTimestampExpression create(Expression expr, LiteralExpression multiplierExpr) throws SQLException {
+        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), multiplierExpr);
+        return new RoundTimestampExpression(childExprs); 
+    }
+    
+    /**
+     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding. 
+     */
+    public static RoundTimestampExpression create(Expression expr, int multiplier) throws SQLException {
+        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), getMultiplierExpr(multiplier));
+        return new RoundTimestampExpression(childExprs); 
+    }
+    
+    /**
+     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
+     * as the time unit for rounding and a default multiplier value of 1. 
+     */
+    public static RoundTimestampExpression create (Expression expr) throws SQLException {
+        return create(expr, 1);
+    }
+    
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (children.get(0).evaluate(tuple, ptr)) {
-            Timestamp ts = (Timestamp)PDataType.TIMESTAMP.toObject(ptr, children.get(0).getColumnModifier());
-            Timestamp roundedTs;
-            if(divBy == 1 && ts.getNanos() > HALF_OF_NANOS_IN_MILLI) {
-                roundedTs = new Timestamp(roundTime(ts.getTime() + 1));
-            } else {    
-                roundedTs = new Timestamp(roundTime(ts.getTime()));
+            ColumnModifier columnModifier = children.get(0).getColumnModifier();
+            PDataType dataType = getDataType();
+            int nanos = dataType.getNanos(ptr, columnModifier);
+            if(nanos / divBy >= HALF_OF_NANOS_IN_MILLI) {
+                long timeMillis = dataType.getMillis(ptr, columnModifier);
+                Timestamp roundedTs = new Timestamp(timeMillis + 1);
+                byte[] byteValue = dataType.toBytes(roundedTs);
+                ptr.set(byteValue);
             }
-            byte[] byteValue = getDataType().toBytes(roundedTs);
-            ptr.set(byteValue);
-            return true;
+            return true; // for timestamp we only support rounding up the milliseconds. 
         }
         return false;
-    }
-
-    @Override
-    public PDataType getDataType() {
-        return PDataType.TIMESTAMP;
     }
 
 }

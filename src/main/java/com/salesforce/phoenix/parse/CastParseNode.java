@@ -31,13 +31,11 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
-import com.salesforce.phoenix.util.DateUtil;
 
 /**
  * 
@@ -81,7 +79,7 @@ public class CastParseNode extends UnaryParseNode {
 	    } else if(fromDataType == PDataType.DECIMAL && targetDataType.isCoercibleTo(PDataType.LONG)) {
 	        return new RoundDecimalExpression(expressions);
 	    } else if(fromDataType == PDataType.TIMESTAMP && targetDataType.isCoercibleTo(PDataType.DATE)) {
-	        return new RoundTimestampExpression(Lists.newArrayList(expressions.get(0), DateUtil.millisLiteralExpression));
+	        return RoundTimestampExpression.create(expressions.get(0));
 	    } else if(!fromDataType.isCoercibleTo(targetDataType)) {
 	        throw new TypeMismatchException(fromDataType, targetDataType, firstChildExpr.toString());
 	    }

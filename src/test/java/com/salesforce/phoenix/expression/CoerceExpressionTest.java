@@ -30,7 +30,9 @@ package com.salesforce.phoenix.expression;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.HashMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;

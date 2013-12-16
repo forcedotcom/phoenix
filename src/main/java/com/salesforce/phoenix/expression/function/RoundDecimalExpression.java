@@ -32,11 +32,13 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.SQLException;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.IllegalDataException;
@@ -55,6 +57,24 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 public class RoundDecimalExpression extends ScalarFunction {
     
     private int scale;
+    
+    /**
+     * Creates a {@link RoundDecimalExpression} with rounding scale given by @param scale. 
+     *
+     */
+    public static RoundDecimalExpression create(Expression expr, int scale) throws SQLException {
+        Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
+        List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
+        return new RoundDecimalExpression(expressions);
+    }
+    
+    /**
+     * Creates a {@link RoundDecimalExpression} with a default scale of 0 used for rounding. 
+     *
+     */
+    public static RoundDecimalExpression create(Expression expr) throws SQLException {
+        return create(expr, 0);
+    }
     
     public RoundDecimalExpression() {}
     
@@ -90,7 +110,7 @@ public class RoundDecimalExpression extends ScalarFunction {
 
     @Override
     public PDataType getDataType() {
-        return PDataType.DECIMAL;
+        return children.get(0).getDataType();
     }
     
     protected RoundingMode getRoundingMode() {

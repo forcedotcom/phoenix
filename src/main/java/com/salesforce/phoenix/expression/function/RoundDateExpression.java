@@ -31,6 +31,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.Date;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,6 +39,7 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.KeyPart;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
@@ -74,6 +76,34 @@ public class RoundDateExpression extends ScalarFunction {
     
     public RoundDateExpression() {}
     
+    /**
+     * @param timeUnit - unit of time to round up to.
+     * Creates a {@link RoundDateExpression} with default multiplier of 1.
+     */
+    public static RoundDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+        return create(expr, timeUnit, 1);
+    }
+    
+    /**
+     * @param timeUnit - unit of time to round up to
+     * @param multiplier - determines the roll up window size.
+     * Create a {@link RoundDateExpression}. 
+     */
+    public static RoundDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+        Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
+        Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
+        List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
+        return new RoundDateExpression(expressions);
+    }
+    
+    static Expression getTimeUnitExpr(TimeUnit timeUnit) throws SQLException {
+        return LiteralExpression.newConstant(timeUnit.name(), PDataType.VARCHAR);
+    }
+    
+    static Expression getMultiplierExpr(int multiplier) throws SQLException {
+        return LiteralExpression.newConstant(multiplier, PDataType.INTEGER);
+    }
+    
     public RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
         int numChildren = children.size();
@@ -107,10 +137,13 @@ public class RoundDateExpression extends ScalarFunction {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (children.get(0).evaluate(tuple, ptr)) {
-            long time = getDataType().getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
+            PDataType dataType = getDataType();
+            long time = dataType.getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
             long value = roundTime(time);
-            // TODO: use temporary buffer instead and have way for caller to check if copying is necessary
-            byte[] byteValue = getDataType().toBytes(new Date(value));
+            
+            //We end up using this evaluate method not just for date but also for timestamps. 
+            Object d = dataType.toObject(new Date(value), PDataType.DATE);
+            byte[] byteValue = dataType.toBytes(d);
             ptr.set(byteValue);
             return true;
         }
@@ -153,7 +186,7 @@ public class RoundDateExpression extends ScalarFunction {
     
     @Override
     public PDataType getDataType() {
-        return PDataType.DATE;
+        return children.get(0).getDataType();
     }
     
     @Override

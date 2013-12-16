@@ -29,7 +29,6 @@ package com.salesforce.phoenix.util;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.Format;
@@ -39,12 +38,8 @@ import java.util.TimeZone;
 
 import org.apache.commons.lang.time.FastDateFormat;
 
-import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.IllegalDataException;
-import com.salesforce.phoenix.schema.PDataType;
 
 
 
@@ -60,7 +55,7 @@ public class DateUtil {
     private DateUtil() {
     }
 
-    public static final Expression millisLiteralExpression = init();
+    /*public static final Expression millisLiteralExpression = init();
 
     private static Expression init() {
         try {
@@ -69,7 +64,7 @@ public class DateUtil {
             //not possible
             return null;
         }
-    }
+    }*/
 
     public static Format getDateParser(String pattern) {
         SimpleDateFormat format = new SimpleDateFormat(pattern) {
