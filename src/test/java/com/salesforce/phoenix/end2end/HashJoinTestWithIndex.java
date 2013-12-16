@@ -51,7 +51,6 @@ import com.salesforce.phoenix.util.QueryUtil;
 
 public class HashJoinTestWithIndex extends HashJoinTest {
     
-    @Override
     protected void createIndices() throws Exception {
         createIndex("CREATE INDEX INDEX_" + JOIN_CUSTOMER_TABLE + " ON " + JOIN_CUSTOMER_TABLE + " (name)");
         createIndex("CREATE INDEX INDEX_" + JOIN_ITEM_TABLE + " ON " + JOIN_ITEM_TABLE + " (name)");
