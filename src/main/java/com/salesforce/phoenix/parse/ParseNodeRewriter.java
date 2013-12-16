@@ -116,7 +116,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
                 normSelectNodes = Lists.newArrayList(selectNodes.subList(0, i));
             }
             //TODO : NEed to check here
-            AliasedNode normAliasedNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode, aliasedNode.getArrayColumnNode());
+            AliasedNode normAliasedNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
             normSelectNodes.add(normAliasedNode);
         }
         // Add to map in separate pass so that we don't try to use aliases

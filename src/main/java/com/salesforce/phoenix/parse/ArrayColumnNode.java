@@ -27,26 +27,34 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.sql.SQLException;
+import java.util.List;
+
+import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.function.ArrayIndexFunction;
+import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.schema.PDataType;
+
 /**
- * A simple class that holds the index of the array column specified in the select query 
- * Should it extend ParseNode?
+ * A simple class that holds the index of the array column specified in the
+ * select query Should it extend ParseNode?
  */
-public class ArrayColumnNode {
+public class ArrayColumnNode extends FunctionParseNode {
 
-	private int index;
-	
-	private boolean arrayType;
-
-	public ArrayColumnNode(boolean arrayType, int index) {
-		this.arrayType = arrayType;
-		this.index = index;
+	public ArrayColumnNode(String name, List<ParseNode> children,
+			BuiltInFunctionInfo info) {
+		super(name, children, info);
 	}
 
-	public int getIndex() {
-		return index;
+	@Override
+	public FunctionExpression create(List<Expression> children,
+			StatementContext context) throws SQLException {
+		PDataType dataType = children.get(0).getDataType();
+		int index = (Integer) ((LiteralExpression) children.get(1)).getValue();
+		return new ArrayIndexFunction(children, index, children.get(0)
+				.toString(), dataType);
 	}
-	
-	public boolean isArrayType() {
-		return arrayType;
-	}
+
 }

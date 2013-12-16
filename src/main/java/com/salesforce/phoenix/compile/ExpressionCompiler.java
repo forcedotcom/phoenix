@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,6 +73,7 @@ import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.TimestampAddExpression;
 import com.salesforce.phoenix.expression.TimestampSubtractExpression;
+import com.salesforce.phoenix.expression.function.ArrayIndexFunction;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
@@ -153,7 +155,18 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
     
     private static void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
-        if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
+    	// Adding this change inorder to support cases where a_double_array[1]<40.0d .
+        if(lhsDataType != null && rhsDataType != null) {
+        	if(lhsDataType.isArrayType()) {
+				if (!rhsDataType.isArrayType()) {
+					PDataType baseType = PDataType.fromTypeId(lhsDataType
+							.getSqlType() - Types.ARRAY);
+					if (!(baseType.isComparableTo(rhsDataType))) {
+						throw new TypeMismatchException(lhsDataType,
+								rhsDataType, node.toString());
+					}
+				}
+        	} else if(!lhsDataType.isComparableTo(rhsDataType))
             throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
         }
     }
@@ -409,6 +422,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             this.aggregateFunction = node;
             this.isAggregate = true;
 
+        } else if(node.getClass().isAssignableFrom(ArrayIndexFunction.class)) {
+        	this.isAggregate = true;
         }
         return true;
     }

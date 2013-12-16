@@ -722,7 +722,7 @@ public class JoinCompiler {
         List<AliasedNode> ret = new ArrayList<AliasedNode>();
         if (isWildCardSelect(select)) {
             // TODO : Need to check here        	
-            ret.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE, select.get(0).getArrayColumnNode()));
+            ret.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE));
             return ret;
         }
         

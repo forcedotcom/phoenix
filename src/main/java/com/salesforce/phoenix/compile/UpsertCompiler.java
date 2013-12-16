@@ -653,7 +653,6 @@ public class UpsertCompiler {
     
     private static SelectStatement cloneAndPrependTenantIdToSelect(SelectStatement statement, String tenantId) {
         List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
-        // TODO : Should not make this false by default
         select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
         select.addAll(1, statement.getSelect());
         return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());

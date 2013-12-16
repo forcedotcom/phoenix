@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.sql.Types;
 import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -122,9 +123,13 @@ public class ComparisonExpression extends BaseCompoundExpression {
         if (lhsDataType == PDataType.CHAR) {
             lhsLength = StringUtil.getUnpaddedCharLength(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier);
         }
-        
-        
-        int comparisonResult = lhsDataType.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
+        PDataType temp = lhsDataType;
+        // Adding this change so that a_double_array[1] < 10.0d can be compared
+        if(lhsDataType.isArrayType() && !rhsDataType.isArrayType()) {
+        	PDataType baseType = PDataType.fromTypeId(lhsDataType.getSqlType() - Types.ARRAY);
+        	temp = baseType;
+        }
+        int comparisonResult = temp.compareTo(lhsBytes, lhsOffset, lhsLength, lhsColumnModifier, 
                 rhsBytes, rhsOffset, rhsLength, rhsColumnModifier, rhsDataType);
         ptr.set(ByteUtil.compare(op, comparisonResult) ? PDataType.TRUE_BYTES : PDataType.FALSE_BYTES);
         return true;

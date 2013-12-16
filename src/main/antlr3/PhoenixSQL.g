@@ -584,7 +584,7 @@ select_list returns [List<AliasedNode> ret]
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
-    :   field=expression (ar=(LSQUARE (index=NUMBER)? RSQUARE))? (a=parseAlias)? { $ret = (ar == null ? factory.aliasedNode(a == null ? field.getAlias() : a, field) : factory.aliasedNode(a == null ? field.getAlias() : a, field, factory.arrayNode(true, Integer.parseInt( index.getText() )))); }
+    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a == null ? field.getAlias() : a, field); }
     | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 
@@ -748,6 +748,7 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
+    |   field=identifier LSQUARE e=expression RSQUARE  { $ret = factory.arrayElemRef(field, Collections.<ParseNode>singletonList(e));}    
     |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN l=expression_terms RPAREN 

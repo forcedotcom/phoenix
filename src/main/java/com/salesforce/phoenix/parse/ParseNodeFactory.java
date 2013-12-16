@@ -68,7 +68,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class ParseNodeFactory {
-    // TODO: Use Google's Reflection library instead to find aggregate functions
+    private static final String ARRAY_ELEM = "ARRAY_ELEM";
+	// TODO: Use Google's Reflection library instead to find aggregate functions
     @SuppressWarnings("unchecked")
     private static final List<Class<? extends FunctionExpression>> CLIENT_SIDE_BUILT_IN_FUNCTIONS = Arrays.<Class<? extends FunctionExpression>>asList(
         CurrentDateFunction.class,
@@ -192,13 +193,9 @@ public class ParseNodeFactory {
     }
 
     public AliasedNode aliasedNode(String alias, ParseNode expression) {
-        return aliasedNode(alias, expression, new ArrayColumnNode(false, 0));
+    	return new AliasedNode(alias, expression);
     }
     
-    public AliasedNode aliasedNode(String alias, ParseNode expression, ArrayColumnNode arrayNode) {
-        return new AliasedNode(alias, expression, arrayNode);
-    }
-
     public AddParseNode add(List<ParseNode> children) {
         return new AddParseNode(children);
     }
@@ -215,10 +212,6 @@ public class ParseNodeFactory {
         return new AndParseNode(children);
     }
     
-    public ArrayColumnNode arrayNode(boolean arrayType, Integer index) {
-    	return new ArrayColumnNode(arrayType, index);
-    }
-
     public FamilyWildcardParseNode family(String familyName){
     	    return new FamilyWildcardParseNode(familyName, false);
     }
@@ -338,6 +331,16 @@ public class ParseNodeFactory {
             throw new UnsupportedOperationException("DISTINCT not supported with " + name);
         }
     }
+    
+    public FunctionParseNode arrayElemRef(String name, List<ParseNode> n) {
+    	List<ParseNode> listNodes = new ArrayList<ParseNode>();
+    	ColumnParseNode columnNode = new ColumnParseNode(null, name);
+    	listNodes.add(columnNode);
+    	listNodes.add(n.get(0));
+    	////listNodes.add(n);
+    	//listNodes.add(new LiteralParseNode(Integer.valueOf(index)));
+    	return function(ARRAY_ELEM, listNodes);
+    }
 
     public FunctionParseNode function(String name, List<ParseNode> args) {
         BuiltInFunctionInfo info = getInfo(name, args);
@@ -367,7 +370,7 @@ public class ParseNodeFactory {
         children.add(valueNodes.get(0));
         return function(name, children);
     }
-
+    
 
     public HintNode hint(String hint) {
         return new HintNode(hint);

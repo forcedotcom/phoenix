@@ -40,22 +40,13 @@ public class AliasedNode {
     private final String alias;
     private final ParseNode node;
     private final boolean isCaseSensitve;
-    private final ArrayColumnNode arrayNode;
 
     public AliasedNode(String alias, ParseNode node) {
         this.isCaseSensitve = alias != null && SchemaUtil.isCaseSensitive(alias);
         this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
         this.node = node;
-        this.arrayNode = null;
     }
     
-    public AliasedNode(String alias, ParseNode node, ArrayColumnNode arrayNode) {
-        this.isCaseSensitve = alias != null && SchemaUtil.isCaseSensitive(alias);
-        this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
-        this.node = node;
-        this.arrayNode = arrayNode;
-    }
-
     public String getAlias() {
         return alias;
     }
@@ -66,9 +57,5 @@ public class AliasedNode {
 
     public boolean isCaseSensitve() {
         return isCaseSensitve;
-    }
-    
-    public ArrayColumnNode getArrayColumnNode() {
-    	return arrayNode;
     }
 }
