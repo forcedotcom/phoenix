@@ -30,8 +30,8 @@ package com.salesforce.phoenix.expression.function;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
@@ -50,7 +50,7 @@ public abstract class DistinctValueWithCountAggregateFunction extends SingleAggr
     abstract public DistinctValueWithCountClientAggregator newClientAggregator();
     
     @Override
-    public Aggregator newServerAggregator(Configuration config, ImmutableBytesPtr ptr) {
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
         DistinctValueWithCountClientAggregator clientAgg = newClientAggregator();
         clientAgg.aggregate(null, ptr);
         return new DistinctValueWithCountServerAggregator(config, clientAgg);

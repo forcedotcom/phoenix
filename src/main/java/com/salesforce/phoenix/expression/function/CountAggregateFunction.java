@@ -31,8 +31,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
@@ -116,7 +116,7 @@ public class CountAggregateFunction extends SingleAggregateFunction {
     }
 
     @Override
-    public Aggregator newServerAggregator(Configuration config, ImmutableBytesPtr ptr) {
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
         LongSumAggregator sumAgg = newClientAggregator();
         sumAgg.aggregate(null, ptr);
         return new CountAggregator(sumAgg);

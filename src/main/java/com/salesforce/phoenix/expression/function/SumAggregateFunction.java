@@ -70,31 +70,44 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
         super(childExpressions, delegate);
     }
     
-    @Override
-    public Aggregator newServerAggregator(Configuration conf) {
-        final PDataType type = getAggregatorExpression().getDataType();
-        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
+    private Aggregator newAggregator(final PDataType type, ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
         switch( type ) {
             case DECIMAL:
-                return new DecimalSumAggregator(columnModifier);
+                return new DecimalSumAggregator(columnModifier, ptr);
             case UNSIGNED_DOUBLE:
             case UNSIGNED_FLOAT:
             case DOUBLE:
             case FLOAT:
-                return new DoubleSumAggregator(columnModifier) {
+                return new DoubleSumAggregator(columnModifier, ptr) {
                     @Override
                     protected PDataType getInputDataType() {
                         return type;
                     }
                 };
             default:
-                return new NumberSumAggregator(columnModifier) {
+                return new NumberSumAggregator(columnModifier, ptr) {
                     @Override
                     protected PDataType getInputDataType() {
                         return type;
                     }
                 };
         }
+    }
+
+    @Override
+    public Aggregator newClientAggregator() {
+        return newAggregator(getDataType(), null, null);
+    }
+    
+    @Override
+    public Aggregator newServerAggregator(Configuration conf) {
+        Expression child = getAggregatorExpression();
+        return newAggregator(child.getDataType(), child.getColumnModifier(), null);
+    }
+    
+    @Override
+    public Aggregator newServerAggregator(Configuration conf, ImmutableBytesWritable ptr) {
+        return newAggregator(getDataType(), null, ptr);
     }
     
     @Override

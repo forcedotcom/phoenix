@@ -36,7 +36,6 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
@@ -148,7 +147,7 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
         return newServerAggregator(null);
     }
 
-    public Aggregator newServerAggregator(Configuration config, ImmutableBytesPtr ptr) {
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
         Aggregator agg = newServerAggregator(config);
         agg.aggregate(null, ptr);
         return agg;
