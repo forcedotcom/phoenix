@@ -126,7 +126,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void round() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE), getLiteral("hour"), getLiteral(1));
-        evaluateAndAssertResult(new RoundDateExpression(args), date(12, 11, 2001));
+        evaluateAndAssertResult(RoundDateExpression.create(args), date(12, 11, 2001));
     }
     
     @Test

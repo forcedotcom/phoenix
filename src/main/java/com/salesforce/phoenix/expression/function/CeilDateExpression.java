@@ -48,7 +48,7 @@ public class CeilDateExpression extends RoundDateExpression {
      * @param timeUnit - unit of time to round up to.
      * Creates a {@link CeilDateExpression} with default multiplier of 1.
      */
-    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit) throws SQLException {
         return create(expr, timeUnit, 1);
     }
     
@@ -57,14 +57,18 @@ public class CeilDateExpression extends RoundDateExpression {
      * @param multiplier - determines the roll up window size.
      * Create a {@link CeilDateExpression}. 
      */
-    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
         Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
         Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
         List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
-        return new CeilDateExpression(expressions);
+        return CeilDateExpression.create(expressions);
     }
     
-    public CeilDateExpression(List<Expression> children) {
+    public static Expression create(List<Expression> children) throws SQLException {
+        return new CeilDateExpression(children);
+    }
+    
+    CeilDateExpression(List<Expression> children) {
         super(children);
     }
     

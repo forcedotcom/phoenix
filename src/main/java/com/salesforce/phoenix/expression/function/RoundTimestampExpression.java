@@ -34,10 +34,12 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDataType.PDataCodec;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
@@ -62,30 +64,34 @@ public class RoundTimestampExpression extends RoundDateExpression {
         super(children);
     }
     
-    /**
-     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
-     * as the time unit for rounding. 
-     */
-    public static RoundTimestampExpression create(Expression expr, LiteralExpression multiplierExpr) throws SQLException {
-        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), multiplierExpr);
-        return new RoundTimestampExpression(childExprs); 
+    public static Expression create (List<Expression> children) throws SQLException {
+        Expression firstChild = children.get(0);
+        PDataType firstChildDataType = firstChild.getDataType();
+        String timeUnit = (String)((LiteralExpression)children.get(1)).getValue();
+        LiteralExpression multiplierExpr = (LiteralExpression)children.get(2);
+        
+        /*
+         * When rounding off timestamp to milliseconds, nanos play a part only when the multiplier value
+         * is equal to 1. This is because for cases when multiplier value is greater than 1, number of nanos/multiplier
+         * will always be less than half the nanos in a millisecond. 
+         */
+        if((timeUnit == null || TimeUnit.MILLISECOND.toString().equalsIgnoreCase(timeUnit)) && ((Number)multiplierExpr.getValue()).intValue() == 1) {
+            return new RoundTimestampExpression(children);
+        }
+        // Coerce TIMESTAMP to DATE, as the nanos has no affect
+        List<Expression> newChildren = Lists.newArrayListWithExpectedSize(children.size());
+        newChildren.add(CoerceExpression.create(firstChild, firstChildDataType == PDataType.TIMESTAMP ? PDataType.DATE : PDataType.UNSIGNED_DATE));
+        newChildren.addAll(children.subList(1, children.size()));
+        return RoundDateExpression.create(newChildren);
     }
     
-    /**
-     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
-     * as the time unit for rounding. 
-     */
-    public static RoundTimestampExpression create(Expression expr, int multiplier) throws SQLException {
-        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), getMultiplierExpr(multiplier));
-        return new RoundTimestampExpression(childExprs); 
-    }
-    
-    /**
-     * Creates a {@link RoundTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
-     * as the time unit for rounding and a default multiplier value of 1. 
-     */
-    public static RoundTimestampExpression create (Expression expr) throws SQLException {
-        return create(expr, 1);
+    @Override
+    protected PDataCodec getKeyRangeCodec(PDataType columnDataType) {
+        return columnDataType == PDataType.TIMESTAMP 
+                ? PDataType.DATE.getCodec() 
+                : columnDataType == PDataType.UNSIGNED_TIMESTAMP 
+                    ? PDataType.UNSIGNED_DATE.getCodec() 
+                    : super.getKeyRangeCodec(columnDataType);
     }
     
     @Override
@@ -94,7 +100,7 @@ public class RoundTimestampExpression extends RoundDateExpression {
             ColumnModifier columnModifier = children.get(0).getColumnModifier();
             PDataType dataType = getDataType();
             int nanos = dataType.getNanos(ptr, columnModifier);
-            if(nanos / divBy >= HALF_OF_NANOS_IN_MILLI) {
+            if(nanos >= HALF_OF_NANOS_IN_MILLI) {
                 long timeMillis = dataType.getMillis(ptr, columnModifier);
                 Timestamp roundedTs = new Timestamp(timeMillis + 1);
                 byte[] byteValue = dataType.toBytes(roundedTs);

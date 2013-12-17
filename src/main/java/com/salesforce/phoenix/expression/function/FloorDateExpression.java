@@ -31,7 +31,9 @@ import java.sql.SQLException;
 import java.util.List;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.schema.PDataType;
 
 /**
  * 
@@ -45,8 +47,21 @@ public class FloorDateExpression extends RoundDateExpression {
     
     public FloorDateExpression() {}
     
-    public FloorDateExpression(List<Expression> children) {
+    private FloorDateExpression(List<Expression> children) {
         super(children);
+    }
+    
+    public static FloorDateExpression create(List<Expression> children) throws SQLException {
+        Expression firstChild = children.get(0);
+        PDataType firstChildDataType = firstChild.getDataType();
+        if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP){
+            // Coerce TIMESTAMP to DATE, as the nanos has no affect
+            List<Expression> newChildren = Lists.newArrayListWithExpectedSize(children.size());
+            newChildren.add(CoerceExpression.create(firstChild, firstChildDataType == PDataType.TIMESTAMP ? PDataType.DATE : PDataType.UNSIGNED_DATE));
+            newChildren.addAll(children.subList(1, children.size()));
+            children = newChildren;
+        }
+        return new FloorDateExpression(children);
     }
     
     /**
@@ -66,7 +81,7 @@ public class FloorDateExpression extends RoundDateExpression {
         Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
         Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
         List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
-        return new FloorDateExpression(expressions);
+        return create(expressions);
     }
    
     @Override

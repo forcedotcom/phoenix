@@ -80,7 +80,7 @@ public class RoundDateExpression extends ScalarFunction {
      * @param timeUnit - unit of time to round up to.
      * Creates a {@link RoundDateExpression} with default multiplier of 1.
      */
-    public static RoundDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit) throws SQLException {
         return create(expr, timeUnit, 1);
     }
     
@@ -89,11 +89,15 @@ public class RoundDateExpression extends ScalarFunction {
      * @param multiplier - determines the roll up window size.
      * Create a {@link RoundDateExpression}. 
      */
-    public static RoundDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
         Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
         Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
         List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
-        return new RoundDateExpression(expressions);
+        return create(expressions);
+    }
+    
+    public static Expression create(List<Expression> children) throws SQLException {
+        return new RoundDateExpression(children);
     }
     
     static Expression getTimeUnitExpr(TimeUnit timeUnit) throws SQLException {
@@ -104,7 +108,7 @@ public class RoundDateExpression extends ScalarFunction {
         return LiteralExpression.newConstant(multiplier, PDataType.INTEGER);
     }
     
-    public RoundDateExpression(List<Expression> children) {
+    RoundDateExpression(List<Expression> children) {
         super(children.subList(0, 1));
         int numChildren = children.size();
         if(numChildren < 2 || numChildren > 3) {
@@ -141,8 +145,7 @@ public class RoundDateExpression extends ScalarFunction {
             long time = dataType.getCodec().decodeLong(ptr, children.get(0).getColumnModifier());
             long value = roundTime(time);
             
-            //We end up using this evaluate method not just for date but also for timestamps. 
-            Object d = dataType.toObject(new Date(value), PDataType.DATE);
+            Date d = new Date(value);
             byte[] byteValue = dataType.toBytes(d);
             ptr.set(byteValue);
             return true;
@@ -199,6 +202,10 @@ public class RoundDateExpression extends ScalarFunction {
         return children.get(0).isNullable() || divBy == 0;
     }
     
+    protected PDataCodec getKeyRangeCodec(PDataType columnDataType) {
+        return columnDataType.getCodec();
+    }
+    
     /**
      * Form the key range from the key to the key right before or at the
      * next rounded value.
@@ -226,7 +233,7 @@ public class RoundDateExpression extends ScalarFunction {
                 byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
                 // No need to take into account column modifier, because ROUND
                 // always forces the value to be in ascending order
-                PDataCodec codec = type.getCodec();
+                PDataCodec codec = getKeyRangeCodec(type);
                 int offset = ByteUtil.isInclusive(op) ? 1 : 0;
                 long value = codec.decodeLong(key, 0, null);
                 byte[] nextKey = new byte[type.getByteSize()];

@@ -55,7 +55,10 @@ public class CeilDecimalExpression extends RoundDecimalExpression {
    * Creates a {@link CeilDecimalExpression} with rounding scale given by @param scale.
    *
    */
-   public static CeilDecimalExpression create(Expression expr, int scale) throws SQLException {
+   public static Expression create(Expression expr, int scale) throws SQLException {
+       if (expr.getDataType().isCoercibleTo(PDataType.LONG)) {
+           return expr;
+       }
        Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
        List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
        return new CeilDecimalExpression(expressions);
@@ -65,7 +68,7 @@ public class CeilDecimalExpression extends RoundDecimalExpression {
     * Creates a {@link CeilDecimalExpression} with a default scale of 0 used for rounding. 
     *
     */
-   public static CeilDecimalExpression create(Expression expr) throws SQLException {
+   public static Expression create(Expression expr) throws SQLException {
        return create(expr, 0);
    }
     

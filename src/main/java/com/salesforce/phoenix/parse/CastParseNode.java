@@ -78,8 +78,8 @@ public class CastParseNode extends UnaryParseNode {
 	        return firstChildExpr;
 	    } else if(fromDataType == PDataType.DECIMAL && targetDataType.isCoercibleTo(PDataType.LONG)) {
 	        return new RoundDecimalExpression(expressions);
-	    } else if(fromDataType == PDataType.TIMESTAMP && targetDataType.isCoercibleTo(PDataType.DATE)) {
-	        return RoundTimestampExpression.create(expressions.get(0));
+	    } else if((fromDataType == PDataType.TIMESTAMP || fromDataType == PDataType.UNSIGNED_TIMESTAMP) && targetDataType.isCoercibleTo(PDataType.DATE)) {
+	        return RoundTimestampExpression.create(expressions);
 	    } else if(!fromDataType.isCoercibleTo(targetDataType)) {
 	        throw new TypeMismatchException(fromDataType, targetDataType, firstChildExpr.toString());
 	    }

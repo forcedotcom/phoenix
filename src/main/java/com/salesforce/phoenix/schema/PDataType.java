@@ -1700,6 +1700,7 @@ public enum PDataType {
             long millis = PDataType.LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
             return millis;
         }
+
     },
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
 
@@ -1925,6 +1926,15 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
+        
+        @Override
+        public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+            if (ptr.getLength() > 0 && actualType  == PDataType.TIMESTAMP && actualModifier == expectedModifier) {
+                ptr.set(ptr.get(), ptr.getOffset(), getByteSize());
+                return;
+            }
+            super.coerceBytes(ptr, actualType, actualModifier, expectedModifier);
         }
     },
     UNSIGNED_TIMESTAMP("UNSIGNED_TIMESTAMP", 19, Timestamp.class, null) {
@@ -2158,6 +2168,15 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
+        
+        @Override
+        public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+            if (ptr.getLength() > 0 && actualType  == PDataType.UNSIGNED_TIMESTAMP && actualModifier == expectedModifier) {
+                ptr.set(ptr.get(), ptr.getOffset(), getByteSize());
+                return;
+            }
+            super.coerceBytes(ptr, actualType, actualModifier, expectedModifier);
         }
     },
     /**

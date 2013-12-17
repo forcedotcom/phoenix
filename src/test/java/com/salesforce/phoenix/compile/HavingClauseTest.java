@@ -110,7 +110,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         Date date = new Date(System.currentTimeMillis());
         List<Object> binds = Arrays.<Object>asList(date);
         Expressions expressions = compileStatement(query,binds);
-        Expression w = constantComparison(CompareOp.GREATER, new RoundDateExpression(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
+        Expression w = constantComparison(CompareOp.GREATER, RoundDateExpression.create(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
         assertEquals(w, expressions.whereClause);
         assertNull(expressions.havingClause);
     }

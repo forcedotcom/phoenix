@@ -32,13 +32,11 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CeilDateExpression;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilFunction;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
 import com.salesforce.phoenix.expression.function.ScalarFunction;
-import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -66,16 +64,9 @@ public class CeilParseNode extends FunctionParseNode {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return new CeilDateExpression(children);
+            return (ScalarFunction)CeilDateExpression.create(children); // FIXME: remove cast
         } else if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP) {
-            Object secondChild = ((LiteralExpression)children.get(1)).getValue();
-            String timeUnit = secondChild == null ? null : secondChild.toString(); 
-            TimeUnit tu = TimeUnit.getTimeUnit(timeUnit);
-            LiteralExpression multiplierExpr = (LiteralExpression)children.get(2);
-            if(tu == TimeUnit.MILLISECOND) {
-                return CeilTimestampExpression.create(firstChild, multiplierExpr);
-            }
-            return new CeilDateExpression(children);
+            return (ScalarFunction)CeilTimestampExpression.create(children); // FIXME: remove cast
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new CeilDecimalExpression(children);
         } else {
