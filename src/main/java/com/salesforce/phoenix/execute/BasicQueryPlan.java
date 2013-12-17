@@ -43,6 +43,7 @@ import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.iterate.DelegateResultIterator;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -52,6 +53,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -118,7 +120,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return projection;
     }
 
-    private ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
+    protected ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
         // Get child services associated with tenantId of query.
         ConnectionQueryServices childServices = context.getConnection().getTenantId() == null ? 
                 services : 
@@ -141,9 +143,17 @@ public abstract class BasicQueryPlan implements QueryPlan {
 //        byte[] producer = Bytes.toBytes(UUID.randomUUID().toString());
 //        scan.setAttribute(HBaseServer.CALL_QUEUE_PRODUCER_ATTRIB_NAME, producer);
 //    }
-
+    
     @Override
     public final ResultIterator iterator() throws SQLException {
+        return iterator(null);
+    }
+
+    public final ResultIterator iterator(final SQLCloseable dependency) throws SQLException {
+        if (context.getScanRanges() == ScanRanges.NOTHING) {
+            return ResultIterator.EMPTY_ITERATOR;
+        }
+        
         Scan scan = context.getScan();
         // Set producer on scan so HBase server does round robin processing
         //setProducer(scan);
@@ -155,19 +165,18 @@ public abstract class BasicQueryPlan implements QueryPlan {
         Long scn = connection.getSCN();
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
         ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
-        return newIterator();
+        ResultIterator iterator = newIterator();
+        return dependency == null ? iterator : 
+            new DelegateResultIterator(iterator) {
+            @Override
+            public void close() throws SQLException {
+                super.close();
+                dependency.close();
+            }
+        };
     }
 
-    abstract protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException;
-
-    private ResultIterator newIterator() throws SQLException {
-        if (context.getScanRanges() == ScanRanges.NOTHING) {
-            return ResultIterator.EMPTY_ITERATOR;
-        }
-        
-        ConnectionQueryServices services = getConnectionQueryServices(context.getConnection().getQueryServices());
-        return newIterator(services);
-    }
+    abstract protected ResultIterator newIterator() throws SQLException;
     
     @Override
     public long getEstimatedSize() {

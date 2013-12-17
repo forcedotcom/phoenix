@@ -59,7 +59,6 @@ import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.iterate.UngroupedAggregatingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
@@ -140,7 +139,7 @@ public class AggregatePlan extends BasicQueryPlan {
     }
     
     @Override
-    protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException {
+    protected ResultIterator newIterator() throws SQLException {
         // Hack to set state on scan to make upgrade happen
         int upgradeColumnCount = SchemaUtil.upgradeColumnCount(context.getConnection().getURL(),context.getConnection().getClientInfo());
         if (upgradeColumnCount > 0) {
@@ -174,8 +173,8 @@ public class AggregatePlan extends BasicQueryPlan {
                 resultScanner = new LimitingResultIterator(aggResultIterator, limit);
             }
         } else {
-            int thresholdBytes = services.getProps().getInt(QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, 
-                    QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
+            int thresholdBytes = getConnectionQueryServices(context.getConnection().getQueryServices()).getProps().getInt(
+                    QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB, QueryServicesOptions.DEFAULT_SPOOL_THRESHOLD_BYTES);
             resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderByExpressions(), thresholdBytes, limit);
         }
         

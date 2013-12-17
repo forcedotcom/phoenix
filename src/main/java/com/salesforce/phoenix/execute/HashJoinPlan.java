@@ -55,6 +55,7 @@ import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SQLCloseable;
 
 public class HashJoinPlan implements QueryPlan {
     
@@ -95,19 +96,23 @@ public class HashJoinPlan implements QueryPlan {
         Scan scan = plan.getContext().getScan();
         final ScanRanges ranges = plan.getContext().getScanRanges();
         
-        int count = joinIds.length;
+        final int count = joinIds.length;
         final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
-        ExecutorService executor = services.getExecutor();
+        final ExecutorService executor = services.getExecutor();
         List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
+        final List<ResultIterator> iterators = new ArrayList<ResultIterator>(count);
+        final List<ServerCache> serverCaches = new ArrayList<ServerCache>(count);
         for (int i = 0; i < count; i++) {
         	final int index = i;
         	futures.add(executor.submit(new JobCallable<ServerCache>() {
         		
 				@Override
 				public ServerCache call() throws Exception {
-					return hashClient.addHashCache(ranges, hashPlans[index].iterator(), 
-					        hashPlans[index].getEstimatedSize(), hashExpressions[index], 
-					        plan.getTableRef());
+				    QueryPlan hashPlan = hashPlans[index];
+				    ResultIterator iterator = hashPlan.iterator();
+				    iterators.add(iterator);
+					return hashClient.addHashCache(ranges, iterator, hashPlan.getEstimatedSize(), 
+					        hashExpressions[index], plan.getTableRef());
 				}
 
 				@Override
@@ -120,6 +125,7 @@ public class HashJoinPlan implements QueryPlan {
 			try {
 				ServerCache cache = futures.get(i).get();
 				joinIds[i].set(cache.getId());
+				serverCaches.add(cache);
 			} catch (InterruptedException e) {
 				throw new SQLException("Hash join execution interrupted.", e);
 			} catch (ExecutionException e) {
@@ -129,7 +135,38 @@ public class HashJoinPlan implements QueryPlan {
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
         
-        return plan.iterator();
+        return plan.iterator(new SQLCloseable() {
+            @Override
+            public void close() throws SQLException {
+                List<Future<Void>> futures = new ArrayList<Future<Void>>(count);
+                for (int i = 0; i < count; i++) {
+                    final int index = i;
+                    futures.add(executor.submit(new JobCallable<Void>() {
+                        @Override
+                        public Void call() throws Exception {
+                            iterators.get(index).close();
+                            serverCaches.get(index).close();
+                            return null;
+                        }                        
+                        @Override
+                        public Object getJobId() {
+                            return this;
+                        }
+                    }));
+                }
+                Throwable lastThrowable = null;
+                for (Future<Void> future : futures) {
+                    try {
+                        future.get();
+                    } catch (Throwable t) {
+                        lastThrowable = t;
+                    }
+                }
+                if (lastThrowable != null) {
+                    throw new SQLException("Encountered error when closing server caches.", lastThrowable);
+                }
+            }
+        });
     }
     
     @Override

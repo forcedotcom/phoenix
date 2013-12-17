@@ -45,7 +45,6 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
@@ -81,7 +80,7 @@ public class ScanPlan extends BasicQueryPlan {
     }
     
     @Override
-    protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException {
+    protected ResultIterator newIterator() throws SQLException {
         // Set any scan attributes before creating the scanner, as it will be too late afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
         ResultIterator scanner;
@@ -98,7 +97,7 @@ public class ScanPlan extends BasicQueryPlan {
             scanner = new MergeSortTopNResultIterator(iterators, limit, orderBy.getOrderByExpressions());
         } else {
             if (isSalted && 
-                    (services.getProps().getBoolean(
+                    (getConnectionQueryServices(context.getConnection().getQueryServices()).getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE) ||
                      orderBy == OrderBy.ROW_KEY_ORDER_BY)) { // ORDER BY was optimized out b/c query is in row key order

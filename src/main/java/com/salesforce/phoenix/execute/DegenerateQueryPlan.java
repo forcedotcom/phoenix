@@ -53,7 +53,7 @@ public class DegenerateQueryPlan extends BasicQueryPlan {
     }
 
     @Override
-    protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException {
+    protected ResultIterator newIterator() throws SQLException {
         return null;
     }
 
