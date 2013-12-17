@@ -54,7 +54,7 @@ public interface QueryPlan extends StatementPlan {
      */
     public ResultIterator iterator() throws SQLException;
     
-    public int getEstimatedSize();
+    public long getEstimatedSize();
     
     // TODO: change once joins are supported
     TableRef getTableRef();

@@ -106,7 +106,8 @@ public class HashJoinPlan implements QueryPlan {
 				@Override
 				public ServerCache call() throws Exception {
 					return hashClient.addHashCache(ranges, hashPlans[index].iterator(), 
-							hashExpressions[index], plan.getTableRef());
+					        hashPlans[index].getEstimatedSize(), hashExpressions[index], 
+					        plan.getTableRef());
 				}
 
 				@Override
@@ -132,7 +133,7 @@ public class HashJoinPlan implements QueryPlan {
     }
     
     @Override
-    public int getEstimatedSize() {
+    public long getEstimatedSize() {
         return plan.getEstimatedSize();
     }
 

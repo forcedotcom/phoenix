@@ -65,7 +65,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public abstract class BasicQueryPlan implements QueryPlan {
-    protected static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
+    protected static final long DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
     
     protected final TableRef tableRef;
     protected final StatementContext context;
@@ -170,7 +170,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
     }
     
     @Override
-    public int getEstimatedSize() {
+    public long getEstimatedSize() {
         return DEFAULT_ESTIMATED_SIZE;
     }
 
