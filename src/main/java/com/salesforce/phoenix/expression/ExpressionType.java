@@ -30,9 +30,16 @@ package com.salesforce.phoenix.expression;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.expression.function.CeilDateExpression;
+import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
+import com.salesforce.phoenix.expression.function.CeilFunction;
+import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
 import com.salesforce.phoenix.expression.function.CoalesceFunction;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.DistinctCountAggregateFunction;
+import com.salesforce.phoenix.expression.function.FloorDateExpression;
+import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.FloorFunction;
 import com.salesforce.phoenix.expression.function.IndexStateNameFunction;
 import com.salesforce.phoenix.expression.function.InvertFunction;
 import com.salesforce.phoenix.expression.function.LTrimFunction;
@@ -48,7 +55,10 @@ import com.salesforce.phoenix.expression.function.RTrimFunction;
 import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
 import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
 import com.salesforce.phoenix.expression.function.ReverseFunction;
+import com.salesforce.phoenix.expression.function.RoundDateExpression;
+import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundFunction;
+import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
 import com.salesforce.phoenix.expression.function.SqlTableType;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.expression.function.StddevPopFunction;
@@ -77,6 +87,16 @@ public enum ExpressionType {
     KeyValue(KeyValueColumnExpression.class),
     LiteralValue(LiteralExpression.class),
     RoundFunction(RoundFunction.class),
+    FloorFunction(FloorFunction.class),
+    CeilFunction(CeilFunction.class),
+    RoundDateExpression(RoundDateExpression.class),
+    FloorDateExpression(FloorDateExpression.class),
+    CeilDateExpression(CeilDateExpression.class),
+    RoundTimestampExpression(RoundTimestampExpression.class),
+    CeilTimestampExpression(CeilTimestampExpression.class),
+    RoundDecimalExpression(RoundDecimalExpression.class),
+    FloorDecimalExpression(FloorDecimalExpression.class),
+    CeilDecimalExpression(CeilDecimalExpression.class),
     TruncFunction(TruncFunction.class),
     ToDateFunction(ToDateFunction.class),
     ToCharFunction(ToCharFunction.class),
@@ -129,10 +149,6 @@ public enum ExpressionType {
     RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
-    CeilingDecimalExpression(CeilingDecimalExpression.class),
-    CeilingTimestampExpression(CeilingTimestampExpression.class),
-    FloorDecimalExpression(FloorDecimalExpression.class),
-    FloorTimestampExpression(FloorTimestampExpression.class),
     IndexKeyValue(IndexKeyValueColumnExpression.class),
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),

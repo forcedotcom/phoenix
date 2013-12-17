@@ -25,28 +25,57 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.flume.serializer;
+package com.salesforce.phoenix.expression.function;
 
 import java.sql.SQLException;
 import java.util.List;
 
-import org.apache.flume.Event;
-import org.apache.flume.conf.Configurable;
-import org.apache.flume.conf.ConfigurableComponent;
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.Expression;
 
-import com.salesforce.phoenix.util.SQLCloseable;
-
-public interface EventSerializer extends Configurable,ConfigurableComponent,SQLCloseable {
-
-    /**
-     * called during the start of the process to initialize the table columns.
-     */
-    public void initialize() throws SQLException;
+/**
+ * 
+ * Class encapsulating ceil operation on {@link com.salesforce.phoenix.schema.PDataType#DATE}.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+public class CeilDateExpression extends RoundDateExpression {
+    
+    public CeilDateExpression() {}
     
     /**
-     * @param events to be written to HBase.
-     * @throws SQLException 
+     * @param timeUnit - unit of time to round up to.
+     * Creates a {@link CeilDateExpression} with default multiplier of 1.
      */
-    public void upsertEvents(List<Event> events) throws SQLException;
+    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+        return create(expr, timeUnit, 1);
+    }
     
+    /**
+     * @param timeUnit - unit of time to round up to
+     * @param multiplier - determines the roll up window size.
+     * Create a {@link CeilDateExpression}. 
+     */
+    public static CeilDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+        Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
+        Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
+        List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
+        return new CeilDateExpression(expressions);
+    }
+    
+    public CeilDateExpression(List<Expression> children) {
+        super(children);
+    }
+    
+    @Override
+    protected long getRoundUpAmount() {
+        return divBy - 1;
+    }
+    
+    @Override
+    public String getName() {
+        return CeilFunction.NAME;
+    }
+
 }

@@ -1688,6 +1688,18 @@ public enum PDataType {
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
         }
+        
+        @Override
+        public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
+            return nanos;
+        }
+        
+        @Override
+        public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            long millis = PDataType.LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
+            return millis;
+        }
     },
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
 
@@ -1993,6 +2005,18 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
+        }
+        
+        @Override
+        public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
+            return nanos;
+        }
+        
+        @Override
+        public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            long millis = PDataType.UNSIGNED_LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
+            return millis;
         }
     },
     UNSIGNED_TIME("UNSIGNED_TIME", 18, Time.class, new UnsignedDateCodec()) {
@@ -5038,5 +5062,13 @@ public enum PDataType {
         }
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-
+    
+    public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+        throw new UnsupportedOperationException("Operation not supported for type " + this);
+    }
+    
+    public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+        throw new UnsupportedOperationException("Operation not supported for type " + this);
+    }
+    
 }

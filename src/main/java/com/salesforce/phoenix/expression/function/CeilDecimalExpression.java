@@ -25,71 +25,58 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
+import java.sql.SQLException;
+import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
-import com.salesforce.phoenix.schema.ColumnModifier;
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 
-
-public class CeilingDecimalExpression extends BaseSingleExpression {
-    private static final MathContext CEILING_CONTEXT = new MathContext(1, RoundingMode.CEILING);
+/**
+ * 
+ * Class encapsulating the CEIL operation on a {@link com.salesforce.phoenix.schema.PDataType#DECIMAL}
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+public class CeilDecimalExpression extends RoundDecimalExpression {
     
-    public CeilingDecimalExpression() {
+    public CeilDecimalExpression() {}
+    
+    public CeilDecimalExpression(List<Expression> children) {
+        super(children);
     }
     
-    public CeilingDecimalExpression(Expression child)  {
-        super(child);
-    }
+  /**
+   * Creates a {@link CeilDecimalExpression} with rounding scale given by @param scale.
+   *
+   */
+   public static CeilDecimalExpression create(Expression expr, int scale) throws SQLException {
+       Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
+       List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
+       return new CeilDecimalExpression(expressions);
+   }
+   
+   /**
+    * Creates a {@link CeilDecimalExpression} with a default scale of 0 used for rounding. 
+    *
+    */
+   public static CeilDecimalExpression create(Expression expr) throws SQLException {
+       return create(expr, 0);
+   }
     
-    protected MathContext getMathContext() {
-        return CEILING_CONTEXT;
+    @Override
+    protected RoundingMode getRoundingMode() {
+        return RoundingMode.CEILING;
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child =  getChild();
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            childType.coerceBytes(ptr, childType, child.getColumnModifier(), null);
-            BigDecimal value = (BigDecimal) childType.toObject(ptr);
-            value = value.round(getMathContext());
-            byte[] b = childType.toBytes(value, child.getColumnModifier());
-            ptr.set(b);
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public ColumnModifier getColumnModifier() {
-            return getChild().getColumnModifier();
-    }    
-
-    @Override
-    public final PDataType getDataType() {
-        return  getChild().getDataType();
+    public String getName() {
+        return CeilFunction.NAME;
     }
     
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-    
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
 }
