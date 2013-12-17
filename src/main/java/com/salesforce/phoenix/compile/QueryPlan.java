@@ -32,9 +32,9 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 
 
@@ -48,11 +48,13 @@ import com.salesforce.phoenix.schema.TableRef;
  */
 public interface QueryPlan extends StatementPlan {
     /**
-     * Get a scanner to iterate over the results
-     * @return scanner for iterating over the results
+     * Get a result iterator to iterate over the results
+     * @return result iterator for iterating over the results
      * @throws SQLException
      */
-    Scanner getScanner() throws SQLException;
+    public ResultIterator iterator() throws SQLException;
+    
+    public int getEstimatedSize();
     
     // TODO: change once joins are supported
     TableRef getTableRef();

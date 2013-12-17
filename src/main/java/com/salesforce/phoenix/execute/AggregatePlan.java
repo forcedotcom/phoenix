@@ -63,8 +63,6 @@ import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.query.WrappedScanner;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -142,7 +140,7 @@ public class AggregatePlan extends BasicQueryPlan {
     }
     
     @Override
-    protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
+    protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException {
         // Hack to set state on scan to make upgrade happen
         int upgradeColumnCount = SchemaUtil.upgradeColumnCount(context.getConnection().getURL(),context.getConnection().getClientInfo());
         if (upgradeColumnCount > 0) {
@@ -181,6 +179,6 @@ public class AggregatePlan extends BasicQueryPlan {
             resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderByExpressions(), thresholdBytes, limit);
         }
         
-        return new WrappedScanner(resultScanner, getProjector());
+        return resultScanner;
     }
 }

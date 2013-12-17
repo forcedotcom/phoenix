@@ -47,13 +47,13 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 
 public class HashJoinPlan implements QueryPlan {
@@ -87,7 +87,7 @@ public class HashJoinPlan implements QueryPlan {
     }
 
     @Override
-    public Scanner getScanner() throws SQLException {
+    public ResultIterator iterator() throws SQLException {
         ImmutableBytesPtr[] joinIds = joinInfo.getJoinIds();
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
@@ -105,7 +105,7 @@ public class HashJoinPlan implements QueryPlan {
         		
 				@Override
 				public ServerCache call() throws Exception {
-					return hashClient.addHashCache(ranges, hashPlans[index].getScanner(), 
+					return hashClient.addHashCache(ranges, hashPlans[index].iterator(), 
 							hashExpressions[index], plan.getTableRef());
 				}
 
@@ -128,7 +128,12 @@ public class HashJoinPlan implements QueryPlan {
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
         
-        return plan.getScanner();
+        return plan.iterator();
+    }
+    
+    @Override
+    public int getEstimatedSize() {
+        return plan.getEstimatedSize();
     }
 
     @Override

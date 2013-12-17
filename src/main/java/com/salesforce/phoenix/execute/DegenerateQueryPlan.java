@@ -34,6 +34,7 @@ import java.util.List;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.compile.*;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.*;
@@ -52,7 +53,7 @@ public class DegenerateQueryPlan extends BasicQueryPlan {
     }
 
     @Override
-    protected Scanner newScanner(ConnectionQueryServices services) throws SQLException {
+    protected ResultIterator newIterator(ConnectionQueryServices services) throws SQLException {
         return null;
     }
 
