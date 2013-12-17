@@ -1123,4 +1123,26 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
         }
     }
+    
+    @Test
+    public void testInvalidNegativeArrayIndex() throws Exception {
+    	String query = "SELECT a_double_array[-20] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        }
+    }
+    
+    @Test
+    public void testNonArrayColumnWithIndex() throws Exception {
+    	String query = "SELECT a_float[1] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        }
+    }
 }

@@ -74,18 +74,6 @@ public interface ColumnProjector {
      */
     Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr) throws SQLException;
     
-    /**
-     * Get the value of the column, coercing it if necessary to the specified type
-     * @param tuple the row containing the column
-     * @param type the type to which to coerce the binary value
-     * @param ptr used to retrieve the value
-     * @param index of the array specified
-     * @return the object representation of the column value.
-     * @throws SQLException
-     */
-    Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr, int arrayIndex) throws SQLException;
-    
     boolean isCaseSensitive();
     
-    int getArrayIndex();
 }

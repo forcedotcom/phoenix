@@ -179,19 +179,10 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     	checkCursorState();
         // Get the value using the expected type instead of trying to coerce to VARCHAR.
         // We can't coerce using our formatter because we don't have enough context in PDataType.
-        ColumnProjector projector = rowProjector.getColumnProjector(columnIndex-1);
-        int arrayIndex = projector.getArrayIndex();
-        PDataType type = projector.getExpression().getDataType();
-        Object value = null;
-		if (arrayIndex != -1) {
-			value = projector.getValue(currentRow, type, ptr, arrayIndex);
-		} else {
-			value = projector.getValue(currentRow, type, ptr);
-		}
-        if (wasNull = (value == null)) {
-            return null;
-        }
-        return (Array)value;
+    	ColumnProjector projector = rowProjector.getColumnProjector(columnIndex-1);
+        Array value = (Array)projector.getValue(currentRow, projector.getExpression().getDataType(), ptr);
+        wasNull = (value == null);
+        return value;
     }
 
     @Override

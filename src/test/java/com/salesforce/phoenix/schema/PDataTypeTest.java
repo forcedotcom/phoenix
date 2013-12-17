@@ -1228,6 +1228,7 @@ public class PDataTypeTest {
         assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, -10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, 0));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.VARBINARY, 0));
 
         // Testing coercing long to other values.
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.DOUBLE));

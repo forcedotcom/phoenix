@@ -30,6 +30,7 @@ package com.salesforce.phoenix.schema;
 import java.nio.ByteBuffer;
 import java.sql.Types;
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -38,15 +39,15 @@ import com.salesforce.phoenix.util.ByteUtil;
 /**
  * The datatype for PColummns that are Arrays
  */
-public class PDataTypeForArray {
+public class PArrayDataType {
 
     private static final int MAX_POSSIBLE_VINT_LENGTH = 2;
+    // This would be set when toObject is called
 	private Integer byteSize;
-	public PDataTypeForArray() {
+	public PArrayDataType() {
 	}
 
 	public Integer getByteSize() {
-		// TODO : When fixed ARRAY size comes in we need to change this
 		return byteSize;
 	}
 	
@@ -105,7 +106,22 @@ public class PDataTypeForArray {
 	}
 	
 	public boolean isCoercibleTo(PDataType targetType, PDataType expectedTargetType) {
-        return targetType == expectedTargetType;
+		PDataType targetElementType;
+		PDataType expectedTargetElementType;
+		if (!targetType.isArrayType()) {
+			targetElementType = targetType;
+		} else {
+			targetElementType = PDataType.fromTypeId(targetType.getSqlType()
+					- Types.ARRAY);
+		}
+		if (!expectedTargetType.isArrayType()) {
+			expectedTargetElementType = expectedTargetType;
+		} else {
+			expectedTargetElementType = PDataType.fromTypeId(expectedTargetType
+					.getSqlType() - Types.ARRAY);
+		}
+        return expectedTargetElementType.isCoercibleTo(targetElementType);
+        
     }
 	
 	public boolean isSizeCompatible(PDataType srcType, Object value,
@@ -136,19 +152,9 @@ public class PDataTypeForArray {
 				byteSize, baseType);
 	}
 	
-	public Object toObject(byte[] bytes, int offset, int length, PDataType baseType, 
-			ColumnModifier columnModifier, int arrayIndex) {
-		return createPhoenixArrayFromGivenArrayIndex(bytes, offset, length, columnModifier,
-				byteSize, baseType, arrayIndex);
-	}
-
-	private Object createPhoenixArrayFromGivenArrayIndex(byte[] bytes,
-			int offset, int length, ColumnModifier columnModifier,
-			Integer byteSize, PDataType baseDataType, int arrayIndex) {
-		if (bytes == null || bytes.length == 0) {
-			return null;
-		}
-		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
+	public static void positionAtArrayElement(ImmutableBytesWritable ptr, int arrayIndex, PDataType baseDataType) {
+		byte[] bytes = ptr.get();
+		ByteBuffer buffer = ByteBuffer.wrap(bytes, ptr.getOffset(), ptr.getLength());
 		int initPos = buffer.position();
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		if(arrayIndex >= noOfElements) {
@@ -165,10 +171,8 @@ public class PDataTypeForArray {
 			baseSize = Bytes.SIZEOF_INT;
 			useShort = false;
 		}
-		// Forming one element array
-		Object[] elements = (Object[]) java.lang.reflect.Array.newInstance(
-				baseDataType.getJavaClass(), 1);
-		if (byteSize == null) {
+
+		if (baseDataType.getByteSize() == null) {
 			int indexOffset = buffer.getInt();
 			int valArrayPostion = buffer.position();
 			buffer.position(indexOffset + initPos);
@@ -212,44 +216,27 @@ public class PDataTypeForArray {
 					buffer.position(currOff + initPos);
 					byte[] val = new byte[elementLength];
 					buffer.get(val);
-					elements[i++] = baseDataType.toObject(val, columnModifier);
+					ptr.set(val, 0, val.length);
 					break;
 				}
 			} else {
 				byte[] val = new byte[indexOffset - valArrayPostion];
 				buffer.position(valArrayPostion + initPos);
 				buffer.get(val);
-				elements[i++] = baseDataType.toObject(val, columnModifier);
+				ptr.set(val, 0, val.length);
 			}
 		} else {
-			int j = 0;
-			for (int i = 0; i < noOfElements; i++) {
-				byte[] val;
-				if (baseDataType.getByteSize() == null) {
-					val = new byte[length];
-				} else {
-					val = new byte[baseDataType.getByteSize()];
-				}
-				buffer.get(val);
-				if(i != arrayIndex) {
-					continue;
-				}
-				elements[j++] = baseDataType.toObject(val,
-						columnModifier);
-			}
+			byte[] val = new byte[baseDataType.getByteSize()];
+			buffer.position(arrayIndex * baseDataType.getByteSize()+ (buffer.position()));
+			buffer.get(val);
+			ptr.set(val, 0, val.length);
 		}
-		return PDataTypeForArray
-				.instantiatePhoenixArray(baseDataType, elements);
 	}
 
 	public Object toObject(byte[] bytes, int offset, int length, PDataType baseType) {
 		return toObject(bytes, offset, length, baseType, null);
 	}
 	
-	public Object toObject(byte[] bytes, int offset, int length, PDataType baseType, int arrayIndex) {
-		return toObject(bytes, offset, length, baseType, null, arrayIndex);
-	}
-
 	public Object toObject(Object object, PDataType actualType) {
 		// the object that is passed here is the actual array set in the params
 	    PDataType baseType = PDataType.fromTypeId(actualType.getSqlType() - Types.ARRAY);
@@ -317,7 +304,7 @@ public class PDataTypeForArray {
         return buffer.array();
 	}
 
-	private int initOffsetArray(int noOfElements, int baseSize) {
+	private static int initOffsetArray(int noOfElements, int baseSize) {
 		// for now create an offset array equal to the noofelements
 		return noOfElements * baseSize;
     }
@@ -407,7 +394,7 @@ public class PDataTypeForArray {
 				elements[i] = baseDataType.toObject(val, columnModifier);
 			}
 		}
-		return PDataTypeForArray
+		return PArrayDataType
 				.instantiatePhoenixArray(baseDataType, elements);
 	}
 	

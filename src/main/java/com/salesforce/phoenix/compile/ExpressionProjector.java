@@ -50,23 +50,12 @@ public class ExpressionProjector implements ColumnProjector {
     private final Expression expression;
     private final String tableName;
     private final boolean isCaseSensitive;
-    // This would be -1 for all cases, for valid cases would start with 0
-    private final int arrayIndex;
     
     public ExpressionProjector(String name, String tableName, Expression expression, boolean isCaseSensitive) {
         this.name = name;
         this.expression = expression;
         this.tableName = tableName;
         this.isCaseSensitive = isCaseSensitive;
-        this.arrayIndex = -1;
-    }
-    
-    public ExpressionProjector(String name, String tableName, Expression expression, boolean isCaseSensitive, int arrayIndex) {
-        this.name = name;
-        this.expression = expression;
-        this.tableName = tableName;
-        this.isCaseSensitive = isCaseSensitive;
-        this.arrayIndex = arrayIndex;
     }
     
     @Override
@@ -86,29 +75,20 @@ public class ExpressionProjector implements ColumnProjector {
 
     @Override
     public final Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr) throws SQLException {
-    	return getValue(tuple, type, ptr, -1);
+    	 Expression expression = getExpression();
+         if (!expression.evaluate(tuple, ptr)) {
+             return null;
+         }
+         if (ptr.getLength() == 0) {
+             return null;
+         }        
+        return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier());
     }
-    
-
-    @Override
-    public final Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr, int arrayIndex) throws SQLException {
-        Expression expression = getExpression();
-        if (!expression.evaluate(tuple, ptr)) {
-            return null;
-        }
-        if (ptr.getLength() == 0) {
-            return null;
-        }        
-        return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier(), arrayIndex);
-    }
+         
 
     @Override
     public boolean isCaseSensitive() {
         return isCaseSensitive;
     }
     
-    @Override
-    public int getArrayIndex() {
-    	return arrayIndex;
-    }
 }

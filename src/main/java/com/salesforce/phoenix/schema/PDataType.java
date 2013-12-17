@@ -3606,13 +3606,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.VARCHAR, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.VARCHAR_ARRAY);
         }
@@ -3690,13 +3683,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.VARBINARY, columnModifier);
-		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.VARBINARY, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -3778,13 +3764,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.BINARY, columnModifier);
-		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.BINARY, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -3870,13 +3849,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.CHAR, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.CHAR_ARRAY);
         }
@@ -3958,13 +3930,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.LONG, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.LONG_ARRAY);
         }
@@ -4035,13 +4000,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.SMALLINT, columnModifier);
-		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.SMALLINT, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -4118,13 +4076,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TINYINT, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.TINYINT_ARRAY);
         }
@@ -4197,14 +4148,7 @@ public enum PDataType {
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.FLOAT, columnModifier);
 		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.FLOAT, columnModifier, arrayIndex);
-		}
-		
+	
 		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.FLOAT_ARRAY);
@@ -4276,13 +4220,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DOUBLE, columnModifier);
-		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DOUBLE, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -4358,14 +4295,7 @@ public enum PDataType {
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DECIMAL, columnModifier);
 		}
-		
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DECIMAL, columnModifier, arrayIndex);
-		}
-		
+	
 		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.DECIMAL_ARRAY);
@@ -4449,12 +4379,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIMESTAMP, columnModifier, arrayIndex);
-		}
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.TIMESTAMP_ARRAY);
         }
@@ -4525,12 +4449,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIME, columnModifier);
-		}
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.TIME, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -4607,13 +4525,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.DATE, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.DATE_ARRAY);
         }
@@ -4684,12 +4595,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_LONG, columnModifier);
-		}
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_LONG, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -4764,13 +4669,7 @@ public enum PDataType {
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_INT, columnModifier);
 		}
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_INT, columnModifier, arrayIndex);
-		}
-		
+
 		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_INT_ARRAY);
@@ -4843,12 +4742,6 @@ public enum PDataType {
 		public Object toObject(byte[] bytes, int offset, int length,
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_SMALLINT, columnModifier);
-		}
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_SMALLINT, columnModifier, arrayIndex);
 		}
 		
 		@Override
@@ -4926,13 +4819,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_TINYINT, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_TINYINT_ARRAY);
         }
@@ -5003,12 +4889,7 @@ public enum PDataType {
 				PDataType actualType, ColumnModifier columnModifier) {
 			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_FLOAT, columnModifier);
 		}
-		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_FLOAT, columnModifier, arrayIndex);
-		}
+
 		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_FLOAT_ARRAY);
@@ -5084,13 +4965,6 @@ public enum PDataType {
 		}
 		
 		@Override
-		public Object toObject(byte[] bytes, int offset, int length,
-				PDataType actualType, ColumnModifier columnModifier,
-				int arrayIndex) {
-			return pDataTypeForArray.toObject(bytes, offset, length, PDataType.UNSIGNED_DOUBLE, columnModifier, arrayIndex);
-		}
-		
-		@Override
         public boolean isCoercibleTo(PDataType targetType) {
             return pDataTypeForArray.isCoercibleTo(targetType, PDataType.UNSIGNED_DOUBLE_ARRAY);
         }
@@ -5100,7 +4974,8 @@ public enum PDataType {
            PhoenixArray pArr = (PhoenixArray)value;
            double[] doubleArr = (double[])pArr.array;
            for (double i : doubleArr) {
-               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, i)) {
+               if(!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, i) && (!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_TIMESTAMP, i))
+            		   && (!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_TIME, i)) && (!pDataTypeForArray.isCoercibleTo(PDataType.UNSIGNED_DATE, i))) {
                    return false;
                }
            }
@@ -5119,7 +4994,7 @@ public enum PDataType {
     private final byte[] clazzNameBytes;
     private final byte[] sqlTypeNameBytes;
     private final PDataCodec codec;
-    final PDataTypeForArray pDataTypeForArray = new PDataTypeForArray();
+    final PArrayDataType pDataTypeForArray = new PArrayDataType();
     private PDataType(String sqlTypeName, int sqlType, Class clazz, PDataCodec codec) {
         this.sqlTypeName = sqlTypeName;
         this.sqlType = sqlType;
@@ -6707,16 +6582,6 @@ public enum PDataType {
         return this.toObject(ptr.get(), ptr.getOffset(), ptr.getLength(), actualType, sortOrder);
     }
     
-	public Object toObject(ImmutableBytesWritable ptr, PDataType actualType,
-			ColumnModifier sortOrder, int arrayIndex) {
-		if (arrayIndex != -1) {
-			return this.toObject(ptr.get(), ptr.getOffset(), ptr.getLength(),
-					actualType, sortOrder, arrayIndex);
-		} else {
-			return this.toObject(ptr.get(), ptr.getOffset(), ptr.getLength(),
-					actualType, sortOrder);
-		}
-	}
 
     public Object toObject(ImmutableBytesWritable ptr) {
         return toObject(ptr.get(), ptr.getOffset(), ptr.getLength());
@@ -6730,9 +6595,6 @@ public enum PDataType {
         return toObject(bytes, offset, length, this);
     }
     
-    public Object toObject(byte[] bytes, int offset, int length, int arrayIndex) {
-        return toObject(bytes, offset, length, this, arrayIndex);
-    }
 
     public Object toObject(byte[] bytes) {
         return toObject(bytes, (ColumnModifier)null);

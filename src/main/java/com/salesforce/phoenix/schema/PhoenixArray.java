@@ -33,10 +33,12 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Map;
 
+import com.salesforce.phoenix.util.SQLCloseable;
+
 /**
  * java.sql.Array implementation for Phoenix
  */
-public class PhoenixArray implements Array {
+public class PhoenixArray implements Array,SQLCloseable {
 	PDataType baseType;
 	Object array;
 	int numElements;
@@ -62,6 +64,11 @@ public class PhoenixArray implements Array {
 	@Override
 	public Object getArray() throws SQLException {
 		return array;
+	}
+	
+	@Override
+	public void close() throws SQLException {
+		this.array = null;
 	}
 
 	@Override

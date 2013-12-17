@@ -75,7 +75,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			Double[] doubleArr = new Double[2];
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
-			PhoenixArray array = (PhoenixArray) conn.createArrayOf("DOUBLE",
+			Array array = conn.createArrayOf("DOUBLE",
 					doubleArr);
 			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
 			assertEquals(resultArray, array);
@@ -115,7 +115,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
 			array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
+			Array resultArray = rs.getArray(1);
 			assertEquals(resultArray, array);
 			assertEquals(rs.getString("B_string"), B_VALUE);
 			assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
@@ -155,7 +155,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
 			array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
+			Array resultArray = rs.getArray(1);
 			assertEquals(resultArray, array);
 			assertEquals(rs.getString("B_string"), B_VALUE);
 			assertTrue(Floats.compare(rs.getFloat(3), 0.01f) == 0);
@@ -218,9 +218,9 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			// Need to support primitive
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 36.763;
-			Array array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
-			assertEquals(resultArray, array);
+			conn.createArrayOf("DOUBLE", doubleArr);
+			Double result =  rs.getDouble(1);
+			assertEquals(result, doubleArr[0]);
 			assertFalse(rs.next());
 		} finally {
 			conn.close();
@@ -246,9 +246,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			// Need to support primitive
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 36.763;
-			Array array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
-			assertEquals(resultArray, array);
+			Double result =  rs.getDouble(1);
+			assertEquals(result, doubleArr[0]);
 			assertFalse(rs.next());
 		} finally {
 			conn.close();
@@ -262,7 +261,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
-		String query = "SELECT a_double_array[1] FROM table_with_array where a_double_array[1]<?";
+		int a_index = 0;
+		String query = "SELECT a_double_array[1] FROM table_with_array where a_double_array["+a_index+"1]<?";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
 				Long.toString(ts + 2)); // Execute at timestamp 2
@@ -278,9 +278,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			// Need to support primitive
 			doubleArr = new Double[1];
 			doubleArr[0] = 36.763;
-			array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
-			assertEquals(resultArray, array);
+			Double result =  rs.getDouble(1);
+			assertEquals(result, doubleArr[0]);
 			assertFalse(rs.next());
 		} finally {
 			conn.close();
@@ -298,7 +297,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 				getDefaultSplits(tenantId), null, ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		// TODO : Does not work
-		String query = "SELECT a_double_array FROM table_with_array WHERE ?>a_double_array[1] GROUP BY a_double_array[1]";
+		String query = "SELECT a_double_array[1] FROM table_with_array  GROUP BY a_double_array[1]";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
 				Long.toString(ts + 2)); // Execute at timestamp 2
@@ -308,15 +307,14 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 40.0;
 			Array array = conn.createArrayOf("DOUBLE", doubleArr);
-			statement.setArray(1, array);
+			//statement.setArray(1, array);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
 			// Need to support primitive
 			doubleArr = new Double[1];
 			doubleArr[0] = 36.763;
-			array = conn.createArrayOf("DOUBLE", doubleArr);
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
-			assertEquals(resultArray, array);
+			Double result =  rs.getDouble(1);
+			assertEquals(result, doubleArr[0]);
 			assertFalse(rs.next());
 		} finally {
 			conn.close();
@@ -344,58 +342,11 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			String[] strArr = new String[1];
 			strArr[0] = "XYZWER";
 			// strArr[1] = "CEDF";
-			Array array = conn.createArrayOf("VARCHAR", strArr);
+			
 			// assertEquals(25.343d, rs.getDouble(1));
-			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
-			assertEquals(resultArray, array);
+			String result = rs.getString(1);
+			assertEquals(result, strArr[0]);
 			assertFalse(rs.next());
-		} finally {
-			conn.close();
-		}
-	}
-
-	@Test
-	public void testInvalidArrayindex() throws Exception {
-		long ts = nextTimestamp();
-		String tenantId = getOrganizationId();
-		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
-		String query = "SELECT a_double_array[-20] FROM table_with_array";
-		Properties props = new Properties(TEST_PROPERTIES);
-		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-				Long.toString(ts + 2)); // Execute at timestamp 2
-		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-			ResultSet rs = statement.executeQuery();
-			Assert.fail("Should have failed");
-		} catch (Exception e) {
-			System.out.println("");
-		} finally {
-			conn.close();
-		}
-	}
-
-	@Test
-	public void testNonArrayColumnWithIndex() throws Exception {
-		long ts = nextTimestamp();
-		String tenantId = getOrganizationId();
-		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
-		String query = "SELECT a_float[1] FROM table_with_array";
-		Properties props = new Properties(TEST_PROPERTIES);
-		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-				Long.toString(ts + 2)); // Execute at timestamp 2
-		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-			ResultSet rs = statement.executeQuery();
-			assertTrue(rs.next());
-			Assert.fail("Should have failed");
-		} catch (Exception e) {
-			System.out.println("");
 		} finally {
 			conn.close();
 		}

@@ -337,8 +337,6 @@ public class ParseNodeFactory {
     	ColumnParseNode columnNode = new ColumnParseNode(null, name);
     	listNodes.add(columnNode);
     	listNodes.add(n.get(0));
-    	////listNodes.add(n);
-    	//listNodes.add(new LiteralParseNode(Integer.valueOf(index)));
     	return function(ARRAY_ELEM, listNodes);
     }
 

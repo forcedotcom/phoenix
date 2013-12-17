@@ -27,104 +27,70 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
+import java.sql.Types;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.parse.ArrayColumnNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.ParseException;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
-@BuiltInFunction(name = ArrayIndexFunction.NAME, nodeClass = ArrayColumnNode.class, args = {
+@BuiltInFunction(name = ArrayIndexFunction.NAME, args = {
 		@Argument(allowedTypes = { PDataType.BINARY_ARRAY,
-				PDataType.BOOLEAN_ARRAY, PDataType.CHAR_ARRAY,
-				PDataType.DATE_ARRAY, PDataType.DOUBLE_ARRAY,
-				PDataType.DECIMAL_ARRAY, PDataType.FLOAT_ARRAY,
-				PDataType.INTEGER_ARRAY, PDataType.LONG_ARRAY,
-				PDataType.SMALLINT_ARRAY, PDataType.TIME_ARRAY,
-				PDataType.TIMESTAMP_ARRAY, PDataType.TINYINT_ARRAY,
-				PDataType.UNSIGNED_DOUBLE_ARRAY,
-				PDataType.UNSIGNED_FLOAT_ARRAY, PDataType.UNSIGNED_INT_ARRAY,
-				PDataType.UNSIGNED_LONG_ARRAY,
-				PDataType.UNSIGNED_SMALLINT_ARRAY,
-				PDataType.UNSIGNED_TINYINT_ARRAY, PDataType.VARCHAR_ARRAY }),
-		@Argument(allowedTypes = { PDataType.INTEGER}) })
+				PDataType.VARBINARY_ARRAY }),
+		@Argument(allowedTypes = { PDataType.INTEGER }) })
 public class ArrayIndexFunction extends ScalarFunction {
 
 	public static final String NAME = "ARRAY_ELEM";
 
-	private int index;
-	private String colName;
-	private PDataType dataType;
-
 	public ArrayIndexFunction() {
 	}
 
-	public ArrayIndexFunction(List<Expression> children, int index,
-			String colName, PDataType dataType) {
+	public ArrayIndexFunction(List<Expression> children) {
 		super(children);
-		if (index < 0) {
-			throw new ParseException("Index cannot be negative :" + index);
-		}
-		this.index = index;
-		this.colName = colName;
-		if (!dataType.isArrayType()) {
-			throw new ParseException("The column specified must of array type "
-					+ colName);
-		}
-		this.dataType = dataType;
 	}
 
 	@Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		Expression expression = children.get(0);
-		if (!expression.evaluate(tuple, ptr)) {
-			return false;
+		Expression indexExpr = children.get(1);
+		if (!indexExpr.evaluate(tuple, ptr)) {
+		  return false;
 		} else if (ptr.getLength() == 0) {
-			return true;
+		  return true;
+		}
+		// Use Codec to prevent Integer object allocation
+		int index = PDataType.INTEGER.getCodec().decodeInt(ptr, indexExpr.getColumnModifier());
+		if(index < 0) {
+			throw new ParseException("Index cannot be negative :" + index);
+		}
+		Expression arrayExpr = children.get(0);
+		if (!arrayExpr.evaluate(tuple, ptr)) {
+		  return false;
+		} else if (ptr.getLength() == 0) {
+		  return true;
 		}
 
-		byte[] bs = ptr.get();
-		if (this.dataType == null) {
-			this.dataType = getDataType();
-		}
-		Object object = this.dataType.toObject(bs, ptr.getOffset(),
-				ptr.getLength(), this.dataType, this.index);
-		byte[] bytes = this.dataType.toBytes(object);
-		ptr.set(bytes);
+		// Given a ptr to the entire array, set ptr to point to a particular element within that array
+		// given the type of an array element (see comments in PDataTypeForArray)
+		PArrayDataType.positionAtArrayElement(ptr, index, getDataType());
 		return true;
+		
 	}
 
 	@Override
 	public PDataType getDataType() {
-		return children.get(0).getDataType();
+		return PDataType.fromTypeId(children.get(0).getDataType().getSqlType()
+				- Types.ARRAY);
 	}
 
 	@Override
 	public String getName() {
 		return NAME;
-	}
-
-	@Override
-	public void readFields(DataInput input) throws IOException {
-		super.readFields(input);
-		index = WritableUtils.readVInt(input);
-		colName = WritableUtils.readString(input);
-	}
-
-	@Override
-	public void write(DataOutput output) throws IOException {
-		super.write(output);
-		WritableUtils.writeVInt(output, index);
-		WritableUtils.writeString(output, colName);
 	}
 
 }
