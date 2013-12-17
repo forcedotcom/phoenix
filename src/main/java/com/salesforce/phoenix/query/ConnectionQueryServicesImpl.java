@@ -1221,7 +1221,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
         } catch (TableAlreadyExistsException e) {
             SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
         } catch (SQLException e) {

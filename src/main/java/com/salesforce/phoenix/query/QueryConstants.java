@@ -68,7 +68,11 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
-
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SEQUENCE_NAME_COLUMN;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SEQUENCE_SCHEMA_COLUMN;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CURRENT_VALUE_COLUMN;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INCREMENT_BY_COLUMN;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import java.math.BigDecimal;
 
 import org.apache.hadoop.hbase.HConstants;
@@ -137,7 +141,7 @@ public interface QueryConstants {
     public static final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
     
 
-    public static final String CREATE_METADATA =
+    public static final String CREATE_TABLE_METADATA =
             "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TENANT_ID + " VARCHAR NULL," +
@@ -188,4 +192,15 @@ public interface QueryConstants {
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             DEFAULT_COLUMN_FAMILY_NAME + "=" + "'_0'" + ",\n" + // Use original default for b/w compat
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
+    
+    public static final String CREATE_SEQUENCE_METADATA =
+            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
+    		SEQUENCE_SCHEMA_COLUMN + " VARCHAR NULL, \n" + 
+            SEQUENCE_NAME_COLUMN +  " VARCHAR NOT NULL, \n" +
+    		CURRENT_VALUE_COLUMN + " BIGINT NOT NULL, \n" + 
+            INCREMENT_BY_COLUMN  + " BIGINT NOT NULL \n" + 
+    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + SEQUENCE_SCHEMA_COLUMN + "," + SEQUENCE_NAME_COLUMN+ "))\n" + 
+    		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
+            HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
+	
 }

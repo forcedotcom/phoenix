@@ -111,6 +111,7 @@ import com.salesforce.phoenix.parse.AlterIndexStatement;
 import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
 import com.salesforce.phoenix.parse.DropIndexStatement;
@@ -527,6 +528,23 @@ public class MetaDataClient {
         return buildIndex(table, tableRef);
     }
 
+    public MutationState createSequence(CreateSequenceStatement statement) throws SQLException {
+        final String schemaName = statement.getSequenceName().getSchemaName();
+        final String sequenceName = statement.getSequenceName().getTableName();
+        final Long startWith = new Long((Integer)statement.getStartWith().getValue());
+        final Long incrementBy = new Long(((Integer)statement.getIncrementBy().getValue()));
+
+        String sql = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
+        PreparedStatement upsertStatement = connection.prepareStatement(sql);
+        upsertStatement.setString(1, schemaName);
+        upsertStatement.setString(2, sequenceName);
+        upsertStatement.setLong(3, startWith);
+        upsertStatement.setLong(4, incrementBy);
+        upsertStatement.execute();
+        connection.commit();        
+        return new MutationState(0, connection);
+    }
+    
     private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {
         for (ColumnDef colDef : colDefs) {
             if (colDef.getColumnDefName().getColumnName().equals(colName.getColumnName())) {

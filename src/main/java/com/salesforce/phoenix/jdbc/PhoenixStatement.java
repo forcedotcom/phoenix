@@ -50,6 +50,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.CreateIndexCompiler;
+import com.salesforce.phoenix.compile.CreateSequenceCompiler;
 import com.salesforce.phoenix.compile.CreateTableCompiler;
 import com.salesforce.phoenix.compile.DeleteCompiler;
 import com.salesforce.phoenix.compile.ExplainPlan;
@@ -73,6 +74,7 @@ import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DeleteStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
@@ -81,6 +83,7 @@ import com.salesforce.phoenix.parse.DropTableStatement;
 import com.salesforce.phoenix.parse.ExplainStatement;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.LimitNode;
+import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.NamedNode;
 import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.OrderByNode;
@@ -422,6 +425,46 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return compilePlan();
         }
     }
+    
+    private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
+
+		public ExecutableCreateSequenceStatement(TableName sequenceName, LiteralParseNode startWith, LiteralParseNode incrementBy, int bindCount) {
+			super(sequenceName, startWith, incrementBy, bindCount);
+		}
+
+		@Override
+		public PhoenixResultSet executeQuery() throws SQLException {
+			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",	this.toString());
+		}
+
+		@Override
+		public boolean execute() throws SQLException {
+		    MutationPlan plan = compilePlan();
+		    plan.execute();
+		    return false;
+		}
+
+		@Override
+		public int executeUpdate() throws SQLException {
+		    return 0;      
+		}
+
+		@Override
+		public ResultSetMetaData getResultSetMetaData() throws SQLException {
+			return null;
+		}
+
+		@Override
+		public MutationPlan compilePlan() throws SQLException {
+		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(connection);
+            return compiler.compile(this);
+		}
+
+        @Override
+        public StatementPlan optimizePlan() throws SQLException {            
+            return null;
+        }		
+	}
 
     private class ExecutableDropTableStatement extends DropTableStatement implements ExecutableStatement {
 
@@ -814,6 +857,11 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
             return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
+        }
+        
+        @Override
+        public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
         }
         
         @Override
