@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.salesforce</groupId>
+  <groupId>org.apache</groupId>
   <artifactId>phoenix</artifactId>
   <version>2.2.1</version>
   <name>Phoenix</name>
@@ -182,7 +182,7 @@
           </execution>
         </executions>
         <configuration>
-			<outputDirectory>${antlr-output.dir}/com/salesforce/phoenix/parse</outputDirectory>
+			<outputDirectory>${antlr-output.dir}/org/apache/phoenix/parse</outputDirectory>
 		</configuration>
       </plugin>
       <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running
@@ -202,7 +202,7 @@
             <configuration>
               <archive>
                 <manifest>
-                  <mainClass>com.salesforce.phoenix.util.GeneratePerformanceData</mainClass>
+                  <mainClass>org.apache.phoenix.util.GeneratePerformanceData</mainClass>
                 </manifest>
               </archive>
             </configuration>
@@ -261,7 +261,7 @@
                 <index>true</index>
                 <manifest>
                   <addClasspath>true</addClasspath>
-                  <mainClass>com.salesforce.phoenix.util.PhoenixRuntime</mainClass>
+                  <mainClass>org.apache.phoenix.util.PhoenixRuntime</mainClass>
                   <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
                   <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
                 </manifest>

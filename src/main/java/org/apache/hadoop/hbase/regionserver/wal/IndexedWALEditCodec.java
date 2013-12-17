@@ -13,8 +13,8 @@ import org.apache.hadoop.hbase.codec.BaseEncoder;
 import org.apache.hadoop.hbase.codec.Decoder;
 import org.apache.hadoop.hbase.codec.Encoder;
 
-import com.salesforce.hbase.index.wal.IndexedKeyValue;
-import com.salesforce.hbase.index.wal.KeyValueCodec;
+import org.apache.hbase.index.wal.IndexedKeyValue;
+import org.apache.hbase.index.wal.KeyValueCodec;
 
 
 /**

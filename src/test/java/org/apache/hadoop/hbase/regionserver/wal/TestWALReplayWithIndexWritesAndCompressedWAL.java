@@ -35,12 +35,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.mockito.Mockito;
 
-import com.salesforce.hbase.index.IndexTestingUtils;
-import com.salesforce.hbase.index.TableName;
-import com.salesforce.hbase.index.covered.example.ColumnGroup;
-import com.salesforce.hbase.index.covered.example.CoveredColumn;
-import com.salesforce.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
-import com.salesforce.hbase.index.covered.example.CoveredColumnIndexer;
+import org.apache.hbase.index.IndexTestingUtils;
+import org.apache.hbase.index.TableName;
+import org.apache.hbase.index.covered.example.ColumnGroup;
+import org.apache.hbase.index.covered.example.CoveredColumn;
+import org.apache.hbase.index.covered.example.CoveredColumnIndexSpecifierBuilder;
+import org.apache.hbase.index.covered.example.CoveredColumnIndexer;
 
 /**
  * For pre-0.94.9 instances, this class tests correctly deserializing WALEdits w/o compression. Post

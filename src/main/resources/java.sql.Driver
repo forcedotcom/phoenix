@@ -1,1 +1,1 @@
-com.salesforce.phoenix.jdbc.PhoenixDriver
+org.apache.phoenix.jdbc.PhoenixDriver
