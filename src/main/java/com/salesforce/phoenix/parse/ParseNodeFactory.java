@@ -94,7 +94,12 @@ public class ParseNodeFactory {
             this.upperName = lowerName;
             this.argCount = argCount;
         }
-
+        
+        @Override
+        public String toString() {
+            return upperName;
+        }
+        
         @Override
         public int hashCode() {
             final int prime = 31;

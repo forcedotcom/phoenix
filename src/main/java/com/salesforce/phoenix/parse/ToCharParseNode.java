@@ -34,7 +34,9 @@ import java.util.List;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.FunctionArgumentType;
+import com.salesforce.phoenix.expression.function.FunctionExpression;
+import com.salesforce.phoenix.expression.function.ToCharFunction;
 import com.salesforce.phoenix.schema.PDataType;
 
 

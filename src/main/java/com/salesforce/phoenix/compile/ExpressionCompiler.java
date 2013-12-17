@@ -660,24 +660,30 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
-        final ParseNode childNode = node.getChildren().get(0);
-        final Expression child = children.get(0);
-        final PDataType dataType = child.getDataType();
-        final PDataType targetDataType = node.getDataType();
-
+        ParseNode childNode = node.getChildren().get(0);
+        PDataType targetDataType = node.getDataType();
+        Expression childExpr = children.get(0);
+        PDataType fromDataType = childExpr.getDataType();
+        
         if (childNode instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
+            context.getBindManager().addParamMetaData((BindParseNode)childNode, childExpr);
         }
-        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
-            // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
+        
+        Expression expr = childExpr;
+        if(fromDataType != null) {
+            /*
+             * IndexStatementRewriter creates a CAST parse node when rewriting the query to use
+             * indexed columns. Without this check present we wrongly and unnecessarily
+             * end up creating a RoundExpression. 
+             */
             if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
-                throw new TypeMismatchException(dataType, targetDataType, child.toString());
+                expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
             }
         }
-        return wrapGroupByExpression(CoerceExpression.create(child, targetDataType)); 
+        return CoerceExpression.create(expr, targetDataType); 
     }
-
-    @Override
+    
+   @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
         return true;
     }
