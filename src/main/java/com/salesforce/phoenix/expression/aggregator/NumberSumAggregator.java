@@ -50,6 +50,17 @@ abstract public class NumberSumAggregator extends BaseAggregator {
         super(columnModifier);
     }
 
+    public NumberSumAggregator(ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
+        this(columnModifier);
+        if (ptr != null) {
+            sum = PDataType.LONG.getCodec().decodeLong(ptr, columnModifier);
+        }
+    }
+
+    public long getSum() {
+        return sum;
+    }
+    
     abstract protected PDataType getInputDataType();
     
     private int getBufferLength() {

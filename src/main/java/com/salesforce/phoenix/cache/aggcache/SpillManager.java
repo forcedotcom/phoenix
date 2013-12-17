@@ -17,11 +17,15 @@ import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
-import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.expression.function.SingleAggregateFunction;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.KeyValueSchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.KeyValueUtil;
+import com.salesforce.phoenix.util.TupleUtil;
 
 /**
  * Class servers as an adapter between the in-memory LRU cache and the 
@@ -60,23 +64,20 @@ public class SpillManager implements Closeable {
     private final ArrayList<SpillMap> spillMaps;
     private final int numSpillFiles;
 
-    private ServerAggregators serverAggregators;
-    private ClientAggregators clientAggregators;
-    private Aggregator[] aggregators;
+    private ServerAggregators aggregators;
+    private final Configuration conf;
 
     /**
      * SpillManager takes care of spilling and loading tuples from spilled data structs
      * @param numSpillFiles
      * @param serverAggregators
      */
-    public SpillManager(int numSpillFiles, ServerAggregators serverAggregators) {
+    public SpillManager(int numSpillFiles, ServerAggregators serverAggregators, Configuration conf) {
         try {           
             spillMaps = Lists.newArrayList();
             this.numSpillFiles = numSpillFiles;
-            this.serverAggregators = serverAggregators;
-            clientAggregators = new ClientAggregators( Lists.newArrayList( serverAggregators.getFunctions()), 
-                                                                           serverAggregators.getValueSchema().getMinNullable() );
-            aggregators = clientAggregators.newAggregators();
+            this.aggregators = serverAggregators;
+            this.conf = conf;
             
             // Create a list of spillFiles
             // Each Spillfile only handles up to 2GB data
@@ -158,31 +159,33 @@ public class SpillManager implements Closeable {
             byte[] keyBytes = new byte[keyLength];
             // key
             input.readFully(keyBytes, 0, keyLength);
-            ImmutableBytesPtr key = new ImmutableBytesPtr(keyBytes, 0, keyLength);
-        
+            ImmutableBytesPtr ptr = new ImmutableBytesPtr(keyBytes, 0, keyLength);
+            
             // value length
             int valueLength = WritableUtils.readVInt(input);
             byte[] valueBytes = new byte[valueLength];
             // value bytes
             input.readFully(valueBytes, 0, valueLength);
-            KeyValue keyValue = KeyValueUtil.newKeyValue( key.get(),key.getOffset(), key.getLength(), 
+            KeyValue keyValue = KeyValueUtil.newKeyValue( ptr.get(),ptr.getOffset(), ptr.getLength(), 
                                                           QueryConstants.SINGLE_COLUMN_FAMILY, 
                                                           QueryConstants.SINGLE_COLUMN, QueryConstants.AGG_TIMESTAMP, 
                                                           valueBytes, 0, valueBytes.length);
-            
-            SingleKeyValueTuple skv = new SingleKeyValueTuple(keyValue);
-            clientAggregators.reset( aggregators );
-            clientAggregators.aggregate( aggregators, skv );
-            
-            Aggregator[] sAggs = serverAggregators.newAggregators();
-            for(int i = 0; i < sAggs.length; i++) {
-                // Init the aggregators, re-sets the serialized state, 
-                // i.e. the aggregated value
-                // TODO might just be implemented as a new constructor that initializes
-                // itself with client aggregators
-                sAggs[i].init( aggregators[i] );
-            }
+            Tuple result = new SingleKeyValueTuple(keyValue);
+            TupleUtil.getAggregateValue(result, ptr);
+            KeyValueSchema schema = aggregators.getValueSchema();
+            ValueBitSet tempValueSet = ValueBitSet.newInstance(schema);
+            tempValueSet.clear();
+            tempValueSet.or(ptr);
 
+            int i = 0, maxOffset = ptr.getOffset() + ptr.getLength();
+            SingleAggregateFunction[] funcArray = aggregators.getFunctions();
+            Aggregator[] sAggs = new Aggregator[funcArray.length];
+            Boolean hasValue;
+            schema.iterator(ptr);
+            while ((hasValue=schema.next(ptr, i, maxOffset, tempValueSet)) != null) {
+                SingleAggregateFunction func = funcArray[i];
+                sAggs[i++] = hasValue ? func.newServerAggregator(conf, ptr) : func.newServerAggregator(conf);
+            }
             return sAggs;
             
         } finally {
@@ -218,7 +221,7 @@ public class SpillManager implements Closeable {
      */
     public void spill(ImmutableBytesPtr key, Aggregator[] value) throws IOException{        
         SpillMap spillMap = spillMaps.get( getPartition(key) );
-        byte[] data = serialize(key, value, serverAggregators);
+        byte[] data = serialize(key, value, aggregators);
         spillMap.put(key, data);
     }
 

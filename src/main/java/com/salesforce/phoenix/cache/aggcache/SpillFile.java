@@ -102,6 +102,7 @@ public class SpillFile implements Closeable {
         return maxPageId;
     }
     
+    @Override
     public void close() throws IOException {
         Closeables.closeQuietly(fc);
         Closeables.closeQuietly(file);
