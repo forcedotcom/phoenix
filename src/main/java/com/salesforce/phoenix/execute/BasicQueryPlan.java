@@ -167,12 +167,15 @@ public abstract class BasicQueryPlan implements QueryPlan {
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
         ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
         ResultIterator iterator = newIterator();
-        return dependencies == null || dependencies.isEmpty() ? 
+        return dependencies.isEmpty() ? 
                 iterator : new DelegateResultIterator(iterator) {
             @Override
             public void close() throws SQLException {
-                super.close();
-                SQLCloseables.closeAll(dependencies);
+                try {
+                    super.close();
+                } finally {
+                    SQLCloseables.closeAll(dependencies);
+                }
             }
         };
     }
