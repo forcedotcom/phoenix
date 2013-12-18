@@ -36,7 +36,6 @@ import com.salesforce.phoenix.expression.function.CeilDateExpression;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilFunction;
 import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -56,17 +55,17 @@ public class CeilParseNode extends FunctionParseNode {
     }
     
     @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         return getCeilExpression(children);
     }
     
-    public static ScalarFunction getCeilExpression(List<Expression> children) throws SQLException {
+    public static Expression getCeilExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return (ScalarFunction)CeilDateExpression.create(children); // FIXME: remove cast
+            return CeilDateExpression.create(children);
         } else if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP) {
-            return (ScalarFunction)CeilTimestampExpression.create(children); // FIXME: remove cast
+            return CeilTimestampExpression.create(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new CeilDecimalExpression(children);
         } else {

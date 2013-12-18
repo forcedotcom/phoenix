@@ -251,7 +251,7 @@ public class FunctionParseNode extends CompoundParseNode {
      * @return compiled representation of built-in function
      * @throws SQLException
      */
-    public FunctionExpression create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         try {
             return info.getFuncCtor().newInstance(children);
         } catch (InstantiationException e) {

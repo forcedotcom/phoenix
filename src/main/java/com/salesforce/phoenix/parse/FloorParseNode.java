@@ -35,7 +35,6 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
 import com.salesforce.phoenix.expression.function.FloorFunction;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -55,11 +54,11 @@ public class FloorParseNode extends FunctionParseNode {
     }
 
     @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         return getFloorExpression(children);
     }
 
-    public static ScalarFunction getFloorExpression(List<Expression> children) throws SQLException {
+    public static Expression getFloorExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         

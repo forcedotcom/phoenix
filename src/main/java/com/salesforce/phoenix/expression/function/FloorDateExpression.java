@@ -51,7 +51,7 @@ public class FloorDateExpression extends RoundDateExpression {
         super(children);
     }
     
-    public static FloorDateExpression create(List<Expression> children) throws SQLException {
+    public static Expression create(List<Expression> children) throws SQLException {
         Expression firstChild = children.get(0);
         PDataType firstChildDataType = firstChild.getDataType();
         if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP){
@@ -68,7 +68,7 @@ public class FloorDateExpression extends RoundDateExpression {
      * @param timeUnit - unit of time to round up to.
      * Creates a {@link FloorDateExpression} with default multiplier of 1.
      */
-    public static FloorDateExpression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit) throws SQLException {
         return create(expr, timeUnit, 1);
     }
     
@@ -77,7 +77,7 @@ public class FloorDateExpression extends RoundDateExpression {
      * @param multiplier - determines the roll up window size.
      * Create a {@link FloorDateExpression}. 
      */
-    public static FloorDateExpression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+    public static Expression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
         Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
         Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
         List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);

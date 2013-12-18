@@ -1314,6 +1314,7 @@ public enum PDataType {
             case UNSIGNED_DOUBLE:
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
@@ -1351,6 +1352,7 @@ public enum PDataType {
             case DECIMAL:
                 return object;
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 Timestamp ts = (Timestamp)object;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
@@ -1720,8 +1722,8 @@ public enum PDataType {
                 return null;
             }
             switch (actualType) {
-            case TIMESTAMP: // TODO: throw if nanos?
-            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
+            case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
             case DATE:
             case TIME:
             case UNSIGNED_DATE:
@@ -1849,8 +1851,8 @@ public enum PDataType {
                 return null;
             }
             switch (actualType) {
-            case TIMESTAMP: // TODO: throw if nanos?
-            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
+            case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
             case DATE:
             case TIME:
             case UNSIGNED_DATE:

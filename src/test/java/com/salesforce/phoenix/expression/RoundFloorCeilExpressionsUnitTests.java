@@ -183,7 +183,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testFloorDateExpression() throws Exception {
         LiteralExpression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        FloorDateExpression rde = FloorDateExpression.create(date, TimeUnit.DAY);
+        Expression rde = FloorDateExpression.create(date, TimeUnit.DAY);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -195,7 +195,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testFloorDateExpressionWithMultiplier() throws Exception {
         Expression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        FloorDateExpression rde = FloorDateExpression.create(date, TimeUnit.SECOND, 10);
+        Expression rde = FloorDateExpression.create(date, TimeUnit.SECOND, 10);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);

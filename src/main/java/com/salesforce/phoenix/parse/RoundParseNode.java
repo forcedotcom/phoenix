@@ -36,7 +36,6 @@ import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -57,18 +56,18 @@ public class RoundParseNode extends FunctionParseNode {
     }
 
     @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         return getRoundExpression(children);
     }
 
-    public static ScalarFunction getRoundExpression(List<Expression> children) throws SQLException {
+    public static Expression getRoundExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return (ScalarFunction)RoundDateExpression.create(children); // FIXME: remove cast
+            return RoundDateExpression.create(children); // FIXME: remove cast
         } else if (firstChildDataType.isCoercibleTo(PDataType.TIMESTAMP)) {
-            return (ScalarFunction)RoundTimestampExpression.create(children); // FIXME: remove cast
+            return RoundTimestampExpression.create(children); // FIXME: remove cast
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new RoundDecimalExpression(children);
         } else {
