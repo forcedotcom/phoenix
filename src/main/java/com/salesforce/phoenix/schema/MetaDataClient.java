@@ -64,6 +64,7 @@ import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -534,6 +535,12 @@ public class MetaDataClient {
         final Long startWith = new Long((Integer)statement.getStartWith().getValue());
         final Long incrementBy = new Long(((Integer)statement.getIncrementBy().getValue()));
 
+        String query = "SELECT sequence_schema FROM SYSTEM.\"SEQUENCE\" WHERE sequence_schema='" + schemaName + "' AND sequence_name='" + sequenceName + "'";
+        ResultSet rs = connection.prepareStatement(query).executeQuery();
+        if (rs.next()){
+        	throw new SequenceAlreadyExistsException(schemaName, sequenceName);
+        }
+        
         String sql = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
         PreparedStatement upsertStatement = connection.prepareStatement(sql);
         upsertStatement.setString(1, schemaName);

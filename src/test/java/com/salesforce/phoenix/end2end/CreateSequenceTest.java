@@ -9,9 +9,14 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.util.Properties;
 
+
+
+
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class CreateSequenceTest extends BaseClientMangedTimeTest {
@@ -33,6 +38,25 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 	}
+	
+	@Test
+	public void testDuplicateSequences() throws Exception {
+		long ts = nextTimestamp();
+		Properties props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		Connection conn = DriverManager.getConnection(getUrl(), props);		
+		conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
+
+		ts = nextTimestamp();		
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
+		try {
+			conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
+			Assert.fail("Duplicate sequences");
+		} catch (SequenceAlreadyExistsException e){
+
+		}
+	}
 
 	@Test
 	public void testCreateSequence() throws Exception {
@@ -48,7 +72,7 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		props = new Properties();
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
 		conn = DriverManager.getConnection(getUrl(), props);
-		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\"";
+		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\" WHERE sequence_name='BAR'";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals("FOO", rs.getString("sequence_schema"));

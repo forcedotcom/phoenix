@@ -122,6 +122,7 @@ public enum SQLExceptionCode {
     UNEXPECTED_MUTATION_CODE(1011, "42M02", "Unexpected mutation code."),
     TABLE_UNDEFINED(1012, "42M03", "Table undefined."),
     TABLE_ALREADY_EXIST(1013, "42M04", "Table already exists."),
+    SEQUENCE_ALREADY_EXIST(1014, "42M05", "Sequence already exists."),
     // Index related errors
     INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),
     CANNOT_MUTATE_INDEX(1024, "42N02", "Cannot mutate existing index."),
