@@ -47,14 +47,15 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SQLCloseable;
 
 public class HashJoinPlan implements QueryPlan {
     
@@ -87,48 +88,56 @@ public class HashJoinPlan implements QueryPlan {
     }
 
     @Override
-    public Scanner getScanner() throws SQLException {
+    public ResultIterator iterator() throws SQLException {
         ImmutableBytesPtr[] joinIds = joinInfo.getJoinIds();
         assert (joinIds.length == hashExpressions.length && joinIds.length == hashPlans.length);
         
-        final HashCacheClient hashClient = plan.getContext().getHashClient();
+        final HashCacheClient hashClient = new HashCacheClient(plan.getContext().getConnection());
         Scan scan = plan.getContext().getScan();
         final ScanRanges ranges = plan.getContext().getScanRanges();
         
         int count = joinIds.length;
-        final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
+        ConnectionQueryServices services = getContext().getConnection().getQueryServices();
         ExecutorService executor = services.getExecutor();
         List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
+        List<SQLCloseable> dependencies = new ArrayList<SQLCloseable>(count);
         for (int i = 0; i < count; i++) {
-        	final int index = i;
-        	futures.add(executor.submit(new JobCallable<ServerCache>() {
-        		
-				@Override
-				public ServerCache call() throws Exception {
-					return hashClient.addHashCache(ranges, hashPlans[index].getScanner(), 
-							hashExpressions[index], plan.getTableRef());
-				}
+            final int index = i;
+            futures.add(executor.submit(new JobCallable<ServerCache>() {
 
-				@Override
-				public Object getJobId() {
-					return HashJoinPlan.this;
-				}
-        	}));
+                @Override
+                public ServerCache call() throws Exception {
+                    QueryPlan hashPlan = hashPlans[index];
+                    return hashClient.addHashCache(ranges, hashPlan.iterator(), 
+                            hashPlan.getEstimatedSize(), hashExpressions[index], plan.getTableRef());
+                }
+
+                @Override
+                public Object getJobId() {
+                    return HashJoinPlan.this;
+                }
+            }));
         }
         for (int i = 0; i < count; i++) {
-			try {
-				ServerCache cache = futures.get(i).get();
-				joinIds[i].set(cache.getId());
-			} catch (InterruptedException e) {
-				throw new SQLException("Hash join execution interrupted.", e);
-			} catch (ExecutionException e) {
-				throw new SQLException("Encountered exception in hash plan execution.", 
-						e.getCause());
-			}
+            try {
+                ServerCache cache = futures.get(i).get();
+                joinIds[i].set(cache.getId());
+                dependencies.add(cache);
+            } catch (InterruptedException e) {
+                throw new SQLException("Hash join execution interrupted.", e);
+            } catch (ExecutionException e) {
+                throw new SQLException("Encountered exception in hash plan execution.", 
+                        e.getCause());
+            }
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
         
-        return plan.getScanner();
+        return plan.iterator(dependencies);
+    }
+    
+    @Override
+    public long getEstimatedSize() {
+        return plan.getEstimatedSize();
     }
 
     @Override

@@ -1316,6 +1316,7 @@ public enum PDataType {
             case UNSIGNED_DOUBLE:
                 return BigDecimal.valueOf(actualType.getCodec().decodeDouble(b, o, null));
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
@@ -1353,6 +1354,7 @@ public enum PDataType {
             case DECIMAL:
                 return object;
             case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
                 Timestamp ts = (Timestamp)object;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
@@ -1690,6 +1692,19 @@ public enum PDataType {
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
         }
+        
+        @Override
+        public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
+            return nanos;
+        }
+        
+        @Override
+        public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            long millis = PDataType.LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
+            return millis;
+        }
+
     },
     TIME("TIME", Types.TIME, Time.class, new DateCodec()) {
 
@@ -1709,8 +1724,8 @@ public enum PDataType {
                 return null;
             }
             switch (actualType) {
-            case TIMESTAMP: // TODO: throw if nanos?
-            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
+            case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
             case DATE:
             case TIME:
             case UNSIGNED_DATE:
@@ -1838,8 +1853,8 @@ public enum PDataType {
                 return null;
             }
             switch (actualType) {
-            case TIMESTAMP: // TODO: throw if nanos?
-            case UNSIGNED_TIMESTAMP: // TODO: throw if nanos?
+            case TIMESTAMP:
+            case UNSIGNED_TIMESTAMP:
             case DATE:
             case TIME:
             case UNSIGNED_DATE:
@@ -1915,6 +1930,15 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
+        
+        @Override
+        public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+            if (ptr.getLength() > 0 && actualType  == PDataType.TIMESTAMP && actualModifier == expectedModifier) {
+                ptr.set(ptr.get(), ptr.getOffset(), getByteSize());
+                return;
+            }
+            super.coerceBytes(ptr, actualType, actualModifier, expectedModifier);
         }
     },
     UNSIGNED_TIMESTAMP("UNSIGNED_TIMESTAMP", 19, Timestamp.class, null) {
@@ -1995,6 +2019,18 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "." + value.getNanos() + "'";
+        }
+        
+        @Override
+        public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
+            return nanos;
+        }
+        
+        @Override
+        public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+            long millis = PDataType.UNSIGNED_LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
+            return millis;
         }
     },
     UNSIGNED_TIME("UNSIGNED_TIME", 18, Time.class, new UnsignedDateCodec()) {
@@ -2136,6 +2172,15 @@ public enum PDataType {
                 formatter = DateUtil.DEFAULT_MS_DATE_FORMATTER;
             }
             return "'" + super.toStringLiteral(b, offset, length, formatter) + "'";
+        }
+        
+        @Override
+        public void coerceBytes(ImmutableBytesWritable ptr, PDataType actualType, ColumnModifier actualModifier, ColumnModifier expectedModifier) {
+            if (ptr.getLength() > 0 && actualType  == PDataType.UNSIGNED_TIMESTAMP && actualModifier == expectedModifier) {
+                ptr.set(ptr.get(), ptr.getOffset(), getByteSize());
+                return;
+            }
+            super.coerceBytes(ptr, actualType, actualModifier, expectedModifier);
         }
     },
     /**
@@ -6993,5 +7038,13 @@ public enum PDataType {
 		}
         throw new UnsupportedOperationException("Unsupported literal value [" + value + "] of type " + value.getClass().getName());
     }
-
+    
+    public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
+        throw new UnsupportedOperationException("Operation not supported for type " + this);
+    }
+    
+    public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
+        throw new UnsupportedOperationException("Operation not supported for type " + this);
+    }
+    
 }

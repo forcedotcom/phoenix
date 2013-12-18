@@ -53,7 +53,6 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.join.HashCacheClient;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
@@ -126,21 +125,27 @@ public class QueryCompiler {
         List<Object> binds = statement.getParameters();
         ColumnResolver resolver = FromCompiler.getMultiTableResolver(select, connection);
         select = StatementNormalizer.normalize(select, resolver);
+        StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
         
-        if (select.getFrom().size() == 1) {
-            StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
+        if (select.getFrom().size() == 1)
             return compileSingleQuery(context, select, binds);
-        }
         
-        StatementContext context = new StatementContext(select, connection, resolver, binds, scan, new HashCacheClient(connection));
+        if (!asSubquery) {
+            SelectStatement optimized = JoinCompiler.optimize(context, select, statement);
+            if (optimized != select) {
+                select = optimized;
+                resolver = FromCompiler.getMultiTableResolver(select, connection);
+                context.setResolver(resolver);
+            }
+        }
         JoinSpec join = JoinCompiler.getJoinSpec(context, select);
         return compileJoinQuery(context, select, binds, join, asSubquery);
     }
     
     @SuppressWarnings("unchecked")
     protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement select, List<Object> binds, JoinSpec join, boolean asSubquery) throws SQLException {
-    	PhoenixConnection connection = statement.getConnection();
-    	byte[] emptyByteArray = new byte[0];
+        PhoenixConnection connection = statement.getConnection();
+        byte[] emptyByteArray = new byte[0];
         List<JoinTable> joinTables = join.getJoinTables();
         if (joinTables.isEmpty()) {
             ProjectedPTableWrapper projectedTable = join.createProjectedTable(join.getMainTable(), !asSubquery);
@@ -153,8 +158,8 @@ public class QueryCompiler {
         
         boolean[] starJoinVector = JoinCompiler.getStarJoinVector(join);
         if (starJoinVector != null) {
-        	ProjectedPTableWrapper initialProjectedTable = join.createProjectedTable(join.getMainTable(), !asSubquery);
-        	PTableWrapper projectedTable = initialProjectedTable;
+            ProjectedPTableWrapper initialProjectedTable = join.createProjectedTable(join.getMainTable(), !asSubquery);
+            PTableWrapper projectedTable = initialProjectedTable;
             int count = joinTables.size();
             ImmutableBytesPtr[] joinIds = new ImmutableBytesPtr[count];
             List<Expression>[] joinExpressions = new List[count];
@@ -168,7 +173,7 @@ public class QueryCompiler {
                 JoinTable joinTable = joinTables.get(i);
                 SelectStatement subStatement = joinTable.getAsSubquery();
                 if (subStatement.getFrom().size() > 1)
-                	throw new SQLFeatureNotSupportedException("Sub queries not supported.");
+                    throw new SQLFeatureNotSupportedException("Sub queries not supported.");
                 ProjectedPTableWrapper subProjTable = join.createProjectedTable(joinTable.getTable(), false);
                 tables[i] = subProjTable.getTable();
                 ColumnResolver resolver = JoinCompiler.getColumnResolver(subProjTable);
@@ -186,7 +191,7 @@ public class QueryCompiler {
                 hashExpressions[i] = joinConditions.getSecond();
                 joinTypes[i] = joinTable.getType();
                 if (i < count - 1) {
-                	fieldPositions[i + 1] = fieldPositions[i] + (tables[i].getColumns().size() - tables[i].getPKColumns().size());
+                    fieldPositions[i + 1] = fieldPositions[i] + (tables[i].getColumns().size() - tables[i].getPKColumns().size());
                 }
             }
             ScanProjector.serializeProjectorIntoScan(context.getScan(), JoinCompiler.getScanProjector(initialProjectedTable));
@@ -209,7 +214,7 @@ public class QueryCompiler {
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(select, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpecWithoutPostFilters(join);
             Scan subScan = ScanUtil.newScan(scanCopy);
-            StatementContext lhsCtx = new StatementContext(select, connection, context.getResolver(), binds, subScan, context.getHashClient());
+            StatementContext lhsCtx = new StatementContext(select, connection, context.getResolver(), binds, subScan);
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin, true);
             ColumnResolver lhsResolver = lhsCtx.getResolver();
             PTableWrapper lhsProjTable = ((JoinedTableColumnResolver) (lhsResolver)).getPTableWrapper();
@@ -236,8 +241,8 @@ public class QueryCompiler {
     }
     
     protected BasicQueryPlan compileSingleQuery(StatementContext context, SelectStatement select, List<Object> binds) throws SQLException{
-    	PhoenixConnection connection = statement.getConnection();
-    	ColumnResolver resolver = context.getResolver();
+        PhoenixConnection connection = statement.getConnection();
+        ColumnResolver resolver = context.getResolver();
         TableRef tableRef = context.getCurrentTable();
         // Short circuit out if we're compiling an index query and the index isn't active.
         // We must do this after the ColumnResolver resolves the table, as we may be updating the local

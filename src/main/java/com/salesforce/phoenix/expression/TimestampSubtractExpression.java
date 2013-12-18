@@ -68,8 +68,8 @@ public class TimestampSubtractExpression extends SubtractExpression {
             BigDecimal value;
             PDataType type = children.get(i).getDataType();
             ColumnModifier columnModifier = children.get(i).getColumnModifier();
-            if(type == PDataType.TIMESTAMP) {
-                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, PDataType.TIMESTAMP, columnModifier));
+            if(type == PDataType.TIMESTAMP || type == PDataType.UNSIGNED_TIMESTAMP) {
+                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, type, columnModifier));
             } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
                 value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {

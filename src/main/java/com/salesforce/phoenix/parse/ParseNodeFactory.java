@@ -95,7 +95,12 @@ public class ParseNodeFactory {
             this.upperName = lowerName;
             this.argCount = argCount;
         }
-
+        
+        @Override
+        public String toString() {
+            return upperName;
+        }
+        
         @Override
         public int hashCode() {
             final int prime = 31;
@@ -186,10 +191,6 @@ public class ParseNodeFactory {
 
     public ExplainStatement explain(BindableStatement statement) {
         return new ExplainStatement(statement);
-    }
-
-    public ShowTablesStatement showTables() {
-        return new ShowTablesStatement();
     }
 
     public AliasedNode aliasedNode(String alias, ParseNode expression) {

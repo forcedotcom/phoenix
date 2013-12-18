@@ -66,6 +66,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.parse.AddColumnStatement;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AlterIndexStatement;
@@ -89,15 +90,12 @@ import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.PrimaryKeyConstraint;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.ShowTablesStatement;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.query.WrappedScanner;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ExecuteQueryNotApplicableException;
 import com.salesforce.phoenix.schema.ExecuteUpdateNotApplicableException;
@@ -113,7 +111,6 @@ import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.SQLCloseables;
-import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.ServerUtil;
 
 
@@ -171,8 +168,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return resultSets;
     }
     
-    protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {
-        return new PhoenixResultSet(scanner, PhoenixStatement.this);
+    protected PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector) throws SQLException {
+        return new PhoenixResultSet(iterator, projector, PhoenixStatement.this);
     }
     
     protected static interface ExecutableStatement extends BindableStatement {
@@ -198,8 +195,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
             QueryPlan plan = optimizePlan();
-            Scanner scanner = plan.getScanner();
-            PhoenixResultSet rs = newResultSet(scanner);
+            PhoenixResultSet rs = newResultSet(plan.iterator(), plan.getProjector());
             resultSets.add(rs);
             lastResultSet = rs;
             lastUpdateCount = NO_UPDATE;
@@ -760,8 +756,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
                 Tuple tuple = new SingleKeyValueTuple(KeyValueUtil.newKeyValue(PDataType.VARCHAR.toBytes(planStep), EXPLAIN_PLAN_FAMILY, EXPLAIN_PLAN_COLUMN, MetaDataProtocol.MIN_TABLE_TIMESTAMP, ByteUtil.EMPTY_BYTE_ARRAY));
                 tuples.add(tuple);
             }
-            Scanner scanner = new WrappedScanner(new MaterializedResultIterator(tuples),EXPLAIN_PLAN_ROW_PROJECTOR);
-            PhoenixResultSet rs = new PhoenixResultSet(scanner, new PhoenixStatement(connection));
+            PhoenixResultSet rs = new PhoenixResultSet(new MaterializedResultIterator(tuples),EXPLAIN_PLAN_ROW_PROJECTOR, new PhoenixStatement(connection));
             lastResultSet = rs;
             lastQueryPlan = null;
             lastUpdateCount = NO_UPDATE;
@@ -787,68 +782,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public StatementPlan compilePlan() throws SQLException {
             return StatementPlan.EMPTY_PLAN;
-        }
-        
-        @Override
-        public StatementPlan optimizePlan() throws SQLException {
-            return compilePlan();
-        }
-    }
-
-    private class ExecutableShowTablesStatement extends ShowTablesStatement implements ExecutableStatement {
-
-        ExecutableShowTablesStatement() {
-        }
-
-        @Override
-        public PhoenixResultSet executeQuery() throws SQLException {
-            throw new ExecuteQueryNotApplicableException("SHOW TABLES", this.toString());
-        }
-
-        @Override
-        public boolean execute() throws SQLException {
-            executeUpdate();
-            return false;
-        }
-
-        @Override
-        public int executeUpdate() throws SQLException {
-            ResultSet rs = null;
-            try {
-                rs = connection.getMetaData().getTables(null,null,null,null);
-                while (rs.next()) {
-                    String schema = rs.getString(2);
-                    String table = rs.getString(3);
-                    SchemaUtil.getTableName(schema,table);
-                }
-                return 0;
-            } finally {
-                if(rs != null) {
-                    rs.close();
-                }
-            }
-            
-        }
-
-        @Override
-        public ResultSetMetaData getResultSetMetaData() throws SQLException {
-            return null;
-        }
-
-        @Override
-        public StatementPlan compilePlan() throws SQLException {
-            return new StatementPlan() {
-
-                @Override
-                public ParameterMetaData getParameterMetaData() {
-                    return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
-                }
-
-                @Override
-                public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("SHOW TABLES"));
-                }
-            };
         }
         
         @Override
@@ -913,11 +846,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public ExplainStatement explain(BindableStatement statement) {
             return new ExecutableExplainStatement(statement);
-        }
-
-        @Override
-        public ShowTablesStatement showTables() {
-            return new ExecutableShowTablesStatement();
         }
     }
     

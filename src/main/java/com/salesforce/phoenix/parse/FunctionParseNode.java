@@ -27,11 +27,18 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import java.lang.annotation.*;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import org.apache.http.annotation.Immutable;
 
@@ -41,7 +48,9 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.AggregateFunction;
 import com.salesforce.phoenix.expression.function.FunctionExpression;
-import com.salesforce.phoenix.schema.*;
+import com.salesforce.phoenix.schema.ArgumentTypeMismatchException;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.ValueRangeExcpetion;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 
@@ -242,7 +251,7 @@ public class FunctionParseNode extends CompoundParseNode {
      * @return compiled representation of built-in function
      * @throws SQLException
      */
-    public FunctionExpression create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         try {
             return info.getFuncCtor().newInstance(children);
         } catch (InstantiationException e) {

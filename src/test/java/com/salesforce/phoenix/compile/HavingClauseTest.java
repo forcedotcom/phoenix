@@ -54,7 +54,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
-import com.salesforce.phoenix.expression.function.RoundFunction;
+import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -106,11 +106,11 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
     @Test
     public void testHavingFuncToWhere() throws SQLException {
         // TODO: confirm that this is a valid optimization
-        String query = "select count(1) from atable group by a_date having round(a_date,'hour') > ?";
+        String query = "select count(1) from atable group by a_date having round(a_date, 'hour') > ?";
         Date date = new Date(System.currentTimeMillis());
         List<Object> binds = Arrays.<Object>asList(date);
         Expressions expressions = compileStatement(query,binds);
-        Expression w = constantComparison(CompareOp.GREATER, new RoundFunction(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
+        Expression w = constantComparison(CompareOp.GREATER, RoundDateExpression.create(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_DATE),LiteralExpression.newConstant("hour"),LiteralExpression.newConstant(1))), date);
         assertEquals(w, expressions.whereClause);
         assertNull(expressions.havingClause);
     }

@@ -85,7 +85,6 @@ tokens
     VIEW='view';
     IF='if';
     CONSTRAINT='constraint';
-    SHOW='show';
     TABLES='tables';
     ALL='all';
     INDEX='index';
@@ -361,14 +360,9 @@ non_select_node returns [BindableStatement ret]
     |   s=drop_index_node
     |   s=alter_index_node
     |   s=alter_table_node
-    |   s=explain_node
-    |   s=show_tables_node) { contextStack.pop();  $ret = s; }
+    |   s=explain_node) { contextStack.pop();  $ret = s; }
     ;
     
-show_tables_node returns [BindableStatement ret]
-    :   SHOW TABLES {$ret=factory.showTables();}
-    ;
-
 explain_node returns [BindableStatement ret]
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;

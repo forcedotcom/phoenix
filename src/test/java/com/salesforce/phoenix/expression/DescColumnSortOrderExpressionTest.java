@@ -33,14 +33,30 @@ import static org.junit.Assert.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.sql.Date;
-import java.util.*;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.List;
 
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.expression.function.*;
+import com.salesforce.phoenix.expression.function.FunctionArgumentType;
+import com.salesforce.phoenix.expression.function.LTrimFunction;
+import com.salesforce.phoenix.expression.function.LengthFunction;
+import com.salesforce.phoenix.expression.function.LowerFunction;
+import com.salesforce.phoenix.expression.function.RTrimFunction;
+import com.salesforce.phoenix.expression.function.RegexpReplaceFunction;
+import com.salesforce.phoenix.expression.function.RegexpSubstrFunction;
+import com.salesforce.phoenix.expression.function.RoundDateExpression;
+import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
+import com.salesforce.phoenix.expression.function.SubstrFunction;
+import com.salesforce.phoenix.expression.function.ToCharFunction;
+import com.salesforce.phoenix.expression.function.ToDateFunction;
+import com.salesforce.phoenix.expression.function.ToNumberFunction;
+import com.salesforce.phoenix.expression.function.TrimFunction;
+import com.salesforce.phoenix.expression.function.UpperFunction;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.DateUtil;
@@ -110,7 +126,7 @@ public class DescColumnSortOrderExpressionTest {
     @Test
     public void round() throws Exception {
         List<Expression> args = Lists.newArrayList(getInvertedLiteral(date(12, 11, 2001), PDataType.DATE), getLiteral("hour"), getLiteral(1));
-        evaluateAndAssertResult(new RoundFunction(args), date(12, 11, 2001));
+        evaluateAndAssertResult(RoundDateExpression.create(args), date(12, 11, 2001));
     }
     
     @Test
