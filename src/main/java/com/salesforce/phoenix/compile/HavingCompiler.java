@@ -47,6 +47,7 @@ import com.salesforce.phoenix.parse.DivideParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -244,5 +245,10 @@ public class HavingCompiler {
         public boolean visitEnter(BetweenParseNode node) throws SQLException {
             return true;
         }
+
+		@Override
+		public Void visit(NextSequenceValueParseNode node) throws SQLException {			
+			return null;
+		}
     }
 }

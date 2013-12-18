@@ -57,10 +57,12 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
@@ -1320,5 +1322,28 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                       return instance.updateIndexState(tableMetaData);
                     }
                 });
+    }
+
+    @Override
+    public Long incrementSequence(byte[] schemaName, byte[] tableName) throws SQLException {
+    	try {
+    		HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
+    		Get get = new Get(row);
+    		Result result = hTable.get(get);
+    		KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
+    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    		long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
+    		Increment inc = new Increment(row);
+    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), increment);            
+    		Result newResult = hTable.increment(inc);
+    		KeyValue latest = newResult.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		Long retValue = (Long)PDataType.LONG.toObject(latest.getBuffer(), latest.getValueOffset(), latest.getValueLength());
+    		return current;
+    	}
+    	catch (Exception e){
+    		return null;
+    	}
     }
 }

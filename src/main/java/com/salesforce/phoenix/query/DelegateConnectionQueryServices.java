@@ -176,4 +176,9 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public boolean hasInvalidIndexConfiguration() {
         return getDelegate().hasInvalidIndexConfiguration();
     }
+
+	@Override
+	public Long incrementSequence(byte[] schemaName, byte[] tableName) {		
+		return null;
+	}
 }

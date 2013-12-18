@@ -36,7 +36,7 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 
 	@Test
 	public void testCreateSequence() throws Exception {
-
+		// SETUP
 		long ts = nextTimestamp();
 		Properties props = new Properties();
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
@@ -56,42 +56,33 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		assertEquals(2, rs.getInt("current_value"));
 		assertEquals(4, rs.getInt("increment_by"));
 		assertFalse(rs.next());
+	
+		// RUNTIME
+		ts = nextTimestamp();
+		props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
+		query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
+		rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(2, rs.getInt(1));
 
-		// Make sure the PSequence is cached
-		/*
-		 * PSequence sequence =
-		 * conn.unwrap(PhoenixConnection.class).getPMetaData
-		 * ().getSequence(SchemaUtil
-		 * .getTableName(SchemaUtil.normalizeIdentifier(
-		 * "FOO"),SchemaUtil.normalizeIdentifier("BAR")));
-		 * assertNotNull(sequence); assertEquals(new
-		 * PSequenceImpl(PNameFactory.newName("FOO"),
-		 * PNameFactory.newName("BAR"), new Long(4)), sequence);
-		 * 
-		 * 
-		 * ts = nextTimestamp(); props = new Properties();
-		 * props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-		 * Long.toString(ts)); conn = DriverManager.getConnection(getUrl(),
-		 * props); query =
-		 * "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\""
-		 * ; rs = conn.prepareStatement(query).executeQuery();
-		 * assertTrue(rs.next()); assertEquals(2, rs.getInt(1));
-		 * 
-		 * ts = nextTimestamp(); props = new Properties();
-		 * props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-		 * Long.toString(ts)); conn = DriverManager.getConnection(getUrl(),
-		 * props); query =
-		 * "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\""
-		 * ; rs = conn.prepareStatement(query).executeQuery();
-		 * assertTrue(rs.next()); assertEquals(6, rs.getInt(1));
-		 * 
-		 * ts = nextTimestamp(); props = new Properties();
-		 * props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-		 * Long.toString(ts)); conn = DriverManager.getConnection(getUrl(),
-		 * props); query =
-		 * "SELECT NEXT VALUE FOR foo.bar, sequence_name FROM SYSTEM.\"SEQUENCE\""
-		 * ; rs = conn.prepareStatement(query).executeQuery();
-		 * assertTrue(rs.next()); assertEquals(10, rs.getInt(1));
-		 */
+		ts = nextTimestamp();
+		props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
+		query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
+		rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(6, rs.getInt(1));
+		
+		ts = nextTimestamp();
+		props = new Properties();
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
+		query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
+		rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(10, rs.getInt(1));
 	}
 }

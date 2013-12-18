@@ -242,4 +242,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public boolean hasInvalidIndexConfiguration() {
         return false;
     }
+
+	@Override
+	public Long incrementSequence(byte[] schemaName, byte[] tableName) {		
+		return null;
+	}
 }
