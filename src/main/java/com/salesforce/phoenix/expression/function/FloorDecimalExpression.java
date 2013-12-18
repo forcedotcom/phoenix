@@ -56,7 +56,10 @@ public class FloorDecimalExpression extends RoundDecimalExpression {
      * Creates a {@link FloorDecimalExpression} with rounding scale given by @param scale. 
      *
      */
-    public static FloorDecimalExpression create(Expression expr, int scale) throws SQLException {
+    public static Expression create(Expression expr, int scale) throws SQLException {
+        if (expr.getDataType().isCoercibleTo(PDataType.LONG)) {
+            return expr;
+        }
         Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
         List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
         return new FloorDecimalExpression(expressions);
@@ -66,7 +69,7 @@ public class FloorDecimalExpression extends RoundDecimalExpression {
      * Creates a {@link FloorDecimalExpression} with a default scale of 0 used for rounding. 
      *
      */
-    public static FloorDecimalExpression create(Expression expr) throws SQLException {
+    public static Expression create(Expression expr) throws SQLException {
         return create(expr, 0);
     }
     

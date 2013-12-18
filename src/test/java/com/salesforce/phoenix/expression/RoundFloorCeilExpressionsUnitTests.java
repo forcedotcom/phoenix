@@ -63,7 +63,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testRoundDecimalExpression() throws Exception {
         LiteralExpression bd = LiteralExpression.newConstant(1.23898, PDataType.DECIMAL);
-        RoundDecimalExpression rde = RoundDecimalExpression.create(bd, 3);
+        Expression rde = RoundDecimalExpression.create(bd, 3);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -75,7 +75,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testCeilDecimalExpression() throws Exception {
         LiteralExpression bd = LiteralExpression.newConstant(1.23898, PDataType.DECIMAL);
-        CeilDecimalExpression rde = CeilDecimalExpression.create(bd, 3);
+        Expression rde = CeilDecimalExpression.create(bd, 3);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -85,9 +85,30 @@ public class RoundFloorCeilExpressionsUnitTests {
     }
     
     @Test
+    public void testCeilDecimalExpressionNoop() throws Exception {
+        LiteralExpression bd = LiteralExpression.newConstant(5, PDataType.INTEGER);
+        Expression rde = CeilDecimalExpression.create(bd, 3);
+        assertEquals(rde, bd);
+    }
+    
+    @Test
+    public void testFloorDecimalExpressionNoop() throws Exception {
+        LiteralExpression bd = LiteralExpression.newConstant(5, PDataType.INTEGER);
+        Expression rde = FloorDecimalExpression.create(bd, 3);
+        assertEquals(rde, bd);
+    }
+    
+    @Test
+    public void testRoundDecimalExpressionNoop() throws Exception {
+        LiteralExpression bd = LiteralExpression.newConstant(5, PDataType.INTEGER);
+        Expression rde = RoundDecimalExpression.create(bd, 3);
+        assertEquals(rde, bd);
+    }
+    
+    @Test
     public void testFloorDecimalExpression() throws Exception {
         LiteralExpression bd = LiteralExpression.newConstant(1.23898, PDataType.DECIMAL);
-        FloorDecimalExpression rde = FloorDecimalExpression.create(bd, 3);
+        Expression rde = FloorDecimalExpression.create(bd, 3);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -114,7 +135,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testRoundDateExpression() throws Exception {
         LiteralExpression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        RoundDateExpression rde = RoundDateExpression.create(date, TimeUnit.DAY);
+        Expression rde = RoundDateExpression.create(date, TimeUnit.DAY);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -126,7 +147,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testRoundDateExpressionWithMultiplier() throws Exception {
         Expression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        RoundDateExpression rde = RoundDateExpression.create(date, TimeUnit.MINUTE, 10);
+        Expression rde = RoundDateExpression.create(date, TimeUnit.MINUTE, 10);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -138,7 +159,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testCeilDateExpression() throws Exception {
         LiteralExpression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        CeilDateExpression rde = CeilDateExpression.create(date, TimeUnit.DAY);
+        Expression rde = CeilDateExpression.create(date, TimeUnit.DAY);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -150,7 +171,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testCeilDateExpressionWithMultiplier() throws Exception {
         Expression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        CeilDateExpression rde = CeilDateExpression.create(date, TimeUnit.SECOND, 10);
+        Expression rde = CeilDateExpression.create(date, TimeUnit.SECOND, 10);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -162,7 +183,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testFloorDateExpression() throws Exception {
         LiteralExpression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        FloorDateExpression rde = FloorDateExpression.create(date, TimeUnit.DAY);
+        Expression rde = FloorDateExpression.create(date, TimeUnit.DAY);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -174,7 +195,7 @@ public class RoundFloorCeilExpressionsUnitTests {
     @Test
     public void testFloorDateExpressionWithMultiplier() throws Exception {
         Expression date = LiteralExpression.newConstant(DateUtil.parseDate("2012-01-01 14:25:28"), PDataType.DATE);
-        FloorDateExpression rde = FloorDateExpression.create(date, TimeUnit.SECOND, 10);
+        Expression rde = FloorDateExpression.create(date, TimeUnit.SECOND, 10);
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rde.evaluate(null, ptr);
         Object obj = rde.getDataType().toObject(ptr);
@@ -192,7 +213,7 @@ public class RoundFloorCeilExpressionsUnitTests {
         List<Expression> exprs = new ArrayList<Expression>(1);
         exprs.add(date);
         try {
-            new RoundDateExpression(exprs);
+            RoundDateExpression.create(exprs);
             fail("Instantiating a RoundDateExpression with only one argument should have failed.");
         } catch(IllegalArgumentException e) {
 
@@ -210,7 +231,7 @@ public class RoundFloorCeilExpressionsUnitTests {
         exprs.add(date);
         exprs.add(timeUnit);
         try {
-            new RoundDateExpression(exprs);
+            RoundDateExpression.create(exprs);
             fail("Only a valid time unit represented by TimeUnit enum is allowed and millis is invalid.");
         } catch(IllegalArgumentException e) {
 

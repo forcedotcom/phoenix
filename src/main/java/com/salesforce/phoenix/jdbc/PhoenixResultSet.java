@@ -82,6 +82,7 @@ import com.salesforce.phoenix.util.SQLCloseable;
  * - Short
  * - Long
  * - Binary
+ * - Array - 1D
  * None of the update or delete methods are supported.
  * The ResultSet only supports the following options:
  * - ResultSet.FETCH_FORWARD
@@ -168,12 +169,18 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
 
     @Override
     public Array getArray(int columnIndex) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+    	checkCursorState();
+        // Get the value using the expected type instead of trying to coerce to VARCHAR.
+        // We can't coerce using our formatter because we don't have enough context in PDataType.
+    	ColumnProjector projector = rowProjector.getColumnProjector(columnIndex-1);
+        Array value = (Array)projector.getValue(currentRow, projector.getExpression().getDataType(), ptr);
+        wasNull = (value == null);
+        return value;
     }
 
     @Override
     public Array getArray(String columnLabel) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        return getArray(findColumn(columnLabel));
     }
 
     @Override

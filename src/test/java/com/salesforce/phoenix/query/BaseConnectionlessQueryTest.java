@@ -38,6 +38,7 @@ import static com.salesforce.phoenix.util.TestUtil.JOIN_SUPPLIER_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.MULTI_CF_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 
 import java.sql.DriverManager;
 import java.util.Properties;
@@ -86,6 +87,7 @@ public class BaseConnectionlessQueryTest extends BaseTest {
         ensureTableCreated(getUrl(), JOIN_CUSTOMER_TABLE);
         ensureTableCreated(getUrl(), JOIN_ITEM_TABLE);
         ensureTableCreated(getUrl(), JOIN_SUPPLIER_TABLE);
+        ensureTableCreated(getUrl(), TABLE_WITH_ARRAY);
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP));
         PhoenixConnection conn = DriverManager.getConnection(PHOENIX_CONNECTIONLESS_JDBC_URL, props).unwrap(PhoenixConnection.class);

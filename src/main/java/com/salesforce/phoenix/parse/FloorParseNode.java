@@ -35,7 +35,6 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.function.FloorDateExpression;
 import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
 import com.salesforce.phoenix.expression.function.FloorFunction;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -55,18 +54,18 @@ public class FloorParseNode extends FunctionParseNode {
     }
 
     @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         return getFloorExpression(children);
     }
 
-    public static ScalarFunction getFloorExpression(List<Expression> children) throws SQLException {
+    public static Expression getFloorExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         
         //FLOOR on timestamp doesn't really care about the nanos part i.e. it just sets it to zero. 
         //Which is exactly what FloorDateExpression does too. 
-        if(firstChildDataType.isCoercibleTo(PDataType.DATE) || firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP) {
-            return new FloorDateExpression(children);
+        if(firstChildDataType.isCoercibleTo(PDataType.TIMESTAMP)) {
+            return FloorDateExpression.create(children);
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new FloorDecimalExpression(children);
         } else {

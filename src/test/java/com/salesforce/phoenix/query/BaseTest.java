@@ -51,6 +51,7 @@ import static com.salesforce.phoenix.util.TestUtil.PTSDB2_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PTSDB3_NAME;
 import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
 import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertNotNull;
@@ -117,6 +118,27 @@ public abstract class BaseTest {
                 "    a_unsigned_double unsigned_double\n" +
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n" +
                 ") ");
+        builder.put(TABLE_WITH_ARRAY, "create table "
+				+ TABLE_WITH_ARRAY
+				+ "   (organization_id char(15) not null, \n"
+				+ "    entity_id char(15) not null,\n"
+				+ "    a_string_array varchar(100) array[],\n"
+				+ "    b_string varchar(100),\n"
+				+ "    a_integer integer,\n"
+				+ "    a_date date,\n"
+				+ "    a_time time,\n"
+				+ "    a_timestamp timestamp,\n"
+				+ "    x_decimal decimal(31,10),\n"
+				+ "    x_long_array bigint array[],\n"
+				+ "    x_integer integer,\n"
+				+ "    a_byte_array tinyint array[],\n"
+				+ "    a_short smallint,\n"
+				+ "    a_float float,\n"
+				+ "    a_double_array double array[],\n"
+				+ "    a_unsigned_float unsigned_float,\n"
+				+ "    a_unsigned_double unsigned_double \n"
+				+ "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n"
+				+ ")");
         builder.put(BTABLE_NAME,"create table " + BTABLE_NAME +
                 "   (a_string varchar not null, \n" +
                 "    a_id char(3) not null,\n" +

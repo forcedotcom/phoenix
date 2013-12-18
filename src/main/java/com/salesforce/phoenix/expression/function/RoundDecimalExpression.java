@@ -62,7 +62,10 @@ public class RoundDecimalExpression extends ScalarFunction {
      * Creates a {@link RoundDecimalExpression} with rounding scale given by @param scale. 
      *
      */
-    public static RoundDecimalExpression create(Expression expr, int scale) throws SQLException {
+    public static Expression create(Expression expr, int scale) throws SQLException {
+        if (expr.getDataType().isCoercibleTo(PDataType.LONG)) {
+            return expr;
+        }
         Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
         List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
         return new RoundDecimalExpression(expressions);
@@ -72,7 +75,7 @@ public class RoundDecimalExpression extends ScalarFunction {
      * Creates a {@link RoundDecimalExpression} with a default scale of 0 used for rounding. 
      *
      */
-    public static RoundDecimalExpression create(Expression expr) throws SQLException {
+    public static Expression create(Expression expr) throws SQLException {
         return create(expr, 0);
     }
     
@@ -80,19 +83,18 @@ public class RoundDecimalExpression extends ScalarFunction {
     
     public RoundDecimalExpression(List<Expression> children) {
         super(children);
-        //add null value validation
-        int numChildren = children.size();
-        LiteralExpression secondChild = null;
-        if(numChildren > 1) {
-            secondChild = (LiteralExpression)children.get(1);
-        }
-        if(secondChild != null && secondChild.getValue() != null) {
-            Object obj = secondChild.getValue();
-            if(obj instanceof Integer) {
-                scale = (Integer)obj;
-            } else {
-                throw new IllegalDataException("Invalid value " + obj + " of type " + secondChild.getDataType() + " passed at position 2 ");
+        LiteralExpression scaleChild = (LiteralExpression)children.get(1);
+        PDataType scaleType = scaleChild.getDataType();
+        Object scaleValue = scaleChild.getValue();
+        if(scaleValue != null) {
+            if (scaleType.isCoercibleTo(PDataType.INTEGER, scaleValue)) {
+                int scale = (Integer)PDataType.INTEGER.toObject(scaleValue, scaleType);
+                if (scale >=0 && scale <= PDataType.MAX_PRECISION) {
+                    this.scale = scale;
+                    return;
+                }
             }
+            throw new IllegalDataException("Invalid second argument for scale: " + scaleValue + ". The scale must be between 0 and " + PDataType.MAX_PRECISION + " inclusive.");
         } 
     }
 

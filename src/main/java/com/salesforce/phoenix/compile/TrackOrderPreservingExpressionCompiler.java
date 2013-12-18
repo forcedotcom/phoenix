@@ -31,7 +31,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * the order is preserved.
  * 
  */
-public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler {
+public class TrackOrderPreservingExpressionCompiler extends ExpressionCompiler {
     public enum Ordering {ORDERED, UNORDERED};
     
     private final List<Entry> entries;
@@ -78,11 +78,14 @@ public class TrackOrderPreservingExpressionCompiler  extends ExpressionCompiler 
     }
     
     @Override
-    protected Expression addFunction(FunctionExpression func) {
-        // Keep the minimum value between this function and the current value,
-        // so that we never increase OrderPreserving from NO or YES_IF_LAST.
-        orderPreserving = OrderPreserving.values()[Math.min(orderPreserving.ordinal(), func.preservesOrder().ordinal())];
-        return super.addFunction(func);
+    protected Expression addExpression(Expression expression) {
+        // TODO: have FunctionExpression visitor instead and remove this cast
+        if (expression instanceof FunctionExpression) {
+            // Keep the minimum value between this function and the current value,
+            // so that we never increase OrderPreserving from NO or YES_IF_LAST.
+            orderPreserving = OrderPreserving.values()[Math.min(orderPreserving.ordinal(), ((FunctionExpression)expression).preservesOrder().ordinal())];
+        }
+        return super.addExpression(expression);
     }
 
     @Override

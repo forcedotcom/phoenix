@@ -27,7 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -35,60 +35,62 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.schema.IllegalDataException;
+import com.salesforce.phoenix.parse.ParseException;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
 
+@BuiltInFunction(name = ArrayIndexFunction.NAME, args = {
+		@Argument(allowedTypes = { PDataType.BINARY_ARRAY,
+				PDataType.VARBINARY_ARRAY }),
+		@Argument(allowedTypes = { PDataType.INTEGER }) })
+public class ArrayIndexFunction extends ScalarFunction {
 
-/**
- * 
- * Function used to get the SQL type name from the SQL type integer.
- * Usage:
- * SqlTypeName(12)
- * will return 'VARCHAR' based on {@link java.sql.Types#VARCHAR} being 12
- * 
- * @author jtaylor
- * @since 0.1
- */
-@BuiltInFunction(name=SqlTypeNameFunction.NAME, args= {
-    @Argument(allowedTypes=PDataType.INTEGER)} )
-public class SqlTypeNameFunction extends ScalarFunction {
-    public static final String NAME = "SqlTypeName";
+	public static final String NAME = "ARRAY_ELEM";
 
-    public SqlTypeNameFunction() {
-    }
-    
-    public SqlTypeNameFunction(List<Expression> children) throws SQLException {
-        super(children);
-    }
-    
-    @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child = children.get(0);
-        if (!child.evaluate(tuple, ptr)) {
-            return false;
-        }
-        if (ptr.getLength() == 0) {
-            return true;
-        }
-        int sqlType = child.getDataType().getCodec().decodeInt(ptr, child.getColumnModifier());
-        try {
-            byte[] sqlTypeNameBytes = PDataType.fromTypeId(sqlType).getSqlTypeNameBytes();
-            ptr.set(sqlTypeNameBytes);
-        } catch (IllegalDataException e) {
-            ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-        }
-        return true;
-    }
+	public ArrayIndexFunction() {
+	}
 
-    @Override
-    public PDataType getDataType() {
-        return PDataType.VARCHAR;
-    }
-    
-    @Override
-    public String getName() {
-        return NAME;
-    }
+	public ArrayIndexFunction(List<Expression> children) {
+		super(children);
+	}
+
+	@Override
+	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+		Expression indexExpr = children.get(1);
+		if (!indexExpr.evaluate(tuple, ptr)) {
+		  return false;
+		} else if (ptr.getLength() == 0) {
+		  return true;
+		}
+		// Use Codec to prevent Integer object allocation
+		int index = PDataType.INTEGER.getCodec().decodeInt(ptr, indexExpr.getColumnModifier());
+		if(index < 0) {
+			throw new ParseException("Index cannot be negative :" + index);
+		}
+		Expression arrayExpr = children.get(0);
+		if (!arrayExpr.evaluate(tuple, ptr)) {
+		  return false;
+		} else if (ptr.getLength() == 0) {
+		  return true;
+		}
+
+		// Given a ptr to the entire array, set ptr to point to a particular element within that array
+		// given the type of an array element (see comments in PDataTypeForArray)
+		PArrayDataType.positionAtArrayElement(ptr, index, getDataType());
+		return true;
+		
+	}
+
+	@Override
+	public PDataType getDataType() {
+		return PDataType.fromTypeId(children.get(0).getDataType().getSqlType()
+				- Types.ARRAY);
+	}
+
+	@Override
+	public String getName() {
+		return NAME;
+	}
+
 }

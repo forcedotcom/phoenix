@@ -96,6 +96,7 @@ tokens
     UNUSABLE='unusable';
     DISABLE='disable';
     REBUILD='rebuild';
+    ARRAY='array';
 }
 
 
@@ -476,8 +477,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        { $ret = factory.columnDef(c, dt, n==null,
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (ar=ARRAY (LSQUARE (a=NUMBER)? RSQUARE))? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, ar != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
@@ -741,6 +742,7 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
+    |   field=identifier LSQUARE e=expression RSQUARE  { $ret = factory.arrayElemRef(field, Collections.<ParseNode>singletonList(e));}    
     |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN l=expression_terms RPAREN 

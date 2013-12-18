@@ -32,13 +32,10 @@ import java.util.List;
 
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
-import com.salesforce.phoenix.expression.function.ScalarFunction;
-import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 
@@ -59,31 +56,18 @@ public class RoundParseNode extends FunctionParseNode {
     }
 
     @Override
-    public ScalarFunction create(List<Expression> children, StatementContext context) throws SQLException {
+    public Expression create(List<Expression> children, StatementContext context) throws SQLException {
         return getRoundExpression(children);
     }
 
-    public static ScalarFunction getRoundExpression(List<Expression> children) throws SQLException {
+    public static Expression getRoundExpression(List<Expression> children) throws SQLException {
         final Expression firstChild = children.get(0);
         final PDataType firstChildDataType = firstChild.getDataType();
         
         if(firstChildDataType.isCoercibleTo(PDataType.DATE)) {
-            return new RoundDateExpression(children);
-        } else if (firstChildDataType == PDataType.TIMESTAMP || firstChildDataType == PDataType.UNSIGNED_TIMESTAMP) {
-            Object secondChild = ((LiteralExpression)children.get(1)).getValue();
-            String timeUnit = secondChild == null ? null : secondChild.toString(); 
-            TimeUnit tu = TimeUnit.getTimeUnit(timeUnit);
-            LiteralExpression multiplierExpr = (LiteralExpression)children.get(2);
-            
-            /*
-             * When rounding off timestamp to milliseconds, nanos play a part only when the multiplier value
-             * is equal to 1. This is because for cases when multiplier value is greater than 1, number of nanos/multiplier
-             * will always be less than half the nanos in a millisecond. 
-             */
-            if(tu == TimeUnit.MILLISECOND && ((Number)multiplierExpr.getValue()).intValue() == 1) {
-                return RoundTimestampExpression.create(firstChild, multiplierExpr);
-            }
-            return new RoundDateExpression(children);
+            return RoundDateExpression.create(children); // FIXME: remove cast
+        } else if (firstChildDataType.isCoercibleTo(PDataType.TIMESTAMP)) {
+            return RoundTimestampExpression.create(children); // FIXME: remove cast
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new RoundDecimalExpression(children);
         } else {

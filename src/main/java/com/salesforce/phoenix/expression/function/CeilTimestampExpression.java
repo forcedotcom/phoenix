@@ -34,10 +34,12 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDataType.PDataCodec;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 /**
@@ -61,18 +63,23 @@ public class CeilTimestampExpression extends CeilDateExpression {
      * Creates a {@link CeilTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
      * as the time unit for rounding. 
      */
-    public static CeilTimestampExpression create(Expression expr, LiteralExpression multiplierExpr) throws SQLException {
-        List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), multiplierExpr);
-        return new CeilTimestampExpression(childExprs); 
-    }
-    
-    /**
-     * Creates a {@link CeilTimestampExpression} that uses {@link TimeUnit#MILLISECOND} 
-     * as the time unit for rounding. 
-     */
     public static CeilTimestampExpression create(Expression expr, int multiplier) throws SQLException {
         List<Expression> childExprs = Lists.newArrayList(expr, getTimeUnitExpr(TimeUnit.MILLISECOND), getMultiplierExpr(multiplier));
         return new CeilTimestampExpression(childExprs); 
+    }
+    
+    public static Expression create(List<Expression> children) throws SQLException {
+        Expression firstChild = children.get(0);
+        PDataType firstChildDataType = firstChild.getDataType();
+        String timeUnit = (String)((LiteralExpression)children.get(1)).getValue();
+        if(TimeUnit.MILLISECOND.toString().equalsIgnoreCase(timeUnit)) {
+            return new CeilTimestampExpression(children);
+        }
+        // Coerce TIMESTAMP to DATE, as the nanos has no affect
+        List<Expression> newChildren = Lists.newArrayListWithExpectedSize(children.size());
+        newChildren.add(CoerceExpression.create(firstChild, firstChildDataType == PDataType.TIMESTAMP ? PDataType.DATE : PDataType.UNSIGNED_DATE));
+        newChildren.addAll(children.subList(1, children.size()));
+        return CeilDateExpression.create(newChildren);
     }
     
     /**
@@ -83,6 +90,15 @@ public class CeilTimestampExpression extends CeilDateExpression {
         return create(expr, 1);
     }
 
+    @Override
+    protected PDataCodec getKeyRangeCodec(PDataType columnDataType) {
+        return columnDataType == PDataType.TIMESTAMP 
+                ? PDataType.DATE.getCodec() 
+                : columnDataType == PDataType.UNSIGNED_TIMESTAMP 
+                    ? PDataType.UNSIGNED_DATE.getCodec() 
+                    : super.getKeyRangeCodec(columnDataType);
+    }
+    
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (children.get(0).evaluate(tuple, ptr)) {
