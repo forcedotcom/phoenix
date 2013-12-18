@@ -27,12 +27,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.Types;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.ByteBufferUtils;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -42,6 +44,7 @@ import com.salesforce.phoenix.util.ByteUtil;
 public class PArrayDataType {
 
     private static final int MAX_POSSIBLE_VINT_LENGTH = 2;
+    private static final byte ARRAY_SERIALIZATION_VERSION = 1;
     // This would be set when toObject is called
 	private Integer byteSize;
 	public PArrayDataType() {
@@ -81,7 +84,7 @@ public class PArrayDataType {
 				// Negate the number of elements
 				noOfElements = -noOfElements;
 			}
-			buffer = ByteBuffer.allocate(size + capacity + Bytes.SIZEOF_INT);
+			buffer = ByteBuffer.allocate(size + capacity + Bytes.SIZEOF_INT+ Bytes.SIZEOF_BYTE);
 		} else {
 			buffer = ByteBuffer.allocate(size);
 		}
@@ -97,8 +100,10 @@ public class PArrayDataType {
 	}
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
-		// TODO:??
-		return 0;
+		if(byteSize == null) {
+			return 0;
+		}
+		return byteSize;
 	}
 
 	public boolean isCoercibleTo(PDataType targetType, Object value) {
@@ -154,9 +159,17 @@ public class PArrayDataType {
 	
 	public static void positionAtArrayElement(ImmutableBytesWritable ptr, int arrayIndex, PDataType baseDataType) {
 		byte[] bytes = ptr.get();
-		ByteBuffer buffer = ByteBuffer.wrap(bytes, ptr.getOffset(), ptr.getLength());
-		int initPos = buffer.position();
-		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
+		int initPos = ptr.getOffset();
+		int version = bytes[ptr.getOffset()];
+		int noOfElements = 0;
+		// As no of elements is written as Vint we need to know how many bytes does this occupy
+		try {
+			// One byte for version
+			noOfElements = (int)Bytes.readVLong(bytes, initPos + Bytes.SIZEOF_BYTE);
+		} catch(IOException ioe) {
+			throw new RuntimeException(ioe);
+		}
+		int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
 		if(arrayIndex >= noOfElements) {
 			throw new IndexOutOfBoundsException(
 					"Invalid index "
@@ -173,17 +186,13 @@ public class PArrayDataType {
 		}
 
 		if (baseDataType.getByteSize() == null) {
-			int indexOffset = buffer.getInt();
-			int valArrayPostion = buffer.position();
-			buffer.position(indexOffset + initPos);
-			ByteBuffer indexArr = ByteBuffer
-					.allocate(initOffsetArray(noOfElements, baseSize));
-			byte[] array = indexArr.array();
-			buffer.get(array);
-			int i = 0;
+			int offset = ptr.getOffset() + noOFElementsSize + Bytes.SIZEOF_BYTE;
+			int indexOffset = Bytes.toInt(bytes, offset) + ptr.getOffset();
+			int valArrayPostion = offset + Bytes.SIZEOF_INT;
+			offset += Bytes.SIZEOF_INT;
 			int currOff = 0;
 			if (noOfElements > 1) {
-				while (indexArr.hasRemaining()) {
+				while (offset <= (initPos+ptr.getLength())) {
 					int nextOff = 0;
 					// Skip those many offsets as given in the arrayIndex
 					// If suppose there are 5 elements in the array and the arrayIndex = 3
@@ -193,43 +202,42 @@ public class PArrayDataType {
 					// So we could just skip reading the other elements.
 					if(useShort) {
 						// If the arrayIndex is already the last element then read the last before one element and the last element
-						indexArr.position(Bytes.SIZEOF_SHORT * arrayIndex);
+						offset = indexOffset + (Bytes.SIZEOF_SHORT * arrayIndex);
 						if (arrayIndex == (noOfElements - 1)) {
-							currOff = indexArr.getShort() + Short.MAX_VALUE;
+							currOff = Bytes.toShort(bytes, offset, baseSize) + Short.MAX_VALUE;
 							nextOff = indexOffset;
+							offset += baseSize;
 						} else {
-							currOff = indexArr.getShort() + Short.MAX_VALUE;
-							nextOff = indexArr.getShort() + Short.MAX_VALUE;
+							currOff = Bytes.toShort(bytes, offset, baseSize) + Short.MAX_VALUE;
+							offset += baseSize;
+							nextOff = Bytes.toShort(bytes, offset, baseSize) + Short.MAX_VALUE;
+							offset += baseSize;
 						}
 					} else {
 						// If the arrayIndex is already the last element then read the last before one element and the last element
-						indexArr.position(Bytes.SIZEOF_INT * (arrayIndex));
+						offset = indexOffset + (Bytes.SIZEOF_INT * arrayIndex);
 						if (arrayIndex == (noOfElements - 1)) {
-							currOff = indexArr.getInt();
+							currOff = Bytes.toInt(bytes, offset, baseSize);
 							nextOff = indexOffset;
+							offset += baseSize;
 						} else {
-							currOff = indexArr.getInt();
-							nextOff = indexArr.getInt();
+							currOff = Bytes.toInt(bytes, offset, baseSize);
+							offset += baseSize;
+							nextOff = Bytes.toInt(bytes, offset, baseSize);
+							offset += baseSize;
 						}
 					}
 					int elementLength = nextOff - currOff;
-					buffer.position(currOff + initPos);
-					byte[] val = new byte[elementLength];
-					buffer.get(val);
-					ptr.set(val, 0, val.length);
+					ptr.set(bytes, currOff + initPos, elementLength);
 					break;
 				}
 			} else {
-				byte[] val = new byte[indexOffset - valArrayPostion];
-				buffer.position(valArrayPostion + initPos);
-				buffer.get(val);
-				ptr.set(val, 0, val.length);
+				ptr.set(bytes, valArrayPostion + initPos, indexOffset - valArrayPostion);
 			}
 		} else {
-			byte[] val = new byte[baseDataType.getByteSize()];
-			buffer.position(arrayIndex * baseDataType.getByteSize()+ (buffer.position()));
-			buffer.get(val);
-			ptr.set(val, 0, val.length);
+			ptr.set(bytes,
+					ptr.getOffset() + arrayIndex * baseDataType.getByteSize()
+							+ noOFElementsSize + Bytes.SIZEOF_BYTE, baseDataType.getByteSize());
 		}
 	}
 
@@ -273,6 +281,7 @@ public class PArrayDataType {
 			int noOfElements, Integer byteSize, int capacity) {
 		int temp = noOfElements;
         if (buffer == null) return null;
+        buffer.put(ARRAY_SERIALIZATION_VERSION);
         ByteBufferUtils.writeVLong(buffer, noOfElements);
         if (byteSize == null) {
             int fillerForOffsetByteArray = buffer.position();
@@ -317,6 +326,7 @@ public class PArrayDataType {
 		}
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int initPos = buffer.position();
+		int version = buffer.get();
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		boolean useShort = true;
 		int baseSize = Bytes.SIZEOF_SHORT;

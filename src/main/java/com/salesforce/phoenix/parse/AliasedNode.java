@@ -46,7 +46,7 @@ public class AliasedNode {
         this.alias = alias == null ? null : SchemaUtil.normalizeIdentifier(alias);
         this.node = node;
     }
-    
+
     public String getAlias() {
         return alias;
     }

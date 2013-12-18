@@ -72,9 +72,11 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
 			// Need to support primitive
-			Double[] doubleArr = new Double[2];
+			Double[] doubleArr = new Double[4];
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
+		    doubleArr[2] = 37.56;
+            doubleArr[3] = 386.63;
 			Array array = conn.createArrayOf("DOUBLE",
 					doubleArr);
 			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
@@ -111,9 +113,11 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
 			// Need to support primitive
-			Double[] doubleArr = new Double[2];
+			Double[] doubleArr = new Double[4];
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
+		    doubleArr[2] = 37.56;
+            doubleArr[3] = 386.63;
 			array = conn.createArrayOf("DOUBLE", doubleArr);
 			Array resultArray = rs.getArray(1);
 			assertEquals(resultArray, array);
@@ -151,9 +155,11 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
 			// Need to support primitive
-			Double[] doubleArr = new Double[2];
+			Double[] doubleArr = new Double[4];
 			doubleArr[0] = 25.343;
 			doubleArr[1] = 36.763;
+		    doubleArr[2] = 37.56;
+            doubleArr[3] = 386.63;
 			array = conn.createArrayOf("DOUBLE", doubleArr);
 			Array resultArray = rs.getArray(1);
 			assertEquals(resultArray, array);
@@ -234,7 +240,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
-		String query = "SELECT a_double_array[1] FROM table_with_array";
+		String query = "SELECT a_double_array[2] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
 				Long.toString(ts + 2)); // Execute at timestamp 2
@@ -245,7 +251,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			assertTrue(rs.next());
 			// Need to support primitive
 			Double[] doubleArr = new Double[1];
-			doubleArr[0] = 36.763;
+			doubleArr[0] = 37.56;
 			Double result =  rs.getDouble(1);
 			assertEquals(result, doubleArr[0]);
 			assertFalse(rs.next());
@@ -296,7 +302,6 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
-		// TODO : Does not work
 		String query = "SELECT a_double_array[1] FROM table_with_array  GROUP BY a_double_array[1]";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -307,10 +312,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 40.0;
 			Array array = conn.createArrayOf("DOUBLE", doubleArr);
-			//statement.setArray(1, array);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
-			// Need to support primitive
 			doubleArr = new Double[1];
 			doubleArr[0] = 36.763;
 			Double result =  rs.getDouble(1);

@@ -253,9 +253,11 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
              stmt.setShort(11, (short) 128);
              stmt.setFloat(12, 0.01f);
              // Need to support primitive
-             Double[] doubleArr =  new Double[2];
+             Double[] doubleArr =  new Double[4];
              doubleArr[0] = 25.343;
              doubleArr[1] = 36.763;
+             doubleArr[2] = 37.56;
+             doubleArr[3] = 386.63;
              array = conn.createArrayOf("DOUBLE", doubleArr);
              stmt.setArray(13, array);
              stmt.setFloat(14, 0.01f);

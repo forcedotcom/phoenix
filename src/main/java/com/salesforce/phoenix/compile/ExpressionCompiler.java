@@ -153,7 +153,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
     
     private static void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
-    	if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
+        if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
             throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
         }
     }
@@ -409,7 +409,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             this.aggregateFunction = node;
             this.isAggregate = true;
 
-        } 
+        }
         return true;
     }
 

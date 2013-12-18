@@ -75,5 +75,4 @@ public interface ColumnProjector {
     Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr) throws SQLException;
     
     boolean isCaseSensitive();
-    
 }

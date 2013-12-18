@@ -140,7 +140,7 @@ public enum ExpressionType {
     ProjectedColumnExpression(ProjectedColumnExpression.class),
     TimestampAddExpression(TimestampAddExpression.class),
     TimestampSubtractExpression(TimestampSubtractExpression.class),
-    ArrayElemExpression(ArrayIndexFunction.class)
+    ArrayIndexFunction(ArrayIndexFunction.class)
     ;
     
     ExpressionType(Class<? extends Expression> clazz) {

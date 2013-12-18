@@ -52,7 +52,7 @@ public class PDataTypeForArraysTest {
 				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
-	
+
 	@Test
 	public void testForBooleanArray() {
 		Boolean[] boolArr = new Boolean[2];
@@ -134,7 +134,28 @@ public class PDataTypeForArraysTest {
 				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
-	
+
+	@Test
+	public void testForVarCharArrayForEvenNumberWithIndex() {
+		String[] strArr = new String[5];
+		strArr[0] = "abx";
+		strArr[1] = "ereref";
+		strArr[2] = "random";
+		strArr[3] = "random12";
+		strArr[4] = "ranzzz";
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.VARCHAR, strArr);
+		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
+		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
+		PArrayDataType.positionAtArrayElement(ptr, 4, PDataType.VARCHAR);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
+		byte[] bs = ptr.get();
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		assertEquals("ranzzz", Bytes.toString(res));
+	}
+
 	@Test
 	public void testForVarCharArrayForOddNumberWithIndex() {
 		String[] strArr = new String[5];
@@ -147,12 +168,15 @@ public class PDataTypeForArraysTest {
 				PDataType.VARCHAR, strArr);
 		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
 		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
-		PArrayDataType.positionAtArrayElement(ptr, 4, PDataType.VARCHAR);
+		PArrayDataType.positionAtArrayElement(ptr, 3, PDataType.VARCHAR);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
 		byte[] bs = ptr.get();
-		String result = Bytes.toString(bs);
-		assertEquals("ran", result);
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		assertEquals("random12", Bytes.toString(res));
 	}
-	
+
 	@Test
 	public void testForVarCharArrayForOneElementArrayWithIndex() {
 		String[] strArr = new String[1];
@@ -162,11 +186,14 @@ public class PDataTypeForArraysTest {
 		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
 		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
 		PArrayDataType.positionAtArrayElement(ptr, 0, PDataType.VARCHAR);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
 		byte[] bs = ptr.get();
-		String result = Bytes.toString(bs);
-		assertEquals("abx", result);
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		assertEquals("abx", Bytes.toString(res));
 	}
-	
+
 	@Test
 	public void testForVarCharArrayForWithTwoelementsElementArrayWithIndex() {
 		String[] strArr = new String[2];
@@ -177,10 +204,14 @@ public class PDataTypeForArraysTest {
 		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
 		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
 		PArrayDataType.positionAtArrayElement(ptr, 1, PDataType.VARCHAR);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
 		byte[] bs = ptr.get();
-		String result = Bytes.toString(bs);
-		assertEquals("ereref", result);
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		assertEquals("ereref", Bytes.toString(res));
 	}
+
 	@Test
 	public void testLongArrayWithIndex() {
 		Long[] longArr = new Long[4];
@@ -194,8 +225,12 @@ public class PDataTypeForArraysTest {
 		byte[] bytes = PDataType.LONG_ARRAY.toBytes(arr);
 		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
 		PArrayDataType.positionAtArrayElement(ptr, 2, PDataType.LONG);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
 		byte[] bs = ptr.get();
-		long result = (Long)PDataType.LONG.toObject(bs);
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		long result = (Long) PDataType.LONG.toObject(res);
 		assertEquals(4l, result);
 	}
 
@@ -296,6 +331,21 @@ public class PDataTypeForArraysTest {
 	}
 
 	@Test
+	public void testForUnSignedTimeStampArray() {
+		Timestamp[] timeStampArr = new Timestamp[2];
+		timeStampArr[0] = new Timestamp(System.currentTimeMillis());
+		timeStampArr[1] = new Timestamp(900000l);
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.UNSIGNED_TIMESTAMP, timeStampArr);
+		PDataType.UNSIGNED_TIMESTAMP_ARRAY.toObject(arr,
+				PDataType.UNSIGNED_TIMESTAMP_ARRAY);
+		byte[] bytes = PDataType.UNSIGNED_TIMESTAMP_ARRAY.toBytes(arr);
+		PhoenixArray resultArr = (PhoenixArray) PDataType.UNSIGNED_TIMESTAMP_ARRAY
+				.toObject(bytes, 0, bytes.length);
+		assertEquals(arr, resultArr);
+	}
+
+	@Test
 	public void testForTimeArray() {
 		Time[] timeArr = new Time[2];
 		timeArr[0] = new Time(System.currentTimeMillis());
@@ -306,6 +356,21 @@ public class PDataTypeForArraysTest {
 		byte[] bytes = PDataType.TIME_ARRAY.toBytes(arr);
 		PhoenixArray resultArr = (PhoenixArray) PDataType.TIME_ARRAY.toObject(
 				bytes, 0, bytes.length);
+		assertEquals(arr, resultArr);
+	}
+
+	@Test
+	public void testForUnsignedTimeArray() {
+		Time[] timeArr = new Time[2];
+		timeArr[0] = new Time(System.currentTimeMillis());
+		timeArr[1] = new Time(900000l);
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.UNSIGNED_TIME, timeArr);
+		PDataType.UNSIGNED_TIME_ARRAY.toObject(arr,
+				PDataType.UNSIGNED_TIME_ARRAY);
+		byte[] bytes = PDataType.UNSIGNED_TIME_ARRAY.toBytes(arr);
+		PhoenixArray resultArr = (PhoenixArray) PDataType.UNSIGNED_TIME_ARRAY
+				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
 
@@ -321,6 +386,22 @@ public class PDataTypeForArraysTest {
 		byte[] bytes = PDataType.DATE_ARRAY.toBytes(arr);
 		PhoenixArray resultArr = (PhoenixArray) PDataType.DATE_ARRAY.toObject(
 				bytes, 0, bytes.length);
+		assertEquals(arr, resultArr);
+	}
+
+	@Test
+	public void testForUnSignedDateArray() {
+		Date[] dateArr = new Date[2];
+		dateArr[0] = new Date(System.currentTimeMillis());
+		dateArr[1] = new Date(System.currentTimeMillis()
+				+ System.currentTimeMillis());
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.UNSIGNED_DATE, dateArr);
+		PDataType.UNSIGNED_DATE_ARRAY.toObject(arr,
+				PDataType.UNSIGNED_DATE_ARRAY);
+		byte[] bytes = PDataType.UNSIGNED_DATE_ARRAY.toBytes(arr);
+		PhoenixArray resultArr = (PhoenixArray) PDataType.UNSIGNED_DATE_ARRAY
+				.toObject(bytes, 0, bytes.length);
 		assertEquals(arr, resultArr);
 	}
 
