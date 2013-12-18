@@ -54,6 +54,7 @@ import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -149,7 +150,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return iterator(null);
     }
 
-    public final ResultIterator iterator(final SQLCloseable dependency) throws SQLException {
+    public final ResultIterator iterator(final List<SQLCloseable> dependencies) throws SQLException {
         if (context.getScanRanges() == ScanRanges.NOTHING) {
             return ResultIterator.EMPTY_ITERATOR;
         }
@@ -166,12 +167,12 @@ public abstract class BasicQueryPlan implements QueryPlan {
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
         ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
         ResultIterator iterator = newIterator();
-        return dependency == null ? iterator : 
-            new DelegateResultIterator(iterator) {
+        return dependencies == null || dependencies.isEmpty() ? 
+                iterator : new DelegateResultIterator(iterator) {
             @Override
             public void close() throws SQLException {
                 super.close();
-                dependency.close();
+                SQLCloseables.closeAll(dependencies);
             }
         };
     }

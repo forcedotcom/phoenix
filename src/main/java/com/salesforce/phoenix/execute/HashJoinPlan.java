@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -99,20 +100,19 @@ public class HashJoinPlan implements QueryPlan {
         final int count = joinIds.length;
         final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
         final ExecutorService executor = services.getExecutor();
-        List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
-        final List<ResultIterator> iterators = new ArrayList<ResultIterator>(count);
-        final List<ServerCache> serverCaches = new ArrayList<ServerCache>(count);
+        List<Future<Pair<ResultIterator, ServerCache>>> futures = new ArrayList<Future<Pair<ResultIterator, ServerCache>>>(count);
+        final List<SQLCloseable> dependencies = new ArrayList<SQLCloseable>(count);
         for (int i = 0; i < count; i++) {
         	final int index = i;
-        	futures.add(executor.submit(new JobCallable<ServerCache>() {
+        	futures.add(executor.submit(new JobCallable<Pair<ResultIterator, ServerCache>>() {
         		
 				@Override
-				public ServerCache call() throws Exception {
+				public Pair<ResultIterator, ServerCache> call() throws Exception {
 				    QueryPlan hashPlan = hashPlans[index];
 				    ResultIterator iterator = hashPlan.iterator();
-				    iterators.add(iterator);
-					return hashClient.addHashCache(ranges, iterator, hashPlan.getEstimatedSize(), 
-					        hashExpressions[index], plan.getTableRef());
+					ServerCache cache = hashClient.addHashCache(ranges, iterator, 
+					        hashPlan.getEstimatedSize(), hashExpressions[index], plan.getTableRef());
+					return new Pair<ResultIterator, ServerCache>(iterator, cache);
 				}
 
 				@Override
@@ -123,9 +123,10 @@ public class HashJoinPlan implements QueryPlan {
         }
         for (int i = 0; i < count; i++) {
 			try {
-				ServerCache cache = futures.get(i).get();
-				joinIds[i].set(cache.getId());
-				serverCaches.add(cache);
+			    Pair<ResultIterator, ServerCache> result = futures.get(i).get();
+				joinIds[i].set(result.getSecond().getId());
+				dependencies.add(result.getFirst());
+				dependencies.add(result.getSecond());
 			} catch (InterruptedException e) {
 				throw new SQLException("Hash join execution interrupted.", e);
 			} catch (ExecutionException e) {
@@ -135,38 +136,7 @@ public class HashJoinPlan implements QueryPlan {
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
         
-        return plan.iterator(new SQLCloseable() {
-            @Override
-            public void close() throws SQLException {
-                List<Future<Void>> futures = new ArrayList<Future<Void>>(count);
-                for (int i = 0; i < count; i++) {
-                    final int index = i;
-                    futures.add(executor.submit(new JobCallable<Void>() {
-                        @Override
-                        public Void call() throws Exception {
-                            iterators.get(index).close();
-                            serverCaches.get(index).close();
-                            return null;
-                        }                        
-                        @Override
-                        public Object getJobId() {
-                            return this;
-                        }
-                    }));
-                }
-                Throwable lastThrowable = null;
-                for (Future<Void> future : futures) {
-                    try {
-                        future.get();
-                    } catch (Throwable t) {
-                        lastThrowable = t;
-                    }
-                }
-                if (lastThrowable != null) {
-                    throw new SQLException("Encountered error when closing server caches.", lastThrowable);
-                }
-            }
-        });
+        return plan.iterator(dependencies);
     }
     
     @Override
