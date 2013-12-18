@@ -59,7 +59,6 @@ import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.iterate.ResultIterator;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -111,12 +110,6 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     public PhoenixResultSet(ResultIterator resultIterator, RowProjector rowProjector, PhoenixStatement statement) throws SQLException {
         this.rowProjector = rowProjector;
         this.scanner = resultIterator;
-        this.statement = statement;
-    }
-    
-    public PhoenixResultSet(Scanner scanner, PhoenixStatement statement) throws SQLException {
-        this.rowProjector = scanner.getProjection();
-        this.scanner = scanner.iterator();
         this.statement = statement;
     }
     

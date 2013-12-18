@@ -46,7 +46,6 @@ import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ServerUtil;
@@ -81,22 +80,21 @@ public class HashCacheClient  {
      * @throws MaxServerCacheSizeExceededException if size of hash cache exceeds max allowed
      * size
      */
-    public ServerCache addHashCache(ScanRanges keyRanges, Scanner scanner, List<Expression> onExpressions, TableRef cacheUsingTableRef) throws SQLException {
+    public ServerCache addHashCache(ScanRanges keyRanges, ResultIterator iterator, long estimatedSize, List<Expression> onExpressions, TableRef cacheUsingTableRef) throws SQLException {
         /**
          * Serialize and compress hashCacheTable
          */
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        serialize(ptr, scanner, onExpressions);
+        serialize(ptr, iterator, estimatedSize, onExpressions);
         return serverCache.addServerCache(keyRanges, ptr, new HashCacheFactory(), cacheUsingTableRef);
     }
     
-    private void serialize(ImmutableBytesWritable ptr, Scanner scanner, List<Expression> onExpressions) throws SQLException {
+    private void serialize(ImmutableBytesWritable ptr, ResultIterator iterator, long estimatedSize, List<Expression> onExpressions) throws SQLException {
         long maxSize = serverCache.getConnection().getQueryServices().getProps().getLong(QueryServices.MAX_SERVER_CACHE_SIZE_ATTRIB, QueryServicesOptions.DEFAULT_MAX_SERVER_CACHE_SIZE);
-        long estimatedSize = Math.min(scanner.getEstimatedSize(), maxSize);
+        estimatedSize = Math.min(estimatedSize, maxSize);
         if (estimatedSize > Integer.MAX_VALUE) {
             throw new IllegalStateException("Estimated size(" + estimatedSize + ") must not be greater than Integer.MAX_VALUE(" + Integer.MAX_VALUE + ")");
         }
-        ResultIterator iterator = scanner.iterator();
         try {
             TrustedByteArrayOutputStream baOut = new TrustedByteArrayOutputStream((int)estimatedSize);
             DataOutputStream out = new DataOutputStream(baOut);
