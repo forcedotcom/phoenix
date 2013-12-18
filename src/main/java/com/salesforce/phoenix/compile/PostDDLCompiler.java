@@ -47,7 +47,6 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
@@ -189,8 +188,7 @@ public class PostDDLCompiler {
                                 scan.setStartRow(tenantId.getBytes());
                                 scan.setStopRow(ByteUtil.nextKey(tenantId.getBytes()));
                             }
-                            Scanner scanner = plan.getScanner();
-                            ResultIterator iterator = scanner.iterator();
+                            ResultIterator iterator = plan.iterator();
                             try {
                                 Tuple row = iterator.next();
                                 ImmutableBytesWritable ptr = context.getTempPtr();

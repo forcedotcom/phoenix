@@ -66,6 +66,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.parse.AddColumnStatement;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.AlterIndexStatement;
@@ -95,8 +96,6 @@ import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.query.WrappedScanner;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ExecuteQueryNotApplicableException;
 import com.salesforce.phoenix.schema.ExecuteUpdateNotApplicableException;
@@ -169,8 +168,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return resultSets;
     }
     
-    protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {
-        return new PhoenixResultSet(scanner, PhoenixStatement.this);
+    protected PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector) throws SQLException {
+        return new PhoenixResultSet(iterator, projector, PhoenixStatement.this);
     }
     
     protected static interface ExecutableStatement extends BindableStatement {
@@ -196,8 +195,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public PhoenixResultSet executeQuery() throws SQLException {
             QueryPlan plan = optimizePlan();
-            Scanner scanner = plan.getScanner();
-            PhoenixResultSet rs = newResultSet(scanner);
+            PhoenixResultSet rs = newResultSet(plan.iterator(), plan.getProjector());
             resultSets.add(rs);
             lastResultSet = rs;
             lastUpdateCount = NO_UPDATE;
@@ -758,8 +756,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
                 Tuple tuple = new SingleKeyValueTuple(KeyValueUtil.newKeyValue(PDataType.VARCHAR.toBytes(planStep), EXPLAIN_PLAN_FAMILY, EXPLAIN_PLAN_COLUMN, MetaDataProtocol.MIN_TABLE_TIMESTAMP, ByteUtil.EMPTY_BYTE_ARRAY));
                 tuples.add(tuple);
             }
-            Scanner scanner = new WrappedScanner(new MaterializedResultIterator(tuples),EXPLAIN_PLAN_ROW_PROJECTOR);
-            PhoenixResultSet rs = new PhoenixResultSet(scanner, new PhoenixStatement(connection));
+            PhoenixResultSet rs = new PhoenixResultSet(new MaterializedResultIterator(tuples),EXPLAIN_PLAN_ROW_PROJECTOR, new PhoenixStatement(connection));
             lastResultSet = rs;
             lastQueryPlan = null;
             lastUpdateCount = NO_UPDATE;

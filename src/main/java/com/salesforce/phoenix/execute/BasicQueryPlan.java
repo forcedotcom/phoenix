@@ -29,10 +29,13 @@ package com.salesforce.phoenix.execute;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.compile.OrderByCompiler.OrderBy;
@@ -40,16 +43,18 @@ import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
+import com.salesforce.phoenix.iterate.DelegateResultIterator;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
-import com.salesforce.phoenix.query.DegenerateScanner;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -63,6 +68,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public abstract class BasicQueryPlan implements QueryPlan {
+    protected static final long DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
+    
     protected final TableRef tableRef;
     protected final StatementContext context;
     protected final FilterableStatement statement;
@@ -72,8 +79,6 @@ public abstract class BasicQueryPlan implements QueryPlan {
     protected final OrderBy orderBy;
     protected final GroupBy groupBy;
     protected final ParallelIteratorFactory parallelIteratorFactory;
-
-    private Scanner scanner;
 
     protected BasicQueryPlan(
             StatementContext context, FilterableStatement statement, TableRef table,
@@ -116,7 +121,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return projection;
     }
 
-    private ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
+    protected ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
         // Get child services associated with tenantId of query.
         ConnectionQueryServices childServices = context.getConnection().getTenantId() == null ? 
                 services : 
@@ -139,12 +144,17 @@ public abstract class BasicQueryPlan implements QueryPlan {
 //        byte[] producer = Bytes.toBytes(UUID.randomUUID().toString());
 //        scan.setAttribute(HBaseServer.CALL_QUEUE_PRODUCER_ATTRIB_NAME, producer);
 //    }
-
+    
     @Override
-    public final Scanner getScanner() throws SQLException {
-        if (scanner != null) {
-            return scanner;
+    public final ResultIterator iterator() throws SQLException {
+        return iterator(Collections.<SQLCloseable>emptyList());
+    }
+
+    public final ResultIterator iterator(final List<SQLCloseable> dependencies) throws SQLException {
+        if (context.getScanRanges() == ScanRanges.NOTHING) {
+            return ResultIterator.EMPTY_ITERATOR;
         }
+        
         Scan scan = context.getScan();
         // Set producer on scan so HBase server does round robin processing
         //setProducer(scan);
@@ -156,20 +166,25 @@ public abstract class BasicQueryPlan implements QueryPlan {
         Long scn = connection.getSCN();
         ScanUtil.setTimeRange(scan, scn == null ? context.getCurrentTime() : scn);
         ScanUtil.setTenantId(scan, connection.getTenantId() == null ? null : connection.getTenantId().getBytes());
-        scanner = newScanner();
-        return scanner;
+        ResultIterator iterator = newIterator();
+        return dependencies.isEmpty() ? 
+                iterator : new DelegateResultIterator(iterator) {
+            @Override
+            public void close() throws SQLException {
+                try {
+                    super.close();
+                } finally {
+                    SQLCloseables.closeAll(dependencies);
+                }
+            }
+        };
     }
 
-    abstract protected Scanner newScanner(ConnectionQueryServices services) throws SQLException;
-
-    private Scanner newScanner() throws SQLException {
-        ConnectionQueryServices services = getConnectionQueryServices(context.getConnection().getQueryServices());
-        if (context.getScanRanges() == ScanRanges.NOTHING) { // is degenerate
-            scanner = new DegenerateScanner(tableRef, getProjector());
-        } else {
-            scanner = newScanner(services);
-        }
-        return scanner;
+    abstract protected ResultIterator newIterator() throws SQLException;
+    
+    @Override
+    public long getEstimatedSize() {
+        return DEFAULT_ESTIMATED_SIZE;
     }
 
     @Override
@@ -189,9 +204,13 @@ public abstract class BasicQueryPlan implements QueryPlan {
 
     @Override
     public ExplainPlan getExplainPlan() throws SQLException {
-        if (scanner == null) {
-            scanner = newScanner();
+        if (context.getScanRanges() == ScanRanges.NOTHING) {
+            return new ExplainPlan(Collections.singletonList("DEGENERATE SCAN OVER " + tableRef.getTable().getName().getString()));
         }
-        return scanner.getExplainPlan();
+        
+        ResultIterator iterator = iterator();
+        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
+        iterator.explain(planSteps);
+        return new ExplainPlan(planSteps);
     }
 }
