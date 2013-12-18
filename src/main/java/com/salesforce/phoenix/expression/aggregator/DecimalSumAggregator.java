@@ -51,12 +51,21 @@ public class DecimalSumAggregator extends BaseAggregator {
     public DecimalSumAggregator(ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
         super(columnModifier);
         if (ptr != null) {
+            initBuffer();
             sum = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
         }
     }
     
     private PDataType getInputDataType() {
         return PDataType.DECIMAL;
+    }
+    
+    private int getBufferLength() {
+        return getDataType().getByteSize();
+    }
+
+    private void initBuffer() {
+        sumBuffer = new byte[getBufferLength()];
     }
     
     @Override
