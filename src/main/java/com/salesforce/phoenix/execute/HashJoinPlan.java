@@ -96,39 +96,39 @@ public class HashJoinPlan implements QueryPlan {
         Scan scan = plan.getContext().getScan();
         final ScanRanges ranges = plan.getContext().getScanRanges();
         
-        final int count = joinIds.length;
-        final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
-        final ExecutorService executor = services.getExecutor();
+        int count = joinIds.length;
+        ConnectionQueryServices services = getContext().getConnection().getQueryServices();
+        ExecutorService executor = services.getExecutor();
         List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
-        final List<SQLCloseable> dependencies = new ArrayList<SQLCloseable>(count);
+        List<SQLCloseable> dependencies = new ArrayList<SQLCloseable>(count);
         for (int i = 0; i < count; i++) {
-        	final int index = i;
-        	futures.add(executor.submit(new JobCallable<ServerCache>() {
-        		
-				@Override
-				public ServerCache call() throws Exception {
-				    QueryPlan hashPlan = hashPlans[index];
-					return hashClient.addHashCache(ranges, hashPlan.iterator(), 
-					        hashPlan.getEstimatedSize(), hashExpressions[index], plan.getTableRef());
-				}
+            final int index = i;
+            futures.add(executor.submit(new JobCallable<ServerCache>() {
 
-				@Override
-				public Object getJobId() {
-					return HashJoinPlan.this;
-				}
-        	}));
+                @Override
+                public ServerCache call() throws Exception {
+                    QueryPlan hashPlan = hashPlans[index];
+                    return hashClient.addHashCache(ranges, hashPlan.iterator(), 
+                            hashPlan.getEstimatedSize(), hashExpressions[index], plan.getTableRef());
+                }
+
+                @Override
+                public Object getJobId() {
+                    return HashJoinPlan.this;
+                }
+            }));
         }
         for (int i = 0; i < count; i++) {
-			try {
-			    ServerCache cache = futures.get(i).get();
-				joinIds[i].set(cache.getId());
-				dependencies.add(cache);
-			} catch (InterruptedException e) {
-				throw new SQLException("Hash join execution interrupted.", e);
-			} catch (ExecutionException e) {
-				throw new SQLException("Encountered exception in hash plan execution.", 
-						e.getCause());
-			}
+            try {
+                ServerCache cache = futures.get(i).get();
+                joinIds[i].set(cache.getId());
+                dependencies.add(cache);
+            } catch (InterruptedException e) {
+                throw new SQLException("Hash join execution interrupted.", e);
+            } catch (ExecutionException e) {
+                throw new SQLException("Encountered exception in hash plan execution.", 
+                        e.getCause());
+            }
         }
         HashJoinInfo.serializeHashJoinIntoScan(scan, joinInfo);
         

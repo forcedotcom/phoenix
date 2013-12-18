@@ -147,7 +147,7 @@ public abstract class BasicQueryPlan implements QueryPlan {
     
     @Override
     public final ResultIterator iterator() throws SQLException {
-        return iterator(null);
+        return iterator(Collections.<SQLCloseable>emptyList());
     }
 
     public final ResultIterator iterator(final List<SQLCloseable> dependencies) throws SQLException {
