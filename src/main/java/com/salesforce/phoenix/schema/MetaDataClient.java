@@ -635,11 +635,10 @@ public class MetaDataClient {
             String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
             String baseTableName = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
             
-            // TODO: require tenantTypeId to be set too
-            if ((tenantId == null && baseTableName != null) || (tenantId != null && baseTableName == null)) {
+            if (tenantId != null && (baseTableName == null || tenantTypeId == null)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
-                    .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, both " +
-                    "TenantId connection property and " + BASE_TABLE_PROP_NAME + " DDL option must be set.").build().buildException();
+                    .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, " +
+                    "TenantId connection property and both " + BASE_TABLE_PROP_NAME + " and " + TENANT_TYPE_ID + " DDL options must be set.").build().buildException();
             }
             
             List<ColumnDef> colDefs = statement.getColumnDefs();
@@ -883,15 +882,28 @@ public class MetaDataClient {
     /**
      * A table can be a parent table to tenant-specific tables if all of the following conditions are true:
      * <ol>
-     * <li>It has 2 or more PK columns AND
-     * <li>The leading PK column is not nullible AND 
-     * <li>The leading PK column's data type is either VARCHAR or CHAR 
+     * <li>It has 3 or more PK columns AND
+     * <li>First PK (tenant id) column is not nullible AND 
+     * <li>Firsts PK column's data type is either VARCHAR or CHAR AND
+     * <li>Second PK (tenant type id) column is not nullible AND
+     * <li>Second PK column data type is either VARCHAR or CHAR AND
+     * <li>Second PK column max length is 3
      * </ol>
      */
     private static boolean doesTableStructureSupportTenantTables(PTable table) {
         List<PColumn> pkCols = table.getPKColumns();
-        PColumn firstPkCol = pkCols.get(0);
-        return (pkCols.size() > 1 && !firstPkCol.isNullable() && (firstPkCol.getDataType() == VARCHAR || firstPkCol.getDataType() == CHAR));
+        if (pkCols.size() < 3) {
+        	return false;
+        }
+        PColumn tenantIdCol = pkCols.get(0);
+        if (tenantIdCol.isNullable() || (tenantIdCol.getDataType() != VARCHAR && tenantIdCol.getDataType() != CHAR)) {
+        	return false;
+        }
+        PColumn tenantTypeIdCol = pkCols.get(1);
+        if (tenantTypeIdCol.isNullable() || (tenantTypeIdCol.getDataType() != VARCHAR && tenantTypeIdCol.getDataType() != CHAR) || tenantTypeIdCol.getMaxLength() != 3) {
+        	return false;
+        }
+        return true;
     }
 
     private PTable resolveTable(PhoenixConnection connection, String schemaName, String tableName) throws TableNotFoundException {

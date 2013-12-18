@@ -70,19 +70,21 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     
     private static final String TENANT_ID = "ZZTop";
+    private static final String TENANT_TYPE_ID = "abc";
     private static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;
     
     private static final String PARENT_TABLE_NAME = "PARENT_TABLE";
     private static final String PARENT_TABLE_DDL = "CREATE TABLE " + PARENT_TABLE_NAME + " ( \n" + 
             "                user VARCHAR ,\n" + 
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
-            "                id INTEGER NOT NULL \n" + 
-            "                CONSTRAINT pk PRIMARY KEY (tenant_id, id))";
+            "                tenant_type_id VARCHAR(3) NOT NULL, \n" + 
+            "                id INTEGER NOT NULL\n" + 
+            "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id))";
     
     private static final String TENANT_TABLE_NAME = "TENANT_TABLE";
     private static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
             "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='PARENT_TABLE'";
+            "                BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='" + TENANT_TYPE_ID + '\'';
     
     @Before
     public void createTables() throws SQLException {
@@ -281,12 +283,14 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
             assertFalse(rs.next());
             
-            // make sure tenants see paren table's columns and their own
+            // make sure tenants see parent table's columns and their own
             rs = meta.getColumns(null, null, null, null);
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "user");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_id");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_type_id");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "id");
             assertTrue(rs.next());
@@ -303,7 +307,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         try {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE DIFFSCHEMA.TENANT_TABLE2 ( \n" + 
                     "                tenant_col VARCHAR) \n" + 
-                    "                BASE_TABLE='" + PARENT_TABLE_NAME + '\'');
+                    "                BASE_TABLE='" + PARENT_TABLE_NAME + "',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {
@@ -319,7 +323,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         try {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
                     "                tenant_col VARCHAR PRIMARY KEY) \n" + 
-                    "                BASE_TABLE='PARENT_TABLE'");
+                    "                BASE_TABLE='PARENT_TABLE',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {
@@ -335,7 +339,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         try {
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 ( \n" + 
                     "                user INTEGER) \n" + 
-                    "                BASE_TABLE='PARENT_TABLE'");
+                    "                BASE_TABLE='PARENT_TABLE',TENANT_TYPE_ID='aaa'");
         }
         finally {
             dropTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "TENANT_TABLE2");
@@ -462,7 +466,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     @Test
     public void testCreateTenantTableBaseTableTopLevel() throws Exception {
         try {
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (COL VARCHAR) BASE_TABLE='TENANT_TABLE'");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (COL VARCHAR) BASE_TABLE='TENANT_TABLE',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {
@@ -505,7 +509,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         // only one PK column
         try {
             createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID))");
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {
@@ -515,7 +519,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         // nullable tenantId column
         try {
             createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {
@@ -525,7 +529,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         // tenantId column of wrong type
         try {
             createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2'");
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
         catch (SQLException expected) {

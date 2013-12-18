@@ -114,8 +114,9 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         conn.createStatement().execute("CREATE TABLE PARENT_TABLE ( \n" + 
                 "                user VARCHAR ,\n" +
                 "                tenant_id VARCHAR not null,\n" +
+                "                tenant_type_id VARCHAR(3) not null,\n" +
                 "                id INTEGER not null\n" + 
-                "                constraint pk primary key (tenant_id, id)) ");
+                "                constraint pk primary key (tenant_id, tenant_type_id, id)) ");
         conn.close();
         
         props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
@@ -124,7 +125,7 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         
         conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
                 "                tenantCol VARCHAR\n" + 
-                "                ) BASE_TABLE='PARENT_TABLE'");
+                "                ) BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='aaa'");
         conn.close();
         
         // ensure we didn't create a physical HBase table for the tenant-specific table
@@ -183,7 +184,7 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
                 "                tenantCol VARCHAR \n" + 
-                "                ) BASE_TABLE='PARENT_TABLE'");
+                "                ) BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='abc'");
         conn.close();
     }
 }
