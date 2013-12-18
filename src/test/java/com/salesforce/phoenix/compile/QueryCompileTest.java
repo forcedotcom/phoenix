@@ -1114,6 +1114,17 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
+    public void testInvalidNegativeArrayIndex() throws Exception {
+    	String query = "SELECT a_double_array[-20] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        	
+        }
+    }
+    @Test
     public void testWrongDataTypeInRoundFunction() throws Exception {
         String query = "SELECT ROUND(a_string, 'day', 1) FROM aTable";
         List<Object> binds = Collections.emptyList();
@@ -1126,6 +1137,16 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
+    public void testNonArrayColumnWithIndex() throws Exception {
+    	String query = "SELECT a_float[1] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        }
+    }
+
     public void testWrongTimeUnitInRoundDateFunction() throws Exception {
         String query = "SELECT ROUND(a_date, 'dayss', 1) FROM aTable";
         List<Object> binds = Collections.emptyList();

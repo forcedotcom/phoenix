@@ -1018,13 +1018,20 @@ public class PDataTypeTest {
         byte[] b = new byte[8];
         for (PDataType type : PDataType.values()) {
             try {
-               type.toBytes(null);
-               type.toBytes(null, b, 0);
-               type.toObject(new byte[0],0,0);
-               type.toObject(new byte[0],0,0, type);
+				if (!type.isArrayType()) {
+					type.toBytes(null);
+					type.toBytes(null, b, 0);
+					type.toObject(new byte[0], 0, 0);
+					type.toObject(new byte[0], 0, 0, type);
+				} else {
+					type.toBytes(new PhoenixArray());
+					type.toBytes(new PhoenixArray(), b, 0);
+					type.toObject(new byte[0], 0, 0);
+					type.toObject(new byte[0], 0, 0, type);
+				}
             } catch (ConstraintViolationException e) {
-                // Fixed width types do not support the concept of a "null" value.
-                if (! (type.isFixedWidth() && e.getMessage().contains("may not be null"))) {
+            	if (!type.isArrayType() && ! ( type.isFixedWidth() && e.getMessage().contains("may not be null"))) {
+            		// Fixed width types do not support the concept of a "null" value.
                     fail(type + ":" + e);
                 }
             }
@@ -1221,6 +1228,7 @@ public class PDataTypeTest {
         assertFalse(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, -10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, 10));
         assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.UNSIGNED_DOUBLE, 0));
+        assertTrue(PDataType.INTEGER.isCoercibleTo(PDataType.VARBINARY, 0));
 
         // Testing coercing long to other values.
         assertTrue(PDataType.LONG.isCoercibleTo(PDataType.DOUBLE));

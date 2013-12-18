@@ -30,6 +30,7 @@ package com.salesforce.phoenix.expression;
 import java.util.Map;
 
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.expression.function.ArrayIndexFunction;
 import com.salesforce.phoenix.expression.function.CeilDateExpression;
 import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
 import com.salesforce.phoenix.expression.function.CeilFunction;
@@ -155,7 +156,7 @@ public enum ExpressionType {
     ProjectedColumnExpression(ProjectedColumnExpression.class),
     TimestampAddExpression(TimestampAddExpression.class),
     TimestampSubtractExpression(TimestampSubtractExpression.class),
-    ;
+    ArrayIndexFunction(ArrayIndexFunction.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

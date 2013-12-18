@@ -68,7 +68,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class ParseNodeFactory {
-    // TODO: Use Google's Reflection library instead to find aggregate functions
+    private static final String ARRAY_ELEM = "ARRAY_ELEM";
+	// TODO: Use Google's Reflection library instead to find aggregate functions
     @SuppressWarnings("unchecked")
     private static final List<Class<? extends FunctionExpression>> CLIENT_SIDE_BUILT_IN_FUNCTIONS = Arrays.<Class<? extends FunctionExpression>>asList(
         CurrentDateFunction.class,
@@ -193,9 +194,9 @@ public class ParseNodeFactory {
     }
 
     public AliasedNode aliasedNode(String alias, ParseNode expression) {
-        return new AliasedNode(alias, expression);
+    	return new AliasedNode(alias, expression);
     }
-
+    
     public AddParseNode add(List<ParseNode> children) {
         return new AddParseNode(children);
     }
@@ -211,7 +212,7 @@ public class ParseNodeFactory {
     public AndParseNode and(List<ParseNode> children) {
         return new AndParseNode(children);
     }
-
+    
     public FamilyWildcardParseNode family(String familyName){
     	    return new FamilyWildcardParseNode(familyName, false);
     }
@@ -254,6 +255,11 @@ public class ParseNodeFactory {
 
     public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isNull, Integer maxLength, Integer scale, boolean isPK, ColumnModifier columnModifier) {
         return new ColumnDef(columnDefName, sqlTypeName, isNull, maxLength, scale, isPK, columnModifier);
+    }
+    
+    public ColumnDef columnDef(ColumnName columnDefName, String sqlTypeName, boolean isArray, Integer arrSize, boolean isNull, Integer maxLength, Integer scale, boolean isPK, 
+        	ColumnModifier columnModifier) {
+        return new ColumnDef(columnDefName, sqlTypeName, isArray, arrSize, isNull, maxLength, scale, isPK, columnModifier);
     }
 
     public PrimaryKeyConstraint primaryKey(String name, List<Pair<ColumnName, ColumnModifier>> columnNameAndModifier) {
@@ -326,6 +332,14 @@ public class ParseNodeFactory {
             throw new UnsupportedOperationException("DISTINCT not supported with " + name);
         }
     }
+    
+    public FunctionParseNode arrayElemRef(String name, List<ParseNode> n) {
+    	List<ParseNode> listNodes = new ArrayList<ParseNode>();
+    	ColumnParseNode columnNode = new ColumnParseNode(null, name);
+    	listNodes.add(columnNode);
+    	listNodes.add(n.get(0));
+    	return function(ARRAY_ELEM, listNodes);
+    }
 
     public FunctionParseNode function(String name, List<ParseNode> args) {
         BuiltInFunctionInfo info = getInfo(name, args);
@@ -355,7 +369,7 @@ public class ParseNodeFactory {
         children.add(valueNodes.get(0));
         return function(name, children);
     }
-
+    
 
     public HintNode hint(String hint) {
         return new HintNode(hint);

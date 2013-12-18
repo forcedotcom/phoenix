@@ -369,8 +369,8 @@ public class PTableImpl implements PTable {
                 if (byteValue.length == 0 && !column.isNullable()) { 
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
-                Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth() && byteValue.length <= byteSize) {
+                Integer	byteSize = column.getByteSize();
+                if (byteSize != null && type.isFixedWidth() && byteValue.length <= byteSize) {
                     byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + SchemaUtil.toString(type, byteValue) + ")");
@@ -530,8 +530,9 @@ public class PTableImpl implements PTable {
                 removeIfPresent(setValues, family, qualifier);
                 unsetValues.deleteColumns(family, qualifier, ts);
             } else {
-                Integer byteSize = column.getByteSize();
-                if (type.isFixedWidth() && byteValue.length <= byteSize) { 
+            	Integer	byteSize = column.getByteSize();
+				if (byteSize != null && type.isFixedWidth()
+						&& byteValue.length <= byteSize) { 
                     byteValue = StringUtil.padChar(byteValue, byteSize);
                 } else if (byteSize != null && byteValue.length > byteSize) {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
