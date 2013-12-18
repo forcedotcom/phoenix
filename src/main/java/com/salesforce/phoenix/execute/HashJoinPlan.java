@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -100,19 +99,17 @@ public class HashJoinPlan implements QueryPlan {
         final int count = joinIds.length;
         final ConnectionQueryServices services = getContext().getConnection().getQueryServices();
         final ExecutorService executor = services.getExecutor();
-        List<Future<Pair<ResultIterator, ServerCache>>> futures = new ArrayList<Future<Pair<ResultIterator, ServerCache>>>(count);
+        List<Future<ServerCache>> futures = new ArrayList<Future<ServerCache>>(count);
         final List<SQLCloseable> dependencies = new ArrayList<SQLCloseable>(count);
         for (int i = 0; i < count; i++) {
         	final int index = i;
-        	futures.add(executor.submit(new JobCallable<Pair<ResultIterator, ServerCache>>() {
+        	futures.add(executor.submit(new JobCallable<ServerCache>() {
         		
 				@Override
-				public Pair<ResultIterator, ServerCache> call() throws Exception {
+				public ServerCache call() throws Exception {
 				    QueryPlan hashPlan = hashPlans[index];
-				    ResultIterator iterator = hashPlan.iterator();
-					ServerCache cache = hashClient.addHashCache(ranges, iterator, 
+					return hashClient.addHashCache(ranges, hashPlan.iterator(), 
 					        hashPlan.getEstimatedSize(), hashExpressions[index], plan.getTableRef());
-					return new Pair<ResultIterator, ServerCache>(iterator, cache);
 				}
 
 				@Override
@@ -123,10 +120,9 @@ public class HashJoinPlan implements QueryPlan {
         }
         for (int i = 0; i < count; i++) {
 			try {
-			    Pair<ResultIterator, ServerCache> result = futures.get(i).get();
-				joinIds[i].set(result.getSecond().getId());
-				dependencies.add(result.getFirst());
-				dependencies.add(result.getSecond());
+			    ServerCache cache = futures.get(i).get();
+				joinIds[i].set(cache.getId());
+				dependencies.add(cache);
 			} catch (InterruptedException e) {
 				throw new SQLException("Hash join execution interrupted.", e);
 			} catch (ExecutionException e) {
