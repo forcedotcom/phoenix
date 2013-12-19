@@ -64,7 +64,7 @@ public class HashJoinRegionScanner implements RegionScanner {
     private final HashJoinInfo joinInfo;
     private Queue<List<KeyValue>> resultQueue;
     private boolean hasMore;
-    private TenantCache cache;
+    private HashCache[] hashCaches;
     
     public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, RegionCoprocessorEnvironment env) throws IOException {
         this.scanner = scanner;
@@ -77,7 +77,16 @@ public class HashJoinRegionScanner implements RegionScanner {
                 if (type != JoinType.Inner && type != JoinType.Left)
                     throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
-            this.cache = GlobalCache.getTenantCache(env, tenantId);
+            int count = joinInfo.getJoinIds().length;
+            this.hashCaches = new HashCache[count];
+            TenantCache cache = GlobalCache.getTenantCache(env, tenantId);
+            for (int i = 0; i < count; i++) {
+                ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
+                HashCache hashCache = (HashCache)cache.getServerCache(joinId);
+                if (hashCache == null)
+                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
+                hashCaches[i] = hashCache;
+            }
         }
     }
     
@@ -107,11 +116,7 @@ public class HashJoinRegionScanner implements RegionScanner {
             	if (!(joinInfo.earlyEvaluation()[i]))
             		continue;
                 ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
-                ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
-                HashCache hashCache = (HashCache)cache.getServerCache(joinId);
-                if (hashCache == null)
-                    throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
-                tuples[i] = hashCache.get(key);
+                tuples[i] = hashCaches[i].get(key);
                 JoinType type = joinInfo.getJoinTypes()[i];
                 if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {
                     cont = false;
@@ -132,11 +137,7 @@ public class HashJoinRegionScanner implements RegionScanner {
                         if (!earlyEvaluation) {
                         	Tuple t = new ResultTuple(new Result(lhs));
                             ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
-                            ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
-                            HashCache hashCache = (HashCache)cache.getServerCache(joinId);
-                            if (hashCache == null)
-                                throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
-                            tuples[i] = hashCache.get(key);                        	
+                            tuples[i] = hashCaches[i].get(key);                        	
                             if (tuples[i] == null || tuples[i].isEmpty()) {
                             	if (joinInfo.getJoinTypes()[i] != JoinType.Inner) {
                             		resultQueue.offer(lhs);
