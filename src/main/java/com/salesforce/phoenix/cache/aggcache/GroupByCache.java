@@ -4,6 +4,7 @@ import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_AT
 import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_CACHE_MAX_SIZE;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_NUM_SPILLFILES;
+
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Iterator;
@@ -112,7 +113,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
         logger.error("conf size" + maxCacheSizeConf);
         int estSizeNum = (int) (estSize / estValueSize);
         int maxSizeNum = (int) ( maxCacheSizeConf / estValueSize);
-        int minSizeNum = (int) (SPGBY_CACHE_MIN_SIZE / estValueSize);
+        int minSizeNum = (SPGBY_CACHE_MIN_SIZE / estValueSize);
         logger.error("estSize: " + estSize);
         logger.error("estValueSize: " + estValueSize);
         logger.error("estValueSize: " + estValueSize);
