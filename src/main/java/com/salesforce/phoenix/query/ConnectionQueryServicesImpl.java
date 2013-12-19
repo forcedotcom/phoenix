@@ -1329,42 +1329,24 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) throws SQLException {
-    	Map<TableName, Long> resultMap = new HashMap<TableName, Long>();
-    	Map<TableName, Long> incrementMap = new HashMap<TableName, Long>();
-    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
-    	try {   		
-    		// Get the current value
-    		List<Get> getBatch = new ArrayList<Get>();
-    		for (TableName t: sequenceNames){
-    			final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
-    			final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
-    			byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
-    			Get get = new Get(row);
-    			getBatch.add(get);	
+    	Map<TableName, Long> resultMap = new HashMap<TableName, Long>();    	
+    	List<TableName> cachedSequences = new ArrayList<TableName>();
+    	List<TableName> uncachedSequences = new ArrayList<TableName>();
+    	// First check the cache    		
+    	for (TableName t: sequenceNames){
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		if (incrementValue!=null){
+    			cachedSequences.add(t);
     		}
-    		Object[] resultObjects = hTable.batch(getBatch);
-    		for (int i=0;i<sequenceNames.size();i++){
-    			Result result = (Result)resultObjects[i];
-    			KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
-    			KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
-    			long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
-    			long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
-    			resultMap.put(sequenceNames.get(i), current);
-    			incrementMap.put(sequenceNames.get(i), increment);
-    		}
-
-    		// Increment the sequence value
-    		List<Increment> incrementBatch = new ArrayList<Increment>();
-    		for (TableName t: sequenceNames){
-    			final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
-    			final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
-    			byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
-    			Increment inc = new Increment(row);
-    			inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementMap.get(t));
-    			incrementBatch.add(inc);    			    			
-    		}
-    		hTable.batch(incrementBatch);
-    		return resultMap;
+    		else {
+    			uncachedSequences.add(t);
+    		}		
+    	}
+    	try {
+    		if (cachedSequences.size()>0)
+    			handleCachedSequences(cachedSequences, resultMap);
+    		if (uncachedSequences.size()>0)
+    			handleUncachedSequences(uncachedSequences, resultMap);
     	}
     	catch (IOException e){
     		throw new RuntimeException(e);
@@ -1372,5 +1354,70 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     	catch (InterruptedException e){
     		throw new RuntimeException(e);
     	}
+    	return resultMap;
     }
+
+    private void handleCachedSequences(List<TableName> cachedSequences, Map<TableName, Long> resultMap) throws IOException, InterruptedException, SQLException {
+    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));    	
+    	List<Increment> cacheBatch = new ArrayList<Increment>();
+
+    	for (TableName t: cachedSequences){    		
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		Increment inc = new Increment(row);
+    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementValue);
+    		cacheBatch.add(inc); 
+    	}
+    	Object[] cacheResultObjects = hTable.batch(cacheBatch);
+    	for (int i=0;i<cachedSequences.size();i++){
+    		Result result = (Result)cacheResultObjects[i];
+    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(cachedSequences.get(i));
+    		current = current - incrementValue; // Since the server-side value has been incremented in the cache-miss case
+    		resultMap.put(cachedSequences.get(i), current);
+    	}
+    }
+
+    private void handleUncachedSequences(List<TableName> uncachedSequences, Map<TableName, Long> resultMap) throws IOException, InterruptedException, SQLException {
+    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
+    	Map<TableName, Long> incrementMap = new HashMap<TableName, Long>();    	
+
+    	// Get the current value    		
+    	List<Get> getBatch = new ArrayList<Get>();
+    	for (TableName t: uncachedSequences){    			
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
+    		Get get = new Get(row);
+    		getBatch.add(get);	
+    	}
+    	Object[] resultObjects = hTable.batch(getBatch);
+    	for (int i=0;i<uncachedSequences.size();i++){
+    		Result result = (Result)resultObjects[i];    		
+    		KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
+    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    		long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
+    		resultMap.put(uncachedSequences.get(i), current);
+    		incrementMap.put(uncachedSequences.get(i), increment);
+    		latestMetaData.setSequenceIncrementValue(uncachedSequences.get(i), increment); // Cache the value
+    	}
+
+    	// Increment the sequence value
+    	List<Increment> incrementBatch = new ArrayList<Increment>();
+    	for (TableName t: uncachedSequences){
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    		Increment inc = new Increment(row);
+    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementMap.get(t));
+    		incrementBatch.add(inc);    			    			
+    	}
+    	hTable.batch(incrementBatch);
+    }
+    
+    	
 }

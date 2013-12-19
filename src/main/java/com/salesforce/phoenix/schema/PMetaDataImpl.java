@@ -29,19 +29,23 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.parse.TableName;
 
 public class PMetaDataImpl implements PMetaData {
     public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap());
     private final Map<String,PTable> metaData;
+    private final Map<TableName, Long> sequenceMap;
     
     public PMetaDataImpl(Map<String,PTable> metaData) {
         this.metaData = ImmutableMap.copyOf(metaData);
+        this.sequenceMap = new HashMap<TableName, Long>();
     }
     
     @Override
@@ -148,5 +152,15 @@ public class PMetaDataImpl implements PMetaData {
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns);
         tables.put(tableName, newTable);
         return new PMetaDataImpl(tables);
+    }
+
+    @Override
+    public Long getSequenceIncrementValue(TableName name) {		
+    	return sequenceMap.get(name);
+    }
+
+    @Override
+    public void setSequenceIncrementValue(TableName name, Long value) {		
+    	sequenceMap.put(name, value);
     }
 }

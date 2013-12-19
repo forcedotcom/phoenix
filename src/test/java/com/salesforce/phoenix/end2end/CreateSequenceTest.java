@@ -12,6 +12,8 @@ import java.util.Properties;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
@@ -57,23 +59,19 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 	@Test
 	public void testSelectNextValueFor() throws Exception {
 		Connection conn = getConnectionNextTimestamp();
-		conn.createStatement().execute(
-				"CREATE SEQUENCE foo.bar\n" + "START WITH 3\n"
-						+ "INCREMENT BY 2\n");
+		conn.createStatement().execute("CREATE SEQUENCE foo.bar START WITH 3 INCREMENT BY 2");
 		conn = getConnectionNextTimestamp();
 		String query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals(3, rs.getInt(1));
 
-		conn = getConnectionNextTimestamp();
-		query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
+		conn = getConnectionNextTimestamp();		
 		rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals(5, rs.getInt(1));
 
-		conn = getConnectionNextTimestamp();
-		query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
+		conn = getConnectionNextTimestamp();		
 		rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals(7, rs.getInt(1));
@@ -95,11 +93,40 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		assertEquals(2, rs.getInt(1));
 	}
 
+	@Test
+	public void testSequenceCaching() throws Exception {		
+		Connection conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 1");
+		conn = getConnectionNextTimestamp();
+		TableName tableName = TableName.createNormalized("ALPHA", "GAMMA");
+		Long value = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequenceIncrementValue(tableName);
+		Assert.assertNull(value);
+		conn = getConnectionNextTimestamp();
+		final String query = "SELECT NEXT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"";
+		conn.prepareStatement(query).executeQuery();
+		conn = getConnectionNextTimestamp();
+		value = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequenceIncrementValue(tableName);
+		Assert.assertNotNull(value);
+	}
+
+	@Test
+	public void testMultipleSequenceValues() throws Exception {
+		Connection conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
+		conn.createStatement().execute("CREATE SEQUENCE alpha.kappa START WITH 9 INCREMENT BY 2");
+		conn = getConnectionNextTimestamp();
+		String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.kappa FROM SYSTEM.\"SEQUENCE\"";
+		ResultSet rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(4, rs.getInt(1));
+		assertEquals(9, rs.getInt(2));
+	}
+
 	private Connection getConnectionNextTimestamp() throws Exception {
 		long ts = nextTimestamp();
 		Properties props = new Properties();
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
 		Connection conn = DriverManager.getConnection(getUrl(), props);
 		return conn;
-	}
+	}	
 }
