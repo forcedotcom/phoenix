@@ -25,48 +25,34 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression.aggregator;
+package com.salesforce.phoenix.expression.function;
 
+import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.BaseTerminalExpression;
-import com.salesforce.phoenix.schema.ColumnModifier;
-import com.salesforce.phoenix.util.SizedUtil;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
 
-/**
- * Base class for Aggregator implementations
- *
- * @author jtaylor
- * @since 0.1
- */
-public abstract class BaseAggregator extends BaseTerminalExpression implements Aggregator {
-    
-    protected final ColumnModifier columnModifier;    
-    
-    public BaseAggregator(ColumnModifier columnModifier) {
-        this.columnModifier = columnModifier;
+public abstract class DistinctValueWithCountAggregateFunction extends SingleAggregateFunction {
+
+    public DistinctValueWithCountAggregateFunction() {
     }
+
+    public DistinctValueWithCountAggregateFunction(List<Expression> children) {
+        super(children);
+    }
+
+    @Override
+    abstract public DistinctValueWithCountClientAggregator newClientAggregator();
     
     @Override
-    public boolean isNullable() {
-        return true;
-    }
-    
-    @Override
-    public int getSize() {
-        return SizedUtil.OBJECT_SIZE;
-    }
-    
-    @Override
-    public void init(Aggregator clientAgg) {
-        throw new RuntimeException("not supported");
-    }
-    
-    ImmutableBytesWritable evalClientAggs(Aggregator clientAgg) {
-        CountAggregator ca = (CountAggregator)clientAgg;
-        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-        ca.evaluate(null, ptr);
-        return ptr;
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
+        DistinctValueWithCountClientAggregator clientAgg = newClientAggregator();
+        clientAgg.aggregate(null, ptr);
+        return new DistinctValueWithCountServerAggregator(config, clientAgg);
     }
 }

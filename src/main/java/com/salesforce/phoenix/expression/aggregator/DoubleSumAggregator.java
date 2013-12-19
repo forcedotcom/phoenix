@@ -39,8 +39,12 @@ public class DoubleSumAggregator extends BaseAggregator {
     private double sum = 0;
     private byte[] buffer;
 
-    public DoubleSumAggregator(ColumnModifier columnModifier) {
+    public DoubleSumAggregator(ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
         super(columnModifier);
+        if (ptr != null) {
+            initBuffer();
+            sum = PDataType.DOUBLE.getCodec().decodeDouble(ptr, columnModifier);
+        }
     }
     
     protected PDataType getInputDataType() {

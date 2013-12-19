@@ -33,7 +33,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -96,7 +98,7 @@ public class DistinctCountAggregateFunction extends DelegateConstantToCountAggre
     }
 
     @Override 
-    public Aggregator newClientAggregator() {
+    public DistinctCountClientAggregator newClientAggregator() {
         return new DistinctCountClientAggregator(getAggregatorExpression().getColumnModifier());
     }
     
@@ -119,5 +121,12 @@ public class DistinctCountAggregateFunction extends DelegateConstantToCountAggre
     @Override
     public String getName() {
         return NAME;
+    }
+
+    @Override
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
+        DistinctCountClientAggregator clientAgg = newClientAggregator();
+        clientAgg.aggregate(null, ptr);
+        return new DistinctValueWithCountServerAggregator(config, clientAgg);
     }
 }

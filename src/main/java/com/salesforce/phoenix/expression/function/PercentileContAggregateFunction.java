@@ -32,7 +32,10 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.PercentileClientAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -47,7 +50,7 @@ import com.salesforce.phoenix.schema.PDataType;
 @BuiltInFunction(name = PercentileContAggregateFunction.NAME, args = { @Argument(allowedTypes = { PDataType.DECIMAL }),
         @Argument(allowedTypes = { PDataType.BOOLEAN }, isConstant = true),
         @Argument(allowedTypes = { PDataType.DECIMAL }, isConstant = true, minValue = "0", maxValue = "1") })
-public class PercentileContAggregateFunction extends SingleAggregateFunction {
+public class PercentileContAggregateFunction extends DistinctValueWithCountAggregateFunction {
     public static final String NAME = "PERCENTILE_CONT";
 
     public PercentileContAggregateFunction() {
@@ -64,7 +67,7 @@ public class PercentileContAggregateFunction extends SingleAggregateFunction {
     }
 
     @Override
-    public Aggregator newClientAggregator() {
+    public DistinctValueWithCountClientAggregator newClientAggregator() {
         return new PercentileClientAggregator(children, getAggregatorExpression().getColumnModifier());
     }
 
