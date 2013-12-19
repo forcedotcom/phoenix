@@ -12,7 +12,9 @@ import java.util.Properties;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
@@ -133,6 +135,35 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 		assertTrue(rs.next());
 		assertEquals(4, rs.getInt(1));
 		assertEquals(9, rs.getInt(2));
+	}
+	
+	@Test
+	public void testCompilerOptimization() throws Exception {
+		Connection conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+		conn = getConnectionNextTimestamp();
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1) INCLUDE (v2)");
+        conn = getConnectionNextTimestamp();
+        conn.createStatement().execute("CREATE SEQUENCE seq.perf START WITH 3 INCREMENT BY 2");        
+        PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
+        stmt.optimizeQuery("SELECT k, NEXT VALUE FOR seq.perf FROM t WHERE v1 = 'bar'");
+	}
+	
+	@Test
+	public void testSelectRowAndSequence() throws Exception {
+		Connection conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("CREATE TABLE test.foo ( id INTEGER NOT NULL PRIMARY KEY)");
+		conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("CREATE SEQUENCE alpha.epsilon START WITH 1 INCREMENT BY 4");
+		conn = getConnectionNextTimestamp();
+		conn.createStatement().execute("UPSERT INTO test.foo (id) VALUES (NEXT VALUE FOR alpha.epsilon)");
+		conn.commit();
+		conn = getConnectionNextTimestamp();
+		String query = "SELECT NEXT VALUE FOR alpha.epsilon, id FROM test.foo";
+		ResultSet rs = conn.prepareStatement(query).executeQuery();
+		assertTrue(rs.next());
+		assertEquals(5, rs.getInt(1));
+		assertEquals(1, rs.getInt(2));
 	}
 
 	private Connection getConnectionNextTimestamp() throws Exception {

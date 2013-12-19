@@ -32,6 +32,7 @@ import java.text.Format;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FilterList;
@@ -232,5 +233,9 @@ public class StatementContext {
     
     public void setNextSequenceValue(TableName tableName, Long value){
     	sequenceMap.put(tableName, value);
+    }
+    
+    public Set<TableName> getResolvedSequences() {
+    	return sequenceMap.keySet();
     }
 }
