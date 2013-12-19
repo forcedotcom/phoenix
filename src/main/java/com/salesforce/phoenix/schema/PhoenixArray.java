@@ -192,12 +192,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return intArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(intArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Integer)intArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(intArr[pos]);
 		}
 		
 		@Override
@@ -230,12 +232,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return shortArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(shortArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Short)shortArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(shortArr[pos]);
 		}
 		
 		@Override
@@ -267,12 +271,14 @@ public class PhoenixArray implements Array,SQLCloseable {
             }
 			return longArr;
 		}
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(longArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Long)longArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(longArr[pos]);
 		}
 		
 		@Override
@@ -306,12 +312,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return doubleArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(doubleArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Double)doubleArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(doubleArr[pos]);
 		}
 		
 		@Override
@@ -344,12 +352,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return floatArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(floatArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Float)floatArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(floatArr[pos]);
 		}
 		
 		@Override
@@ -382,12 +392,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return byteArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(byteArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Byte)byteArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(byteArr[pos]);
 		}
 		
 		@Override
@@ -420,12 +432,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return booleanArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(booleanArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Boolean)booleanArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(booleanArr[pos]);
 		}
 		
 		@Override
@@ -458,12 +472,14 @@ public class PhoenixArray implements Array,SQLCloseable {
 			return charArr;
 		}
 		
-		public int estimateByteSize(int pos) {
+		@Override
+        public int estimateByteSize(int pos) {
 			return this.baseType.estimateByteSize(charArr[pos]);
 		}
 		
-		public byte[] toBytes(int pos) {
-			return this.baseType.toBytes((Character)charArr[pos]);
+		@Override
+        public byte[] toBytes(int pos) {
+			return this.baseType.toBytes(charArr[pos]);
 		}
 		
 		@Override

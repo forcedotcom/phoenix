@@ -136,7 +136,7 @@ public class PArrayDataType {
 		Object[] charArr = (Object[]) pArr.array;
 		PDataType baseType = PDataType.fromTypeId(srcType.getSqlType()
 				- Types.ARRAY);
-		for (Object o : charArr) {
+		for (int i = 0 ; i < charArr.length; i++) {
 			if (!baseType.isSizeCompatible(baseType, value, b, maxLength,
 					desiredMaxLength, scale, desiredScale)) {
 				return false;
@@ -160,7 +160,6 @@ public class PArrayDataType {
 	public static void positionAtArrayElement(ImmutableBytesWritable ptr, int arrayIndex, PDataType baseDataType) {
 		byte[] bytes = ptr.get();
 		int initPos = ptr.getOffset();
-		int version = bytes[ptr.getOffset()];
 		int noOfElements = 0;
 		// As no of elements is written as Vint we need to know how many bytes does this occupy
 		try {
@@ -326,7 +325,6 @@ public class PArrayDataType {
 		}
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int initPos = buffer.position();
-		int version = buffer.get();
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		boolean useShort = true;
 		int baseSize = Bytes.SIZEOF_SHORT;
