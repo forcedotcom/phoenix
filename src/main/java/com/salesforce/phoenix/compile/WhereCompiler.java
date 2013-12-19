@@ -119,7 +119,7 @@ public class WhereCompiler {
         TableRef tableRef = context.getResolver().getTables().get(0);
         String tenantId = context.getConnection().getTenantId() == null ? null : context.getConnection().getTenantId().getString();
         if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
-           expression = new AndExpression(newArrayList(getTenantIdConstraint(tableRef, tenantId), expression));
+           expression = new AndExpression(newArrayList(getTenantConstraint(tableRef, tenantId), expression));
         }
         
         expression = WhereOptimizer.pushKeyExpressionsToScan(context, statement, expression, extractedNodes);
@@ -128,10 +128,16 @@ public class WhereCompiler {
         return expression;
     }
     
-    private static Expression getTenantIdConstraint(TableRef tableRef, String tenantId) throws SQLException {
+    private static Expression getTenantConstraint(TableRef tableRef, String tenantId) throws SQLException {
         PColumn tenantIdColumn = tableRef.getTable().getTenantIdColumn();
         ColumnRef tenantIdColumnRef = new ColumnRef(tableRef, tenantIdColumn.getPosition());
-        return new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
+        Expression tenantIdConstraint = new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
+        
+        PColumn tenantTypeIdColumn = tableRef.getTable().getTenantTypeIdColumn();
+        ColumnRef tenantTypeIdColumnRef = new ColumnRef(tableRef, tenantTypeIdColumn.getPosition());
+        Expression tenantTypeIdConstraint = new ComparisonExpression(EQUAL, newArrayList(tenantTypeIdColumnRef.newColumnExpression(), newConstant(tableRef.getTable().getTenantTypeId().getString(), PDataType.VARCHAR)));
+        
+        return new AndExpression(newArrayList(tenantIdConstraint, tenantTypeIdConstraint));
     }
     
     private static class WhereExpressionCompiler extends ExpressionCompiler {
