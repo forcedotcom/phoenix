@@ -332,7 +332,7 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.16</version>
           <configuration>
-              <argLine>-enableassertions -Xmx2000m -Djava.security.egd=file:/dev/./urandom</argLine>
+              <argLine>-enableassertions -Xmx2250m -Djava.security.egd=file:/dev/./urandom</argLine>
               <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
           </configuration>
       </plugin>
