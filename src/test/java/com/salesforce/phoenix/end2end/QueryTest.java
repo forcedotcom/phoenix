@@ -2616,7 +2616,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCastOperatorInSelect() throws Exception {
-        String query = "SELECT CAST a_integer AS DECIMAL/2 FROM aTable WHERE ?=organization_id and 5=a_integer";
+        String query = "SELECT (CAST a_integer AS DECIMAL)/2 FROM aTable WHERE ?=organization_id and 5=a_integer";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -2634,7 +2634,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     
     @Test
     public void testCastOperatorInWhere() throws Exception {
-        String query = "SELECT a_integer FROM aTable WHERE ?=organization_id and 2.5=CAST a_integer AS DECIMAL/2 ";
+        String query = "SELECT a_integer FROM aTable WHERE ?=organization_id and 2.5 = (CAST a_integer AS DECIMAL)/2 ";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);

@@ -205,7 +205,7 @@ public class MapReduceJob {
 	  	}
 		
 		private Object convertTypeSpecificValue(String s, Integer sqlType) throws Exception {
-			return PDataType.fromSqlType(sqlType).toObject(s);
+			return PDataType.fromTypeId(sqlType).toObject(s);
 		}
 	}
 	

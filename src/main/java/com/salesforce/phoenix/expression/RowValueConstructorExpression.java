@@ -45,6 +45,11 @@ import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.function.CeilDecimalExpression;
+import com.salesforce.phoenix.expression.function.CeilTimestampExpression;
+import com.salesforce.phoenix.expression.function.FloorDateExpression;
+import com.salesforce.phoenix.expression.function.FloorDecimalExpression;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
@@ -61,7 +66,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     private int estimatedByteSize;
     
     public static interface ExpressionComparabilityWrapper {
-        public Expression wrap(Expression lhs, Expression rhs);
+        public Expression wrap(Expression lhs, Expression rhs) throws SQLException;
     }
     /*
      * Used to coerce the RHS to the expected type based on the LHS. In some circumstances,
@@ -75,14 +80,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         WRAPPERS[CompareOp.LESS.ordinal()] = new ExpressionComparabilityWrapper() {
 
             @Override
-            public Expression wrap(Expression lhs, Expression rhs) {
+            public Expression wrap(Expression lhs, Expression rhs) throws SQLException {
                 Expression e = rhs;
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new FloorDecimalExpression(rhs);
-                } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new FloorTimestampExpression(rhs);
+                    e = FloorDecimalExpression.create(rhs);
+                } else if ((rhsType == PDataType.TIMESTAMP || rhsType == PDataType.UNSIGNED_TIMESTAMP)  && (lhsType != PDataType.TIMESTAMP && lhsType != PDataType.UNSIGNED_TIMESTAMP)) {
+                    e = FloorDateExpression.create(rhs, TimeUnit.MILLISECOND);
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;
@@ -94,14 +99,14 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         WRAPPERS[CompareOp.GREATER.ordinal()] = new ExpressionComparabilityWrapper() {
 
             @Override
-            public Expression wrap(Expression lhs, Expression rhs) {
+            public Expression wrap(Expression lhs, Expression rhs) throws SQLException {
                 Expression e = rhs;
                 PDataType rhsType = rhs.getDataType();
                 PDataType lhsType = lhs.getDataType();
                 if (rhsType == PDataType.DECIMAL && lhsType != PDataType.DECIMAL) {
-                    e = new CeilingDecimalExpression(rhs);
-                } else if (rhsType == PDataType.TIMESTAMP && lhsType != PDataType.TIMESTAMP) {
-                    e = new CeilingTimestampExpression(rhs);
+                    e = CeilDecimalExpression.create(rhs);
+                } else if ((rhsType == PDataType.TIMESTAMP || rhsType == PDataType.UNSIGNED_TIMESTAMP)  && (lhsType != PDataType.TIMESTAMP && lhsType != PDataType.UNSIGNED_TIMESTAMP)) {
+                    e = CeilTimestampExpression.create(rhs);
                 }
                 e = new CoerceExpression(e, lhsType, lhs.getColumnModifier(), lhs.getByteSize());
                 return e;

@@ -25,40 +25,22 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.flume.serializer;
 
-import java.sql.SQLException;
+public enum EventSerializers {
 
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
-
-
-public class DelegateScanner implements Scanner {
-    private final Scanner delegate;
+    REGEX(RegexEventSerializer.class.getName());
     
-    public DelegateScanner(Scanner delegate) {
-        this.delegate = delegate;
-    }
+    private final String className;
     
-    @Override
-    public ResultIterator iterator() throws SQLException {
-        return delegate.iterator();
+    private EventSerializers(String serializerClassName) {
+        this.className = serializerClassName;
     }
 
-    @Override
-    public int getEstimatedSize() {
-        return delegate.getEstimatedSize();
+    /**
+     * @return Returns the serializer className.
+     */
+    public String getClassName() {
+        return className;
     }
-
-    @Override
-    public RowProjector getProjection() {
-        return delegate.getProjection();
-    }
-
-    @Override
-    public ExplainPlan getExplainPlan() {
-        return delegate.getExplainPlan();
-    }
-
 }

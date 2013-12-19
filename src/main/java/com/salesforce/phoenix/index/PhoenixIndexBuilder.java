@@ -70,7 +70,7 @@ public class PhoenixIndexBuilder extends CoveredColumnsIndexBuilder {
                 // Results are potentially returned even when the return value of s.next is false
                 // since this is an indication of whether or not there are more values after the
                 // ones returned
-                hasMore = scanner.nextRaw(results, null) && !scanner.isFilterDone();
+                hasMore = scanner.nextRaw(results, null);
             } while (hasMore);
         } finally {
             try {

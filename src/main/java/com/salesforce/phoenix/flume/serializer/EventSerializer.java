@@ -25,54 +25,28 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.flume.serializer;
 
+import java.sql.SQLException;
 import java.util.List;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
+import org.apache.flume.Event;
+import org.apache.flume.conf.Configurable;
+import org.apache.flume.conf.ConfigurableComponent;
 
+import com.salesforce.phoenix.util.SQLCloseable;
 
-/**
- * Wrapper for ResultScanner to enable joins and aggregations to be composable.
- *
- * @author jtaylor
- * @since 0.1
- */
-public class WrappedScanner implements Scanner {
-    public static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
+public interface EventSerializer extends Configurable,ConfigurableComponent,SQLCloseable {
 
-    private final ResultIterator scanner;
-    private final RowProjector projector;
-    // TODO: base on stats
-    private static final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
-
-    public WrappedScanner(ResultIterator scanner, RowProjector projector) {
-        this.scanner = scanner;
-        this.projector = projector;
-    }
-
-    @Override
-    public int getEstimatedSize() {
-        return estimatedSize;
-    }
+    /**
+     * called during the start of the process to initialize the table columns.
+     */
+    public void initialize() throws SQLException;
     
-    @Override
-    public ResultIterator iterator() {
-        return scanner;
-    }
-
-    @Override
-    public RowProjector getProjection() {
-        return projector;
-    }
+    /**
+     * @param events to be written to HBase.
+     * @throws SQLException 
+     */
+    public void upsertEvents(List<Event> events) throws SQLException;
     
-    @Override
-    public ExplainPlan getExplainPlan() {
-        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
-        scanner.explain(planSteps);
-        return new ExplainPlan(planSteps);
-    }
 }

@@ -146,6 +146,12 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
     public Aggregator newClientAggregator() {
         return newServerAggregator(null);
     }
+
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
+        Aggregator agg = newServerAggregator(config);
+        agg.aggregate(null, ptr);
+        return agg;
+    }
     
     public void readFields(DataInput input, Configuration conf) throws IOException {
         super.readFields(input);
@@ -171,4 +177,5 @@ abstract public class SingleAggregateFunction extends AggregateFunction {
         }
         return t;
     }
+
 }

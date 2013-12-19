@@ -74,7 +74,7 @@ public class SqlTypeNameFunction extends ScalarFunction {
         }
         int sqlType = child.getDataType().getCodec().decodeInt(ptr, child.getColumnModifier());
         try {
-            byte[] sqlTypeNameBytes = PDataType.fromSqlType(sqlType).getSqlTypeNameBytes();
+            byte[] sqlTypeNameBytes = PDataType.fromTypeId(sqlType).getSqlTypeNameBytes();
             ptr.set(sqlTypeNameBytes);
         } catch (IllegalDataException e) {
             ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);

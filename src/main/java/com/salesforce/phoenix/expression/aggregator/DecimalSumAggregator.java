@@ -48,12 +48,24 @@ public class DecimalSumAggregator extends BaseAggregator {
     private BigDecimal sum = BigDecimal.ZERO;
     private byte[] sumBuffer;
     
-    public DecimalSumAggregator(ColumnModifier columnModifier) {
+    public DecimalSumAggregator(ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
         super(columnModifier);
+        if (ptr != null) {
+            initBuffer();
+            sum = (BigDecimal)PDataType.DECIMAL.toObject(ptr);
+        }
     }
     
     private PDataType getInputDataType() {
         return PDataType.DECIMAL;
+    }
+    
+    private int getBufferLength() {
+        return getDataType().getByteSize();
+    }
+
+    private void initBuffer() {
+        sumBuffer = new byte[getBufferLength()];
     }
     
     @Override

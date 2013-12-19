@@ -30,7 +30,9 @@ package com.salesforce.phoenix.expression;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.HashMap;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -104,12 +106,17 @@ public class CoerceExpressionTest {
 	@Test
 	public void testCoerceExpressionSupportsCoercingAllPDataTypesToVarBinary() throws Exception {
 		for(PDataType p : PDataType.values()) {
-			LiteralExpression v = LiteralExpression.newConstant(map.get(p.getJavaClass()), p);
-			CoerceExpression e = new CoerceExpression(v, PDataType.VARBINARY);
-			ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-			e.evaluate(null, ptr);
-			Object obj = e.getDataType().toObject(ptr);
-			assertTrue("Coercing to VARBINARY failed for PDataType " + p, obj instanceof byte[]);
+			if (!p.isArrayType()) {
+				LiteralExpression v = LiteralExpression.newConstant(
+						map.get(p.getJavaClass()), p);
+				CoerceExpression e = new CoerceExpression(v,
+						PDataType.VARBINARY);
+				ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+				e.evaluate(null, ptr);
+				Object obj = e.getDataType().toObject(ptr);
+				assertTrue("Coercing to VARBINARY failed for PDataType " + p,
+						obj instanceof byte[]);
+			}
 		}
 	}
 	
@@ -117,12 +124,16 @@ public class CoerceExpressionTest {
 	@Test
     public void testCoerceExpressionSupportsCoercingAllPDataTypesToBinary() throws Exception {
 		for(PDataType p : PDataType.values()) {
-			LiteralExpression v = LiteralExpression.newConstant(map.get(p.getJavaClass()), p);
-			CoerceExpression e = new CoerceExpression(v, PDataType.BINARY);
-			ImmutableBytesWritable ptr = new ImmutableBytesWritable();
-			e.evaluate(null, ptr);
-			Object obj = e.getDataType().toObject(ptr);
-			assertTrue("Coercing to BINARY failed for PDataType " + p, obj instanceof byte[]);
+			if (!p.isArrayType()) {
+				LiteralExpression v = LiteralExpression.newConstant(
+						map.get(p.getJavaClass()), p);
+				CoerceExpression e = new CoerceExpression(v, PDataType.BINARY);
+				ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+				e.evaluate(null, ptr);
+				Object obj = e.getDataType().toObject(ptr);
+				assertTrue("Coercing to BINARY failed for PDataType " + p,
+						obj instanceof byte[]);
+			}
 		}
     }
 	

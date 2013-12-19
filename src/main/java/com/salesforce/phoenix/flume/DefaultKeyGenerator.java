@@ -25,33 +25,55 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.flume;
 
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.util.Random;
 
+import com.salesforce.phoenix.util.DateUtil;
 
-public class FloorTimestampExpression extends CeilingTimestampExpression {
-    
-    public FloorTimestampExpression() {
-    }
-    
-    public FloorTimestampExpression(Expression child) {
-        super(child);
-    }
-    
-    @Override
-    protected int getRoundUpAmount() {
-        return 0;
-    }
+public enum DefaultKeyGenerator implements KeyGenerator {
 
-    
-    @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("FLOOR(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
+    UUID  {
+
+        @Override
+        public String generate() {
+           return String.valueOf(java.util.UUID.randomUUID());
         }
-        buf.append(")");
-        return buf.toString();
-    }
-    
+         
+    },
+    TIMESTAMP {
+
+        @Override
+        public String generate() {
+            java.sql.Timestamp ts = new Timestamp(System.currentTimeMillis());
+            return DateUtil.DEFAULT_DATE_FORMATTER.format(ts);
+        }
+        
+    },
+    DATE {
+        
+        @Override
+        public String generate() {
+            Date dt =  new Date(System.currentTimeMillis());
+            return DateUtil.DEFAULT_DATE_FORMATTER.format(dt);
+        } 
+    },
+    RANDOM {
+
+        @Override
+        public String generate() {
+            return String.valueOf(new Random().nextLong());
+        }
+        
+    },
+    NANOTIMESTAMP {
+
+        @Override
+        public String generate() {
+            return String.valueOf(System.nanoTime());
+        }
+        
+    };
 }

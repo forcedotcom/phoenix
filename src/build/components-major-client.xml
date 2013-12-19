@@ -25,6 +25,7 @@
         <include>commons-cli:commons-cli</include>
         <include>org.codehaus.jackson:jackson-mapper-asl</include>
         <include>org.codehaus.jackson:jackson-core-asl</include>
+        <include>org.xerial.snappy:snappy-java</include>
       </includes>
     </dependencySet>
   </dependencySets>

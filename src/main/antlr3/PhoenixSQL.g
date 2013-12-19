@@ -85,7 +85,6 @@ tokens
     VIEW='view';
     IF='if';
     CONSTRAINT='constraint';
-    SHOW='show';
     TABLES='tables';
     ALL='all';
     INDEX='index';
@@ -97,6 +96,7 @@ tokens
     UNUSABLE='unusable';
     DISABLE='disable';
     REBUILD='rebuild';
+    ARRAY='array';
 }
 
 
@@ -360,14 +360,9 @@ non_select_node returns [BindableStatement ret]
     |   s=drop_index_node
     |   s=alter_index_node
     |   s=alter_table_node
-    |   s=explain_node
-    |   s=show_tables_node) { contextStack.pop();  $ret = s; }
+    |   s=explain_node) { contextStack.pop();  $ret = s; }
     ;
     
-show_tables_node returns [BindableStatement ret]
-    :   SHOW TABLES {$ret=factory.showTables();}
-    ;
-
 explain_node returns [BindableStatement ret]
     :   EXPLAIN q=oneStatement {$ret=factory.explain(q);}
     ;
@@ -482,8 +477,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        { $ret = factory.columnDef(c, dt, n==null,
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (ar=ARRAY (LSQUARE (a=NUMBER)? RSQUARE))? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, ar != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
@@ -747,6 +742,7 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
+    |   field=identifier LSQUARE e=expression RSQUARE  { $ret = factory.arrayElemRef(field, Collections.<ParseNode>singletonList(e));}    
     |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN l=expression_terms RPAREN 

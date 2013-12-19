@@ -885,7 +885,7 @@ public class SchemaUtil {
             } else if (skipToNext) {
                 continue;
             }
-            PDataType dataType = PDataType.fromSqlType(rs.getInt(3));
+            PDataType dataType = PDataType.fromTypeId(rs.getInt(3));
             if (dataType.isFixedWidth() || rs.getInt(4) != DatabaseMetaData.attributeNullable) {
                 skipToNext = true;
             } else {
@@ -941,6 +941,14 @@ public class SchemaUtil {
             return ""; 
         }
         return tableName.substring(0, index);
+    }
+    
+    public static String getTableNameFromFullName(String tableName) {
+        int index = tableName.indexOf(QueryConstants.NAME_SEPARATOR);
+        if (index < 0) {
+            return tableName; 
+        }
+        return tableName.substring(index+1, tableName.length());
     }
 
     public static byte[] getTableKeyFromFullName(String fullTableName) {

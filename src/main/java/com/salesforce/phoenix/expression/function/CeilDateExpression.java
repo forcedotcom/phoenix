@@ -25,44 +25,61 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.expression.function;
 
 import java.sql.SQLException;
-import java.util.Collections;
+import java.util.List;
 
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
-import com.salesforce.phoenix.schema.TableRef;
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.Expression;
 
-
-public class DegenerateScanner implements Scanner {
-    private final ExplainPlan explainPlan;
-    private final RowProjector projector;
+/**
+ * 
+ * Class encapsulating ceil operation on {@link com.salesforce.phoenix.schema.PDataType#DATE}.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+public class CeilDateExpression extends RoundDateExpression {
     
-    public DegenerateScanner(TableRef table, RowProjector projector) {
-        explainPlan = new ExplainPlan(Collections.singletonList("DEGENERATE SCAN OVER " + table.getTable().getName().getString()));
-        this.projector = projector;
+    public CeilDateExpression() {}
+    
+    /**
+     * @param timeUnit - unit of time to round up to.
+     * Creates a {@link CeilDateExpression} with default multiplier of 1.
+     */
+    public static Expression create(Expression expr, TimeUnit timeUnit) throws SQLException {
+        return create(expr, timeUnit, 1);
     }
-
-    @Override
-    public ResultIterator iterator() throws SQLException {
-        return ResultIterator.EMPTY_ITERATOR;
+    
+    /**
+     * @param timeUnit - unit of time to round up to
+     * @param multiplier - determines the roll up window size.
+     * Create a {@link CeilDateExpression}. 
+     */
+    public static Expression create(Expression expr, TimeUnit timeUnit, int multiplier) throws SQLException {
+        Expression timeUnitExpr = getTimeUnitExpr(timeUnit);
+        Expression defaultMultiplierExpr = getMultiplierExpr(multiplier);
+        List<Expression> expressions = Lists.newArrayList(expr, timeUnitExpr, defaultMultiplierExpr);
+        return CeilDateExpression.create(expressions);
     }
-
-    @Override
-    public int getEstimatedSize() {
-        return 0;
+    
+    public static Expression create(List<Expression> children) throws SQLException {
+        return new CeilDateExpression(children);
     }
-
-    @Override
-    public RowProjector getProjection() {
-        return projector;
+    
+    CeilDateExpression(List<Expression> children) {
+        super(children);
     }
-
+    
     @Override
-    public ExplainPlan getExplainPlan() {
-        return explainPlan;
+    protected long getRoundUpAmount() {
+        return divBy - 1;
+    }
+    
+    @Override
+    public String getName() {
+        return CeilFunction.NAME;
     }
 
 }

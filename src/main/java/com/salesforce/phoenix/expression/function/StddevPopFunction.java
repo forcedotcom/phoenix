@@ -32,7 +32,11 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DecimalStddevPopAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+import com.salesforce.phoenix.expression.aggregator.StddevPopAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -45,7 +49,7 @@ import com.salesforce.phoenix.schema.PDataType;
  * @since 1.2.1
  */
 @BuiltInFunction(name = StddevPopFunction.NAME, args = { @Argument(allowedTypes={PDataType.DECIMAL})})
-public class StddevPopFunction extends SingleAggregateFunction {
+public class StddevPopFunction extends DistinctValueWithCountAggregateFunction {
     public static final String NAME = "STDDEV_POP";
 
     public StddevPopFunction() {
@@ -62,7 +66,7 @@ public class StddevPopFunction extends SingleAggregateFunction {
     }
 
     @Override
-    public Aggregator newClientAggregator() {
+    public DistinctValueWithCountClientAggregator newClientAggregator() {
         if (children.get(0).getDataType() == PDataType.DECIMAL) {
             // Special Aggregators for DECIMAL datatype for more precision than double
             return new DecimalStddevPopAggregator(children, getAggregatorExpression().getColumnModifier());

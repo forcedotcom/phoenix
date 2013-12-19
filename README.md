@@ -5,7 +5,7 @@ Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, po
 Become the standard means of accessing HBase data through a well-defined, industry standard API.
 
 ## Quick Start
-Tired of reading already and just want to get started? Listen to the Phoenix talks from [Hadoop Summit 2013](http://www.youtube.com/watch?v=YHsHdQ08trg) and [HBaseConn 2013](http://www.cloudera.com/content/cloudera/en/resources/library/hbasecon/hbasecon-2013--how-and-why-phoenix-puts-the-sql-back-into-nosql-video.html), check out our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.), and jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki#wiki-mapping) and start querying now.
+Tired of reading already and just want to get started? Listen to the Phoenix talks from [Hadoop Summit 2013](http://www.youtube.com/watch?v=YHsHdQ08trg) and [HBaseConn 2013](http://www.cloudera.com/content/cloudera/en/resources/library/hbasecon/hbasecon-2013--how-and-why-phoenix-puts-the-sql-back-into-nosql-video.html), check out our [FAQs](https://github.com/forcedotcom/phoenix/wiki/F.A.Q.), and jump over to our quick start guide [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-in-15-minutes-or-less) or map to your existing HBase tables as described [here](https://github.com/forcedotcom/phoenix/wiki/Phoenix-Introduction#mapping-to-an-existing-hbase-table) and start querying now.
 
 ## How It Works ##
 
@@ -13,7 +13,7 @@ The Phoenix query engine transforms your [SQL query](http://forcedotcom.github.c
 
 Tables are created and altered through [DDL statements](http://forcedotcom.github.com/phoenix/#create), and their schema is stored and versioned on the server in an HBase table. Columns are defined as either being part of a multi-part row key, or as key/value cells. You can also map Phoenix on to existing tables (see the [wiki](https://github.com/forcedotcom/phoenix/wiki) for more details).
 
-Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, JDK 1.5+ automatically registers JDBC driver on classpath, and the [connection url](https://github.com/forcedotcom/phoenix/wiki#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
+Applications interact with Phoenix through a standard JDBC interface; all the usual interfaces are supported, including `Connection`, `Statement`, `PreparedStatement`, and `ResultSet`. The driver class is `com.salesforce.phoenix.jdbc.PhoenixDriver`, JDK 1.5+ automatically registers JDBC driver on classpath, and the [connection url](https://github.com/forcedotcom/phoenix/wiki/Phoenix-Introduction#wiki-connStr) is `jdbc:phoenix:` followed by the zookeeper quorum hostname specification plus optionally the port number and/or root node. For example:
 
         Connection conn = DriverManager.getConnection("jdbc:phoenix:localhost");
 
@@ -38,7 +38,7 @@ To install a pre-built phoenix, use these directions:
 * Remove prior phoenix-[version]-client.jar from the classpath of any Phoenix client.
 * Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
-Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/Phoenix/wiki#wiki-building).
+Alternatively, you can build it yourself using maven by following these [build instructions](https://github.com/forcedotcom/phoenix/wiki/Building-Project).
 
 
 ## Getting Started ##
@@ -67,7 +67,7 @@ In addition, you can use the bin/psql.sh to load CSV data or execute SQL scripts
 
 Other alternatives include:
 * Using our [map-reduce based CSV loader](https://github.com/forcedotcom/phoenix/wiki/Bulk-CSV-loading-through-map-reduce) for bigger data sets
-* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
+* [Mapping an existing HBase table to a Phoenix table](https://github.com/forcedotcom/phoenix/wiki/Phoenix-Introduction#mapping-to-an-existing-hbase-table) and using the [UPSERT SELECT](http://forcedotcom.github.io/phoenix/#upsert_select) command to populate a new table.
 * Populating the table through our [UPSERT VALUES](http://forcedotcom.github.io/phoenix/#upsert_values) command.
 
 <h4>SQL Client</h4>
@@ -78,12 +78,14 @@ If you'd rather use a client GUI to interact with Phoenix, download and install 
 2. Copy the phoenix-[version]-client.jar into the lib directory of SQuirrel (Note that on a Mac, this is the *internal* lib directory).
 3. Start SQuirrel and add new driver to SQuirrel (Drivers -> New Driver)
 4. In Add Driver dialog box, set Name to Phoenix
-5. Press List Drivers button and com.salesforce.phoenix.jdbc.PhoenixDriver should be automatically populated in the Class Name textbox. Press OK to close this dialog.
+5. Enter com.salesforce.phoenix.jdbc.PhoenixDriver in the Class Name textbox. Press OK to close this dialog.
 6. Switch to Alias tab and create the new Alias (Aliases -> New Aliases)
 7. In the dialog box, Name: _any name_, Driver: Phoenix, User Name: _anything_, Password: _anything_
 8. Construct URL as follows: jdbc:phoenix: _zookeeper quorum server_. For example, to connect to a local HBase use: jdbc:phoenix:localhost
 9. Press Test (which should succeed if everything is setup correctly) and press OK to close.
-10. Now double click on your newly created Phoenix alias and click Connect. Now you are ready to run SQL queries against Phoenix.
+10. Now double click on your newly created Phoenix alias and click Connect.
+11. Navigate to File --> New Session Properties --> Tab SQL and uncheck the "Remove multi line comment (/.../) from SQL before sending it to database" so that hints you include in queries are not stripped.
+11. Now you are ready to run SQL queries against Phoenix.
 
 Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, insert data, run queries), and inspect table metadata in the Object tab (i.e. list tables, their columns, primary keys, and types).
 
@@ -114,7 +116,7 @@ Currently, Phoenix hosts its own maven repository in github. This is done for co
     <dependency>
         <groupId>com.salesforce</groupId>
         <artifactId>phoenix</artifactId>
-        <version>2.1.2</version>
+        <version>2.2.1</version>
     </dependency>
     ...
   </dependencies>

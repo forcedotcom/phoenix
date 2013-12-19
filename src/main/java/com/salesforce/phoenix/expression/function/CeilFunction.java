@@ -25,19 +25,41 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.SQLException;
+import java.util.List;
 
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
-
-
-
-public interface Scanner {
-    public ResultIterator iterator() throws SQLException;
-    public int getEstimatedSize();
-    public RowProjector getProjection();
-    public ExplainPlan getExplainPlan();
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.CeilParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
+/**
+ * 
+ * Base class for built-in CEIL function.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+@BuiltInFunction(name = CeilFunction.NAME,
+                 nodeClass = CeilParseNode.class,
+                 args = {
+                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+                        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+                        } 
+                )
+public abstract class CeilFunction extends ScalarFunction {
+    
+    public static final String NAME = "CEIL";
+    
+    public CeilFunction(List<Expression> children) {
+        super(children);
+    }
+    
+    @Override
+    public String getName() {
+        return NAME;
+    }
+    
 }

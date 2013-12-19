@@ -53,4 +53,9 @@ public interface Aggregator extends Expression {
      * Get the size in bytes
      */
     public int getSize();
+    
+    /**
+     * Initialize the current aggregate using a clientAggregator 
+     */
+    public void init(Aggregator clientAgg);
 }

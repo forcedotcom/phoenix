@@ -295,7 +295,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         KeyValue nullableKv = colKeyValues[NULLABLE_INDEX];
         boolean isNullable = PDataType.INTEGER.getCodec().decodeInt(nullableKv.getBuffer(), nullableKv.getValueOffset(), null) != ResultSetMetaData.columnNoNulls;
         KeyValue sqlDataTypeKv = colKeyValues[SQL_DATA_TYPE_INDEX];
-        PDataType dataType = PDataType.fromSqlType(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), null));
+        PDataType dataType = PDataType.fromTypeId(PDataType.INTEGER.getCodec().decodeInt(sqlDataTypeKv.getBuffer(), sqlDataTypeKv.getValueOffset(), null));
         if (maxLength == null && dataType == PDataType.BINARY) dataType = PDataType.VARBINARY; // For backward compatibility.
         KeyValue columnModifierKv = colKeyValues[COLUMN_MODIFIER_INDEX];
         ColumnModifier sortOrder = columnModifierKv == null ? null : ColumnModifier.fromSystemValue(PDataType.INTEGER.getCodec().decodeInt(columnModifierKv.getBuffer(), columnModifierKv.getValueOffset(), null));
@@ -686,7 +686,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
-        tableNamesToDelete.add(table.getName().getBytes());
+        if (table.getType() != PTableType.VIEW) { // Add to list of HTables to delete, unless it's a view
+            tableNamesToDelete.add(table.getName().getBytes());
+        }
         List<byte[]> indexNames = Lists.newArrayList();
         invalidateList.add(cacheKey);
         byte[][] rowKeyMetaData = new byte[5][];

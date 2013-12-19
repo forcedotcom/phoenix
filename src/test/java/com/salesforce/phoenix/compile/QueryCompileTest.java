@@ -53,6 +53,7 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.CountAggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.expression.function.TimeUnit;
 import com.salesforce.phoenix.jdbc.PhoenixPreparedStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -964,18 +965,6 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testCastingDecimalToIntegerInSelect() throws Exception {
-        String query = "SELECT CAST x_decimal AS INTEGER FROM aTable WHERE 5=a_integer";
-        List<Object> binds = Collections.emptyList();
-        try {
-            compileQuery(query, binds);
-            fail("Compilation should have failed since casting a decimal to integer isn't supported");
-        } catch (SQLException e) {
-            assertTrue(e.getErrorCode() == SQLExceptionCode.TYPE_MISMATCH.getErrorCode());
-        }
-    }
-    
-    @Test
     public void testCastingStringToDecimalInWhere() throws Exception {
         String query = "SELECT a_integer FROM aTable WHERE 2.5=CAST b_string AS DECIMAL/2 ";
         List<Object> binds = Collections.emptyList();
@@ -1123,4 +1112,61 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.NO_DELETE_IF_IMMUTABLE_INDEX.getErrorCode(), e.getErrorCode());
         }
     }
-}
+    
+    @Test
+    public void testInvalidNegativeArrayIndex() throws Exception {
+    	String query = "SELECT a_double_array[-20] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        	
+        }
+    }
+    @Test
+    public void testWrongDataTypeInRoundFunction() throws Exception {
+        String query = "SELECT ROUND(a_string, 'day', 1) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since VARCHAR is not a valid data type for ROUND");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testNonArrayColumnWithIndex() throws Exception {
+    	String query = "SELECT a_float[1] FROM table_with_array";
+    	Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.createStatement().execute(query);
+            fail();
+        } catch (Exception e) {
+        }
+    }
+
+    public void testWrongTimeUnitInRoundDateFunction() throws Exception {
+        String query = "SELECT ROUND(a_date, 'dayss', 1) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since dayss is not a valid time unit type");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains(TimeUnit.VALID_VALUES));
+        }
+    }
+    
+    @Test
+    public void testWrongMultiplierInRoundDateFunction() throws Exception {
+        String query = "SELECT ROUND(a_date, 'days', 1.23) FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since multiplier can be an INTEGER only");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
+ }

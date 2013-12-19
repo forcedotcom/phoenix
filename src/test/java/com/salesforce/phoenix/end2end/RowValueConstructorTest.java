@@ -63,7 +63,9 @@ import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.TestUtil;
 
 public class RowValueConstructorTest extends BaseClientMangedTimeTest {
     
@@ -237,7 +239,7 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
                 count++;
             }
             // we have key values (7,5) (8,4) and (9,3) present in aTable. So the query should return the 3 records.
-            assertTrue(count == 3); 
+            assertEquals(3, count); 
         } finally {
             conn.close();
         }
@@ -816,5 +818,64 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
             }
         }
     }
-
+    
+    @Test
+    public void testRVCWithCeilAndFloorNeededForDecimal() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT a_integer, x_integer FROM aTable WHERE ?=organization_id  AND (a_integer, x_integer) < (8.6, 4.5) AND (a_integer, x_integer) > (6.8, 4)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+                assertEquals(7, rs.getInt(1));
+                assertEquals(5, rs.getInt(2));
+            }
+            assertEquals(1, count); 
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testRVCWithCeilAndFloorNeededForTimestamp() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        Date dateUpserted = DateUtil.parseDate("2012-01-01 14:25:28");
+        dateUpserted = new Date(dateUpserted.getTime() + 660); // this makes the dateUpserted equivalent to 2012-01-01 14:25:28.660
+        initATableValues(tenantId, getDefaultSplits(tenantId), dateUpserted, ts);
+        String query = "SELECT a_integer, a_date FROM aTable WHERE ?=organization_id  AND (a_integer, a_date) <= (9, ?) AND (a_integer, a_date) >= (6, ?)";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            Timestamp timestampWithNanos = DateUtil.getTimestamp(dateUpserted.getTime() + 2 * TestUtil.MILLIS_IN_DAY, 300);
+            timestampWithNanos.setNanos(0);
+            statement.setTimestamp(2, timestampWithNanos);
+            statement.setTimestamp(3, timestampWithNanos);
+            ResultSet rs = statement.executeQuery();
+            int count = 0;
+            while(rs.next()) {
+                count++;
+            }
+            /*
+             * We have following rows with values for (a_integer, a_date) present:
+             * (7, date), (8, date + TestUtil.MILLIS_IN_DAY), (9, date 2 * TestUtil.MILLIS_IN_DAY) among others present.
+             * Above query should return 3 rows since the CEIL operation on timestamp with non-zero nanoseconds
+             * will bump up the milliseconds. That is (a_integer, a_date) < (6, CEIL(timestampWithNanos)).   
+             */
+            assertEquals(3, count);
+        } finally {
+            conn.close();
+        }
+    }
 }

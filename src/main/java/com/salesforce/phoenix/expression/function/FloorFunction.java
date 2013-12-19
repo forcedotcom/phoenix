@@ -25,35 +25,40 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.math.MathContext;
-import java.math.RoundingMode;
+import java.util.List;
 
-
-public class FloorDecimalExpression extends CeilingDecimalExpression {
-    private static final MathContext FLOOR_CONTEXT = new MathContext(0, RoundingMode.FLOOR);
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FloorParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
+/**
+ * 
+ * Base class for built-in FLOOR function.
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+@BuiltInFunction(name = FloorFunction.NAME,
+                 nodeClass = FloorParseNode.class,
+                 args = {
+                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+                        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+                        } 
+                )
+public abstract class FloorFunction extends ScalarFunction {
     
-    public FloorDecimalExpression() {
-    }
+    public static final String NAME = "FLOOR";
     
-    public FloorDecimalExpression(Expression child) {
-        super(child);
+    public FloorFunction(List<Expression> children) {
+        super(children);
     }
     
     @Override
-    protected MathContext getMathContext() {
-        return FLOOR_CONTEXT;
-    }
-    
-    
-    @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("FLOOR(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
+    public String getName() {
+        return NAME;
     }
 }
