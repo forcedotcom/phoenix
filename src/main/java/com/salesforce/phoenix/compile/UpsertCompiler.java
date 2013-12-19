@@ -91,6 +91,7 @@ import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SchemaUtil;
+import com.sun.istack.NotNull;
 
 public class UpsertCompiler {
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
@@ -221,6 +222,8 @@ public class UpsertCompiler {
         if (tenantId != null && table.isTenantSpecificTable()) {
             PColumn tenantIdColumn = table.getTenantIdColumn();
             columnNodes.add(0, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
+            PColumn tenantTypeIdColumn = table.getTenantTypeIdColumn();
+            columnNodes.add(1, ColumnName.caseSensitiveColumnName(null, tenantTypeIdColumn.getName().getString()));
         }
         List<PColumn> allColumns = table.getColumns();
 
@@ -284,7 +287,7 @@ public class UpsertCompiler {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
             if (tenantId != null && table.isTenantSpecificTable()) {
-                select = cloneAndPrependTenantIdToSelect(select, tenantId);
+                select = cloneAndPrependTenantConstraintsToSelect(select, tenantId, table.getTenantTypeId().getString());
             }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
@@ -329,6 +332,7 @@ public class UpsertCompiler {
         } else {
             if (tenantId != null && table.isTenantSpecificTable()) {
                 valueNodes.add(0, new LiteralParseNode(tenantId));
+                valueNodes.add(1, new LiteralParseNode(table.getTenantTypeId().getString()));
             }
             nValuesToSet = valueNodes.size();
         }
@@ -651,10 +655,11 @@ public class UpsertCompiler {
         }
     }
     
-    private static SelectStatement cloneAndPrependTenantIdToSelect(SelectStatement statement, String tenantId) {
+    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, @NotNull String tenantId, @NotNull String tenantTypeId) {
         List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
         select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
-        select.addAll(1, statement.getSelect());
+        select.add(new AliasedNode(null, new LiteralParseNode(tenantTypeId)));
+        select.addAll(2, statement.getSelect());
         return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
 }

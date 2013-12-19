@@ -351,8 +351,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
@@ -376,8 +376,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
@@ -404,8 +404,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
@@ -428,8 +428,9 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('AC/DC', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, id, user) values ('" + TENANT_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'aaa', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 2, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
