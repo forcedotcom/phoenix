@@ -127,7 +127,7 @@ public class QueryCompiler {
         select = StatementNormalizer.normalize(select, resolver);
         StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
         
-        SequenceCompiler.resolveSequences(context, select.getSelect());
+        SequenceCompiler.resolveSequencesSelect(context, select.getSelect());
         
         if (select.getFrom().size() == 1)
             return compileSingleQuery(context, select, binds);
