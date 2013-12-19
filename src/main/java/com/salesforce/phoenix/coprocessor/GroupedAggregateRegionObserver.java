@@ -62,6 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.cache.CacheStats;
+import com.google.common.collect.Iterators;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.cache.aggcache.GroupByCache;
@@ -248,8 +249,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 logger.debug("Spillable groupby enabled: "
                         + spillableEnabled);
             }
-            final GroupByCache gbCache = new GroupByCache(chunk.getSize(),
-                    estValueSize, aggregators, c);
+            final GroupByCache gbCache = spillableEnabled ? new GroupByCache(chunk.getSize(),
+                    estValueSize, aggregators, c) : null;
             Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(
                     estDistVals);
             HRegion region = c.getEnvironment().getRegion();
@@ -293,11 +294,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                         }
                         // Aggregate values here
                         aggregators.aggregate(rowAggregators, result);
-                        if (logger.isDebugEnabled()) {
-                            // logger.debug("Row passed filters: " + results +
-                            // ", aggregated values: " +
-                            // Arrays.asList(rowAggregators));
-                        }
 
                         if (aggregateMap.size() > estDistVals) { // increase
                                                                  // allocation
@@ -310,12 +306,16 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 } while (hasMore);
 
                 // check on cache stats
-                 CacheStats stats = gbCache.cache.stats();
-                 logger.error("Load time: " + stats.totalLoadTime());
-                 logger.error("Load Penalty: " + stats.averageLoadPenalty());
-                 logger.error("Load Count: " + stats.loadCount());
-                 logger.error("Eviction Count: " + stats.evictionCount());
-                 logger.error("HitRate: " + stats.hitRate());
+                if (spillableEnabled) {
+                    CacheStats stats = gbCache.cache.stats();
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Load time: " + stats.totalLoadTime());
+                        logger.debug("Load Penalty: " + stats.averageLoadPenalty());
+                        logger.debug("Load Count: " + stats.loadCount());
+                        logger.debug("Eviction Count: " + stats.evictionCount());
+                        logger.debug("HitRate: " + stats.hitRate());
+                    }
+                }
             } finally {
                 region.closeRegionOperation();
             }
@@ -327,7 +327,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
 
             final List<KeyValue> aggResults = new ArrayList<KeyValue>(
                     aggregateMap.size());
-            final Iterator<CacheEntry> cacheIter = gbCache.newEntryIterator();
+            final Iterator<CacheEntry> cacheIter = spillableEnabled ? gbCache.newEntryIterator() : Iterators.<CacheEntry>emptyIterator();
 
             if (!spillableEnabled) {
                 for (Map.Entry<ImmutableBytesWritable, Aggregator[]> entry : aggregateMap
@@ -356,10 +356,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
 
             // Do not sort here, but sort back on the client instead
             // The reason is that if the scan ever extends beyond a region
-            // (which can happen
-            // if we're basing our parallelization split points on old
-            // metadata), we'll get
-            // incorrect query results.
+            // (which can happen if we're basing our parallelization split
+            // points on old metadata), we'll get incorrect query results.
 
             // scanner using the spillable implementation
             RegionScanner scannerSpillable = new BaseRegionScanner() {
@@ -432,10 +430,14 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             success = true;
 
             if (!spillableEnabled) {
-                logger.error("returning non spill iter");
+                if (logger.isDebugEnabled()) {
+                    logger.debug("returning non spill iter");
+                }
                 return scanner;
             }
-            logger.error("returning spill iter");
+            if (logger.isDebugEnabled()) {
+                logger.debug("returning spill iter");
+            }
             return scannerSpillable;
         } finally {
             if (!success) {

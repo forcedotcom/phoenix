@@ -110,16 +110,18 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
         final long maxCacheSizeConf = conf.getLong(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE);
         final int numSpillFilesConf = conf.getInt(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES);
         
-        logger.error("conf size" + maxCacheSizeConf);
         int estSizeNum = (int) (estSize / estValueSize);
         int maxSizeNum = (int) ( maxCacheSizeConf / estValueSize);
         int minSizeNum = (SPGBY_CACHE_MIN_SIZE / estValueSize);
-        logger.error("estSize: " + estSize);
-        logger.error("estValueSize: " + estValueSize);
-        logger.error("estValueSize: " + estValueSize);
-        logger.error("estSizeNum: " + estSizeNum);
-        logger.error("maxSizeNum: " + maxSizeNum);
-        logger.error("minSizeNum: " + minSizeNum);
+        if (logger.isDebugEnabled()) {
+            logger.debug("conf size" + maxCacheSizeConf);
+            logger.debug("estSize: " + estSize);
+            logger.debug("estValueSize: " + estValueSize);
+            logger.debug("estValueSize: " + estValueSize);
+            logger.debug("estSizeNum: " + estSizeNum);
+            logger.debug("maxSizeNum: " + maxSizeNum);
+            logger.debug("minSizeNum: " + minSizeNum);
+        }
 
         // use upper and lower bounds for the cache size
         int maxCacheSize = Math.max(minSizeNum,

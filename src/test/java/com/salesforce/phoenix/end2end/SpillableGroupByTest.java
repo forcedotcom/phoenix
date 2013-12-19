@@ -51,7 +51,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 
 public class SpillableGroupByTest extends BaseConnectedQueryTest {
 
-    private static final int NUM_ROWS_INSERTED = 200000;
+    private static final int NUM_ROWS_INSERTED = 20000;
     private static String GROUPBY1 = "select "
             + "count(*), sum(appcpu), avg(appcpu) from "
             + GROUPBYTEST_NAME + " group by uri";
@@ -62,7 +62,7 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
         Map<String, String> props = Maps.newHashMapWithExpectedSize(1);
         // Set a very small cache size to force plenty of spilling
         props.put(QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB,
-                Integer.toString(8192));
+                Integer.toString(2048));
         props.put(QueryServices.SPGBY_ENABLED_ATTRIB, String.valueOf(true));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
