@@ -58,11 +58,6 @@ public abstract class BaseAggregator extends BaseTerminalExpression implements A
         return SizedUtil.OBJECT_SIZE;
     }
     
-    @Override
-    public void init(Aggregator clientAgg) {
-        throw new RuntimeException("not supported");
-    }
-    
     ImmutableBytesWritable evalClientAggs(Aggregator clientAgg) {
         CountAggregator ca = (CountAggregator)clientAgg;
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
