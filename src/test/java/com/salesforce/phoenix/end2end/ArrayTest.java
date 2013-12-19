@@ -277,7 +277,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			PreparedStatement statement = conn.prepareStatement(query);
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 40.0;
-			Array array = conn.createArrayOf("DOUBLE", doubleArr);
+			conn.createArrayOf("DOUBLE", doubleArr);
 			statement.setDouble(1, 40.0d);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
@@ -311,7 +311,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			PreparedStatement statement = conn.prepareStatement(query);
 			Double[] doubleArr = new Double[1];
 			doubleArr[0] = 40.0;
-			Array array = conn.createArrayOf("DOUBLE", doubleArr);
+			conn.createArrayOf("DOUBLE", doubleArr);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
 			doubleArr = new Double[1];
