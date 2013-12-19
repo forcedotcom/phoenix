@@ -325,6 +325,7 @@ public class PArrayDataType {
 		}
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int initPos = buffer.position();
+		int version = buffer.get();
 		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		boolean useShort = true;
 		int baseSize = Bytes.SIZEOF_SHORT;
