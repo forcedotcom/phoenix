@@ -54,6 +54,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PMetaData;
@@ -244,7 +245,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
 	@Override
-	public Long incrementSequence(byte[] schemaName, byte[] tableName) {		
+	public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) {		
 		return null;
 	}
 }

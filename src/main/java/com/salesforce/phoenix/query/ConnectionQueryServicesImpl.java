@@ -37,7 +37,9 @@ import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -103,6 +105,7 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -1325,25 +1328,49 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public Long incrementSequence(byte[] schemaName, byte[] tableName) throws SQLException {
-    	try {
-    		HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
-    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
-    		Get get = new Get(row);
-    		Result result = hTable.get(get);
-    		KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
-    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
-    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
-    		long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
-    		Increment inc = new Increment(row);
-    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), increment);            
-    		Result newResult = hTable.increment(inc);
-    		KeyValue latest = newResult.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
-    		Long retValue = (Long)PDataType.LONG.toObject(latest.getBuffer(), latest.getValueOffset(), latest.getValueLength());
-    		return current;
+    public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) throws SQLException {
+    	Map<TableName, Long> resultMap = new HashMap<TableName, Long>();
+    	Map<TableName, Long> incrementMap = new HashMap<TableName, Long>();
+    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
+    	try {   		
+    		// Get the current value
+    		List<Get> getBatch = new ArrayList<Get>();
+    		for (TableName t: sequenceNames){
+    			final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    			final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    			byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
+    			Get get = new Get(row);
+    			getBatch.add(get);	
+    		}
+    		Object[] resultObjects = hTable.batch(getBatch);
+    		for (int i=0;i<sequenceNames.size();i++){
+    			Result result = (Result)resultObjects[i];
+    			KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
+    			KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    			long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    			long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
+    			resultMap.put(sequenceNames.get(i), current);
+    			incrementMap.put(sequenceNames.get(i), increment);
+    		}
+
+    		// Increment the sequence value
+    		List<Increment> incrementBatch = new ArrayList<Increment>();
+    		for (TableName t: sequenceNames){
+    			final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    			final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    			byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    			Increment inc = new Increment(row);
+    			inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementMap.get(t));
+    			incrementBatch.add(inc);    			    			
+    		}
+    		hTable.batch(incrementBatch);
+    		return resultMap;
     	}
-    	catch (Exception e){
-    		return null;
+    	catch (IOException e){
+    		throw new RuntimeException(e);
+    	}
+    	catch (InterruptedException e){
+    		throw new RuntimeException(e);
     	}
     }
 }
