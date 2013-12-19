@@ -114,6 +114,7 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -1396,7 +1397,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     	}
     	Object[] resultObjects = hTable.batch(getBatch);
     	for (int i=0;i<uncachedSequences.size();i++){
-    		Result result = (Result)resultObjects[i];    		
+    		Result result = (Result)resultObjects[i];
+    		if (result.isEmpty()){
+    			throw new SequenceNotFoundException(uncachedSequences.get(i).getSchemaName(), uncachedSequences.get(i).getTableName());
+    		}
     		KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
     		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
     		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();

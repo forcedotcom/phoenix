@@ -15,6 +15,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class CreateSequenceTest extends BaseClientMangedTimeTest {	
@@ -37,6 +38,18 @@ public class CreateSequenceTest extends BaseClientMangedTimeTest {
 			conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
 			Assert.fail("Duplicate sequences");
 		} catch (SequenceAlreadyExistsException e){
+
+		}
+	}
+
+	@Test
+	public void testSequenceNotFound() throws Exception {
+		Connection conn = getConnectionNextTimestamp();
+		String query = "SELECT NEXT value FOR qwert.asdf FROM SYSTEM.\"SEQUENCE\"";
+		try {
+			conn.prepareStatement(query).executeQuery();
+			Assert.fail("Sequence not found");
+		}catch(SequenceNotFoundException e){
 
 		}
 	}
