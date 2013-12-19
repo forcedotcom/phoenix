@@ -33,31 +33,37 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
-
 /**
  * 
  * Aggregator for COUNT aggregations
+ * 
  * @author jtaylor
  * @since 0.1
  */
 public class CountAggregator extends BaseAggregator {
+
     private long count = 0;
     private byte[] buffer = null;
-    
+
     public CountAggregator() {
         super(null);
     }
-    
+
+    public CountAggregator(LongSumAggregator clientAgg) {
+        this();
+        count = clientAgg.getSum();
+    }
+
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         count++;
     }
-    
+
     @Override
     public boolean isNullable() {
         return false;
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (buffer == null) {
@@ -67,7 +73,7 @@ public class CountAggregator extends BaseAggregator {
         ptr.set(buffer);
         return true;
     }
-    
+
     @Override
     public final PDataType getDataType() {
         return PDataType.LONG;
@@ -79,7 +85,7 @@ public class CountAggregator extends BaseAggregator {
         buffer = null;
         super.reset();
     }
-    
+
     @Override
     public String toString() {
         return "COUNT [count=" + count + "]";
@@ -87,6 +93,8 @@ public class CountAggregator extends BaseAggregator {
 
     @Override
     public int getSize() {
-        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getDataType().getByteSize();
+        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE
+                + getDataType().getByteSize();
     }
+
 }
