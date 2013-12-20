@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -423,7 +424,7 @@ public class QueryParserTest {
     @Test
     public void testParseCreateTablePrimaryKeyConstraintWithOrder() throws Exception {
     	for (String order : new String[]{"asc", "desc", ""}) {
-    		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
+    		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150), constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
     		PrimaryKeyConstraint pkConstraint = stmt.getPrimaryKeyConstraint();
     		List<Pair<ColumnName,ColumnModifier>> columns = pkConstraint.getColumnNames();
@@ -432,6 +433,18 @@ public class QueryParserTest {
     			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumn(pair.getFirst()).getSecond());
     		}    		
     	}
+    }
+
+    @Test
+    public void testParseCreateTableCommaBeforePrimaryKeyConstraint() throws Exception {
+        for (String leadingComma : new String[]{",", ""}) {
+            String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150)${o} constraint pk primary key (id))".replace("${o}", leadingComma);
+
+            CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
+
+            assertEquals(2, stmt.getColumnDefs().size());
+            assertNotNull(stmt.getPrimaryKeyConstraint());
+        }
     }
 
     public void testBadCharDef() throws Exception {

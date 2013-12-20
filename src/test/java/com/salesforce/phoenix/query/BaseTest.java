@@ -85,7 +85,7 @@ public abstract class BaseTest {
                 "    created_date date not null,\n" +
                 "    entity_history_id char(15) not null,\n" +
                 "    old_value varchar,\n" +
-                "    new_value varchar\n" +
+                "    new_value varchar,\n" + //create table shouldn't blow up if the last column definition ends with a comma.
                 "    CONSTRAINT pk PRIMARY KEY (organization_id, parent_id, created_date, entity_history_id)\n" +
                 ")");
         builder.put(ENTITY_HISTORY_SALTED_TABLE_NAME,"create table " + ENTITY_HISTORY_SALTED_TABLE_NAME +
