@@ -50,11 +50,6 @@ public class SpillFile implements Closeable {
 
         } catch (IOException ioe) {
             throw new RuntimeException("Could not create Spillfile");
-        } finally {
-            if (tempFile != null) {
-                // Cleanup hook
-                tempFile.deleteOnExit();
-            }
         }
     }
 
@@ -69,14 +64,7 @@ public class SpillFile implements Closeable {
      * Returns the next free page within the current spill file
      */
     public MappedByteBuffer getNextFreePage() {
-        try {
-            maxPageId++;
-            int offset = maxPageId * DEFAULT_PAGE_SIZE;
-            return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
-        } catch (IOException ioe) {
-            throw new RuntimeException(
-                    "Could not get next free page at index: " + maxPageId);
-        }
+        return getPage(++maxPageId);
     }
 
     /**
@@ -87,7 +75,10 @@ public class SpillFile implements Closeable {
     public MappedByteBuffer getPage(int index) {
         try {
             Preconditions.checkArgument(index <= maxPageId);
-            int offset = index * DEFAULT_PAGE_SIZE;
+            
+            long offset = (long)index * (long)DEFAULT_PAGE_SIZE;
+            Preconditions.checkArgument(offset <= Integer.MAX_VALUE);
+            
             return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
         } catch (IOException ioe) {
             throw new RuntimeException("Could not get page at index: " + index);

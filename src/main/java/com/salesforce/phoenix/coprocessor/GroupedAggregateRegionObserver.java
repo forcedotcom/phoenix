@@ -61,7 +61,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheStats;
 import com.google.common.collect.Iterators;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
@@ -305,17 +304,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     }
                 } while (hasMore);
 
-                // check on cache stats
-                if (spillableEnabled) {
-                    CacheStats stats = gbCache.cache.stats();
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Load time: " + stats.totalLoadTime());
-                        logger.debug("Load Penalty: " + stats.averageLoadPenalty());
-                        logger.debug("Load Count: " + stats.loadCount());
-                        logger.debug("Eviction Count: " + stats.evictionCount());
-                        logger.debug("HitRate: " + stats.hitRate());
-                    }
-                }
             } finally {
                 region.closeRegionOperation();
             }
@@ -430,14 +418,9 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             success = true;
 
             if (!spillableEnabled) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("returning non spill iter");
-                }
                 return scanner;
             }
-            if (logger.isDebugEnabled()) {
-                logger.debug("returning spill iter");
-            }
+
             return scannerSpillable;
         } finally {
             if (!success) {

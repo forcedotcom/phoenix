@@ -76,7 +76,7 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
  */
 public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
     private static final Logger logger = LoggerFactory
-            .getLogger(SpillManager.class);
+            .getLogger(GroupByCache.class);
 
     // Min size of 1st level main memory cache in bytes --> lower bound
     private static final int SPGBY_CACHE_MIN_SIZE = 4096; // 4K
@@ -99,7 +99,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
      * @param aggs
      * @param ctxt
      */
-    public GroupByCache(long estSize, int estValueSize, ServerAggregators aggs,
+    public GroupByCache(final long estSize, final int estValueSize, ServerAggregators aggs,
             final ObserverContext<RegionCoprocessorEnvironment> ctxt) {
         context = ctxt;
         this.estValueSize = estValueSize;
@@ -110,18 +110,9 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
         final long maxCacheSizeConf = conf.getLong(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE);
         final int numSpillFilesConf = conf.getInt(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES);
         
-        int estSizeNum = (int) (estSize / estValueSize);
-        int maxSizeNum = (int) ( maxCacheSizeConf / estValueSize);
-        int minSizeNum = (SPGBY_CACHE_MIN_SIZE / estValueSize);
-        if (logger.isDebugEnabled()) {
-            logger.debug("conf size" + maxCacheSizeConf);
-            logger.debug("estSize: " + estSize);
-            logger.debug("estValueSize: " + estValueSize);
-            logger.debug("estValueSize: " + estValueSize);
-            logger.debug("estSizeNum: " + estSizeNum);
-            logger.debug("maxSizeNum: " + maxSizeNum);
-            logger.debug("minSizeNum: " + minSizeNum);
-        }
+        final int estSizeNum = (int) (estSize / estValueSize);
+        final int maxSizeNum = (int) ( maxCacheSizeConf / estValueSize);
+        final int minSizeNum = (SPGBY_CACHE_MIN_SIZE / estValueSize);
 
         // use upper and lower bounds for the cache size
         int maxCacheSize = Math.max(minSizeNum,
@@ -135,7 +126,6 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
         // the est MapSize
         cache = CacheBuilder                
                 .newBuilder()
-                .recordStats()
                 .maximumSize(maxCacheSize)
                 .removalListener(
                         new RemovalListener<ImmutableBytesPtr, Aggregator[]>() {
@@ -154,6 +144,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
                                         // cache is too small
                                         spillManager = new SpillManager(
                                                 numSpillFilesConf,
+                                                estValueSize,
                                                 aggregators, context
                                                         .getEnvironment()
                                                         .getConfiguration());
