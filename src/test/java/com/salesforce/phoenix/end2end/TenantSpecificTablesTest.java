@@ -60,6 +60,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -71,6 +72,7 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     
     private static final String TENANT_ID = "ZZTop";
     private static final String TENANT_TYPE_ID = "abc";
+    private static final String TENANT_TYPE_ID2 = "def";
     private static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;
     
     private static final String PARENT_TABLE_NAME = "PARENT_TABLE";
@@ -461,17 +463,6 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
         }
         finally {
             conn.close();
-        }
-    }
-    
-    @Test
-    public void testCreateTenantTableBaseTableTopLevel() throws Exception {
-        try {
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (COL VARCHAR) BASE_TABLE='TENANT_TABLE',TENANT_TYPE_ID='aaa'");
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
         }
     }
     
