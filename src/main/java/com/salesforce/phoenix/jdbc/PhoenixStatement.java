@@ -158,7 +158,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     private boolean isClosed = false;
     private ResultSetMetaData resultSetMetaData;
     private int maxRows;
-    
+    private List<String> batchQueryList = new ArrayList<String>();
     
     public PhoenixStatement(PhoenixConnection connection) {
         this.connection = connection;
@@ -875,7 +875,9 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     @Override
     public void addBatch(String sql) throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        // Naive implementation
+    	// Simple add queries to a new list of String
+    	this.batchQueryList.add(sql);
     }
 
     @Override
@@ -885,7 +887,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public void clearBatch() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        this.batchQueryList.clear();
     }
 
     @Override
@@ -981,7 +983,17 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     @Override
     public int[] executeBatch() throws SQLException {
-        throw new SQLFeatureNotSupportedException();
+        
+    	int[] rets = new int[this.batchQueryList.size()];
+    	int i=0;
+    	
+    	for (String sql : this.batchQueryList)
+    	{
+    		execute(sql);
+    		rets[i++] = Statement.SUCCESS_NO_INFO;
+    	}
+    	
+		return rets;
     }
 
     @Override
