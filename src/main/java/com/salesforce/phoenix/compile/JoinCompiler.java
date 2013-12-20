@@ -69,7 +69,6 @@ import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
 import com.salesforce.phoenix.parse.NamedTableNode;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.parse.TableNodeVisitor;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
@@ -373,13 +372,7 @@ public class JoinCompiler {
             public Void visitLeave(CastParseNode node, List<Void> l) 
             		throws SQLException {
             	return leaveBooleanNode(node, l);
-            }
-
-			@Override
-			public Void visit(NextSequenceValueParseNode node)
-					throws SQLException {				
-				return null;
-			}
+            }			
         }
     }
     
@@ -675,13 +668,7 @@ public class JoinCompiler {
             private void throwUnsupportedJoinConditionException() 
             		throws SQLFeatureNotSupportedException {
             	throw new SQLFeatureNotSupportedException("Does not support non-standard or non-equi join conditions.");
-            }
-
-			@Override
-			public Void visit(NextSequenceValueParseNode node)
-					throws SQLException {				
-				return null;
-			}
+            }			
         }
     }
     
