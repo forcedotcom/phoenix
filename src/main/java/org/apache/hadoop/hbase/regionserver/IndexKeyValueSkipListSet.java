@@ -40,7 +40,7 @@ public class IndexKeyValueSkipListSet extends KeyValueSkipListSet {
 
   // this is annoying that we need to keep this extra pointer around here, but its pretty minimal
   // and means we don't need to change the HBase code.
-  private ConcurrentSkipListMap<KeyValue, KeyValue> delegate;
+  private final ConcurrentSkipListMap<KeyValue, KeyValue> delegate;
 
   /**
    * Create a new {@link IndexKeyValueSkipListSet} based on the passed comparator.
@@ -51,8 +51,7 @@ public class IndexKeyValueSkipListSet extends KeyValueSkipListSet {
   public static IndexKeyValueSkipListSet create(Comparator<KeyValue> comparator) {
     ConcurrentSkipListMap<KeyValue, KeyValue> delegate =
         new ConcurrentSkipListMap<KeyValue, KeyValue>(comparator);
-    IndexKeyValueSkipListSet ret = new IndexKeyValueSkipListSet(delegate);
-    return ret;
+      return new IndexKeyValueSkipListSet(delegate);
   }
 
   /**

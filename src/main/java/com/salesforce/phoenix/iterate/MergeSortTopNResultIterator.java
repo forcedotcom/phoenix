@@ -61,8 +61,7 @@ public class MergeSortTopNResultIterator extends MergeSortResultIterator {
 
     @Override
     protected int compare(Tuple t1, Tuple t2) {
-        for (int i = 0; i < orderByColumns.size(); i++) {
-            OrderByExpression order = orderByColumns.get(i);
+        for (OrderByExpression order : orderByColumns) {
             Expression orderExpr = order.getExpression();
             boolean isNull1 = !orderExpr.evaluate(t1, ptr1) || ptr1.getLength() == 0;
             boolean isNull2 = !orderExpr.evaluate(t2, ptr2) || ptr2.getLength() == 0;

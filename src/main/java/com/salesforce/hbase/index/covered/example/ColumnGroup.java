@@ -13,8 +13,8 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class ColumnGroup implements Iterable<CoveredColumn> {
 
-  private List<CoveredColumn> columns = new ArrayList<CoveredColumn>();
-  private String table;
+  private final List<CoveredColumn> columns = new ArrayList<CoveredColumn>();
+  private final String table;
 
   public ColumnGroup(String tableName) {
     this.table = tableName;

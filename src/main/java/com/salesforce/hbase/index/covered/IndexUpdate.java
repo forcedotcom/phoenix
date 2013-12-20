@@ -39,7 +39,7 @@ import com.salesforce.hbase.index.covered.update.ColumnTracker;
 public class IndexUpdate {
   Mutation update;
   byte[] tableName;
-  ColumnTracker columns;
+  final ColumnTracker columns;
 
   IndexUpdate(ColumnTracker tracker) {
     this.columns = tracker;

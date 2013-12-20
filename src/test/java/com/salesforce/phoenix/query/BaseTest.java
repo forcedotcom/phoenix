@@ -405,7 +405,7 @@ public abstract class BaseTest {
                             driver = null;
                         }
                     }
-                } catch (SQLException e) {
+                } catch (SQLException ignored) {
                 }
             }
         }
@@ -460,7 +460,7 @@ public abstract class BaseTest {
         StringBuilder buf = new StringBuilder(ddl);
         if (splits != null) {
             buf.append(" SPLIT ON (");
-            for (int i = 0; i < splits.length; i++) {
+            for (byte[] split : splits) {
                 buf.append("?,");
             }
             buf.setCharAt(buf.length()-1, ')');
@@ -479,7 +479,7 @@ public abstract class BaseTest {
                 }
             }
             stmt.execute(ddl);
-        } catch (TableAlreadyExistsException e) {
+        } catch (TableAlreadyExistsException ignored) {
         } finally {
             conn.close();
         }

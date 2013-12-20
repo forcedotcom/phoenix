@@ -28,8 +28,8 @@ public class SpillFile implements Closeable {
     static final int DEFAULT_PAGE_SIZE = 4 * 1024;
 
     private File tempFile;
-    private FileChannel fc;
-    private RandomAccessFile file;
+    private final FileChannel fc;
+    private final RandomAccessFile file;
     private int maxPageId;
 
     /**

@@ -78,7 +78,7 @@ import org.apache.hadoop.hbase.regionserver.wal.WALEdit;
 public class IndexLogRollSynchronizer implements WALActionsListener {
 
   private static final Log LOG = LogFactory.getLog(IndexLogRollSynchronizer.class);
-  private WriteLock logArchiveLock;
+  private final WriteLock logArchiveLock;
 
   public IndexLogRollSynchronizer(WriteLock logWriteLock){
     this.logArchiveLock = logWriteLock;

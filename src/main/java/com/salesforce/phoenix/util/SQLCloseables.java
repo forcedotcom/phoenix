@@ -66,9 +66,8 @@ public class SQLCloseables {
                 exceptions.add(x);
             }
         }
-        
-        SQLException ex = MultipleCausesSQLException.fromSQLExceptions(exceptions);
-        return ex;
+
+        return MultipleCausesSQLException.fromSQLExceptions(exceptions);
     }
 
     /**

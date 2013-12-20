@@ -58,7 +58,7 @@ public class PerformanceLog {
 		getFileOutputStream(fileName);
 	}
 
-	public static void stopLog() throws FileNotFoundException, IOException {
+	public static void stopLog() throws IOException {
 		getFileOutputStream().close();
 		fostream = null;
 	}
@@ -120,7 +120,7 @@ public class PerformanceLog {
 		return stopWatch;
 	}
 	
-	private final static String getDateTime() {
+	private static String getDateTime() {
 	    DateFormat df = new SimpleDateFormat("yyyy-MM-dd_hh:mm:ss");
 	    return df.format(new Date());
 	}

@@ -59,7 +59,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_float";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -95,7 +95,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_byte_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -135,7 +135,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_string_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -177,7 +177,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_string_array FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -211,7 +211,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -239,7 +239,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array[2] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -266,8 +266,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
     public void testCaseWithArray() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        createTableWithArray(BaseConnectedQueryTest.getUrl(),
-                getDefaultSplits(tenantId), null, ts - 2);
+        createTableWithArray(BaseConnectedQueryTest.getUrl(),getDefaultSplits(tenantId), ts - 2);
         initTablesWithArrays(tenantId, null, ts);
         String query = "SELECT CASE WHEN A_INTEGER = 1 THEN a_double_array ELSE null END [2] FROM table_with_array";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -294,7 +293,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		int a_index = 0;
 		String query = "SELECT a_double_array[1] FROM table_with_array where a_double_array["+a_index+"1]<?";
@@ -329,7 +328,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array[1] FROM table_with_array  GROUP BY a_double_array[1]";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -358,7 +357,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_string_array[2] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -389,7 +388,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
+				getDefaultSplits(tenantId), ts - 2);
 		initTablesWithArrays(tenantId, null, ts);
 		String query = "SELECT a_double_array[100] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -413,8 +412,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		}
 	}
 
-	static void createTableWithArray(String url, byte[][] bs, Object object,
-			long ts) throws SQLException {
+	static void createTableWithArray(String url, byte[][] bs, long ts) throws SQLException {
 		String ddlStmt = "create table "
 				+ TABLE_WITH_ARRAY
 				+ "   (organization_id char(15) not null, \n"

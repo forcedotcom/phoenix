@@ -78,12 +78,12 @@ public class StringConcatExpression extends BaseCompoundExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         byte[] result = ByteUtil.EMPTY_BYTE_ARRAY;
-        for (int i=0; i<children.size(); i++) {
-            if (children.get(i).getDataType() == null || !children.get(i).evaluate(tuple, ptr)) {
+        for (Expression expression : children) {
+            if (expression.getDataType() == null || !expression.evaluate(tuple, ptr)) {
                 continue;
             }
-            PDataType childType = children.get(i).getDataType();
-            ColumnModifier columnModifier = children.get(i).getColumnModifier();
+            PDataType childType = expression.getDataType();
+            ColumnModifier columnModifier = expression.getColumnModifier();
             // We could potentially not invert the bytes, but we might as well since we're allocating
             // additional space here anyway.
             if (childType.isCoercibleTo(PDataType.VARCHAR)) {

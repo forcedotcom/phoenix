@@ -79,7 +79,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.IndexUtil;
 
 public class DeleteCompiler {
-    private static ParseNodeFactory FACTORY = new ParseNodeFactory();
+    private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
     
     private final PhoenixStatement statement;
     

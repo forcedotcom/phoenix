@@ -57,9 +57,9 @@ import com.salesforce.phoenix.util.DateUtil;
  */
 public class RoundFloorCeilFunctionsEnd2EndTest extends BaseClientMangedTimeTest {
     
-    private static long millisPart = 660;
-    private static int nanosPart = 500100;
-    private static BigDecimal decimalUpserted = BigDecimal.valueOf(1.264);
+    private static final long millisPart = 660;
+    private static final int nanosPart = 500100;
+    private static final BigDecimal decimalUpserted = BigDecimal.valueOf(1.264);
     
     @BeforeClass
     public static void initTable() throws Exception {

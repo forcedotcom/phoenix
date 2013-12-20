@@ -51,8 +51,8 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 
 public class SpillableGroupByTest extends BaseConnectedQueryTest {
 
-    private static final int NUM_ROWS_INSERTED = 20000;
-    private static String GROUPBY1 = "select "
+    private static final int NUM_ROWS_INSERTED = 200000;
+    private static final String GROUPBY1 = "select "
             + "count(*), sum(appcpu), avg(appcpu) from "
             + GROUPBYTEST_NAME + " group by uri";
     private int id;

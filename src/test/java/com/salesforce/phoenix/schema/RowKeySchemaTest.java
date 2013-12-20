@@ -39,7 +39,7 @@ public class RowKeySchemaTest  extends BaseConnectionlessQueryTest  {
         PTable table = conn.unwrap(PhoenixConnection.class).getPMetaData().getTable(SchemaUtil.getTableName(SchemaUtil.normalizeIdentifier(schemaName),SchemaUtil.normalizeIdentifier(tableName)));
         conn.close();
         StringBuilder buf = new StringBuilder("UPSERT INTO " + fullTableName  + " VALUES(");
-        for (int i = 0; i < values.length; i++) {
+        for (Object value1 : values) {
             buf.append("?,");
         }
         buf.setCharAt(buf.length()-1, ')');

@@ -47,9 +47,8 @@ public class LongMultiplyExpression extends MultiplyExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         long finalResult=1;
-        
-        for(int i=0;i<children.size();i++) {
-            Expression child = children.get(i);
+
+        for (Expression child : children) {
             if (!child.evaluate(tuple, ptr)) {
                 return false;
             }

@@ -104,10 +104,7 @@ public class SelectStatementRewriter extends ParseNodeRewriter {
     }
     
     private boolean enterCompoundNode(ParseNode node) {
-        if (removeNodes.contains(node)) {
-            return false;
-        }
-        return true;
+        return !removeNodes.contains(node);
     }
     
     private ParseNode leaveCompoundNode(CompoundParseNode node, List<ParseNode> children, CompoundNodeFactory factory) {
@@ -157,10 +154,7 @@ public class SelectStatementRewriter extends ParseNodeRewriter {
     
     @Override
     public boolean visitEnter(ComparisonParseNode node) throws SQLException {
-        if (removeNodes.contains(node)) {
-            return false;
-        }
-        return true;
+        return !removeNodes.contains(node);
     }
 
     @Override
@@ -170,10 +164,7 @@ public class SelectStatementRewriter extends ParseNodeRewriter {
     
     @Override
     public boolean visitEnter(LikeParseNode node) throws SQLException {
-        if (removeNodes.contains(node)) {
-            return false;
-        }
-        return true;
+        return !removeNodes.contains(node);
     }
     
     @Override
@@ -183,10 +174,7 @@ public class SelectStatementRewriter extends ParseNodeRewriter {
     
     @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
-        if (removeNodes.contains(node)) {
-            return false;
-        }
-        return true;
+        return !removeNodes.contains(node);
     }
     
     @Override

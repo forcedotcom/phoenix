@@ -36,7 +36,7 @@ public enum TimeUnit {
     SECOND("second"), 
     MILLISECOND("millisecond");
     
-    private String value;
+    private final String value;
     
     private TimeUnit(String value) {
         this.value = value;

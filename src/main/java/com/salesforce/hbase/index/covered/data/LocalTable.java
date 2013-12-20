@@ -55,7 +55,7 @@ import com.salesforce.hbase.index.util.IndexManagementUtil;
  */
 public class LocalTable implements LocalHBaseState {
 
-  private RegionCoprocessorEnvironment env;
+  private final RegionCoprocessorEnvironment env;
 
   public LocalTable(RegionCoprocessorEnvironment env) {
     this.env = env;

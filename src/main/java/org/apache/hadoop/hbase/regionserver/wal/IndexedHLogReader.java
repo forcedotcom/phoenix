@@ -34,7 +34,7 @@ import org.apache.hadoop.io.Writable;
 public class IndexedHLogReader implements Reader {
   private static final Log LOG = LogFactory.getLog(IndexedHLogReader.class);
 
-  private SequenceFileLogReader delegate;
+  private final SequenceFileLogReader delegate;
 
 
   private static class IndexedWALReader extends SequenceFileLogReader.WALReader {

@@ -85,8 +85,7 @@ public class GlobalCache extends TenantCacheImpl {
      */
     public static TenantCache getTenantCache(RegionCoprocessorEnvironment env, ImmutableBytesWritable tenantId) {
         GlobalCache globalCache = GlobalCache.getInstance(env);
-        TenantCache tenantCache = tenantId == null ? globalCache : globalCache.getChildTenantCache(tenantId);      
-        return tenantCache;
+        return tenantId == null ? globalCache : globalCache.getChildTenantCache(tenantId);
     }
     
     private GlobalCache(Configuration config) {

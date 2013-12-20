@@ -519,8 +519,7 @@ public enum PDataType {
             if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
                 throw new IllegalDataException(actualType + " value " + l + " cannot be cast to Integer without changing its value");
             }
-            int v = (int)l;
-            return v;
+            return (int)l;
         }
 
         @Override
@@ -680,8 +679,7 @@ public enum PDataType {
           if (l < Short.MIN_VALUE || l > Short.MAX_VALUE) {
               throw new IllegalDataException(actualType + " value " + l + " cannot be cast to Short without changing its value");
           }
-          short s = (short)l;
-          return s;
+          return (short)l;
       }
 
       @Override
@@ -803,8 +801,7 @@ public enum PDataType {
           return null;
         }
         try {
-          Byte b = Byte.parseByte(value);
-          return b;
+            return Byte.parseByte(value);
         } catch (NumberFormatException e) {
           throw new IllegalDataException(e);
         }
@@ -1320,8 +1317,7 @@ public enum PDataType {
                 Timestamp ts = (Timestamp) actualType.toObject(b, o, l) ;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
-                return value;
+                return BigDecimal.valueOf(millisPart).add(nanosPart);
             default:
                 return super.toObject(b,o,l,actualType);
             }
@@ -1358,8 +1354,7 @@ public enum PDataType {
                 Timestamp ts = (Timestamp)object;
                 long millisPart = ts.getTime();
                 BigDecimal nanosPart = BigDecimal.valueOf((ts.getNanos() % QueryConstants.MILLIS_TO_NANOS_CONVERTOR)/QueryConstants.MILLIS_TO_NANOS_CONVERTOR);
-                BigDecimal value = BigDecimal.valueOf(millisPart).add(nanosPart);
-                return value;
+                return BigDecimal.valueOf(millisPart).add(nanosPart);
             default:
                 return super.toObject(object, actualType);
             }
@@ -1695,14 +1690,12 @@ public enum PDataType {
         
         @Override
         public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
-            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
-            return nanos;
+            return PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
         }
         
         @Override
         public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
-            long millis = PDataType.LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
-            return millis;
+            return PDataType.LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
         }
 
     },
@@ -2023,14 +2016,12 @@ public enum PDataType {
         
         @Override
         public int getNanos(ImmutableBytesWritable ptr, ColumnModifier cm) {
-            int nanos = PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
-            return nanos;
+            return PDataType.UNSIGNED_INT.getCodec().decodeInt(ptr.get(), ptr.getOffset() + PDataType.LONG.getByteSize(), cm);
         }
         
         @Override
         public long getMillis(ImmutableBytesWritable ptr, ColumnModifier cm) {
-            long millis = PDataType.UNSIGNED_LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
-            return millis;
+            return PDataType.UNSIGNED_LONG.getCodec().decodeLong(ptr.get(),ptr.getOffset(), cm);
         }
     },
     UNSIGNED_TIME("UNSIGNED_TIME", 18, Time.class, new UnsignedDateCodec()) {
@@ -2355,7 +2346,7 @@ public enum PDataType {
             }
             try {
                 Long l = Long.parseLong(value);
-                if (l.longValue() < 0) {
+                if (l < 0) {
                     throw new IllegalDataException("Value may not be negative(" + l + ")");
                 }
                 return l;
@@ -2483,7 +2474,7 @@ public enum PDataType {
             }
             try {
                 Integer i = Integer.parseInt(value);
-                if (i.intValue() < 0) {
+                if (i < 0) {
                     throw new IllegalDataException("Value may not be negative(" + i + ")");
                 }
                 return i;
@@ -2549,7 +2540,7 @@ public enum PDataType {
         }
         try {
           Short b = Short.parseShort(value);
-          if (b.shortValue()<0) {
+          if (b <0) {
               throw new IllegalDataException("Value may not be negative(" + b + ")");
           }
           return b;
@@ -2677,7 +2668,7 @@ public enum PDataType {
         }
         try {
           Byte b = Byte.parseByte(value);
-          if (b.byteValue()<0) {
+          if (b <0) {
               throw new IllegalDataException("Value may not be negative(" + b + ")");
           }
           return b;
@@ -2799,7 +2790,7 @@ public enum PDataType {
             }
             try {
                 Float f = Float.parseFloat(value);
-                if (f.floatValue() < 0) {
+                if (f < 0) {
                     throw new IllegalDataException("Value may not be negative("
                             + f + ")");
                 }
@@ -3005,7 +2996,7 @@ public enum PDataType {
             }
             try {
                 Double d = Double.parseDouble(value);
-                if (d.doubleValue() < 0) {
+                if (d < 0) {
                     throw new IllegalDataException("Value may not be negative("
                             + d + ")");
                 }
@@ -3159,7 +3150,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            return ((Boolean)object).booleanValue() ? TRUE_BYTES : FALSE_BYTES;
+            return (Boolean) object ? TRUE_BYTES : FALSE_BYTES;
         }
 
         @Override
@@ -3167,7 +3158,7 @@ public enum PDataType {
             if (object == null) {
                 throw new ConstraintViolationException(this + " may not be null");
             }
-            bytes[offset] = ((Boolean)object).booleanValue() ? TRUE_BYTE : FALSE_BYTE;
+            bytes[offset] = (Boolean) object ? TRUE_BYTE : FALSE_BYTE;
             return BOOLEAN_LENGTH;
         }
 
@@ -3178,9 +3169,9 @@ public enum PDataType {
             }
             // Override to prevent any byte allocation
             if (columnModifier == null) {
-                return ((Boolean)object).booleanValue() ? TRUE_BYTES : FALSE_BYTES;
+                return (Boolean) object ? TRUE_BYTES : FALSE_BYTES;
             }
-            return ((Boolean)object).booleanValue() ? MOD_TRUE_BYTES[columnModifier.ordinal()] : MOD_FALSE_BYTES[columnModifier.ordinal()];
+            return (Boolean) object ? MOD_TRUE_BYTES[columnModifier.ordinal()] : MOD_FALSE_BYTES[columnModifier.ordinal()];
         }
 
         @Override
@@ -3329,8 +3320,8 @@ public enum PDataType {
             }
             StringBuilder buf = new StringBuilder();
             buf.append('[');
-            for (int i = 0; i < b.length; i++) {
-                buf.append(0xFF & b[i]);
+            for (byte aB : b) {
+                buf.append(0xFF & aB);
                 buf.append(',');
             }
             buf.setCharAt(buf.length()-1, ']');
@@ -6656,8 +6647,7 @@ public enum PDataType {
         }
         // Update the scale based on the precision
         scale += (length - 2) * 2;
-        BigDecimal v = new BigDecimal(bi, scale);
-        return v;
+        return new BigDecimal(bi, scale);
     }
 
     // Calculate the precision and scale of a raw decimal bytes. Returns the values as an int
@@ -6935,7 +6925,7 @@ public enum PDataType {
 		PhoenixArray newArray(PDataType type, Object[] elements);
 	}
 
-	public static PhoenixArrayFactory[] ARRAY_FACTORY = new PhoenixArrayFactory[PDataType
+	public static final PhoenixArrayFactory[] ARRAY_FACTORY = new PhoenixArrayFactory[PDataType
 			.values().length];
 	static {
 		int i = 0;

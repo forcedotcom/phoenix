@@ -932,8 +932,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         } catch (IOException e) {
             throw ServerUtil.parseServerException(e);
         }
-        ExecutableStatement statement = parser.parseStatement();
-        return statement;
+        return parser.parseStatement();
     }
     
     @Override

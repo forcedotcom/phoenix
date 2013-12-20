@@ -113,8 +113,7 @@ public class KeyValueSchema extends ValueSchema {
         List<Field> fields = getFields();
         // We can get away with checking if only nulls are left in the outer loop,
         // since repeating fields will not span the non-null/null boundary.
-        for (int i = 0; i < fields.size(); i++) {
-            Field field = fields.get(i);
+        for (Field field : fields) {
             PDataType type = field.getDataType();
             for (int j = 0; j < field.getCount(); j++) {
                 if (expressions[index].evaluate(tuple, ptr)) { // Skip null values

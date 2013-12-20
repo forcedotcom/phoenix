@@ -24,6 +24,10 @@ import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.util.ByteUtil;
 
+import static junit.framework.Assert.assertEquals;
+import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+
 //reset()
 //filterAllRemaining() -> true indicates scan is over, false, keep going on.
 //filterRowKey(byte[],int,int) -> true to drop this row, if false, we will also call
@@ -31,7 +35,7 @@ import com.salesforce.phoenix.util.ByteUtil;
 //filterRow(List) -> allows direct modification of the final list to be submitted
 //filterRow() -> last chance to drop entire row based on the sequence of filterValue() calls. Eg: filter a row if it doesn't contain a specified column.
 @RunWith(Parameterized.class)
-public class SkipScanFilterTest extends TestCase {
+public class SkipScanFilterTest {
     private final SkipScanFilter skipper;
     private final List<List<KeyRange>> cnf;
     private final List<Expectation> expectations;

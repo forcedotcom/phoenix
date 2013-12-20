@@ -41,7 +41,7 @@ import com.salesforce.hbase.index.table.HTableInterfaceReference;
 
 public class PerRegionIndexWriteCache {
 
-  private Map<HRegion, Multimap<HTableInterfaceReference, Mutation>> cache =
+  private final Map<HRegion, Multimap<HTableInterfaceReference, Mutation>> cache =
       new HashMap<HRegion, Multimap<HTableInterfaceReference, Mutation>>();
 
 

@@ -64,7 +64,7 @@ public class MapReduceJob {
 		private PreparedStatement[] stmtCache;
 		private String tableName;
 		private String schemaName;
-		Map<Integer, Integer> colDetails = new LinkedHashMap<Integer, Integer>();
+		final Map<Integer, Integer> colDetails = new LinkedHashMap<Integer, Integer>();
 		boolean ignoreUpsertError = true;
 		private String zookeeperIP;
 		
@@ -155,7 +155,7 @@ public class MapReduceJob {
 				}
 
 				for(int i = 0 ; i < tokens.length && i < colDetails.size() ;i++){
-					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(new Integer(i+1))));
+					upsertStatement.setObject(i+1, convertTypeSpecificValue(tokens[i], colDetails.get(i + 1)));
 				}
 				
 				upsertStatement.execute();

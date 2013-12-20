@@ -59,7 +59,7 @@ public class SQLExceptionInfo {
     public static class Builder {
 
         private Throwable rootCause;
-        private SQLExceptionCode code; // Should always have one.
+        private final SQLExceptionCode code; // Should always have one.
         private String message;
         private String schemaName;
         private String tableName;

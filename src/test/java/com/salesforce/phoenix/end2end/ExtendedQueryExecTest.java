@@ -184,8 +184,7 @@ public class ExtendedQueryExecTest extends BaseClientMangedTimeTest {
     
     private ResultSet getResultSet(Connection conn, String query) throws SQLException {
         PreparedStatement statement = conn.prepareStatement(query);
-        ResultSet rs = statement.executeQuery();
-        return rs;
+        return statement.executeQuery();
     }
     
     private void verifyDateResultSet(ResultSet rs, Date date, int rowCount) throws SQLException {

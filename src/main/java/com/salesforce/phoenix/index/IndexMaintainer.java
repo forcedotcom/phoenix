@@ -501,7 +501,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         indexedColumnByteSizes = Lists.newArrayListWithExpectedSize(nIndexedColumns);
         for (int i = 0; i < nIndexedColumns; i++) {
             int byteSize = WritableUtils.readVInt(input);
-            indexedColumnByteSizes.add(byteSize == 0 ? null : Integer.valueOf(byteSize));
+            indexedColumnByteSizes.add(byteSize == 0 ? null : byteSize);
         }
         int nCoveredColumns = WritableUtils.readVInt(input);
         coveredColumns = Sets.newLinkedHashSetWithExpectedSize(nCoveredColumns);
@@ -530,12 +530,10 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
             Bytes.writeByteArray(output, ref.getFamily());
             Bytes.writeByteArray(output, ref.getQualifier());
         }
-        for (int i = 0; i < indexedColumnTypes.size(); i++) {
-            PDataType type = indexedColumnTypes.get(i);
+        for (PDataType type : indexedColumnTypes) {
             WritableUtils.writeVInt(output, type.ordinal());
         }
-        for (int i = 0; i < indexedColumnByteSizes.size(); i++) {
-            Integer byteSize = indexedColumnByteSizes.get(i);
+        for (Integer byteSize : indexedColumnByteSizes) {
             WritableUtils.writeVInt(output, byteSize == null ? 0 : byteSize);
         }
         WritableUtils.writeVInt(output, coveredColumns.size());
@@ -692,7 +690,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         }
     }
     
-    private static int BYTE_OFFSET = 127;
+    private static final int BYTE_OFFSET = 127;
     
     private class ByteSizeRowKeyMetaData extends RowKeyMetaData {
         private byte[] indexPkPosition;
@@ -761,8 +759,8 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         @Override
         public void write(DataOutput output) throws IOException {
             super.write(output);
-            for (int i = 0; i < indexPkPosition.length; i++) {
-                output.writeInt(indexPkPosition[i]);
+            for (int anIndexPkPosition : indexPkPosition) {
+                output.writeInt(anIndexPkPosition);
             }
         }
 

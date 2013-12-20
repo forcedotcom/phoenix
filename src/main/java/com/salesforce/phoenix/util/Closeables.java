@@ -65,9 +65,8 @@ public class Closeables {
                 exceptions.add(x);
             }
         }
-        
-        IOException ex = MultipleCausesIOException.fromIOExceptions(exceptions);
-        return ex;
+
+        return MultipleCausesIOException.fromIOExceptions(exceptions);
     }
 
     static private class MultipleCausesIOException extends IOException {

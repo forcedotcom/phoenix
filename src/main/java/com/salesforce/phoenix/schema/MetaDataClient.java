@@ -232,7 +232,7 @@ public class MetaDataClient {
         try {
             table = connection.getPMetaData().getTable(fullTableName);
             tableTimestamp = table.getTimeStamp();
-        } catch (TableNotFoundException e) {
+        } catch (TableNotFoundException ignored) {
             
         }
         // Don't bother with server call: we can't possibly find a newer table
@@ -327,10 +327,9 @@ public class MetaDataClient {
             } else if (!isPK) {
                 familyName = PNameFactory.newName(QueryConstants.DEFAULT_COLUMN_FAMILY);
             }
-            
-            PColumn column = new PColumnImpl(PNameFactory.newName(columnName), familyName, def.getDataType(),
+
+            return new PColumnImpl(PNameFactory.newName(columnName), familyName, def.getDataType(),
                     def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
-            return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);
         }
@@ -718,16 +717,15 @@ public class MetaDataClient {
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
             }
             if (!pkColumnsNames.isEmpty() && pkColumnsNames.size() != pkColumns.size() - positionOffset) { // Then a column name in the primary key constraint wasn't resolved
-                Iterator<Pair<ColumnName,ColumnModifier>> pkColumnNamesIterator = pkColumnsNames.iterator();
-                while (pkColumnNamesIterator.hasNext()) {
-                    ColumnName colName = pkColumnNamesIterator.next().getFirst();
+                for (Pair<ColumnName, ColumnModifier> pkColumnsName : pkColumnsNames) {
+                    ColumnName colName = pkColumnsName.getFirst();
                     ColumnDef colDef = findColumnDefOrNull(colDefs, colName);
                     if (colDef == null) {
                         throw new ColumnNotFoundException(schemaName, tableName, null, colName.getColumnName());
                     }
                     if (colDef.getColumnDefName().getFamilyName() != null) {
                         throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_WITH_FAMILY_NAME)
-                        .setColumnName(colDef.getColumnDefName().getColumnName() ).setFamilyName(colDef.getColumnDefName().getFamilyName()).build().buildException();
+                                .setColumnName(colDef.getColumnDefName().getColumnName()).setFamilyName(colDef.getColumnDefName().getFamilyName()).build().buildException();
                     }
                 }
                 // The above should actually find the specific one, but just in case...
@@ -1356,7 +1354,7 @@ public class MetaDataClient {
                                 indexColumnsToDrop.add(indexColumn);
                                 columnsToDrop.add(new ColumnRef(tableRef, columnToDrop.getPosition()));
                             }
-                        } catch (ColumnNotFoundException e) {
+                        } catch (ColumnNotFoundException ignored) {
                         }
                     }
                     if(!indexColumnsToDrop.isEmpty()) {

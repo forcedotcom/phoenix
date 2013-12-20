@@ -70,22 +70,21 @@ public class DecimalSubtractExpression extends SubtractExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal result = null;
-        for (int i=0; i<children.size(); i++) {
-            Expression childExpr = children.get(i);
-            if (!childExpr.evaluate(tuple, ptr)) { 
+        for (Expression childExpr : children) {
+            if (!childExpr.evaluate(tuple, ptr)) {
                 return false;
             }
             if (ptr.getLength() == 0) {
                 return true;
             }
-            
+
             PDataType childType = childExpr.getDataType();
             boolean isDate = childType.isCoercibleTo(PDataType.DATE);
             ColumnModifier childColumnModifier = childExpr.getColumnModifier();
             BigDecimal bd = isDate ?
                     BigDecimal.valueOf(childType.getCodec().decodeLong(ptr, childColumnModifier)) :
-                    (BigDecimal)PDataType.DECIMAL.toObject(ptr, childType, childColumnModifier);
-            
+                    (BigDecimal) PDataType.DECIMAL.toObject(ptr, childType, childColumnModifier);
+
             if (result == null) {
                 result = bd;
             } else {

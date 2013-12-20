@@ -40,7 +40,7 @@ import com.salesforce.hbase.index.write.KillServerOnFailurePolicy;
 public class StoreFailuresInCachePolicy implements IndexFailurePolicy {
 
   private KillServerOnFailurePolicy delegate;
-  private PerRegionIndexWriteCache cache;
+  private final PerRegionIndexWriteCache cache;
   private HRegion region;
 
   /**

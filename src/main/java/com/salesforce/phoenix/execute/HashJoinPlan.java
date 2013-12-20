@@ -59,10 +59,10 @@ import com.salesforce.phoenix.util.SQLCloseable;
 
 public class HashJoinPlan implements QueryPlan {
     
-    private BasicQueryPlan plan;
-    private HashJoinInfo joinInfo;
-    private List<Expression>[] hashExpressions;
-    private QueryPlan[] hashPlans;
+    private final BasicQueryPlan plan;
+    private final HashJoinInfo joinInfo;
+    private final List<Expression>[] hashExpressions;
+    private final QueryPlan[] hashPlans;
     
     public HashJoinPlan(BasicQueryPlan plan, HashJoinInfo joinInfo,
             List<Expression>[] hashExpressions, QueryPlan[] hashPlans) {

@@ -43,8 +43,8 @@ import com.salesforce.phoenix.index.BaseIndexCodec;
  */
 public class CoveredIndexCodecForTesting extends BaseIndexCodec {
 
-  private List<IndexUpdate> deletes = new ArrayList<IndexUpdate>();
-  private List<IndexUpdate> updates = new ArrayList<IndexUpdate>();
+  private final List<IndexUpdate> deletes = new ArrayList<IndexUpdate>();
+  private final List<IndexUpdate> updates = new ArrayList<IndexUpdate>();
 
   public void addIndexDelete(IndexUpdate... deletes) {
     this.deletes.addAll(Arrays.asList(deletes));

@@ -49,11 +49,11 @@ public class TestApplyAndFilterDeletesFilter {
 
   private static final Set<ImmutableBytesPtr> EMPTY_SET = Collections
       .<ImmutableBytesPtr> emptySet();
-  private byte[] row = Bytes.toBytes("row");
-  private byte[] family = Bytes.toBytes("family");
-  private byte[] qualifier = Bytes.toBytes("qualifier");
-  private byte[] value = Bytes.toBytes("value");
-  private long ts = 10;
+  private final byte[] row = Bytes.toBytes("row");
+  private final byte[] family = Bytes.toBytes("family");
+  private final byte[] qualifier = Bytes.toBytes("qualifier");
+  private final byte[] value = Bytes.toBytes("value");
+  private final long ts = 10;
 
   @Test
   public void testDeletesAreNotReturned() {

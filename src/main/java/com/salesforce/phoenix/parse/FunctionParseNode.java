@@ -371,7 +371,7 @@ public class FunctionParseNode extends CompoundParseNode {
                 } catch (ClassNotFoundException e) {
                     try {
                         clazz = Class.forName(argument.enumeration());
-                    } catch (ClassNotFoundException e1) {
+                    } catch (ClassNotFoundException ignored) {
                     }
                 }
                 if (clazz == null || !clazz.isEnum()) {

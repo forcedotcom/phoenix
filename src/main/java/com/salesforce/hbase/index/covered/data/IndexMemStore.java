@@ -85,8 +85,8 @@ import com.salesforce.hbase.index.covered.LocalTableState;
 public class IndexMemStore implements KeyValueStore {
 
   private static final Log LOG = LogFactory.getLog(IndexMemStore.class);
-  private IndexKeyValueSkipListSet kvset;
-  private Comparator<KeyValue> comparator;
+  private final IndexKeyValueSkipListSet kvset;
+  private final Comparator<KeyValue> comparator;
 
   /**
    * Compare two {@link KeyValue}s based only on their row keys. Similar to the standard

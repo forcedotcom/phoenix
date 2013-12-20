@@ -28,8 +28,8 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
  */
 public class ScannerBuilder {
 
-  private KeyValueStore memstore;
-  private Mutation update;
+  private final KeyValueStore memstore;
+  private final Mutation update;
 
 
   public ScannerBuilder(KeyValueStore memstore, Mutation update) {

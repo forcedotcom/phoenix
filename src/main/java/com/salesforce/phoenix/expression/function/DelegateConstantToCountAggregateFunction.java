@@ -68,10 +68,7 @@ abstract public class DelegateConstantToCountAggregateFunction extends SingleAgg
             return super.evaluate(tuple, ptr);
         }
         delegate.evaluate(tuple, ptr);
-        if (PDataType.LONG.compareTo(ptr,ZERO) == 0) {
-            return false;
-        }
-        return true;
+        return PDataType.LONG.compareTo(ptr, ZERO) != 0;
     }
 
 

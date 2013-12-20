@@ -45,13 +45,13 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class ClientKeyValue extends KeyValue {
 
-  private static ImmutableBytesWritable NULL = new ImmutableBytesWritable(new byte[0]);
-  private ImmutableBytesWritable row;
-  private ImmutableBytesWritable family;
-  private ImmutableBytesWritable qualifier;
-  private Type type;
+  private static final ImmutableBytesWritable NULL = new ImmutableBytesWritable(new byte[0]);
+  private final ImmutableBytesWritable row;
+  private final ImmutableBytesWritable family;
+  private final ImmutableBytesWritable qualifier;
+  private final Type type;
   private long ts;
-  private ImmutableBytesWritable value;
+  private final ImmutableBytesWritable value;
 
   /**
    * @param row must not be <tt>null</tt>
@@ -200,10 +200,7 @@ public class ClientKeyValue extends KeyValue {
   @Override
   public boolean matchingFamily(byte[] family) {
     if (family == null) {
-      if (this.family.getLength() == 0) {
-        return true;
-      }
-      return false;
+        return this.family.getLength() == 0;
     }
     return matchingFamily(family, 0, family.length);
   }
@@ -211,10 +208,7 @@ public class ClientKeyValue extends KeyValue {
   @Override
   public boolean matchingFamily(byte[] family, int offset, int length) {
     if (family == null) {
-      if (this.family.getLength() == 0) {
-        return true;
-      }
-      return false;
+        return this.family.getLength() == 0;
     }
     return matches(family, offset, length, this.family);
   }
@@ -238,10 +232,7 @@ public class ClientKeyValue extends KeyValue {
   @Override
   public boolean matchingQualifier(byte[] qualifier) {
     if (qualifier == null) {
-      if (this.qualifier.getLength() == 0) {
-        return true;
-      }
-      return false;
+        return this.qualifier.getLength() == 0;
     }
     return matchingQualifier(qualifier, 0, qualifier.length);
   }
@@ -249,10 +240,7 @@ public class ClientKeyValue extends KeyValue {
   @Override
   public boolean matchingQualifier(byte[] qualifier, int offset, int length) {
     if (qualifier == null) {
-      if (this.qualifier.getLength() == 0) {
-        return true;
-      }
-      return false;
+        return this.qualifier.getLength() == 0;
     }
     return matches(qualifier, offset, length, this.qualifier);
   }

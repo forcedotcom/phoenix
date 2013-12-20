@@ -55,15 +55,15 @@ public class TestPerRegionIndexWriteCache {
   private static final byte[] qual = Bytes.toBytes("qual");
   private static final byte[] val = Bytes.toBytes("val");
 
-  Put p = new Put(row);
-  Put p2 = new Put(Bytes.toBytes("other row"));
+  final Put p = new Put(row);
+  final Put p2 = new Put(Bytes.toBytes("other row"));
   {
     p.add(family, qual, val);
     p2.add(family, qual, val);
   }
 
 
-  HRegion r1 = new HRegion() {
+  final HRegion r1 = new HRegion() {
     @Override
     public int hashCode() {
       return 1;
@@ -74,7 +74,7 @@ public class TestPerRegionIndexWriteCache {
       return "testRegion1";
     }
   };
-  HRegion r2 = new HRegion() {
+  final HRegion r2 = new HRegion() {
     @Override
     public int hashCode() {
       return 2;

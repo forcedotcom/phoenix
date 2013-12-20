@@ -52,8 +52,8 @@ import com.salesforce.hbase.index.covered.update.ColumnTracker;
  */
 public class ColumnTrackingNextLargestTimestampFilter extends FilterBase {
 
-  private long ts;
-  private ColumnTracker column;
+  private final long ts;
+  private final ColumnTracker column;
 
   public ColumnTrackingNextLargestTimestampFilter(long maxTime, ColumnTracker toTrack) {
     this.ts = maxTime;

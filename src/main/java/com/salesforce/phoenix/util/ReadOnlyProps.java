@@ -28,8 +28,8 @@ public class ReadOnlyProps implements Iterable<Entry<String, String>> {
         this.props = ImmutableMap.copyOf(map);
     }
 
-    private static Pattern varPat = Pattern.compile("\\$\\{[^\\}\\$\u0020]+\\}");
-    private static int MAX_SUBST = 20;
+    private static final Pattern varPat = Pattern.compile("\\$\\{[^\\}\\$\u0020]+\\}");
+    private static final int MAX_SUBST = 20;
 
     private String substituteVars(String expr) {
         if (expr == null) {
@@ -47,7 +47,7 @@ public class ReadOnlyProps implements Iterable<Entry<String, String>> {
           String val = null;
           try {
             val = System.getProperty(var);
-          } catch(SecurityException se) {
+          } catch(SecurityException ignored) {
           }
           if (val == null) {
             val = getRaw(var);

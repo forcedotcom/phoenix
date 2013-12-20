@@ -37,7 +37,7 @@ import com.salesforce.hbase.index.table.HTableInterfaceReference;
 @SuppressWarnings("serial")
 public class MultiIndexWriteFailureException extends IndexWriteException {
 
-  private List<HTableInterfaceReference> failures;
+  private final List<HTableInterfaceReference> failures;
 
   /**
    * @param failures the tables to which the index write did not succeed

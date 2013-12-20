@@ -311,9 +311,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> {
             // Spilled elements exhausted
             // Finally return all elements from LRU cache
             Map.Entry<ImmutableBytesPtr, Aggregator[]> entry = cacheIter.next();
-            CacheEntry ce = new SpillManager.CacheEntry(entry.getKey(),
-                    entry.getValue());
-            return ce;
+            return new CacheEntry(entry.getKey(), entry.getValue());
         }
 
         /**

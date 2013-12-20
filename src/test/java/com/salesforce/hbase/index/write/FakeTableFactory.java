@@ -15,7 +15,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 class FakeTableFactory implements HTableFactory {
 
   boolean shutdown = false;
-  private Map<ImmutableBytesPtr, HTableInterface> tables;
+  private final Map<ImmutableBytesPtr, HTableInterface> tables;
 
   public FakeTableFactory(Map<ImmutableBytesPtr, HTableInterface> tables) {
     this.tables = tables;

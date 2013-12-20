@@ -301,7 +301,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (existingTable.getTimeStamp() >= table.getTimeStamp()) {
                 return latestMetaData;
             }
-        } catch (TableNotFoundException e) {
+        } catch (TableNotFoundException ignored) {
         }
         synchronized(latestMetaDataLock) {
             latestMetaData = latestMetaData.addTable(table);
@@ -339,7 +339,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                             logger.warn("Attempt to cache older version of " + tableName + ": current= " + table.getSequenceNumber() + ", new=" + tableSeqNum);
                             break;
                         }
-                    } catch (TableNotFoundException e) {
+                    } catch (TableNotFoundException ignored) {
                     }
                     long waitTime = endTime - System.currentTimeMillis();
                     // We waited long enough - just remove the table from the cache

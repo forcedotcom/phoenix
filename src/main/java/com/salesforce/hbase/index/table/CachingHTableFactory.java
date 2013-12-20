@@ -85,9 +85,10 @@ public class CachingHTableFactory implements HTableFactory {
   private static final String CACHE_SIZE_KEY = "index.tablefactory.cache.size";
   private static final int DEFAULT_CACHE_SIZE = 10;
 
-  private HTableFactory delegate;
+  private final HTableFactory delegate;
 
   @SuppressWarnings("rawtypes")
+  final
   Map openTables;
 
   public CachingHTableFactory(HTableFactory tableFactory, Configuration conf) {

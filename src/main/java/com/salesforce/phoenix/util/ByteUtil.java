@@ -156,14 +156,14 @@ public class ByteUtil {
 
     public static byte[] serializeVIntArray(int[] intArray, int encodedLength) {
         int size = WritableUtils.getVIntSize(encodedLength);
-        for (int i = 0; i < intArray.length; i++) {
-            size += WritableUtils.getVIntSize(intArray[i]);
+        for (int anIntArray : intArray) {
+            size += WritableUtils.getVIntSize(anIntArray);
         }
         int offset = 0;
         byte[] out = new byte[size];
         offset += ByteUtil.vintToBytes(out, offset, size);
-        for (int i = 0; i < intArray.length; i++) {
-            offset += ByteUtil.vintToBytes(out, offset, intArray[i]);
+        for (int anIntArray : intArray) {
+            offset += ByteUtil.vintToBytes(out, offset, anIntArray);
         }
         return out;
     }
@@ -181,8 +181,8 @@ public class ByteUtil {
      */
     public static void serializeVIntArray(DataOutput output, int[] intArray, int encodedLength) throws IOException {
         WritableUtils.writeVInt(output, encodedLength);
-        for (int i = 0; i < intArray.length; i++) {
-            WritableUtils.writeVInt(output, intArray[i]);
+        for (int anIntArray : intArray) {
+            WritableUtils.writeVInt(output, anIntArray);
         }
     }
 
@@ -195,8 +195,8 @@ public class ByteUtil {
     }
 
     public static void writeFixedLengthLongArray(DataOutput output, long[] longArray) throws IOException {
-        for (int i = 0; i < longArray.length; i++) {
-            output.writeLong(longArray[i]);
+        for (long aLongArray : longArray) {
+            output.writeLong(aLongArray);
         }
     }
 

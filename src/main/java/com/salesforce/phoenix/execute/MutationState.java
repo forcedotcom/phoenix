@@ -76,7 +76,7 @@ import com.salesforce.phoenix.util.ServerUtil;
 public class MutationState implements SQLCloseable {
     private static final Logger logger = LoggerFactory.getLogger(MutationState.class);
 
-    private PhoenixConnection connection;
+    private final PhoenixConnection connection;
     private final long maxSize;
     private final ImmutableBytesPtr tempPtr = new ImmutableBytesPtr();
     private final Map<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> mutations = Maps.newHashMapWithExpectedSize(3); // TODO: Sizing?
@@ -168,15 +168,13 @@ public class MutationState implements SQLCloseable {
     
     private Iterator<Pair<byte[],List<Mutation>>> addRowMutations(final TableRef tableRef, final Map<ImmutableBytesPtr, Map<PColumn, byte[]>> values, long timestamp, boolean includeMutableIndexes) {
         final List<Mutation> mutations = Lists.newArrayListWithExpectedSize(values.size());
-        Iterator<Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>>> iterator = values.entrySet().iterator();
-        while (iterator.hasNext()) {
-            Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry = iterator.next();
+        for (Entry<ImmutableBytesPtr, Map<PColumn, byte[]>> rowEntry : values.entrySet()) {
             ImmutableBytesPtr key = rowEntry.getKey();
             PRow row = tableRef.getTable().newRow(timestamp, key);
             if (rowEntry.getValue() == null) { // means delete
                 row.delete();
             } else {
-                for (Map.Entry<PColumn,byte[]> valueEntry : rowEntry.getValue().entrySet()) {
+                for (Entry<PColumn, byte[]> valueEntry : rowEntry.getValue().entrySet()) {
                     row.setValue(valueEntry.getKey(), valueEntry.getValue());
                 }
             }
@@ -235,7 +233,7 @@ public class MutationState implements SQLCloseable {
         final long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
         return new Iterator<Pair<byte[],List<Mutation>>>() {
             private Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> current = iterator.next();
-            private Iterator<Pair<byte[],List<Mutation>>> innerIterator = init();
+            private final Iterator<Pair<byte[],List<Mutation>>> innerIterator = init();
                     
             private Iterator<Pair<byte[],List<Mutation>>> init() {
                 return addRowMutations(current.getKey(), current.getValue(), timestamp, includeMutableIndexes);

@@ -82,8 +82,7 @@ public class SaltingUtil {
     // Generate the bucket byte given a byte array and the number of buckets.
     public static byte getSaltingByte(byte[] value, int offset, int length, int bucketNum) {
         int hash = hashCode(value, offset, length);
-        byte bucketByte = (byte) ((Math.abs(hash) % bucketNum));
-        return bucketByte;
+        return (byte) ((Math.abs(hash) % bucketNum));
     }
 
     private static int hashCode(byte a[], int offset, int length) {

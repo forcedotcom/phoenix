@@ -195,41 +195,29 @@ public class PDataTypeTest {
 
         long i = 10;
         long maxl = (1L << 62);
-        try {
-            for (; i < 100; i++) {
-                double d = Math.pow(2, i);
-                if ((long)d > maxl) {
-                    assertTrue(i > 62);
-                    continue;
-                }
-                long l = (1L << i) - 1;
-                assertTrue(l + 1L == (long)d);
-                assertTrue(l < (long)d);
+        for (; i < 100; i++) {
+            double d = Math.pow(2, i);
+            if ((long)d > maxl) {
+                assertTrue(i > 62);
+                continue;
             }
-        } catch (AssertionError t) {
-            throw t;
+            long l = (1L << i) - 1;
+            assertTrue(l + 1L == (long)d);
+            assertTrue(l < (long)d);
         }
         double d = 0.0;
-        try {
-            while (d <= 1024) {
-                double d1 = Long.MAX_VALUE;
-                double d2 = Long.MAX_VALUE + d;
-                assertTrue(d2 == d1);
-                d++;
-            }
-        } catch (AssertionError t) {
-            throw t;
+        while (d <= 1024) {
+            double d1 = Long.MAX_VALUE;
+            double d2 = Long.MAX_VALUE + d;
+            assertTrue(d2 == d1);
+            d++;
         }
         d = 0.0;
-        try {
-            while (d >= -1024) {
-                double d1 = Long.MIN_VALUE;
-                double d2 = Long.MIN_VALUE + d;
-                assertTrue(d2 == d1);
-                d--;
-            }
-        } catch (AssertionError t) {
-            throw t;
+        while (d >= -1024) {
+            double d1 = Long.MIN_VALUE;
+            double d2 = Long.MIN_VALUE + d;
+            assertTrue(d2 == d1);
+            d--;
         }
         double d1 = Long.MAX_VALUE;
         double d2 = Long.MAX_VALUE + 1024.0;
@@ -950,8 +938,8 @@ public class PDataTypeTest {
         });
 
         List<byte[]> byteValues = new ArrayList<byte[]>();
-        for (int i = 0; i < values.size(); i++) {
-            byteValues.add(PDataType.DECIMAL.toBytes(values.get(i)));
+        for (BigDecimal value : values) {
+            byteValues.add(PDataType.DECIMAL.toBytes(value));
         }
 
         for (int i = 0; i < values.size(); i++) {
@@ -1518,9 +1506,9 @@ public class PDataTypeTest {
                 new BigDecimal("0.1111111111111111111111111111111"),
         };
 
-        for (int i=0; i<bds.length; i++) {
-            testReadDecimalPrecisionAndScaleFromRawBytes(bds[i]);
-            testReadDecimalPrecisionAndScaleFromRawBytes(bds[i].negate());
+        for (BigDecimal decimal : bds) {
+            testReadDecimalPrecisionAndScaleFromRawBytes(decimal);
+            testReadDecimalPrecisionAndScaleFromRawBytes(decimal.negate());
         }
     }
     

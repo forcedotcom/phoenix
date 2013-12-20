@@ -65,11 +65,11 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 public class ApplyAndFilterDeletesFilter extends FilterBase {
 
   private boolean done = false;
-  List<ImmutableBytesPtr> families;
+  private final List<ImmutableBytesPtr> families;
   private final DeleteTracker coveringDelete = new DeleteTracker();
   private Hinter currentHint;
-  private DeleteColumnHinter columnHint = new DeleteColumnHinter();
-  private DeleteFamilyHinter familyHint = new DeleteFamilyHinter();
+  private final DeleteColumnHinter columnHint = new DeleteColumnHinter();
+  private final DeleteFamilyHinter familyHint = new DeleteFamilyHinter();
   
   /**
    * Setup the filter to only include the given families. This allows us to seek intelligently pass

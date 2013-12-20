@@ -35,7 +35,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 public class SingleKeyValueTuple implements Tuple {
     private static final byte[] UNITIALIZED_KEY_BUFFER = new byte[0];
     private KeyValue keyValue;
-    private ImmutableBytesWritable keyPtr = new ImmutableBytesWritable(UNITIALIZED_KEY_BUFFER);
+    private final ImmutableBytesWritable keyPtr = new ImmutableBytesWritable(UNITIALIZED_KEY_BUFFER);
     
     public SingleKeyValueTuple() {
     }

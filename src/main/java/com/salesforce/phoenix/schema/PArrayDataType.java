@@ -93,11 +93,8 @@ public class PArrayDataType {
 
 	private boolean calculateMaxOffset(int size) {
 		// If the total size + Offset postion ptr + Numelements in Vint is less than Short
-		if ((size + Bytes.SIZEOF_INT + MAX_POSSIBLE_VINT_LENGTH) <= (2 * Short.MAX_VALUE)) {
-			return true;
-		}
-		return false;
-	}
+        return (size + Bytes.SIZEOF_INT + MAX_POSSIBLE_VINT_LENGTH) <= (2 * Short.MAX_VALUE);
+    }
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
 		if(byteSize == null) {

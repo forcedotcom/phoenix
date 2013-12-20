@@ -48,8 +48,7 @@ public abstract class BaseCompoundExpression extends BaseExpression {
     
     public BaseCompoundExpression(List<? extends Expression> children) {
         this.children = ImmutableList.copyOf(children);
-        for (int i = 0; i < children.size(); i++) {
-            Expression child = children.get(i);
+        for (Expression child : children) {
             if (child.isNullable()) {
                 isNullable = true;
             }
@@ -80,8 +79,7 @@ public abstract class BaseCompoundExpression extends BaseExpression {
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         BaseCompoundExpression other = (BaseCompoundExpression)obj;
-        if (!children.equals(other.children)) return false;
-        return true;
+        return children.equals(other.children);
     }
 
     @Override
@@ -100,8 +98,7 @@ public abstract class BaseCompoundExpression extends BaseExpression {
     @Override
     public void write(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, children.size());
-        for (int i = 0; i < children.size(); i++) {
-            Expression child = children.get(i);
+        for (Expression child : children) {
             WritableUtils.writeVInt(output, ExpressionType.valueOf(child).ordinal());
             child.write(output);
         }
@@ -109,8 +106,8 @@ public abstract class BaseCompoundExpression extends BaseExpression {
 
     @Override
     public void reset() {
-        for (int i = 0; i < children.size(); i++) {
-            children.get(i).reset();
+        for (Expression aChildren : children) {
+            aChildren.reset();
         }
     }
     

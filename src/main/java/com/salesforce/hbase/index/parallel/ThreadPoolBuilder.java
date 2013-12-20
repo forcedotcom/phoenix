@@ -43,8 +43,8 @@ public class ThreadPoolBuilder {
   private static final int DEFAULT_MAX_THREADS = 1;// is there a better default?
   private Pair<String, Long> timeout;
   private Pair<String, Integer> maxThreads;
-  private String name;
-  private Configuration conf;
+  private final String name;
+  private final Configuration conf;
 
   public ThreadPoolBuilder(String poolName, Configuration conf) {
     this.name = poolName;

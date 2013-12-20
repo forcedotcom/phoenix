@@ -125,8 +125,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
 
     private static TableRef getTableRef(Connection conn, long ts) throws SQLException {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
-        TableRef table = new TableRef(null,pconn.getPMetaData().getTable(SchemaUtil.getTableName(STABLE_SCHEMA_NAME, STABLE_NAME)),ts, false);
-        return table;
+        return new TableRef(null,pconn.getPMetaData().getTable(SchemaUtil.getTableName(STABLE_SCHEMA_NAME, STABLE_NAME)),ts, false);
     }
     
     private static List<KeyRange> getSplits(Connection conn, long ts, final Scan scan)
@@ -237,19 +236,15 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
             if (detector.isChanged()) {
                 return true;
             }
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                throw e;
-            }
+            Thread.sleep(500);
         } while (System.currentTimeMillis() - startTime < maxWaitTimeMs);
         return false;
     }
 
     private static class MinKeyChange implements ChangeDetector {
-        private byte[] value;
-        private StatsManager stats;
-        private TableRef table;
+        private final byte[] value;
+        private final StatsManager stats;
+        private final TableRef table;
         
         public MinKeyChange(StatsManager stats, TableRef table) {
             this.value = stats.getMinKey(table);
@@ -263,9 +258,9 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
     }
 
     private static class MaxKeyChange implements ChangeDetector {
-        private byte[] value;
-        private StatsManager stats;
-        private TableRef table;
+        private final byte[] value;
+        private final StatsManager stats;
+        private final TableRef table;
         
         public MaxKeyChange(StatsManager stats, TableRef table) {
             this.value = stats.getMaxKey(table);

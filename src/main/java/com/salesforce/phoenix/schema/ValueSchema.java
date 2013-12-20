@@ -240,7 +240,7 @@ public abstract class ValueSchema implements Writable {
     }
     
     public abstract static class ValueSchemaBuilder {
-        protected List<Field> fields = new ArrayList<Field>();
+        protected final List<Field> fields = new ArrayList<Field>();
         protected int nFields = Integer.MAX_VALUE;
         protected final int minNullable;
         
@@ -285,8 +285,8 @@ public abstract class ValueSchema implements Writable {
     public void serialize(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, minNullable);
         WritableUtils.writeVInt(output, fields.size());
-        for (int i = 0; i < fields.size(); i++) {
-            fields.get(i).write(output);
+        for (Field field : fields) {
+            field.write(output);
         }
     }
     
@@ -337,8 +337,8 @@ public abstract class ValueSchema implements Writable {
     public void write(DataOutput out) throws IOException {
         WritableUtils.writeVInt(out, minNullable);
         WritableUtils.writeVInt(out, fields.size());
-        for (int i = 0; i < fields.size(); i++) {
-            fields.get(i).write(out);
+        for (Field field : fields) {
+            field.write(out);
         }
     }
 

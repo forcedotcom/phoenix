@@ -241,10 +241,10 @@ public class ScanUtil {
 
     public static int estimateMaximumKeyLength(RowKeySchema schema, int schemaStartIndex, List<List<KeyRange>> slots) {
         int maxLowerKeyLength = 0, maxUpperKeyLength = 0;
-        for (int i = 0; i < slots.size(); i++) {
+        for (List<KeyRange> slot : slots) {
             int maxLowerRangeLength = 0, maxUpperRangeLength = 0;
-            for (KeyRange range: slots.get(i)) {
-                maxLowerRangeLength = Math.max(maxLowerRangeLength, range.getLowerRange().length); 
+            for (KeyRange range : slot) {
+                maxLowerRangeLength = Math.max(maxLowerRangeLength, range.getLowerRange().length);
                 maxUpperRangeLength = Math.max(maxUpperRangeLength, range.getUpperRange().length);
             }
             int trailingByte = (schema.getField(schemaStartIndex).getDataType().isFixedWidth() ||
@@ -364,9 +364,8 @@ public class ScanUtil {
         if (ranges.size() < schema.getMaxFields()) {
             return false;
         }
-        for (int i = 0; i < ranges.size(); i++) {
-            List<KeyRange> orRanges = ranges.get(i);
-            for (KeyRange range: orRanges) {
+        for (List<KeyRange> orRanges : ranges) {
+            for (KeyRange range : orRanges) {
                 if (!range.isSingleKey()) {
                     return false;
                 }
@@ -408,8 +407,7 @@ public class ScanUtil {
         for (Mutation m : mutations) {
             keys.add(PDataType.VARBINARY.getKeyRange(m.getRow()));
         }
-        ScanRanges keyRanges = ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
-        return keyRanges;
+        return ScanRanges.create(Collections.singletonList(keys), SchemaUtil.VAR_BINARY_SCHEMA);
     }
 
     public static byte[] nextKey(byte[] key, PTable table, ImmutableBytesWritable ptr) {

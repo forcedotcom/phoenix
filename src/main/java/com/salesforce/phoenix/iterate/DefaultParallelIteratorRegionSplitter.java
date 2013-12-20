@@ -218,8 +218,8 @@ public class DefaultParallelIteratorRegionSplitter implements ParallelIteratorRe
         boolean done;
         do {
             done = true;
-            for (int j = 0; j < keyRangesList.size(); j++) {
-                List<KeyRange> keyRanges = (List<KeyRange>)keyRangesList.get(j);
+            for (Collection<KeyRange> aKeyRangesList : keyRangesList) {
+                List<KeyRange> keyRanges = (List<KeyRange>) aKeyRangesList;
                 if (i < keyRanges.size()) {
                     splits.add(keyRanges.get(i));
                     done = false;

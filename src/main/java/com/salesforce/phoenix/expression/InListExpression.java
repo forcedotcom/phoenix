@@ -62,7 +62,7 @@ public class InListExpression extends BaseSingleExpression {
     private int valuesByteLength;
     private boolean containsNull;
     private int fixedWidth = -1;
-    private ImmutableBytesPtr value = new ImmutableBytesPtr();
+    private final ImmutableBytesPtr value = new ImmutableBytesPtr();
     private List<Expression> keyExpressions; // client side only
 
     public static Expression create (List<Expression> children, ImmutableBytesWritable ptr) throws SQLException {

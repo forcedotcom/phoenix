@@ -46,7 +46,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  */
 public abstract class BaseStddevAggregator extends DistinctValueWithCountClientAggregator {
 
-    protected Expression stdDevColExp;
+    protected final Expression stdDevColExp;
     private BigDecimal cachedResult = null;
 
     public BaseStddevAggregator(List<Expression> exps, ColumnModifier columnModifier) {
