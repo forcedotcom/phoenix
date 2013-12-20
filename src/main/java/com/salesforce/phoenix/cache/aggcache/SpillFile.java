@@ -81,7 +81,14 @@ public class SpillFile implements Closeable {
             
             return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
         } catch (IOException ioe) {
+            // Close resource
+            close();
             throw new RuntimeException("Could not get page at index: " + index);
+        }
+        catch(IllegalArgumentException iae) {
+            // Close resource
+            close();
+            throw iae;
         }
     }
 
@@ -93,14 +100,20 @@ public class SpillFile implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
+        // Swallow IOException
         Closeables.closeQuietly(fc);
         Closeables.closeQuietly(file);
+        
         if (tempFile != null) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Deleting tempFIle: " + tempFile.getAbsolutePath());
             }
-            tempFile.delete();
+            try {
+                tempFile.delete();
+            } catch (SecurityException e) {
+                    logger.warn("IOException thrown while closing Closeable." + e);
+            }
             tempFile = null;
         }
     }

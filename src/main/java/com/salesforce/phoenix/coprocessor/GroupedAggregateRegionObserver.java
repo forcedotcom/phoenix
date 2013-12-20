@@ -62,6 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Iterators;
+import com.google.common.io.Closeables;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.cache.aggcache.GroupByCache;
@@ -239,6 +240,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         
         Configuration conf = c.getEnvironment().getConfiguration();
         final boolean spillableEnabled = conf.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
+        // TODO Refactor: GroupByCache implements AbstractMap.
+        // Implement entrySet() method such that only a single map is present here.
+        // Use a factory
+        GroupByCache gbCache = null;
         try {
             // TODO: spool map to disk if map becomes too big
             boolean hasMore;
@@ -248,10 +253,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 logger.debug("Spillable groupby enabled: "
                         + spillableEnabled);
             }
-            final GroupByCache gbCache = spillableEnabled ? new GroupByCache(chunk.getSize(),
-                    estValueSize, aggregators, c) : null;
-            Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(
-                    estDistVals);
+            if(spillableEnabled) {
+                gbCache = new GroupByCache(chunk.getSize(), estValueSize, aggregators, c);
+            }
+            Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(estDistVals);           
             HRegion region = c.getEnvironment().getRegion();
             MultiVersionConsistencyControl.setThreadReadPoint(s
                     .getMvccReadPoint());
@@ -348,6 +353,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             // points on old metadata), we'll get incorrect query results.
 
             // scanner using the spillable implementation
+            final GroupByCache cache = gbCache;
             RegionScanner scannerSpillable = new BaseRegionScanner() {
                 @Override
                 public HRegionInfo getRegionInfo() {
@@ -357,9 +363,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 @Override
                 public void close() throws IOException {
                     try {
-                        s.close();
-                        gbCache.close();
+                        s.close();                       
                     } finally {
+                        // Always close gbCache and swallow possible Exceptions
+                        Closeables.closeQuietly(cache);
                         chunk.close();
                     }
                 }
@@ -420,10 +427,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             if (!spillableEnabled) {
                 return scanner;
             }
-
             return scannerSpillable;
         } finally {
             if (!success) {
+             // Always close gbCache and swallow possible Exceptions
+                Closeables.closeQuietly(gbCache);
                 chunk.close();
             }
         }
