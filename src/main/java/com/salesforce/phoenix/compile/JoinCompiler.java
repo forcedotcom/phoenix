@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
+
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
@@ -278,6 +280,9 @@ public class JoinCompiler {
         private static void addProjectedColumn(List<PColumn> projectedColumns, List<Expression> sourceExpressions,
         		ListMultimap<String, String> columnNameMap, PColumn sourceColumn, TableRef sourceTable, PName familyName, boolean hasSaltingColumn) 
         throws SQLException {
+            if (sourceColumn == SALTING_COLUMN)
+                return;
+            
         	int position = projectedColumns.size() + (hasSaltingColumn ? 1 : 0);
         	PTable table = sourceTable.getTable();
         	PName colName = sourceColumn.getName();
