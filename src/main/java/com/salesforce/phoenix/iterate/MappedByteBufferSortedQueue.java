@@ -27,11 +27,18 @@
  ******************************************************************************/
 package com.salesforce.phoenix.iterate;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
-import java.util.*;
+import java.util.AbstractQueue;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Result;
@@ -271,7 +278,8 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
                     mappingSize = Math.min(Math.max(maxResultSize, DEFAULT_MAPPING_SIZE), totalResultSize);
                     writeBuffer = fc.map(MapMode.READ_WRITE, writeIndex, mappingSize);
                 
-                    for (int i = 0; i < results.size(); i++) {                
+                    int resSize = results.size();
+                    for (int i = 0; i < resSize; i++) {                
                         int totalLen = 0;
                         ResultEntry re = results.pollFirst();
                         List<KeyValue> keyValues = toKeyValues(re);

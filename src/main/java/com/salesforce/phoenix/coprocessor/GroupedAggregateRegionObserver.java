@@ -61,8 +61,8 @@ import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.cache.CacheStats;
 import com.google.common.collect.Iterators;
+import com.google.common.io.Closeables;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.cache.aggcache.GroupByCache;
@@ -240,6 +240,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         
         Configuration conf = c.getEnvironment().getConfiguration();
         final boolean spillableEnabled = conf.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
+        // TODO Refactor: GroupByCache implements AbstractMap.
+        // Implement entrySet() method such that only a single map is present here.
+        // Use a factory
+        GroupByCache gbCache = null;
         try {
             // TODO: spool map to disk if map becomes too big
             boolean hasMore;
@@ -249,10 +253,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 logger.debug("Spillable groupby enabled: "
                         + spillableEnabled);
             }
-            final GroupByCache gbCache = spillableEnabled ? new GroupByCache(chunk.getSize(),
-                    estValueSize, aggregators, c) : null;
-            Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(
-                    estDistVals);
+            if(spillableEnabled) {
+                gbCache = new GroupByCache(chunk.getSize(), estValueSize, aggregators, c);
+            }
+            Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = new HashMap<ImmutableBytesWritable, Aggregator[]>(estDistVals);           
             HRegion region = c.getEnvironment().getRegion();
             MultiVersionConsistencyControl.setThreadReadPoint(s
                     .getMvccReadPoint());
@@ -305,17 +309,6 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                     }
                 } while (hasMore);
 
-                // check on cache stats
-                if (spillableEnabled) {
-                    CacheStats stats = gbCache.cache.stats();
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Load time: " + stats.totalLoadTime());
-                        logger.debug("Load Penalty: " + stats.averageLoadPenalty());
-                        logger.debug("Load Count: " + stats.loadCount());
-                        logger.debug("Eviction Count: " + stats.evictionCount());
-                        logger.debug("HitRate: " + stats.hitRate());
-                    }
-                }
             } finally {
                 region.closeRegionOperation();
             }
@@ -360,6 +353,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             // points on old metadata), we'll get incorrect query results.
 
             // scanner using the spillable implementation
+            final GroupByCache cache = gbCache;
             RegionScanner scannerSpillable = new BaseRegionScanner() {
                 @Override
                 public HRegionInfo getRegionInfo() {
@@ -369,9 +363,10 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 @Override
                 public void close() throws IOException {
                     try {
-                        s.close();
-                        gbCache.close();
+                        s.close();                       
                     } finally {
+                        // Always close gbCache and swallow possible Exceptions
+                        Closeables.closeQuietly(cache);
                         chunk.close();
                     }
                 }
@@ -430,17 +425,13 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             success = true;
 
             if (!spillableEnabled) {
-                if (logger.isDebugEnabled()) {
-                    logger.debug("returning non spill iter");
-                }
                 return scanner;
-            }
-            if (logger.isDebugEnabled()) {
-                logger.debug("returning spill iter");
             }
             return scannerSpillable;
         } finally {
             if (!success) {
+             // Always close gbCache and swallow possible Exceptions
+                Closeables.closeQuietly(gbCache);
                 chunk.close();
             }
         }

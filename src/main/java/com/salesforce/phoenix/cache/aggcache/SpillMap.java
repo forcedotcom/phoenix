@@ -31,19 +31,21 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
 
     // threshold is typically the page size
     private final int thresholdBytes;
+    private final int pageInserts;    
     private MappedByteBufferMap byteMap = null;
     // Keep a list of bloomfilters, one for every page to quickly determine
     // which page determines the requested key
     private ArrayList<BloomFilter<byte[]>> bFilters;
     private SpillFile spillFile;
 
-    public SpillMap(SpillFile file, int thresholdBytes) throws IOException {
+    public SpillMap(SpillFile file, int thresholdBytes, int estValueSize) throws IOException {
         this.thresholdBytes = thresholdBytes;
+        this.pageInserts = thresholdBytes / estValueSize;
         this.spillFile = file;
         byteMap = MappedByteBufferMap.newMappedByteBufferMap(thresholdBytes,
                 spillFile);
         bFilters = Lists.newArrayList();
-        bFilters.add(BloomFilter.create(Funnels.byteArrayFunnel(), 1000));
+        bFilters.add(BloomFilter.create(Funnels.byteArrayFunnel(), pageInserts));
     }
 
     /**
@@ -62,9 +64,10 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
         int bucketIndex = 0;
 
         // Iterate over all pages
+        byte[] keyBytes = ikey.copyBytesIfNecessary();
         for (int i = 0; i <= spillFile.getMaxPageId(); i++) {
             // run in loop in case of false positives in bloom filter
-            bucketIndex = isKeyinPage(ikey, i);
+            bucketIndex = isKeyinPage(keyBytes, i);
             if (bucketIndex == -1) {
                 // key not contained in current bloom filter
                 continue;
@@ -105,7 +108,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
 
         MappedByteBufferMap byteMap = ensureSpace(spilledValue, value);        
         byteMap.addElement(spilledValue, key, value);
-        addKeyToBloomFilter(byteMap.getCurIndex(), key);
+        addKeyToBloomFilter(byteMap.getCurIndex(), key.copyBytesIfNecessary());
 
         return value;
     }
@@ -117,10 +120,10 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
         return spillFile;
     }
 
-    private int isKeyinPage(ImmutableBytesPtr key, int index) {
+    private int isKeyinPage(byte[] key, int index) {
         // use BloomFilter to determine if key is contained in page
         // prevent expensive IO
-        if (bFilters.get(index).mightContain(key.copyBytes())) {
+        if (bFilters.get(index).mightContain(key)) {
             return index;
         }
         return -1;
@@ -148,14 +151,14 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
             byteMap = MappedByteBufferMap.newMappedByteBufferMap(
                     thresholdBytes, spillFile);
             // Create new bloomfilter
-            bFilters.add(BloomFilter.create(Funnels.byteArrayFunnel(), 1000));
+            bFilters.add(BloomFilter.create(Funnels.byteArrayFunnel(), pageInserts));
         }
         return byteMap;
     }
 
-    private void addKeyToBloomFilter(int index, ImmutableBytesPtr key) {
+    private void addKeyToBloomFilter(int index, byte[] key) {
         BloomFilter<byte[]> bFilter = bFilters.get(index);
-        bFilter.put(key.copyBytes());
+        bFilter.put(key);
     }
 
     /**
