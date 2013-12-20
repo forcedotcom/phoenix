@@ -1169,4 +1169,28 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
         }
     }
+    
+    @Test
+    public void testTypeMismatchForArrayElem() throws Exception {
+        String query = "SELECT (a_string,a_date)[1] FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since a row value constructor is not an array");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
+    
+    @Test
+    public void testTypeMismatch2ForArrayElem() throws Exception {
+        String query = "SELECT ROUND(a_date, 'days', 1.23)[1] FROM aTable";
+        List<Object> binds = Collections.emptyList();
+        try {
+            compileQuery(query, binds);
+            fail("Compilation should have failed since ROUND does not return an array");
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        }
+    }
  }

@@ -175,13 +175,13 @@ public class QueryParserTest {
             "sales.account_cfdata cfa,\n" + 
             "core.name_denorm aval368\n" + 
             "where (cfa.account_cfdata_id = a.account_id)\n" + 
-            "and (aval368.entity_id (+) = cfa.val368)\n" + 
+            "and (aval368.entity_id = cfa.val368)\n" + 
             "and (a.deleted = '0')\n" + 
             "and (a.organization_id = '00D300000000EaE')\n" + 
             "and (a.account_id <> '000000000000000')\n" + 
             "and (cfa.organization_id = '00D300000000EaE')\n" + 
-            "and (aval368.organization_id (+) = '00D300000000EaE')\n" + 
-            "and (aval368.entity_id (+) like '005%'))\n" + 
+            "and (aval368.organization_id = '00D300000000EaE')\n" + 
+            "and (aval368.entity_id like '005%'))\n" + 
             "where (\"RECORDTYPE\" = '0123000000002Gv')\n" + 
             "AND (\"00N40000001M8VK\" is null or \"00N40000001M8VK\" in ('BRIAN IRWIN', 'BRIAN MILLER', 'COLLEEN HORNYAK', 'ERNIE ZAVORAL JR', 'JAMIE TRIMBUR', 'JOE ANTESBERGER', 'MICHAEL HYTLA', 'NATHAN DELSIGNORE', 'SANJAY GANDHI', 'TOM BASHIOUM'))\n" + 
             "AND (\"LAST_UPDATE\" >= to_date('2009-08-01 07:00:00'))"

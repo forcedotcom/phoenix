@@ -44,6 +44,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.primitives.Floats;
@@ -259,6 +260,34 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			conn.close();
 		}
 	}
+
+    @Test
+    @Ignore
+    public void testCaseWithArray() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        createTableWithArray(BaseConnectedQueryTest.getUrl(),
+                getDefaultSplits(tenantId), null, ts - 2);
+        initTablesWithArrays(tenantId, null, ts);
+        String query = "SELECT CASE WHEN A_INTEGER = 1 THEN a_double_array ELSE null END [2] FROM table_with_array";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+                Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            // Need to support primitive
+            Double[] doubleArr = new Double[1];
+            doubleArr[0] = 37.56;
+            Double result =  rs.getDouble(1);
+            assertEquals(result, doubleArr[0]);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
 
 	@Test
 	public void testArrayIndexUsedInWhereClause() throws Exception {

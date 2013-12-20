@@ -333,12 +333,8 @@ public class ParseNodeFactory {
         }
     }
     
-    public FunctionParseNode arrayElemRef(String name, List<ParseNode> n) {
-    	List<ParseNode> listNodes = new ArrayList<ParseNode>();
-    	ColumnParseNode columnNode = new ColumnParseNode(null, name);
-    	listNodes.add(columnNode);
-    	listNodes.add(n.get(0));
-    	return function(ARRAY_ELEM, listNodes);
+    public FunctionParseNode arrayElemRef(List<ParseNode> args) {
+    	return function(ARRAY_ELEM, args);
     }
 
     public FunctionParseNode function(String name, List<ParseNode> args) {

@@ -718,12 +718,16 @@ expression_negate returns [ParseNode ret]
 
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
-@init{ParseNode n;boolean isAscending=true;}
-    :   field=identifier oj=OUTER_JOIN? {n = factory.column(null,field,field); $ret = oj==null ? n : factory.outer(n); }
-    |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+    :   e=literal_or_bind_value { $ret = e; }
+    |   e=arrayable_expression_term (LSQUARE s=expression RSQUARE)?  { if (s == null) { $ret = e; } else { $ret = factory.arrayElemRef(Arrays.<ParseNode>asList(e,s)); } } 
+	;
+	    
+arrayable_expression_term returns [ParseNode ret]
+    :   field=identifier { $ret = factory.column(null,field,field); }
+    |   tableName=table_name DOT field=identifier { $ret = factory.column(tableName, field, field); }
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (a=ASC | DESC) RPAREN)?
         {
-            FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
+            FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,a!=null);
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         } 
@@ -742,8 +746,6 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
-    |   field=identifier LSQUARE e=expression RSQUARE  { $ret = factory.arrayElemRef(field, Collections.<ParseNode>singletonList(e));}    
-    |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN l=expression_terms RPAREN 
     	{ 
@@ -754,7 +756,7 @@ expression_term returns [ParseNode ret]
     			$ret = factory.rowValueConstructor(l);
     		}	 
     	}
-    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
+    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt); }
     ;
 
 expression_terms returns [List<ParseNode> ret]
