@@ -387,7 +387,7 @@ create_index_node returns [CreateIndexStatement ret]
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
-    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
+    :   COMMA? CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
     ;
 
 col_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
