@@ -27,8 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -444,6 +444,19 @@ public class QueryParserTest {
 
             assertEquals(2, stmt.getColumnDefs().size());
             assertNotNull(stmt.getPrimaryKeyConstraint());
+        }
+    }
+
+    @Test
+    public void testInvalidTrailingCommaOnCreateTable() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "create table foo (c1 varchar primary key, c2 varchar,)"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
         }
     }
 
