@@ -51,6 +51,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
@@ -241,17 +242,22 @@ public class JoinCompiler {
         	List<Expression> sourceExpressions = new ArrayList<Expression>();
         	ListMultimap<String, String> columnNameMap = ArrayListMultimap.<String, String>create();
             PTable table = tableRef.getTable();
+            boolean hasSaltingColumn = retainPKColumns && table.getBucketNum() != null;
+            if (hasSaltingColumn) {
+                // This serves a place-holder for the SALTING_COLUMN
+                sourceExpressions.add(LiteralExpression.NULL_EXPRESSION);
+            }
             if (retainPKColumns) {
             	for (PColumn column : table.getPKColumns()) {
             		addProjectedColumn(projectedColumns, sourceExpressions, columnNameMap,
-            				column, tableRef, column.getFamilyName());
+            				column, tableRef, column.getFamilyName(), hasSaltingColumn);
             	}
             }
             if (isWildCardSelect(select)) {
             	for (PColumn column : table.getColumns()) {
             		if (!retainPKColumns || !SchemaUtil.isPKColumn(column)) {
             			addProjectedColumn(projectedColumns, sourceExpressions, columnNameMap,
-            					column, tableRef, PNameFactory.newName(ScanProjector.VALUE_COLUMN_FAMILY));
+            					column, tableRef, PNameFactory.newName(ScanProjector.VALUE_COLUMN_FAMILY), hasSaltingColumn);
             		}
             	}
             } else {
@@ -260,19 +266,19 @@ public class JoinCompiler {
                             && (!retainPKColumns || !SchemaUtil.isPKColumn(columnRef.getColumn()))) {
                     	PColumn column = columnRef.getColumn();
             			addProjectedColumn(projectedColumns, sourceExpressions, columnNameMap,
-            					column, tableRef, PNameFactory.newName(ScanProjector.VALUE_COLUMN_FAMILY));
+            					column, tableRef, PNameFactory.newName(ScanProjector.VALUE_COLUMN_FAMILY), hasSaltingColumn);
                     }
                 }            	
             }
             
-            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), table.getBucketNum(), projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), null, null, null, table.isWALDisabled());
+            PTable t = PTableImpl.makePTable(PNameFactory.newName(PROJECTED_TABLE_SCHEMA), table.getName(), PTableType.JOIN, table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), table.getPKName(), retainPKColumns ? table.getBucketNum() : null, projectedColumns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), null, null, null, table.isWALDisabled());
             return new ProjectedPTableWrapper(t, columnNameMap, sourceExpressions);
         }
         
         private static void addProjectedColumn(List<PColumn> projectedColumns, List<Expression> sourceExpressions,
-        		ListMultimap<String, String> columnNameMap, PColumn sourceColumn, TableRef sourceTable, PName familyName) 
+        		ListMultimap<String, String> columnNameMap, PColumn sourceColumn, TableRef sourceTable, PName familyName, boolean hasSaltingColumn) 
         throws SQLException {
-        	int position = projectedColumns.size();
+        	int position = projectedColumns.size() + (hasSaltingColumn ? 1 : 0);
         	PTable table = sourceTable.getTable();
         	PName colName = sourceColumn.getName();
         	PName name = getProjectedColumnName(table.getSchemaName(), table.getTableName(), colName);
@@ -974,6 +980,9 @@ public class JoinCompiler {
     			merged.add(column);
     		}
     	}
+        if (left.getBucketNum() != null) {
+            merged.remove(0);
+        }
         PTable t = PTableImpl.makePTable(left.getSchemaName(), PNameFactory.newName(SchemaUtil.getTableName(left.getName().getString(), right.getName().getString())), left.getType(), left.getIndexState(), left.getTimeStamp(), left.getSequenceNumber(), left.getPKName(), left.getBucketNum(), merged, left.getParentTableName(), left.getIndexes(), left.isImmutableRows(), null, null, null, PTable.DEFAULT_DISABLE_WAL);
 
         ListMultimap<String, String> mergedMap = ArrayListMultimap.<String, String>create();
