@@ -218,6 +218,7 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     public void addElement(List<E> a, E element) {
     }
     
+    @Override
     public E visit(NextSequenceValueParseNode node) throws SQLException {			
 		return null;
 	}

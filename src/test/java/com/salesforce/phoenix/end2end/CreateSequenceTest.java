@@ -12,7 +12,6 @@ import java.util.Properties;
 import org.junit.Assert;
 import org.junit.Test;
 
-import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.TableName;
