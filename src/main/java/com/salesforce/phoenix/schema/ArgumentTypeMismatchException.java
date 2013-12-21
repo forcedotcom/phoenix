@@ -43,10 +43,10 @@ public class ArgumentTypeMismatchException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
     public ArgumentTypeMismatchException(PDataType expected, PDataType actual, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public ArgumentTypeMismatchException(String expected, String actual, String location) {
-        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: " + expected + " but was: " + actual + " at " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 }

@@ -68,7 +68,6 @@ import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -280,8 +279,7 @@ public class DeleteCompiler {
                             byte[] uuidValue = cache.getId();
                             context.getScan().setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
                         }
-                        Scanner scanner = aggPlan.getScanner();
-                        ResultIterator iterator = scanner.iterator();
+                        ResultIterator iterator = aggPlan.iterator();
                         try {
                             Tuple row = iterator.next();
                             final long mutationCount = (Long)projector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
@@ -328,8 +326,7 @@ public class DeleteCompiler {
 
                 @Override
                 public MutationState execute() throws SQLException {
-                    Scanner scanner = plan.getScanner();
-                    ResultIterator iterator = scanner.iterator();
+                    ResultIterator iterator = plan.iterator();
                     if (!hasLimit) {
                         Tuple tuple;
                         long totalRowCount = 0;

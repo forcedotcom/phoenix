@@ -25,67 +25,61 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
-import java.sql.Timestamp;
+import java.math.RoundingMode;
+import java.sql.SQLException;
+import java.util.List;
 
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.google.common.collect.Lists;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.tuple.Tuple;
 
-
-public class CeilingTimestampExpression extends BaseSingleExpression {
-    private static final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+/**
+ * 
+ * Class encapsulating the CEIL operation on a {@link com.salesforce.phoenix.schema.PDataType#DECIMAL}
+ *
+ * @author samarth.jain
+ * @since 3.0.0
+ */
+public class CeilDecimalExpression extends RoundDecimalExpression {
     
-    public CeilingTimestampExpression() {
+    public CeilDecimalExpression() {}
+    
+    public CeilDecimalExpression(List<Expression> children) {
+        super(children);
     }
     
-    public CeilingTimestampExpression(Expression child) {
-        super(child);
-    }
+  /**
+   * Creates a {@link CeilDecimalExpression} with rounding scale given by @param scale.
+   *
+   */
+   public static Expression create(Expression expr, int scale) throws SQLException {
+       if (expr.getDataType().isCoercibleTo(PDataType.LONG)) {
+           return expr;
+       }
+       Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
+       List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
+       return new CeilDecimalExpression(expressions);
+   }
+   
+   /**
+    * Creates a {@link CeilDecimalExpression} with a default scale of 0 used for rounding. 
+    *
+    */
+   public static Expression create(Expression expr) throws SQLException {
+       return create(expr, 0);
+   }
     
-    protected int getRoundUpAmount() {
-        return 1;
+    @Override
+    protected RoundingMode getRoundingMode() {
+        return RoundingMode.CEILING;
     }
     
     @Override
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Expression child = children.get(0);
-        if (child.evaluate(tuple, ptr)) {
-            PDataType childType = child.getDataType();
-            tempPtr.set(ptr.get(), ptr.getOffset(), ptr.getLength());
-            childType.coerceBytes(tempPtr, childType, child.getColumnModifier(), null);
-            Timestamp value = (Timestamp) childType.toObject(tempPtr);
-            if (value.getNanos() > 0) {
-                value = new Timestamp(value.getTime()+getRoundUpAmount());
-                byte[] b = childType.toBytes(value, child.getColumnModifier());
-                ptr.set(b);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    @Override
-    public final PDataType getDataType() {
-        return children.get(0).getDataType();
+    public String getName() {
+        return CeilFunction.NAME;
     }
     
-    @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        return getChild().accept(visitor);
-    }
-    
-    
-    @Override
-    public String toString() {
-        StringBuilder buf = new StringBuilder("CEIL(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
 }

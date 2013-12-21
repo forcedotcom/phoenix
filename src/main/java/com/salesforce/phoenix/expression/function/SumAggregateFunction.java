@@ -35,10 +35,13 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
-import com.salesforce.phoenix.expression.aggregator.*;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DecimalSumAggregator;
+import com.salesforce.phoenix.expression.aggregator.DoubleSumAggregator;
+import com.salesforce.phoenix.expression.aggregator.NumberSumAggregator;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
-import com.salesforce.phoenix.parse.*;
+import com.salesforce.phoenix.parse.SumAggregateParseNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
@@ -67,50 +70,47 @@ public class SumAggregateFunction extends DelegateConstantToCountAggregateFuncti
         super(childExpressions, delegate);
     }
     
-    @Override
-    public Aggregator newServerAggregator(Configuration conf) {
-        final PDataType type = getAggregatorExpression().getDataType();
-        ColumnModifier columnModifier = getAggregatorExpression().getColumnModifier();
+    private Aggregator newAggregator(final PDataType type, ColumnModifier columnModifier, ImmutableBytesWritable ptr) {
         switch( type ) {
             case DECIMAL:
-                return new DecimalSumAggregator(columnModifier);
+                return new DecimalSumAggregator(columnModifier, ptr);
             case UNSIGNED_DOUBLE:
             case UNSIGNED_FLOAT:
             case DOUBLE:
             case FLOAT:
-                return new DoubleSumAggregator(columnModifier) {
+                return new DoubleSumAggregator(columnModifier, ptr) {
                     @Override
                     protected PDataType getInputDataType() {
                         return type;
                     }
                 };
             default:
-                return new NumberSumAggregator(columnModifier) {
+                return new NumberSumAggregator(columnModifier, ptr) {
                     @Override
                     protected PDataType getInputDataType() {
                         return type;
                     }
                 };
-        }
-    }
-    
-    @Override
-    public Aggregator newClientAggregator() {
-        switch( getDataType() ) {
-            case DECIMAL:
-                // On the client, we'll always aggregate over non modified column values,
-                // because we always get them back from the server in their non modified
-                // form.
-                return new DecimalSumAggregator(null);
-            case LONG:
-                return new LongSumAggregator(null);
-            case DOUBLE:
-                return new DoubleSumAggregator(null);
-            default:
-                throw new IllegalStateException("Unexpected SUM type: " + getDataType());
         }
     }
 
+    @Override
+    public Aggregator newClientAggregator() {
+        return newAggregator(getDataType(), null, null);
+    }
+    
+    @Override
+    public Aggregator newServerAggregator(Configuration conf) {
+        Expression child = getAggregatorExpression();
+        return newAggregator(child.getDataType(), child.getColumnModifier(), null);
+    }
+    
+    @Override
+    public Aggregator newServerAggregator(Configuration conf, ImmutableBytesWritable ptr) {
+        Expression child = getAggregatorExpression();
+        return newAggregator(child.getDataType(), child.getColumnModifier(), ptr);
+    }
+    
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (!super.evaluate(tuple, ptr)) {

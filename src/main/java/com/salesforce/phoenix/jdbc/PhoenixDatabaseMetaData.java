@@ -60,10 +60,7 @@ import com.salesforce.phoenix.iterate.DelegateResultIterator;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.parse.HintNode.Hint;
-import com.salesforce.phoenix.query.DelegateScanner;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.query.Scanner;
-import com.salesforce.phoenix.query.WrappedScanner;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
@@ -183,8 +180,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
     
-    private static final Scanner EMPTY_SCANNER = new WrappedScanner(new MaterializedResultIterator(Collections.<Tuple>emptyList()), new RowProjector(Collections.<ColumnProjector>emptyList(), 0, true));
-    
     public static final String TYPE_SEQUENCE = "SEQUENCE";
     public static final String SEQUENCE_SCHEMA_COLUMN = "SEQUENCE_SCHEMA";
     public static final String SEQUENCE_NAME_COLUMN = "SEQUENCE_NAME";
@@ -202,7 +197,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final int CLIENT_KEY_VALUE_BUILDER_THRESHOLD = MetaDataUtil.encodeVersion("0", "94", "14");
 
     PhoenixDatabaseMetaData(PhoenixConnection connection) throws SQLException {
-        this.emptyResultSet = new PhoenixResultSet(EMPTY_SCANNER, new PhoenixStatement(connection));
+        this.emptyResultSet = new PhoenixResultSet(ResultIterator.EMPTY_ITERATOR, RowProjector.EMPTY_PROJECTOR, new PhoenixStatement(connection));
         this.connection = connection;
     }
 
@@ -615,8 +610,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 final byte[] rowNumberHolder = new byte[PDataType.INTEGER.getByteSize()];
                 return new PhoenixStatement(connection) {
                     @Override
-                    protected PhoenixResultSet newResultSet(Scanner scanner) throws SQLException {
-                        RowProjector projector = scanner.getProjection();
+                    protected PhoenixResultSet newResultSet(ResultIterator iterator, RowProjector projector) throws SQLException {
                         List<ColumnProjector> columns = new ArrayList<ColumnProjector>(projector.getColumnProjectors());
                         ColumnProjector column = columns.get(keySeqPosition);
                         
@@ -663,27 +657,17 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                                 column.isCaseSensitive())
                         );
                         final RowProjector newProjector = new RowProjector(columns, projector.getEstimatedRowByteSize(), projector.isProjectEmptyKeyValue());
-                        Scanner delegate = new DelegateScanner(scanner) {
-                            @Override
-                            public RowProjector getProjection() {
-                                return newProjector;
-                            }
-                            @Override
-                            public ResultIterator iterator() throws SQLException {
-                                return new DelegateResultIterator(super.iterator()) {
-                                    private int rowCount = 0;
+                        ResultIterator delegate = new DelegateResultIterator(iterator) {
+                            private int rowCount = 0;
 
-                                    @Override
-                                    public Tuple next() throws SQLException {
-                                        // Ignore first row, since it's the table row
-                                        PDataType.INTEGER.toBytes(rowCount++, rowNumberHolder, 0);
-                                        return super.next();
-                                    }
-                                };
+                            @Override
+                            public Tuple next() throws SQLException {
+                                // Ignore first row, since it's the table row
+                                PDataType.INTEGER.toBytes(rowCount++, rowNumberHolder, 0);
+                                return super.next();
                             }
-
                         };
-                        return new PhoenixResultSet(delegate, this);
+                        return new PhoenixResultSet(delegate, newProjector, this);
                     }
                     
                 };
@@ -830,10 +814,9 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             TABLE_TYPE_TUPLES.add(new SingleKeyValueTuple(KeyValueUtil.newKeyValue(tableType.getValue().getBytes(), TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, MetaDataProtocol.MIN_TABLE_TIMESTAMP, ByteUtil.EMPTY_BYTE_ARRAY)));
         }
     }
-    private static final Scanner TABLE_TYPE_SCANNER = new WrappedScanner(new MaterializedResultIterator(TABLE_TYPE_TUPLES),TABLE_TYPE_ROW_PROJECTOR);
     @Override
     public ResultSet getTableTypes() throws SQLException {
-        return new PhoenixResultSet(TABLE_TYPE_SCANNER, new PhoenixStatement(connection));
+        return new PhoenixResultSet(new MaterializedResultIterator(TABLE_TYPE_TUPLES), TABLE_TYPE_ROW_PROJECTOR, new PhoenixStatement(connection));
     }
 
     /**

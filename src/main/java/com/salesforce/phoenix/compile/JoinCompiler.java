@@ -68,11 +68,9 @@ import com.salesforce.phoenix.parse.FunctionParseNode;
 import com.salesforce.phoenix.parse.InListParseNode;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.JoinTableNode;
-import com.salesforce.phoenix.parse.NamedTableNode;
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.parse.TableNodeVisitor;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.LikeParseNode;
+import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.NotParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
 import com.salesforce.phoenix.parse.OrderByNode;
@@ -80,7 +78,9 @@ import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.StatelessTraverseAllParseNodeVisitor;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.parse.TableNode;
+import com.salesforce.phoenix.parse.TableNodeVisitor;
 import com.salesforce.phoenix.parse.TraverseNoParseNodeVisitor;
 import com.salesforce.phoenix.parse.WildcardParseNode;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -532,19 +532,51 @@ public class JoinCompiler {
                     .setMessage("On-clause LHS expression and RHS expression must be comparable. LHS type: " + lType + ", RHS type: " + rType)
                     .build().buildException();
 
+            // TODO: Does the type need to be nullable?
+            
+            if ((lType == null || lType.isCoercibleTo(PDataType.TINYINT))
+                    && (rType == null || rType.isCoercibleTo(PDataType.TINYINT))) {
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.SMALLINT))
+                    && (rType == null || rType.isCoercibleTo(PDataType.SMALLINT))) {
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.INTEGER))
+                    && (rType == null || rType.isCoercibleTo(PDataType.INTEGER))) {
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.LONG))
+                    && (rType == null || rType.isCoercibleTo(PDataType.LONG))) {
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
+            }
+
             if ((lType == null || lType.isCoercibleTo(PDataType.DECIMAL))
                     && (rType == null || rType.isCoercibleTo(PDataType.DECIMAL))) {
                 return PDataType.DECIMAL;
             }
 
+            if ((lType == null || lType.isCoercibleTo(PDataType.DATE))
+                    && (rType == null || rType.isCoercibleTo(PDataType.DATE))) {
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
+            }
+
             if ((lType == null || lType.isCoercibleTo(PDataType.TIMESTAMP))
                     && (rType == null || rType.isCoercibleTo(PDataType.TIMESTAMP))) {
-                return PDataType.TIMESTAMP;
+                return lType == null ? rType : lType; // to preserve UNSIGNED type
             }
 
             if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
                     && (rType == null || rType.isCoercibleTo(PDataType.VARCHAR))) {
                 return PDataType.VARCHAR;
+            }
+
+            if ((lType == null || lType.isCoercibleTo(PDataType.BOOLEAN))
+                    && (rType == null || rType.isCoercibleTo(PDataType.BOOLEAN))) {
+                return PDataType.BOOLEAN;
             }
 
             return PDataType.VARBINARY;

@@ -111,7 +111,7 @@ public class RegexEventSerializer extends BaseEventSerializer {
                    
                    value = m.group(i + 1);
                    sqlType = columnMetadata[offset].getSqlType();
-                   Object upsertValue = PDataType.fromSqlType(sqlType).toObject(value);
+                   Object upsertValue = PDataType.fromTypeId(sqlType).toObject(value);
                    if (upsertValue != null) {
                        colUpsert.setObject(index++, upsertValue, sqlType);
                    } else {
@@ -126,7 +126,7 @@ public class RegexEventSerializer extends BaseEventSerializer {
                    String headerName  = headers.get(i);
                    String headerValue = headerValues.get(headerName);
                    sqlType = columnMetadata[offset].getSqlType();
-                   Object upsertValue = PDataType.fromSqlType(sqlType).toObject(headerValue);
+                   Object upsertValue = PDataType.fromTypeId(sqlType).toObject(headerValue);
                    if (upsertValue != null) {
                        colUpsert.setObject(index++, upsertValue, sqlType);
                    } else {
@@ -137,7 +137,7 @@ public class RegexEventSerializer extends BaseEventSerializer {
                if(autoGenerateKey) {
                    sqlType = columnMetadata[offset].getSqlType();
                    String generatedRowValue = this.keyGenerator.generate();
-                   Object rowkeyValue = PDataType.fromSqlType(sqlType).toObject(generatedRowValue);
+                   Object rowkeyValue = PDataType.fromTypeId(sqlType).toObject(generatedRowValue);
                    colUpsert.setObject(index++, rowkeyValue ,sqlType);
                } 
                colUpsert.execute();

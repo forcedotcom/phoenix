@@ -66,7 +66,7 @@
     <hbase.version>0.94.12</hbase.version>
     <commons-cli.version>1.2</commons-cli.version>
     <hadoop.version>1.0.4</hadoop.version>
-    <pig.version>0.11.0</pig.version>
+    <pig.version>0.12.0</pig.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
     <opencsv.version>2.3</opencsv.version>
@@ -332,7 +332,7 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.16</version>
           <configuration>
-              <argLine>-enableassertions -Xmx2000m -Djava.security.egd=file:/dev/./urandom</argLine>
+              <argLine>-enableassertions -Xmx2250m -Djava.security.egd=file:/dev/./urandom</argLine>
               <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
           </configuration>
       </plugin>

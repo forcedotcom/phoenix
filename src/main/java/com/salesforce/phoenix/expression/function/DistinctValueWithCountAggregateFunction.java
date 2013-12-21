@@ -25,33 +25,34 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.expression;
+package com.salesforce.phoenix.expression.function;
 
+import java.util.List;
 
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-public class FloorTimestampExpression extends CeilingTimestampExpression {
-    
-    public FloorTimestampExpression() {
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.aggregator.Aggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountClientAggregator;
+import com.salesforce.phoenix.expression.aggregator.DistinctValueWithCountServerAggregator;
+
+public abstract class DistinctValueWithCountAggregateFunction extends SingleAggregateFunction {
+
+    public DistinctValueWithCountAggregateFunction() {
     }
-    
-    public FloorTimestampExpression(Expression child) {
-        super(child);
+
+    public DistinctValueWithCountAggregateFunction(List<Expression> children) {
+        super(children);
     }
+
+    @Override
+    abstract public DistinctValueWithCountClientAggregator newClientAggregator();
     
     @Override
-    protected int getRoundUpAmount() {
-        return 0;
+    public Aggregator newServerAggregator(Configuration config, ImmutableBytesWritable ptr) {
+        DistinctValueWithCountClientAggregator clientAgg = newClientAggregator();
+        clientAgg.aggregate(null, ptr);
+        return new DistinctValueWithCountServerAggregator(config, clientAgg);
     }
-
-    
-    @Override
-    public final String toString() {
-        StringBuilder buf = new StringBuilder("FLOOR(");
-        for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(getChild().toString());
-        }
-        buf.append(")");
-        return buf.toString();
-    }
-    
 }

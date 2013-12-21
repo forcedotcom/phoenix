@@ -96,6 +96,7 @@ tokens
     UNUSABLE='unusable';
     DISABLE='disable';
     REBUILD='rebuild';
+    ARRAY='array';
     SEQUENCE='sequence';
     START='start';
     WITH='with';
@@ -402,7 +403,7 @@ create_sequence_node returns [CreateSequenceStatement ret]
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
-    :   CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
+    :   COMMA? CONSTRAINT n=identifier PRIMARY KEY LPAREN cols=col_name_with_mod_list RPAREN { $ret = factory.primaryKey(n,cols); }
     ;
 
 col_name_with_mod_list returns [List<Pair<ColumnName, ColumnModifier>> ret]
@@ -492,8 +493,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        { $ret = factory.columnDef(c, dt, n==null,
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (ar=ARRAY (LSQUARE (a=NUMBER)? RSQUARE))? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, ar != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
@@ -733,12 +734,16 @@ expression_negate returns [ParseNode ret]
 
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
-@init{ParseNode n;boolean isAscending=true;}
-    :   field=identifier oj=OUTER_JOIN? {n = factory.column(null,field,field); $ret = oj==null ? n : factory.outer(n); }
-    |   tableName=table_name DOT field=identifier oj=OUTER_JOIN? {n = factory.column(tableName, field, field); $ret = oj==null ? n : factory.outer(n); }
-    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (ASC {isAscending = true;} | DESC {isAscending = false;}) RPAREN)?
+    :   e=literal_or_bind_value { $ret = e; }
+    |   e=arrayable_expression_term (LSQUARE s=expression RSQUARE)?  { if (s == null) { $ret = e; } else { $ret = factory.arrayElemRef(Arrays.<ParseNode>asList(e,s)); } } 
+	;
+	    
+arrayable_expression_term returns [ParseNode ret]
+    :   field=identifier { $ret = factory.column(null,field,field); }
+    |   tableName=table_name DOT field=identifier { $ret = factory.column(tableName, field, field); }
+    |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (a=ASC | DESC) RPAREN)?
         {
-            FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,isAscending);
+            FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,a!=null);
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         } 
@@ -757,7 +762,6 @@ expression_term returns [ParseNode ret]
             contextStack.peek().setAggregate(f.isAggregate());
             $ret = f;
         }
-    |   e=literal_or_bind_value oj=OUTER_JOIN? { n = e; $ret = oj==null ? n : factory.outer(n); }
     |   e=case_statement { $ret = e; }
     |   LPAREN l=expression_terms RPAREN 
     	{ 
@@ -768,7 +772,7 @@ expression_term returns [ParseNode ret]
     			$ret = factory.rowValueConstructor(l);
     		}	 
     	}
-    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt);}
+    |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt); }
     |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}    
     ;
 

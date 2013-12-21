@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.List;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FloorParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -47,20 +48,26 @@ import com.salesforce.phoenix.schema.PDataType;
  * @author jtaylor
  * @since 0.1
  */
-@BuiltInFunction(name="TRUNC", args= {
-    @Argument(allowedTypes={PDataType.TIME}),
-    @Argument(enumeration="TimeUnit"),
-    @Argument(allowedTypes={PDataType.INTEGER}, isConstant=true, defaultValue="1")} )
-public class TruncFunction extends RoundFunction {
-    public TruncFunction() {
-    }
+@BuiltInFunction(name = TruncFunction.NAME,
+nodeClass = FloorParseNode.class,
+args = {
+       @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+       @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+       @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+       } 
+)
+public abstract class TruncFunction extends ScalarFunction {
     
-    public TruncFunction(List<Expression> node) throws SQLException {
-        super(node);
-    }
+    public static final String NAME = "TRUNC";
     
+    public TruncFunction(List<Expression> children) throws SQLException {
+        super(children);
+    }
+
     @Override
-    protected long getRoundUpAmount() {
-        return 0;
+    public String getName() {
+        return NAME;
     }
+    
+    
 }

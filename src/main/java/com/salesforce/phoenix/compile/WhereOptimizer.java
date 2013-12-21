@@ -1032,7 +1032,7 @@ public class WhereOptimizer {
                     rhs = RowValueConstructorExpression.coerce(rvc, rhs, new ExpressionComparabilityWrapper() {
 
                         @Override
-                        public Expression wrap(final Expression lhs, final Expression rhs) {
+                        public Expression wrap(final Expression lhs, final Expression rhs) throws SQLException {
                             final KeyPart childPart = keySlotsIterator.next().iterator().next().getKeyPart();
                             // TODO: DelegateExpression
                             return new BaseTerminalExpression() {

@@ -122,14 +122,13 @@ public class QueryMetaDataTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testRoundParameterMetaData() throws Exception {
-        String query = "SELECT a_string, b_string FROM atable WHERE round(a_date,?,?) = ?";
+        String query = "SELECT a_string, b_string FROM atable WHERE round(a_date,'day', ?) = ?";
         Connection conn = DriverManager.getConnection(getUrl(), TestUtil.TEST_PROPERTIES);
         PreparedStatement statement = conn.prepareStatement(query);
         ParameterMetaData pmd = statement.getParameterMetaData();
-        assertEquals(3, pmd.getParameterCount());
-        assertEquals(String.class.getName(), pmd.getParameterClassName(1));
-        assertEquals(Integer.class.getName(), pmd.getParameterClassName(2));
-        assertEquals(Date.class.getName(), pmd.getParameterClassName(3));
+        assertEquals(2, pmd.getParameterCount());
+        assertEquals(Integer.class.getName(), pmd.getParameterClassName(1));
+        assertEquals(Date.class.getName(), pmd.getParameterClassName(2));
     }
 
     @Test

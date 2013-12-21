@@ -29,7 +29,10 @@
 package com.salesforce.phoenix.pig;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.sql.Types;
 
 import org.apache.pig.builtin.Utf8StorageConverter;
 import org.apache.pig.data.DataByteArray;
@@ -159,14 +162,24 @@ public class TypeUtil {
         case CHAR:
         case VARCHAR:
             return utf8Converter.bytesToCharArray(bytes);
+        case UNSIGNED_SMALLINT:
+        case SMALLINT:
+            return utf8Converter.bytesToInteger(bytes).shortValue();
+        case UNSIGNED_TINYINT:
+        case TINYINT:
+            return utf8Converter.bytesToInteger(bytes).byteValue();
         case UNSIGNED_INT:
         case INTEGER:
             return utf8Converter.bytesToInteger(bytes);
         case BOOLEAN:
             return utf8Converter.bytesToBoolean(bytes);
-//        case DECIMAL: not in Pig v 0.11.0, so using double for now
-//            return utf8Converter.bytesToBigDecimal(bytes);
         case DECIMAL:
+            return utf8Converter.bytesToBigDecimal(bytes);
+        case FLOAT:
+        case UNSIGNED_FLOAT:
+            return utf8Converter.bytesToFloat(bytes);
+        case DOUBLE:
+        case UNSIGNED_DOUBLE:
             return utf8Converter.bytesToDouble(bytes);
         case UNSIGNED_LONG:
         case LONG:
@@ -174,6 +187,9 @@ public class TypeUtil {
         case TIME:
         case TIMESTAMP:
         case DATE:
+        case UNSIGNED_TIME:
+        case UNSIGNED_TIMESTAMP:
+        case UNSIGNED_DATE:
         	return utf8Converter.bytesToDateTime(bytes);
         default:
         	return o;

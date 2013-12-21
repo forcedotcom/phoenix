@@ -25,54 +25,40 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.query;
+package com.salesforce.phoenix.expression.function;
 
 import java.util.List;
 
-import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.ExplainPlan;
-import com.salesforce.phoenix.compile.RowProjector;
-import com.salesforce.phoenix.iterate.ResultIterator;
-
-
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FloorParseNode;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 /**
- * Wrapper for ResultScanner to enable joins and aggregations to be composable.
+ * 
+ * Base class for built-in FLOOR function.
  *
- * @author jtaylor
- * @since 0.1
+ * @author samarth.jain
+ * @since 3.0.0
  */
-public class WrappedScanner implements Scanner {
-    public static final int DEFAULT_ESTIMATED_SIZE = 10 * 1024; // 10 K
-
-    private final ResultIterator scanner;
-    private final RowProjector projector;
-    // TODO: base on stats
-    private static final int estimatedSize = DEFAULT_ESTIMATED_SIZE;
-
-    public WrappedScanner(ResultIterator scanner, RowProjector projector) {
-        this.scanner = scanner;
-        this.projector = projector;
-    }
-
-    @Override
-    public int getEstimatedSize() {
-        return estimatedSize;
+@BuiltInFunction(name = FloorFunction.NAME,
+                 nodeClass = FloorParseNode.class,
+                 args = {
+                        @Argument(allowedTypes={PDataType.TIMESTAMP, PDataType.DECIMAL}),
+                        @Argument(allowedTypes={PDataType.VARCHAR, PDataType.INTEGER}, defaultValue = "null", isConstant=true),
+                        @Argument(allowedTypes={PDataType.INTEGER}, defaultValue="1", isConstant=true)
+                        } 
+                )
+public abstract class FloorFunction extends ScalarFunction {
+    
+    public static final String NAME = "FLOOR";
+    
+    public FloorFunction(List<Expression> children) {
+        super(children);
     }
     
     @Override
-    public ResultIterator iterator() {
-        return scanner;
-    }
-
-    @Override
-    public RowProjector getProjection() {
-        return projector;
-    }
-    
-    @Override
-    public ExplainPlan getExplainPlan() {
-        List<String> planSteps = Lists.newArrayListWithExpectedSize(5);
-        scanner.explain(planSteps);
-        return new ExplainPlan(planSteps);
+    public String getName() {
+        return NAME;
     }
 }

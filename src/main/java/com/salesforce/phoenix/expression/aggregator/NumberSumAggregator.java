@@ -34,42 +34,55 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.SizedUtil;
 
-
 /**
  * 
  * Aggregator that sums integral number values
- *
+ * 
  * @author jtaylor
  * @since 0.1
  */
 abstract public class NumberSumAggregator extends BaseAggregator {
     private long sum = 0;
     private byte[] buffer;
-    
+
     public NumberSumAggregator(ColumnModifier columnModifier) {
         super(columnModifier);
     }
 
+    public NumberSumAggregator(ColumnModifier columnModifier,
+            ImmutableBytesWritable ptr) {
+        this(columnModifier);
+        if (ptr != null) {
+            initBuffer();
+            sum = PDataType.LONG.getCodec().decodeLong(ptr, columnModifier);
+        }
+    }
+
+    public long getSum() {
+        return sum;
+    }
+
     abstract protected PDataType getInputDataType();
-    
+
     private int getBufferLength() {
         return getDataType().getByteSize();
     }
-    
+
     private void initBuffer() {
         buffer = new byte[getBufferLength()];
     }
-        
+
     @Override
     public void aggregate(Tuple tuple, ImmutableBytesWritable ptr) {
         // Get either IntNative or LongNative depending on input type
-        long value = getInputDataType().getCodec().decodeLong(ptr, columnModifier);
+        long value = getInputDataType().getCodec().decodeLong(ptr,
+                columnModifier);
         sum += value;
         if (buffer == null) {
             initBuffer();
         }
     }
-    
+
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         if (buffer == null) {
@@ -82,12 +95,12 @@ abstract public class NumberSumAggregator extends BaseAggregator {
         getDataType().getCodec().encodeLong(sum, ptr);
         return true;
     }
-    
+
     @Override
     public final PDataType getDataType() {
         return PDataType.LONG;
     }
-    
+
     @Override
     public void reset() {
         sum = 0;
@@ -102,6 +115,8 @@ abstract public class NumberSumAggregator extends BaseAggregator {
 
     @Override
     public int getSize() {
-        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE + getBufferLength();
+        return super.getSize() + SizedUtil.LONG_SIZE + SizedUtil.ARRAY_SIZE
+                + getBufferLength();
     }
+
 }

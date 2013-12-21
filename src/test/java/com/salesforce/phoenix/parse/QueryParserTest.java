@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.parse;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -174,13 +175,13 @@ public class QueryParserTest {
             "sales.account_cfdata cfa,\n" + 
             "core.name_denorm aval368\n" + 
             "where (cfa.account_cfdata_id = a.account_id)\n" + 
-            "and (aval368.entity_id (+) = cfa.val368)\n" + 
+            "and (aval368.entity_id = cfa.val368)\n" + 
             "and (a.deleted = '0')\n" + 
             "and (a.organization_id = '00D300000000EaE')\n" + 
             "and (a.account_id <> '000000000000000')\n" + 
             "and (cfa.organization_id = '00D300000000EaE')\n" + 
-            "and (aval368.organization_id (+) = '00D300000000EaE')\n" + 
-            "and (aval368.entity_id (+) like '005%'))\n" + 
+            "and (aval368.organization_id = '00D300000000EaE')\n" + 
+            "and (aval368.entity_id like '005%'))\n" + 
             "where (\"RECORDTYPE\" = '0123000000002Gv')\n" + 
             "AND (\"00N40000001M8VK\" is null or \"00N40000001M8VK\" in ('BRIAN IRWIN', 'BRIAN MILLER', 'COLLEEN HORNYAK', 'ERNIE ZAVORAL JR', 'JAMIE TRIMBUR', 'JOE ANTESBERGER', 'MICHAEL HYTLA', 'NATHAN DELSIGNORE', 'SANJAY GANDHI', 'TOM BASHIOUM'))\n" + 
             "AND (\"LAST_UPDATE\" >= to_date('2009-08-01 07:00:00'))"
@@ -423,7 +424,7 @@ public class QueryParserTest {
     @Test
     public void testParseCreateTablePrimaryKeyConstraintWithOrder() throws Exception {
     	for (String order : new String[]{"asc", "desc", ""}) {
-    		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150) constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
+    		String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150), constraint pk primary key (id ${o}, name ${o}))".replace("${o}", order);
     		CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
     		PrimaryKeyConstraint pkConstraint = stmt.getPrimaryKeyConstraint();
     		List<Pair<ColumnName,ColumnModifier>> columns = pkConstraint.getColumnNames();
@@ -432,6 +433,31 @@ public class QueryParserTest {
     			assertEquals(ColumnModifier.fromDDLValue(order), pkConstraint.getColumn(pair.getFirst()).getSecond());
     		}    		
     	}
+    }
+
+    @Test
+    public void testParseCreateTableCommaBeforePrimaryKeyConstraint() throws Exception {
+        for (String leadingComma : new String[]{",", ""}) {
+            String s = "create table core.entity_history_archive (id CHAR(15), name VARCHAR(150)${o} constraint pk primary key (id))".replace("${o}", leadingComma);
+
+            CreateTableStatement stmt = (CreateTableStatement)new SQLParser(new StringReader(s)).parseStatement();
+
+            assertEquals(2, stmt.getColumnDefs().size());
+            assertNotNull(stmt.getPrimaryKeyConstraint());
+        }
+    }
+
+    @Test
+    public void testInvalidTrailingCommaOnCreateTable() throws Exception {
+        SQLParser parser = new SQLParser(
+                new StringReader(
+                        "create table foo (c1 varchar primary key, c2 varchar,)"));
+        try {
+            parser.parseStatement();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
+        }
     }
 
     @Test

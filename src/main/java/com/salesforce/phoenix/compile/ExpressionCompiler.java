@@ -72,7 +72,6 @@ import com.salesforce.phoenix.expression.RowValueConstructorExpression;
 import com.salesforce.phoenix.expression.StringConcatExpression;
 import com.salesforce.phoenix.expression.TimestampAddExpression;
 import com.salesforce.phoenix.expression.TimestampSubtractExpression;
-import com.salesforce.phoenix.expression.function.FunctionExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.ArithmeticParseNode;
@@ -430,13 +429,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
     /**
-     * Add a Function expression to the expression manager.
-     * Derived classes may use this as a hook to trap all function additions.
-     * @return a Function expression
-     * @throws SQLException if the arguments are invalid for the function.
+     * Add expression to the expression manager, returning the same one if
+     * already used.
      */
-    protected Expression addFunction(FunctionExpression func) {
-        return context.getExpressionManager().addIfAbsent(func);
+    protected Expression addExpression(Expression expression) {
+        return context.getExpressionManager().addIfAbsent(expression);
     }
 
     @Override
@@ -446,12 +443,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
      */
     public Expression visitLeave(FunctionParseNode node, List<Expression> children) throws SQLException {
         children = node.validate(children, context);
-        FunctionExpression func = node.create(children, context);
+        Expression expression = node.create(children, context);
+        ImmutableBytesWritable ptr = context.getTempPtr();
         if (node.isConstant()) {
-            ImmutableBytesWritable ptr = context.getTempPtr();
             Object value = null;
-            PDataType type = func.getDataType();
-            if (func.evaluate(null, ptr)) {
+            PDataType type = expression.getDataType();
+            if (expression.evaluate(null, ptr)) {
                 value = type.toObject(ptr);
             }
             return LiteralExpression.newConstant(value, type);
@@ -463,13 +460,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             // we can get the proper type to use.
             if (node.evalToNullIfParamIsNull(context, i)) {
                 Expression child = children.get(i);
-                if (child instanceof LiteralExpression
-                        && ((LiteralExpression)child).getValue() == null) {
-                    return LiteralExpression.newConstant(null, func.getDataType());
+                if (child.isConstant() && (!child.evaluate(null, ptr) || ptr.getLength() == 0)) {
+                    return LiteralExpression.newConstant(null, expression.getDataType());
                 }
             }
         }
-        Expression expression = addFunction(func);
+        expression = addExpression(expression);
         expression = wrapGroupByExpression(expression);
         if (aggregateFunction == node) {
             aggregateFunction = null; // Turn back off on the way out
@@ -661,24 +657,30 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(CastParseNode node, List<Expression> children) throws SQLException {
-        final ParseNode childNode = node.getChildren().get(0);
-        final Expression child = children.get(0);
-        final PDataType dataType = child.getDataType();
-        final PDataType targetDataType = node.getDataType();
-
+        ParseNode childNode = node.getChildren().get(0);
+        PDataType targetDataType = node.getDataType();
+        Expression childExpr = children.get(0);
+        PDataType fromDataType = childExpr.getDataType();
+        
         if (childNode instanceof BindParseNode) {
-            context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
+            context.getBindManager().addParamMetaData((BindParseNode)childNode, childExpr);
         }
-        if (dataType!= null && targetDataType != null && !dataType.isCoercibleTo(targetDataType)) {
-            // TODO: remove soon. Allow cast for indexes, as we know what we're doing :-)
+        
+        Expression expr = childExpr;
+        if(fromDataType != null) {
+            /*
+             * IndexStatementRewriter creates a CAST parse node when rewriting the query to use
+             * indexed columns. Without this check present we wrongly and unnecessarily
+             * end up creating a RoundExpression. 
+             */
             if (context.getResolver().getTables().get(0).getTable().getType() != PTableType.INDEX) {
-                throw new TypeMismatchException(dataType, targetDataType, child.toString());
+                expr =  CastParseNode.convertToRoundExpressionIfNeeded(fromDataType, targetDataType, children);
             }
         }
-        return wrapGroupByExpression(CoerceExpression.create(child, targetDataType)); 
+        return CoerceExpression.create(expr, targetDataType); 
     }
-
-    @Override
+    
+   @Override
     public boolean visitEnter(InListParseNode node) throws SQLException {
         return true;
     }
@@ -942,10 +944,12 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 boolean isType1Date = 
                         type1 != null 
                         && type1 != PDataType.TIMESTAMP
+                        && type1 != PDataType.UNSIGNED_TIMESTAMP
                         && type1.isCoercibleTo(PDataType.DATE);
                 boolean isType2Date = 
                         type2 != null
                         && type2 != PDataType.TIMESTAMP
+                        && type2 != PDataType.UNSIGNED_TIMESTAMP
                         && type2.isCoercibleTo(PDataType.DATE);
                 if (isType1Date || isType2Date) {
                     if (isType1Date && isType2Date) {
@@ -967,6 +971,9 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 } else if(type1 == PDataType.TIMESTAMP || type2 == PDataType.TIMESTAMP) {
                     i = 2;
                     theType = PDataType.TIMESTAMP;
+                } else if(type1 == PDataType.UNSIGNED_TIMESTAMP || type2 == PDataType.UNSIGNED_TIMESTAMP) {
+                    i = 2;
+                    theType = PDataType.UNSIGNED_TIMESTAMP;
                 }
                 
                 for (; i < children.size(); i++) {
@@ -1005,7 +1012,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     return new DoubleSubtractExpression(children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
-                } else if (theType == PDataType.TIMESTAMP) {
+                } else if (theType == PDataType.TIMESTAMP || theType == PDataType.UNSIGNED_TIMESTAMP) {
                     return new TimestampSubtractExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
@@ -1072,7 +1079,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         if (foundDate) {
                             throw new TypeMismatchException(type, node.toString());
                         }
-                        if (theType == null || theType != PDataType.TIMESTAMP) {
+                        if (theType == null || (theType != PDataType.TIMESTAMP && theType != PDataType.UNSIGNED_TIMESTAMP)) {
                             theType = type;
                         }
                         foundDate = true;
@@ -1100,7 +1107,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                     return new DoubleAddExpression(children);
                 } else if (theType == null) {
                     return LiteralExpression.newConstant(null, theType);
-                } else if (theType == PDataType.TIMESTAMP) {
+                } else if (theType == PDataType.TIMESTAMP || theType == PDataType.UNSIGNED_TIMESTAMP) {
                     return new TimestampAddExpression(children);
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateAddExpression(children);

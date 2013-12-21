@@ -76,7 +76,6 @@ import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
-import com.salesforce.phoenix.query.Scanner;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
@@ -463,8 +462,7 @@ public class UpsertCompiler {
                                     byte[] uuidValue = cache.getId();
                                     scan.setAttribute(PhoenixIndexCodec.INDEX_UUID, uuidValue);
                                 }
-                                Scanner scanner = aggPlan.getScanner();
-                                ResultIterator iterator = scanner.iterator();
+                                ResultIterator iterator = aggPlan.iterator();
                                 try {
                                     Tuple row = iterator.next();
                                     final long mutationCount = (Long)aggProjector.getColumnProjector(0).getValue(row, PDataType.LONG, ptr);
@@ -513,8 +511,7 @@ public class UpsertCompiler {
 
                 @Override
                 public MutationState execute() throws SQLException {
-                    Scanner scanner = queryPlan.getScanner();
-                    ResultIterator iterator = scanner.iterator();
+                    ResultIterator iterator = queryPlan.iterator();
                     if (upsertParallelIteratorFactory == null) {
                         return upsertSelect(statement, tableRef, projector, iterator, columnIndexes, pkSlotIndexes);
                     }

@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.expression.aggregator;
 
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.util.SizedUtil;
@@ -54,5 +56,12 @@ public abstract class BaseAggregator extends BaseTerminalExpression implements A
     @Override
     public int getSize() {
         return SizedUtil.OBJECT_SIZE;
+    }
+    
+    ImmutableBytesWritable evalClientAggs(Aggregator clientAgg) {
+        CountAggregator ca = (CountAggregator)clientAgg;
+        ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        ca.evaluate(null, ptr);
+        return ptr;
     }
 }
