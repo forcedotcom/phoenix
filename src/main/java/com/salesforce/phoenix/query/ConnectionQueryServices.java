@@ -91,5 +91,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     boolean hasInvalidIndexConfiguration();
     
+    boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy) throws SQLException;
+    boolean dropSequence(String schemaName, String sequenceName) throws SQLException;
     Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException;
 }

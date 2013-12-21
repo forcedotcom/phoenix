@@ -196,11 +196,6 @@ public class PhoenixRuntime {
             String connectionUrl = JDBC_PROTOCOL + JDBC_PROTOCOL_SEPARATOR + args[i++];
             conn = DriverManager.getConnection(connectionUrl, props).unwrap(PhoenixConnection.class);
             
-            if (SchemaUtil.upgradeColumnCount(connectionUrl, props) > 0) {
-                SchemaUtil.upgradeTo2(conn);
-                return;
-            }
-            
             for (; i < args.length; i++) {
                 String fileName = args[i];
                 if (fileName.endsWith(SQL_FILE_EXT)) {

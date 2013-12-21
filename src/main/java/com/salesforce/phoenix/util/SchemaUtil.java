@@ -27,27 +27,9 @@
  ******************************************************************************/
 package com.salesforce.phoenix.util;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SALT_BUCKETS;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -55,15 +37,12 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -76,17 +55,13 @@ import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -100,7 +75,6 @@ import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.SaltingUtil;
@@ -115,7 +89,6 @@ import com.salesforce.phoenix.schema.SaltingUtil;
  * @since 0.1
  */
 public class SchemaUtil {
-    private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     private static final int VAR_LENGTH_ESTIMATE = 10;
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
@@ -279,6 +252,14 @@ public class SchemaUtil {
         l3.addAll(l1);
         l3.addAll(l2);
         return l3;
+    }
+
+    public static byte[] getSequenceKey(byte[] schemaName, byte[] sequenceName) {
+        return ByteUtil.concat(schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, sequenceName);
+    }
+
+    public static byte[] getSequenceKey(String schemaName, String sequenceName) {
+        return getSequenceKey(Bytes.toBytes(schemaName), Bytes.toBytes(sequenceName));
     }
 
     /**
@@ -446,6 +427,10 @@ public class SchemaUtil {
         return Bytes.compareTo(tableName, TYPE_TABLE_NAME_BYTES) == 0;
     }
     
+    public static boolean isSequenceTable(byte[] tableName) {
+        return Bytes.compareTo(tableName, PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES) == 0;
+    }
+
     public static boolean isMetaTable(byte[] schemaName, byte[] tableName) {
         return Bytes.compareTo(schemaName, PhoenixDatabaseMetaData.TYPE_SCHEMA_BYTES) == 0 && Bytes.compareTo(tableName, PhoenixDatabaseMetaData.TYPE_TABLE_BYTES) == 0;
     }
@@ -774,7 +759,7 @@ public class SchemaUtil {
         return "\"" + schemaName + "\"." + "\"" + tableName + "\"";
     }
 
-    private static PhoenixConnection addMetaDataColumn(PhoenixConnection conn, long scn, String columnDef) throws SQLException {
+    protected static PhoenixConnection addMetaDataColumn(PhoenixConnection conn, long scn, String columnDef) throws SQLException {
         String url = conn.getURL();
         Properties props = conn.getClientInfo();
         PMetaData metaData = conn.getPMetaData();
@@ -811,130 +796,6 @@ public class SchemaUtil {
         }
     }
     
-    public static void updateSystemTableTo2(PhoenixConnection metaConnection, PTable table) throws SQLException {
-        PTable metaTable = metaConnection.getPMetaData().getTable(TYPE_TABLE_NAME);
-        // Execute alter table statement for each column that was added if not already added
-        if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1) {
-            // Causes row key of system table to be upgraded
-            if (checkIfUpgradeTo2Necessary(metaConnection.getQueryServices(), metaConnection.getURL(), metaConnection.getClientInfo())) {
-                metaConnection.createStatement().executeQuery("select count(*) from " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE).next();
-            }
-            
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5 && !columnExists(table, COLUMN_MODIFIER)) {
-                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 5, COLUMN_MODIFIER + " INTEGER NULL");
-            }
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4 && !columnExists(table, SALT_BUCKETS)) {
-                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 4, SALT_BUCKETS + " INTEGER NULL");
-            }
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3 && !columnExists(table, DATA_TABLE_NAME)) {
-                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 3, DATA_TABLE_NAME + " VARCHAR NULL");
-            }
-            if (metaTable.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2 && !columnExists(table, INDEX_STATE)) {
-                metaConnection = addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 2, INDEX_STATE + " VARCHAR NULL");
-            }
-            if (!columnExists(table, IMMUTABLE_ROWS)) {
-                addMetaDataColumn(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP - 1, IMMUTABLE_ROWS + " BOOLEAN NULL");
-            }
-        }
-    }
-    
-    public static void upgradeTo2(PhoenixConnection conn) throws SQLException {
-        // Filter VIEWs from conversion
-        StringBuilder buf = new StringBuilder();
-        ResultSet rs = conn.getMetaData().getTables(null, null, null, new String[] {PTableType.VIEW.getSerializedValue()});
-        while (rs.next()) {
-            buf.append("(" + TABLE_SCHEM_NAME + " = " + rs.getString(2) + " and " + TABLE_NAME_NAME + " = " + rs.getString(3) + ") or ");
-        }
-        String filterViews = "";
-        if (buf.length() > 0) {
-            buf.setLength(buf.length() - " or ".length());
-            filterViews = " and not (" + buf.toString() + ")";
-        }
-        /*
-         * Our upgrade hack sets a property on the scan that gets activated by an ungrouped aggregate query. 
-         * Our UngroupedAggregateRegionObserver coprocessors will perform the required upgrade.
-         * The SYSTEM.TABLE will already have been upgraded, so walk through each user table and upgrade
-         * any table with a nullable variable length column (VARCHAR or DECIMAL)
-         * at the end.
-         */
-        String query = "select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ " +
-                TABLE_SCHEM_NAME + "," +
-                TABLE_NAME_NAME + " ," +
-                DATA_TYPE + "," +
-                NULLABLE +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
-                " where " + TABLE_CAT_NAME + " is null " +
-                " and " + COLUMN_NAME + " is not null " + filterViews +
-                " order by " + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + ORDINAL_POSITION + " DESC";
-        rs = conn.createStatement().executeQuery(query);
-        String currentTableName = null;
-        int nColumns = 0;
-        boolean skipToNext = false;
-        Map<String,Integer> tablesToUpgrade = Maps.newHashMap();
-        while (rs.next()) {
-            String tableName = getEscapedTableName(rs.getString(1), rs.getString(2));
-            if (currentTableName == null) {
-                currentTableName = tableName;
-            } else if (!currentTableName.equals(tableName)) {
-                if (nColumns > 0) {
-                    tablesToUpgrade.put(currentTableName, nColumns);
-                    nColumns = 0;
-                }
-                currentTableName = tableName;
-                skipToNext = false;
-            } else if (skipToNext) {
-                continue;
-            }
-            PDataType dataType = PDataType.fromTypeId(rs.getInt(3));
-            if (dataType.isFixedWidth() || rs.getInt(4) != DatabaseMetaData.attributeNullable) {
-                skipToNext = true;
-            } else {
-                nColumns++;
-            }
-        }
-        
-        for (Map.Entry<String, Integer> entry : tablesToUpgrade.entrySet()) {
-            String msg = "Upgrading " + entry.getKey() + " for " + entry.getValue() + " columns";
-            logger.info(msg);
-            System.out.println(msg);
-            Properties props = new Properties(conn.getClientInfo());
-            props.setProperty(UPGRADE_TO_2_0, entry.getValue().toString());
-            Connection newConn = DriverManager.getConnection(conn.getURL(), props);
-            try {
-                rs = newConn.createStatement().executeQuery("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ count(*) from " + entry.getKey());
-                rs.next();
-            } finally {
-                newConn.close();
-            }
-        }
-        
-        ConnectionQueryServices connServices = conn.getQueryServices();
-        HTableInterface htable = null;
-        HBaseAdmin admin = connServices.getAdmin();
-        try {
-            htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
-            HTableDescriptor htd = new HTableDescriptor(htable.getTableDescriptor());
-            htd.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
-            admin.disableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
-            admin.modifyTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES, htd);
-            admin.enableTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
-        } catch (IOException e) {
-            throw new SQLException(e);
-        } finally {
-            try {
-                try {
-                    admin.close();
-                } finally {
-                    if(htable != null) {
-                        htable.close();
-                    }
-                }
-            } catch (IOException e) {
-                throw new SQLException(e);
-            }
-        }
-    }
-
     public static String getSchemaNameFromFullName(String tableName) {
         int index = tableName.indexOf(QueryConstants.NAME_SEPARATOR);
         if (index < 0) {

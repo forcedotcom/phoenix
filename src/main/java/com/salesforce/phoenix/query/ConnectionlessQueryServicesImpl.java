@@ -47,6 +47,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -55,6 +56,7 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PMetaData;
@@ -62,6 +64,7 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -77,7 +80,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class ConnectionlessQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices  {
     private PMetaData metaData;
-
+    private final Map<TableName, Pair<Long,Long>> sequenceMap = Maps.newHashMap();
+    
     public ConnectionlessQueryServicesImpl(QueryServices queryServices) {
         super(queryServices);
         metaData = PMetaDataImpl.EMPTY_META_DATA;
@@ -246,7 +250,40 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
-        // TODO: support this on connectionless by maintaining a Map here
-        return Collections.emptyMap();
+        Map<NextSequenceValueParseNode, Long> sequenceValues = Maps.newHashMapWithExpectedSize(nodes.size());
+        for (NextSequenceValueParseNode node : nodes) {
+            TableName name = node.getTableName();
+            Pair<Long,Long> value = sequenceMap.get(name);
+            if (value == null) {
+                throw new SequenceNotFoundException(name.getSchemaName(), name.getTableName());
+            }
+            // Increment sequence
+            Pair<Long,Long> newValue = new Pair<Long,Long>(value.getFirst()+value.getSecond(),value.getSecond());
+            sequenceMap.put(name, newValue);
+            sequenceValues.put(node, newValue.getFirst());
+        }
+        return sequenceValues;
+    }
+
+    @Override
+    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy)
+            throws SQLException {
+        TableName tableName = TableName.create(schemaName, sequenceName);
+        if (sequenceMap.containsKey(tableName)) {
+            return false;
+        }
+        sequenceMap.put(tableName, new Pair<Long,Long>(startWith-incrementBy,incrementBy));
+        return true;
+    }
+
+    @Override
+    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
+        TableName tableName = TableName.create(schemaName, sequenceName);
+        return sequenceMap.remove(tableName) != null;
+    }
+
+    @Override
+    public PMetaData setSequenceIncrementValue(TableName name, Long value) {
+        return metaData = metaData.setSequenceIncrementValue(name, value);
     }
 }

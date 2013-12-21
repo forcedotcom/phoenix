@@ -354,7 +354,6 @@ query returns [SelectStatement ret]
 oneStatement returns [BindableStatement ret]
     :   (SELECT s=hinted_select_node {$ret=s;} 
     |    ns=non_select_node {$ret=ns;}
-    |	 cs=create_sequence_node {$ret=cs;}
         )
     ;
 
@@ -368,6 +367,8 @@ non_select_node returns [BindableStatement ret]
     |   s=drop_index_node
     |   s=alter_index_node
     |   s=alter_table_node
+    |	s=create_sequence_node
+    |	s=drop_sequence_node
     |   s=explain_node) { contextStack.pop();  $ret = s; }
     ;
     
@@ -396,15 +397,21 @@ create_index_node returns [CreateIndexStatement ret]
 
 // Parse a create sequence statement.
 create_sequence_node returns [CreateSequenceStatement ret]
-    :   CREATE SEQUENCE t=from_table_name
+    :   CREATE SEQUENCE  (IF NOT ex=EXISTS)? t=from_table_name
         (START WITH s=int_literal_or_bind)?
         (INCREMENT BY i=int_literal_or_bind)?
-    { $ret = factory.createSequence(t, s, i, getBindCount()); }
+    { $ret = factory.createSequence(t, s, i, ex!=null, getBindCount()); }
     ;
 
 int_literal_or_bind returns [ParseNode ret]
     : n=int_literal { $ret = n; }
     | b=bind_expression { $ret = b; }
+    ;
+
+// Parse a drop sequence statement.
+drop_sequence_node returns [DropSequenceStatement ret]
+    :   DROP SEQUENCE  (IF ex=EXISTS)? t=from_table_name
+    { $ret = factory.dropSequence(t, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]

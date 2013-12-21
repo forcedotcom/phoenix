@@ -66,14 +66,15 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.MetaDataMutated;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
@@ -628,6 +629,14 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         metaData = metaData.removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
         //Cascade through to connectionQueryServices too
         getQueryServices().removeColumn(tableName, familyName, columnName, tableTimeStamp, tableSeqNum);
+        return metaData;
+    }
+
+    @Override
+    public PMetaData setSequenceIncrementValue(TableName name, Long value) {
+        metaData = metaData.setSequenceIncrementValue(name, value);
+        //Cascade through to connectionQueryServices too
+        getQueryServices().setSequenceIncrementValue(name, value);
         return metaData;
     }
 }

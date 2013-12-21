@@ -25,17 +25,53 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.compile;
 
-import java.util.Map;
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
+import java.util.Collections;
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.DropSequenceStatement;
+import com.salesforce.phoenix.schema.MetaDataClient;
 
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public Map<TableName, Long> getSequenceIncrementValues();
+public class DropSequenceCompiler {
+    private final PhoenixStatement statement;
+
+    public DropSequenceCompiler(PhoenixStatement statement) {
+        this.statement = statement;
+    }
+    
+
+    public MutationPlan compile(final DropSequenceStatement sequence) throws SQLException {
+        final PhoenixConnection connection = statement.getConnection();
+        final MetaDataClient client = new MetaDataClient(connection);        
+        return new MutationPlan() {           
+
+            @Override
+            public MutationState execute() throws SQLException {
+                return client.dropSequence(sequence);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("DROP SEQUENCE"));
+            }
+
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
+            }
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {                
+                return PhoenixParameterMetaData.EMPTY_PARAMETER_META_DATA;
+            }
+
+        };
+    }
 }

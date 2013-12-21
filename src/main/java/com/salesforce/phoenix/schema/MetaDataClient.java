@@ -64,7 +64,6 @@ import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -116,6 +115,7 @@ import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
 import com.salesforce.phoenix.parse.DropIndexStatement;
+import com.salesforce.phoenix.parse.DropSequenceStatement;
 import com.salesforce.phoenix.parse.DropTableStatement;
 import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
@@ -529,26 +529,26 @@ public class MetaDataClient {
         return buildIndex(table, tableRef);
     }
 
+    public MutationState dropSequence(DropSequenceStatement statement) throws SQLException {
+        String schemaName = statement.getSequenceName().getSchemaName();
+        String sequenceName = statement.getSequenceName().getTableName();
+        boolean success = connection.getQueryServices().dropSequence(schemaName, sequenceName);
+        if (!success && !statement.ifExists()) {
+            throw new SequenceNotFoundException(schemaName, sequenceName);
+        }
+        connection.setSequenceIncrementValue(statement.getSequenceName(), null);
+        return new MutationState(1, connection);
+    }
+    
     public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
-        final String schemaName = statement.getSequenceName().getSchemaName();
-        final String sequenceName = statement.getSequenceName().getTableName();
-
-        // TODO: fix race condition by going through ConnectionQueryServices and MetaDataProtocol here
-        String query = "SELECT sequence_schema FROM SYSTEM.\"SEQUENCE\" WHERE sequence_schema='" + schemaName + "' AND sequence_name='" + sequenceName + "'";
-        ResultSet rs = connection.prepareStatement(query).executeQuery();
-        if (rs.next()){
-        	throw new SequenceAlreadyExistsException(schemaName, sequenceName);
+        String schemaName = statement.getSequenceName().getSchemaName();
+        String sequenceName = statement.getSequenceName().getTableName();
+        boolean success = connection.getQueryServices().createSequence(schemaName, sequenceName, startWith, incrementBy);
+        if (!success && !statement.ifNotExists()) {
+            throw new SequenceAlreadyExistsException(schemaName, sequenceName);
         }
         
-        String sql = "UPSERT INTO SYSTEM.\"SEQUENCE\" (SEQUENCE_SCHEMA, SEQUENCE_NAME, CURRENT_VALUE, INCREMENT_BY) VALUES(?,?,?,?)";
-        PreparedStatement upsertStatement = connection.prepareStatement(sql);
-        upsertStatement.setString(1, schemaName);
-        upsertStatement.setString(2, sequenceName);
-        upsertStatement.setLong(3, startWith - incrementBy); // So that first increment starts at startWith
-        upsertStatement.setLong(4, incrementBy);
-        upsertStatement.execute();
-        connection.commit();
-        
+        connection.setSequenceIncrementValue(statement.getSequenceName(), incrementBy);
         return new MutationState(1, connection);
     }
     

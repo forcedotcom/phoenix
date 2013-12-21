@@ -274,8 +274,12 @@ public class ParseNodeFactory {
         return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
-    public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, int bindCount){
-    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
+    public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExits, int bindCount){
+    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, ifNotExits, bindCount);
+    } 
+    
+    public DropSequenceStatement dropSequence(TableName tableName, boolean ifExits, int bindCount){
+        return new DropSequenceStatement(tableName, ifExits, bindCount);
     } 
     
 	public NextSequenceValueParseNode nextValueFor(TableName tableName) {
