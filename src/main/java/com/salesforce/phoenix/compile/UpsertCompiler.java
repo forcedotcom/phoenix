@@ -556,6 +556,7 @@ public class UpsertCompiler {
         // since some values may not be set (if they're nullable).
         final StatementContext context = new StatementContext(upsert, connection, resolver, statement.getParameters(), new Scan());
         UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
+        SequenceCompiler.resolveSequencesUpsert(context, upsert.getValues());
         final byte[][] values = new byte[nValuesToSet][];
         for (ParseNode valueNode : valueNodes) {
             if (!valueNode.isConstant()) {

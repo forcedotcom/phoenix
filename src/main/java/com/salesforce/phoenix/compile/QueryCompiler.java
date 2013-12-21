@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Pair;
@@ -57,6 +58,7 @@ import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -89,12 +91,13 @@ public class QueryCompiler {
     private final Scan scanCopy;
     private final List<? extends PDatum> targetColumns;
     private final ParallelIteratorFactory parallelIteratorFactory;
-
+    private final Set<TableName> resolvedSequences;
+    
     public QueryCompiler(PhoenixStatement statement) throws SQLException {
-        this(statement, Collections.<PDatum>emptyList(), null);
+        this(statement, Collections.<PDatum>emptyList(), null, Collections.<TableName>emptySet());
     }
     
-    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, Set<TableName> resolvedSequences) throws SQLException {
         this.statement = statement;
         this.scan = new Scan();
         this.targetColumns = targetColumns;
@@ -103,6 +106,7 @@ public class QueryCompiler {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
         }
         this.scanCopy = ScanUtil.newScan(scan);
+        this.resolvedSequences = resolvedSequences;
     }
 
     /**
@@ -126,6 +130,10 @@ public class QueryCompiler {
         ColumnResolver resolver = FromCompiler.getMultiTableResolver(select, connection);
         select = StatementNormalizer.normalize(select, resolver);
         StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
+        
+        if (this.resolvedSequences.isEmpty()) {
+        	SequenceCompiler.resolveSequencesSelect(context, select.getSelect());
+        }
         
         if (select.getFrom().size() == 1)
             return compileSingleQuery(context, select, binds);

@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +45,7 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PTableType;
 
 
@@ -89,4 +91,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     void clearTableRegionCache(byte[] tableName) throws SQLException;
 
     boolean hasInvalidIndexConfiguration();
+    
+    Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) throws SQLException;
 }

@@ -37,7 +37,9 @@ import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -57,10 +59,12 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
@@ -101,6 +105,7 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -109,6 +114,7 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
@@ -1221,7 +1227,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
         } catch (TableAlreadyExistsException e) {
             SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
         } catch (SQLException e) {
@@ -1320,4 +1327,101 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     }
                 });
     }
+
+    @Override
+    public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) throws SQLException {
+    	Map<TableName, Long> resultMap = new HashMap<TableName, Long>();    	
+    	List<TableName> cachedSequences = new ArrayList<TableName>();
+    	List<TableName> uncachedSequences = new ArrayList<TableName>();
+    	// First check the cache    		
+    	for (TableName t: sequenceNames){
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		if (incrementValue!=null){
+    			cachedSequences.add(t);
+    		}
+    		else {
+    			uncachedSequences.add(t);
+    		}		
+    	}
+    	try {
+    		if (cachedSequences.size()>0)
+    			handleCachedSequences(cachedSequences, resultMap);
+    		if (uncachedSequences.size()>0)
+    			handleUncachedSequences(uncachedSequences, resultMap);
+    	}
+    	catch (IOException e){
+    		throw new RuntimeException(e);
+    	}
+    	catch (InterruptedException e){
+    		throw new RuntimeException(e);
+    	}
+    	return resultMap;
+    }
+
+    private void handleCachedSequences(List<TableName> cachedSequences, Map<TableName, Long> resultMap) throws IOException, InterruptedException, SQLException {
+    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));    	
+    	List<Increment> cacheBatch = new ArrayList<Increment>();
+
+    	for (TableName t: cachedSequences){    		
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		Increment inc = new Increment(row);
+    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementValue);
+    		cacheBatch.add(inc); 
+    	}
+    	Object[] cacheResultObjects = hTable.batch(cacheBatch);
+    	for (int i=0;i<cachedSequences.size();i++){
+    		Result result = (Result)cacheResultObjects[i];
+    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(cachedSequences.get(i));
+    		current = current - incrementValue; // Since the server-side value has been incremented in the cache-miss case
+    		resultMap.put(cachedSequences.get(i), current);
+    	}
+    }
+
+    private void handleUncachedSequences(List<TableName> uncachedSequences, Map<TableName, Long> resultMap) throws IOException, InterruptedException, SQLException {
+    	HTableInterface hTable = getTable(Bytes.toBytes("SYSTEM.SEQUENCE"));
+    	Map<TableName, Long> incrementMap = new HashMap<TableName, Long>();    	
+
+    	// Get the current value    		
+    	List<Get> getBatch = new ArrayList<Get>();
+    	for (TableName t: uncachedSequences){    			
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);    		
+    		Get get = new Get(row);
+    		getBatch.add(get);	
+    	}
+    	Object[] resultObjects = hTable.batch(getBatch);
+    	for (int i=0;i<uncachedSequences.size();i++){
+    		Result result = (Result)resultObjects[i];
+    		if (result.isEmpty()){
+    			throw new SequenceNotFoundException(uncachedSequences.get(i).getSchemaName(), uncachedSequences.get(i).getTableName());
+    		}
+    		KeyValue incrementKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("INCREMENT_BY"));
+    		KeyValue currentKV = result.getColumnLatest(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"));
+    		long current = ((Long)PDataType.LONG.toObject(currentKV.getBuffer(), currentKV.getValueOffset(), currentKV.getValueLength())).longValue();
+    		long increment = ((Long)PDataType.LONG.toObject(incrementKV.getBuffer(), incrementKV.getValueOffset(), incrementKV.getValueLength())).longValue();
+    		resultMap.put(uncachedSequences.get(i), current);
+    		incrementMap.put(uncachedSequences.get(i), increment);
+    		latestMetaData.setSequenceIncrementValue(uncachedSequences.get(i), increment); // Cache the value
+    	}
+
+    	// Increment the sequence value
+    	List<Increment> incrementBatch = new ArrayList<Increment>();
+    	for (TableName t: uncachedSequences){
+    		final byte[] schemaName = PDataType.VARCHAR.toBytes(t.getSchemaName());
+    		final byte[] tableName = PDataType.VARCHAR.toBytes(t.getTableName());    			
+    		byte[] row = ByteUtil.concat(schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName);
+    		Increment inc = new Increment(row);
+    		inc.addColumn(Bytes.toBytes("_0"), Bytes.toBytes("CURRENT_VALUE"), incrementMap.get(t));
+    		incrementBatch.add(inc);    			    			
+    	}
+    	hTable.batch(incrementBatch);
+    }
+    
+    	
 }

@@ -372,7 +372,7 @@ public class JoinCompiler {
             public Void visitLeave(CastParseNode node, List<Void> l) 
             		throws SQLException {
             	return leaveBooleanNode(node, l);
-            }
+            }			
         }
     }
     
@@ -700,7 +700,7 @@ public class JoinCompiler {
             private void throwUnsupportedJoinConditionException() 
             		throws SQLFeatureNotSupportedException {
             	throw new SQLFeatureNotSupportedException("Does not support non-standard or non-equi join conditions.");
-            }
+            }			
         }
     }
     

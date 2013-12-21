@@ -29,6 +29,7 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_SCHEMA_NAME;
 import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
@@ -109,6 +110,10 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
+        assertTrue(rs.next());
+        assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
+        assertEquals(rs.getString("TABLE_NAME"),TYPE_SEQUENCE);
+        assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
         assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);

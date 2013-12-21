@@ -44,6 +44,7 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
@@ -176,4 +177,9 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     public boolean hasInvalidIndexConfiguration() {
         return getDelegate().hasInvalidIndexConfiguration();
     }
+
+    @Override
+	public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) {		
+		return null;
+	}
 }

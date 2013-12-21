@@ -160,7 +160,7 @@ public abstract class BaseTest {
                 "    SALT_BUCKETS = 4");
         builder.put(STABLE_NAME,"create table " + STABLE_NAME +
                 "   (id char(1) not null primary key,\n" +
-                "    value integer)");
+                "    \"value\" integer)");
         builder.put(PTSDB_NAME,"create table " + PTSDB_NAME +
                 "   (inst varchar null,\n" +
                 "    host varchar null,\n" +

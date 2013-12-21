@@ -36,6 +36,7 @@ import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TENANT_TABLE_PK;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
 import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
@@ -256,6 +257,8 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
             // make sure connections w/o tenant id only see non-tenant-specific tables, both SYSTEM and USER
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet rs = meta.getTables(null, null, null, null);
+            assertTrue(rs.next());
+            assertTableMetaData(rs, TYPE_SCHEMA, TYPE_SEQUENCE, SYSTEM);
             assertTrue(rs.next());
             assertTableMetaData(rs, TYPE_SCHEMA, TYPE_TABLE, SYSTEM);
             assertTrue(rs.next());

@@ -274,6 +274,14 @@ public class ParseNodeFactory {
         return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
+    public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
+    } 
+    
+	public NextSequenceValueParseNode nextValueFor(TableName tableName) {
+		return new NextSequenceValueParseNode(tableName);
+	}
+    
     public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
         return new AddColumnStatement(table, columnDefs, ifNotExists, props);
     }

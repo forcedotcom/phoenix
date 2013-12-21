@@ -180,6 +180,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
     
+    public static final String TYPE_SEQUENCE = "SEQUENCE";
+    public static final String SEQUENCE_SCHEMA_COLUMN = "SEQUENCE_SCHEMA";
+    public static final String SEQUENCE_NAME_COLUMN = "SEQUENCE_NAME";
+    public static final String CURRENT_VALUE_COLUMN = "CURRENT_VALUE";
+    public static final String INCREMENT_BY_COLUMN = "INCREMENT_BY";
+    
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;
 

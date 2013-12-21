@@ -54,6 +54,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PMetaData;
@@ -180,7 +181,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
         } catch (SQLException e) {
             sqlE = e;
         } finally {
@@ -241,4 +243,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public boolean hasInvalidIndexConfiguration() {
         return false;
     }
+
+	@Override
+	public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) {		
+		return null;
+	}
 }

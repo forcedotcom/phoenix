@@ -97,6 +97,13 @@ tokens
     DISABLE='disable';
     REBUILD='rebuild';
     ARRAY='array';
+    SEQUENCE='sequence';
+    START='start';
+    WITH='with';
+    INCREMENT='increment';
+    NEXT='next';
+    VALUE='value';
+    FOR='for';    
 }
 
 
@@ -347,6 +354,7 @@ query returns [SelectStatement ret]
 oneStatement returns [BindableStatement ret]
     :   (SELECT s=hinted_select_node {$ret=s;} 
     |    ns=non_select_node {$ret=ns;}
+    |	 cs=create_sequence_node {$ret=cs;}
         )
     ;
 
@@ -384,6 +392,14 @@ create_index_node returns [CreateIndexStatement ret]
         (p=fam_properties)?
         (SPLIT ON v=list_expressions)?
         {ret = factory.createIndex(i, factory.namedTable(null,t), pk, icrefs, v, p, ex!=null, getBindCount()); }
+    ;
+
+// Parse a create sequence statement.
+create_sequence_node returns [CreateSequenceStatement ret]
+    :   CREATE SEQUENCE t=from_table_name ?
+    	START WITH s=int_literal	?
+    	INCREMENT BY i=int_literal 
+        {ret = factory.createSequence(t, s, i, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
@@ -757,6 +773,7 @@ arrayable_expression_term returns [ParseNode ret]
     		}	 
     	}
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt); }
+    |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}    
     ;
 
 expression_terms returns [List<ParseNode> ret]

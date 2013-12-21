@@ -25,17 +25,49 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.compile;
 
-import java.util.Map;
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
+import java.util.Collections;
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
+import com.salesforce.phoenix.schema.MetaDataClient;
 
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public void setSequenceIncrementValue(TableName name, Long value);
+public class CreateSequenceCompiler {
+    private final PhoenixConnection connection;
+
+    public CreateSequenceCompiler(PhoenixConnection connection) {
+        this.connection = connection;
+    }
+
+    public MutationPlan compile(final CreateSequenceStatement statement) throws SQLException {
+        final MetaDataClient client = new MetaDataClient(connection);        
+        return new MutationPlan() {           
+
+            @Override
+            public MutationState execute() throws SQLException {
+                return client.createSequence(statement);
+            }
+
+            @Override
+            public ExplainPlan getExplainPlan() throws SQLException {
+                return new ExplainPlan(Collections.singletonList("CREATE SEQUENCE"));
+            }
+
+            @Override
+            public PhoenixConnection getConnection() {
+                return connection;
+            }
+
+            @Override
+            public ParameterMetaData getParameterMetaData() {                
+                return null;
+            }
+
+        };
+    }
 }
