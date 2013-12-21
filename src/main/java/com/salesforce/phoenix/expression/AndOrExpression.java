@@ -97,10 +97,7 @@ public abstract class AndOrExpression extends BaseCompoundExpression {
                 }
             }
         }
-        if (isNull) {
-            return false;
-        }
-        return true;
+        return !isNull;
     }
 
     protected abstract boolean getStopValue();

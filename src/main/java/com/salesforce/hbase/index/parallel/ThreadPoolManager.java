@@ -113,8 +113,8 @@ public class ThreadPoolManager {
    */
   private static class ShutdownOnUnusedThreadPoolExecutor extends ThreadPoolExecutor {
 
-    private AtomicInteger references;
-    private String poolName;
+    private final AtomicInteger references;
+    private final String poolName;
 
     public ShutdownOnUnusedThreadPoolExecutor(int coreThreads, int maxThreads, long keepAliveTime,
         TimeUnit timeUnit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory,

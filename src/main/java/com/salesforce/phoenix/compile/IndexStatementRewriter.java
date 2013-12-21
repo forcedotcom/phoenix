@@ -19,7 +19,7 @@ import com.salesforce.phoenix.util.IndexUtil;
 public class IndexStatementRewriter extends ParseNodeRewriter {
     private static final ParseNodeFactory FACTORY = new ParseNodeFactory();
     
-    private Map<TableRef, TableRef> multiTableRewriteMap;
+    private final Map<TableRef, TableRef> multiTableRewriteMap;
     
     public IndexStatementRewriter(ColumnResolver dataResolver, Map<TableRef, TableRef> multiTableRewriteMap) {
         super(dataResolver);

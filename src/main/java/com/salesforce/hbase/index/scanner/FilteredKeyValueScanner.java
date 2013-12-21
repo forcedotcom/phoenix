@@ -19,8 +19,8 @@ import com.salesforce.hbase.index.covered.KeyValueStore;
  */
 public class FilteredKeyValueScanner implements KeyValueScanner {
 
-  private KeyValueScanner delegate;
-  private Filter filter;
+  private final KeyValueScanner delegate;
+  private final Filter filter;
 
   public FilteredKeyValueScanner(Filter filter, KeyValueStore store) {
     this(filter, store.getScanner());

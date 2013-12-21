@@ -123,10 +123,9 @@ public abstract class BasicQueryPlan implements QueryPlan {
 
     protected ConnectionQueryServices getConnectionQueryServices(ConnectionQueryServices services) {
         // Get child services associated with tenantId of query.
-        ConnectionQueryServices childServices = context.getConnection().getTenantId() == null ? 
-                services : 
+        return context.getConnection().getTenantId() == null ?
+                services :
                 services.getChildQueryServices(new ImmutableBytesWritable(context.getConnection().getTenantId().getBytes()));
-        return childServices;
     }
 
     protected void projectEmptyKeyValue() {

@@ -40,7 +40,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class TableNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TABLE_UNDEFINED;
+    private static final SQLExceptionCode code = SQLExceptionCode.TABLE_UNDEFINED;
     private final String schemaName;
     private final String tableName;
 

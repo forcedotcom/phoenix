@@ -82,9 +82,8 @@ public class HashCacheFactory implements ServerCacheFactory {
         private HashCacheImpl(byte[] hashCacheBytes, MemoryChunk memoryChunk) {
             try {
                 this.memoryChunk = memoryChunk;
-                byte[] hashCacheByteArray = hashCacheBytes;
                 int offset = 0;
-                ByteArrayInputStream input = new ByteArrayInputStream(hashCacheByteArray, offset, hashCacheBytes.length);
+                ByteArrayInputStream input = new ByteArrayInputStream(hashCacheBytes, offset, hashCacheBytes.length);
                 DataInputStream dataInput = new DataInputStream(input);
                 int nExprs = dataInput.readInt();
                 List<Expression> onExpressions = new ArrayList<Expression>(nExprs);
@@ -103,9 +102,9 @@ public class HashCacheFactory implements ServerCacheFactory {
                 offset += Bytes.SIZEOF_INT;
                 // Build Map with evaluated hash key as key and row as value
                 for (int i = 0; i < nRows; i++) {
-                    int resultSize = (int)Bytes.readVLong(hashCacheByteArray, offset);
-                    offset += WritableUtils.decodeVIntSize(hashCacheByteArray[offset]);
-                    ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheByteArray,offset,resultSize);
+                    int resultSize = (int)Bytes.readVLong(hashCacheBytes, offset);
+                    offset += WritableUtils.decodeVIntSize(hashCacheBytes[offset]);
+                    ImmutableBytesWritable value = new ImmutableBytesWritable(hashCacheBytes,offset,resultSize);
                     Tuple result = new ResultTuple(new Result(value));
                     ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(result, onExpressions);
                     List<Tuple> tuples = hashCacheMap.get(key);

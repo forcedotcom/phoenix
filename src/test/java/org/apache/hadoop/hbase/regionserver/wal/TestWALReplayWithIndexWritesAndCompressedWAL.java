@@ -59,7 +59,7 @@ public class TestWALReplayWithIndexWritesAndCompressedWAL {
   public static final Log LOG = LogFactory.getLog(TestWALReplay.class);
   @Rule
   public TableName table = new TableName();
-  private String INDEX_TABLE_NAME = table.getTableNameString() + "_INDEX";
+  private final String INDEX_TABLE_NAME = table.getTableNameString() + "_INDEX";
 
   final HBaseTestingUtility UTIL = new HBaseTestingUtility();
   private Path hbaseRootDir = null;

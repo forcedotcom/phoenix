@@ -318,5 +318,5 @@ public abstract class AbstractRoundRobinQueue<E> extends AbstractQueue<E>
     private final boolean newProducerToFront;
     private int currentProducer;
     private int size;
-    private int maxSize;
+    private final int maxSize;
 }

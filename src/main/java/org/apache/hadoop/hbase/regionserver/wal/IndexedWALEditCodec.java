@@ -92,7 +92,7 @@ public class IndexedWALEditCodec extends WALEditCodec {
 
   public class CompressedIndexKeyValueDecoder extends BaseDecoder {
 
-    private Decoder decoder;
+    private final Decoder decoder;
 
     /**
      * Create a {@link Decoder} on the given input stream with the given {@link Decoder} to parse
@@ -158,7 +158,7 @@ public class IndexedWALEditCodec extends WALEditCodec {
    * and uncompressed WALs that contain index entries.
    */
   private static class CompressedIndexKeyValueEncoder extends BaseEncoder {
-    private Encoder compressedKvEncoder;
+    private final Encoder compressedKvEncoder;
 
     public CompressedIndexKeyValueEncoder(OutputStream os, Encoder compressedKvEncoder) {
       super(os);

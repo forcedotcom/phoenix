@@ -62,7 +62,7 @@ public class IndexBuildManager implements Stoppable {
 
   private static final Log LOG = LogFactory.getLog(IndexBuildManager.class);
   private final IndexBuilder delegate;
-  private QuickFailingTaskRunner pool;
+  private final QuickFailingTaskRunner pool;
   private boolean stopped;
 
   /**
@@ -149,8 +149,6 @@ public class IndexBuildManager implements Stoppable {
     List<Collection<Pair<Mutation, byte[]>>> allResults = null;
     try {
       allResults = pool.submitUninterruptible(tasks);
-    } catch (CancellationException e) {
-      throw e;
     } catch (ExecutionException e) {
       LOG.error("Found a failed index update!");
       throw e.getCause();

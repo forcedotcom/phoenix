@@ -90,8 +90,7 @@ public class SQLParser {
         try {
             parser.resetBindCount();
             parser.setParseNodeFactory(factory);
-            BindableStatement statement = parser.nextStatement();
-            return statement;
+            return parser.nextStatement();
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
@@ -110,8 +109,7 @@ public class SQLParser {
      */
     public BindableStatement parseStatement() throws SQLException {
         try {
-            BindableStatement statement = parser.statement();
-            return statement;
+            return parser.statement();
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
         } catch (UnsupportedOperationException e) {
@@ -131,8 +129,7 @@ public class SQLParser {
      */
     public SelectStatement parseQuery() throws SQLException {
         try {
-            SelectStatement statement = parser.query();
-            return statement;
+            return parser.query();
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
         } catch (RuntimeException e) {
@@ -149,8 +146,7 @@ public class SQLParser {
      */
     public LiteralParseNode parseLiteral() throws SQLException {
         try {
-            LiteralParseNode literalNode = parser.literal();
-            return literalNode;
+            return parser.literal();
         } catch (RecognitionException e) {
             throw new PhoenixParserException(e, parser);
         } catch (RuntimeException e) {

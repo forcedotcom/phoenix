@@ -43,8 +43,8 @@ import org.apache.hadoop.hbase.Abortable;
  */
 public class TaskBatch<V> implements Abortable {
   private static final Log LOG = LogFactory.getLog(TaskBatch.class);
-  private AtomicBoolean aborted = new AtomicBoolean();
-  private List<Task<V>> tasks;
+  private final AtomicBoolean aborted = new AtomicBoolean();
+  private final List<Task<V>> tasks;
 
   /**
    * @param size expected number of tasks

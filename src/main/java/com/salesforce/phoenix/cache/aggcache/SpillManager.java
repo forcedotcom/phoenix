@@ -110,8 +110,7 @@ public class SpillManager implements Closeable {
             // aggs
             output.write(aggsByte);
 
-            byte[] data = bai.toByteArray();
-            return data;
+            return bai.toByteArray();
         } finally {
 
             if (bai != null) {
@@ -251,8 +250,8 @@ public class SpillManager implements Closeable {
      */
     @Override
     public void close() {
-        for (int i = 0; i < spillMaps.size(); i++) {
-            Closeables.closeQuietly(spillMaps.get(i).getSpillFile());
+        for (SpillMap spillMap : spillMaps) {
+            Closeables.closeQuietly(spillMap.getSpillFile());
         }
     }
 

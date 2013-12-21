@@ -42,7 +42,7 @@ import org.apache.hadoop.hbase.util.Bytes;
  */
 public class MaxTimestampFilter extends FilterBase {
 
-  private long ts;
+  private final long ts;
 
   public MaxTimestampFilter(long maxTime) {
     this.ts = maxTime;

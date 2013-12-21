@@ -33,7 +33,7 @@ import com.salesforce.phoenix.schema.PDataType;
 
 public class ValueTypeIncompatibleException extends IllegalDataException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE;
+    private static final SQLExceptionCode code = SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE;
 
     public ValueTypeIncompatibleException(PDataType type, Integer precision, Integer scale) {
         super(new SQLExceptionInfo.Builder(code).setMessage(getTypeDisplayString(type, precision, scale))

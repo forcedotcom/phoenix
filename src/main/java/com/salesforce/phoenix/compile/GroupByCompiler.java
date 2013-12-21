@@ -265,8 +265,7 @@ public class GroupByCompiler {
         // Set attribute with serialized expressions for coprocessor
         // FIXME: what if group by is empty (i.e. only literals)?
         GroupedAggregateRegionObserver.serializeIntoScan(context.getScan(), groupExprAttribName, keyExpressions);
-        GroupBy groupBy = new GroupBy.GroupByBuilder().setScanAttribName(groupExprAttribName).setExpressions(expressions).setKeyExpressions(keyExpressions).build();
-        return groupBy;
+        return new GroupBy.GroupByBuilder().setScanAttribName(groupExprAttribName).setExpressions(expressions).setKeyExpressions(keyExpressions).build();
     }
     
     private static PDataType getKeyType(Expression expression) {

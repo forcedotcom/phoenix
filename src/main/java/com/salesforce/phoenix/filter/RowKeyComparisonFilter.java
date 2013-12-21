@@ -54,7 +54,7 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
 
     private boolean evaluate = true;
     private boolean keepRow = false;
-    private RowKeyTuple inputTuple = new RowKeyTuple();
+    private final RowKeyTuple inputTuple = new RowKeyTuple();
     private byte[] essentialCF;
 
     public RowKeyComparisonFilter() {

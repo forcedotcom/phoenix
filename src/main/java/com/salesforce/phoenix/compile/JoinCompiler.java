@@ -289,7 +289,7 @@ public class JoinCompiler {
         }
         
         private class WhereNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
-            private ColumnResolver resolver;
+            private final ColumnResolver resolver;
             
             public WhereNodeVisitor(ColumnResolver resolver) {
                 this.resolver = resolver;
@@ -583,7 +583,7 @@ public class JoinCompiler {
         }
         
         private class OnNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
-            private ColumnResolver resolver;
+            private final ColumnResolver resolver;
             
             public OnNodeVisitor(ColumnResolver resolver) {
                 this.resolver = resolver;
@@ -707,7 +707,7 @@ public class JoinCompiler {
     private static class ColumnParseNodeVisitor  extends StatelessTraverseAllParseNodeVisitor {
         public enum ContentType {NONE, SELF_ONLY, FOREIGN_ONLY, COMPLEX};
         
-        private ColumnResolver resolver;
+        private final ColumnResolver resolver;
         private final Set<TableRef> tableRefSet;
         private final Map<ColumnRef, ColumnParseNode> columnRefMap;
        
@@ -749,9 +749,9 @@ public class JoinCompiler {
         }
     }
     
-    private static String PROJECTED_TABLE_SCHEMA = ".";
+    private static final String PROJECTED_TABLE_SCHEMA = ".";
     // for creation of new statements
-    private static ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
+    private static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
     
     private static boolean isWildCardSelect(List<AliasedNode> select) {
         return (select.size() == 1 && select.get(0).getNode() == WildcardParseNode.INSTANCE);
@@ -912,7 +912,7 @@ public class JoinCompiler {
                 return null;
             vector[i] = true;
             Iterator<TableRef> iter = joinTable.getLeftTableRefs().iterator();
-            while (vector[i] == true && iter.hasNext()) {
+            while (vector[i] && iter.hasNext()) {
             	TableRef tableRef = iter.next();
                 if (!tableRef.equals(join.getMainTable())) {
                     vector[i] = false;
@@ -988,8 +988,8 @@ public class JoinCompiler {
     }
     
     public static class PTableWrapper {
-    	protected PTable table;
-    	protected ListMultimap<String, String> columnNameMap;
+    	protected final PTable table;
+    	protected final ListMultimap<String, String> columnNameMap;
     	
     	protected PTableWrapper(PTable table, ListMultimap<String, String> columnNameMap) {
     		this.table = table;
@@ -1010,7 +1010,7 @@ public class JoinCompiler {
     }
     
     public static class ProjectedPTableWrapper extends PTableWrapper {
-    	private List<Expression> sourceExpressions;
+    	private final List<Expression> sourceExpressions;
     	
     	protected ProjectedPTableWrapper(PTable table, ListMultimap<String, String> columnNameMap, List<Expression> sourceExpressions) {
     		super(table, columnNameMap);
@@ -1027,8 +1027,8 @@ public class JoinCompiler {
     }
     
     public static class JoinedTableColumnResolver implements ColumnResolver {
-    	private PTableWrapper table;
-    	private List<TableRef> tableRefs;
+    	private final PTableWrapper table;
+    	private final List<TableRef> tableRefs;
     	
     	private JoinedTableColumnResolver(PTableWrapper table) {
     		this.table = table;

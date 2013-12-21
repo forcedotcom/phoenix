@@ -70,8 +70,8 @@ public class PTableStatsImpl implements PTableStats {
             WritableUtils.writeString(output, entry.getKey());
             byte[][] value = entry.getValue();
             WritableUtils.writeVInt(output, value.length);
-            for (int i=0; i<value.length; i++) {
-                Bytes.writeByteArray(output, value[i]);
+            for (byte[] aValue : value) {
+                Bytes.writeByteArray(output, aValue);
             }
         }
     }

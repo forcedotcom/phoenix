@@ -1159,7 +1159,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         assertEquals(KeyRange.EVERYTHING_RANGE,scanRanges.getRanges().get(1).get(0));
         assertEquals(1,scanRanges.getRanges().get(2).size());
         assertTrue(scanRanges.getRanges().get(2).get(0).isSingleKey());
-        assertEquals(Long.valueOf(5399179882L), PDataType.UNSIGNED_LONG.toObject(scanRanges.getRanges().get(2).get(0).getLowerRange()));
+        assertEquals(5399179882L, PDataType.UNSIGNED_LONG.toObject(scanRanges.getRanges().get(2).get(0).getLowerRange()));
         assertEquals(1, extractedNodes.size());
         assertNotNull(scan.getFilter());
     }

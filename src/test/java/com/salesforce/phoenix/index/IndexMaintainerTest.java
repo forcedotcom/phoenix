@@ -82,7 +82,7 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
             IndexMaintainer im1 = c1.get(0);
             
             StringBuilder buf = new StringBuilder("UPSERT INTO " + fullTableName  + " VALUES(");
-            for (int i = 0; i < values.length; i++) {
+            for (Object value : values) {
                 buf.append("?,");
             }
             buf.setCharAt(buf.length()-1, ')');

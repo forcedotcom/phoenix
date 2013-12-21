@@ -32,7 +32,7 @@ import java.sql.SQLException;
 
 public class PhoenixIOException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
+    private static final SQLExceptionCode code = SQLExceptionCode.IO_EXCEPTION;
 
     public PhoenixIOException(Throwable e) {
         super(e.getMessage(), code.getSQLState(), code.getErrorCode(), e);

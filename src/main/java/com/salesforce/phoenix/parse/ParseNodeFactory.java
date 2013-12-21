@@ -369,7 +369,7 @@ public class ParseNodeFactory {
         }
         List<ParseNode> children = new ArrayList<ParseNode>(3);
         children.add(columnNodes.get(0));
-        children.add(new LiteralParseNode(Boolean.valueOf(isAscending)));
+        children.add(new LiteralParseNode(isAscending));
         children.add(valueNodes.get(0));
         return function(name, children);
     }

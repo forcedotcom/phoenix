@@ -598,8 +598,7 @@ public class WhereOptimizer {
 
         @Override
         public KeySlots visitLeave(AndExpression node, List<KeySlots> l) {
-            KeySlots keyExpr = andKeySlots(node, l);
-            return keyExpr;
+            return andKeySlots(node, l);
         }
 
         @Override

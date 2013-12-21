@@ -33,8 +33,7 @@ abstract public class PrefixFunction extends ScalarFunction {
     private static byte[] evaluateExpression(Expression rhs) {
         ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         rhs.evaluate(null, ptr);
-        byte[] key = ByteUtil.copyKeyBytesIfNecessary(ptr);
-        return key;
+        return ByteUtil.copyKeyBytesIfNecessary(ptr);
     }
     
     @Override

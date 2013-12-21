@@ -54,7 +54,7 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
     private static final int NUM_ROWS_INSERTED = 1000;
     
     // TODO add testcases for other aggregates
-    private static String GROUPBY1 = "select "
+    private static final String GROUPBY1 = "select "
             + "count(*), sum(appcpu), avg(appcpu) from "
             + GROUPBYTEST_NAME + " group by uri";
     private int id;

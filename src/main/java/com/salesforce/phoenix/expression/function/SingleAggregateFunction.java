@@ -54,7 +54,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  */
 abstract public class SingleAggregateFunction extends AggregateFunction {
     private static final List<Expression> DEFAULT_EXPRESSION_LIST = Arrays.<Expression>asList(LiteralExpression.newConstant(1));
-    protected boolean isConstant;
+    protected final boolean isConstant;
     private Aggregator aggregator;
     
     /**

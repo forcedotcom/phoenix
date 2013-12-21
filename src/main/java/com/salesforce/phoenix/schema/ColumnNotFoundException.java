@@ -41,7 +41,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ColumnNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_NOT_FOUND;
+    private static final SQLExceptionCode code = SQLExceptionCode.COLUMN_NOT_FOUND;
     private final String schemaName;
     private final String tableName;
     private final String columnName;

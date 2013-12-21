@@ -66,7 +66,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 public class ProductMetricsTest extends BaseClientMangedTimeTest {
-    private static Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
+    private static final Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
     private static final String PRODUCT_METRICS_NAME = "PRODUCT_METRICS";
     private static final String PRODUCT_METRICS_SCHEMA_NAME = "";
     private static final String DS1 = "1970-01-01 00:58:00";

@@ -50,8 +50,8 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO PKIntValueTest VALUES(?)";
         PreparedStatement stmt = conn.prepareStatement(upsert);
-        for (int i = 0; i < testNumbers.length; i++) {
-            stmt.setInt(1, testNumbers[i]);
+        for (int testNumber : testNumbers) {
+            stmt.setInt(1, testNumber);
             stmt.execute();
         }
         conn.commit();
@@ -71,9 +71,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT pk FROM PKIntValueTest where pk >= " + Integer.MIN_VALUE + 
                 " GROUP BY pk ORDER BY pk ASC NULLS LAST";
         rs = conn.createStatement().executeQuery(select);
-        for (int i = 0; i < testNumbers.length; i++) {
+        for (int testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getInt(1));
+            assertEquals(testNumber, rs.getInt(1));
         }
         assertFalse(rs.next());
         
@@ -102,9 +102,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT pk FROM PKIntValueTest where pk >= " + INTEGER_MIN_MINUS_ONE + 
                 " GROUP BY pk ORDER BY pk ASC NULLS LAST ";
         rs = conn.createStatement().executeQuery(select);
-        for (int i = 0; i < testNumbers.length; i++) {
+        for (int testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getInt(1));
+            assertEquals(testNumber, rs.getInt(1));
         }
         assertFalse(rs.next());
         
@@ -136,8 +136,8 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         String upsert = "UPSERT INTO PKBigIntValueTest VALUES(?)";
         PreparedStatement stmt = conn.prepareStatement(upsert);
-        for (int i=0; i<testNumbers.length; i++) {
-            stmt.setLong(1, testNumbers[i]);
+        for (long testNumber : testNumbers) {
+            stmt.setLong(1, testNumber);
             stmt.execute();
         }
         conn.commit();
@@ -157,9 +157,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT pk FROM PKBigIntValueTest WHERE pk >= " + (Long.MIN_VALUE + 1) +
                 " GROUP BY pk ORDER BY pk ASC NULLS LAST";
         rs = conn.createStatement().executeQuery(select);
-        for (int i = 0; i < testNumbers.length; i++) {
+        for (long testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getLong(1));
+            assertEquals(testNumber, rs.getLong(1));
         }
         assertFalse(rs.next());
         
@@ -241,9 +241,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT kv FROM KVIntValueTest WHERE kv >= " + Integer.MIN_VALUE +
                 " GROUP BY kv ORDER BY kv ASC NULLS LAST";
         rs = conn.createStatement().executeQuery(select);
-        for (int i=0; i<testNumbers.length; i++) {
+        for (int testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getInt(1));
+            assertEquals(testNumber, rs.getInt(1));
         }
         assertFalse(rs.next());
         
@@ -269,9 +269,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT kv FROM KVIntValueTest WHERE kv >= " + INTEGER_MIN_MINUS_ONE +
                 " GROUP BY kv ORDER BY kv ASC NULLS LAST ";
         rs = conn.createStatement().executeQuery(select);
-        for (int i=0; i<testNumbers.length; i++) {
+        for (int testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getInt(1));
+            assertEquals(testNumber, rs.getInt(1));
         }
         assertFalse(rs.next());
         
@@ -324,9 +324,9 @@ public class UpsertBigValuesTest extends BaseHBaseManagedTimeTest {
         select = "SELECT kv FROM KVBigIntValueTest WHERE kv >= " + (Long.MIN_VALUE+1) + 
                 " GROUP BY kv ORDER BY kv ASC NULLS LAST";
         rs = conn.createStatement().executeQuery(select);
-        for (int i = 0; i < testNumbers.length; i++) {
+        for (long testNumber : testNumbers) {
             assertTrue(rs.next());
-            assertEquals(testNumbers[i], rs.getLong(1));
+            assertEquals(testNumber, rs.getLong(1));
         }
         assertFalse(rs.next());
         

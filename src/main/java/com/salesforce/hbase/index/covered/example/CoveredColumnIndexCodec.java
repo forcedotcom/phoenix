@@ -88,7 +88,7 @@ public class CoveredColumnIndexCodec extends BaseIndexCodec {
           getNextEntries(refs, kvs, state.getCurrentRowKey());
       // make sure we close the scanner
       kvs.close();
-      if (columns.getFirst().intValue() == 0) {
+      if (columns.getFirst() == 0) {
         return stateInfo.getSecond();
       }
       // have all the column entries, so just turn it into a Delete for the row
@@ -228,7 +228,7 @@ public class CoveredColumnIndexCodec extends BaseIndexCodec {
 
   static class ColumnEntry {
     byte[] value = EMPTY_BYTES;
-    CoveredColumn ref;
+    final CoveredColumn ref;
 
     public ColumnEntry(byte[] value, CoveredColumn ref) {
       this.value = value == null ? EMPTY_BYTES : value;

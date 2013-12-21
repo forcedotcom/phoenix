@@ -36,7 +36,7 @@ import com.salesforce.phoenix.util.ScanUtil;
 public class IndexMetaDataCacheClient {
 
     private final ServerCacheClient serverCache;
-    private TableRef cacheUsingTableRef;
+    private final TableRef cacheUsingTableRef;
     
     /**
      * Construct client used to send index metadata to each region server

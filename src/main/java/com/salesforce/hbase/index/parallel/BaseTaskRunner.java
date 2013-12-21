@@ -43,7 +43,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 public abstract class BaseTaskRunner implements TaskRunner {
 
   private static final Log LOG = LogFactory.getLog(BaseTaskRunner.class);
-  protected ListeningExecutorService writerPool;
+  protected final ListeningExecutorService writerPool;
   private boolean stopped;
 
   public BaseTaskRunner(ExecutorService service) {

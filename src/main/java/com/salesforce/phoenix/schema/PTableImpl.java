@@ -224,8 +224,7 @@ public class PTableImpl implements PTable {
             allColumns = new PColumn[columns.size()];
             pkColumns = Lists.newArrayListWithExpectedSize(columns.size());
         }
-        for (int i = 0; i < columns.size(); i++) {
-            PColumn column = columns.get(i);
+        for (PColumn column : columns) {
             allColumns[column.getPosition()] = column;
             PName familyName = column.getFamilyName();
             if (familyName == null) {
@@ -549,8 +548,7 @@ public class PTableImpl implements PTable {
             // FIXME: the version of the Delete constructor without the lock args was introduced
             // in 0.94.4, thus if we try to use it here we can no longer use the 0.94.2 version
             // of the client.
-            Delete delete = new Delete(key,ts,null);
-            deleteRow = delete;
+            deleteRow = new Delete(key,ts,null);
             deleteRow.setWriteToWAL(!isWALDisabled());
         }
     }

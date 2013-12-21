@@ -75,7 +75,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
      * We take the ceiling of 2.4 to make it 3 if a is an INTEGER to prevent needing to coerce
      * every time during evaluation.
      */
-    private static ExpressionComparabilityWrapper[] WRAPPERS = new ExpressionComparabilityWrapper[CompareOp.values().length];
+    private static final ExpressionComparabilityWrapper[] WRAPPERS = new ExpressionComparabilityWrapper[CompareOp.values().length];
     static {
         WRAPPERS[CompareOp.LESS.ordinal()] = new ExpressionComparabilityWrapper() {
 
@@ -265,8 +265,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
         } else {
             // Write at least one null byte in the case of the child being null with a childType of null
             Integer byteSize = e.getByteSize();
-            int bytesToWrite = byteSize == null ? 1 : Math.max(1, byteSize);
-            return bytesToWrite;
+            return byteSize == null ? 1 : Math.max(1, byteSize);
         }
     }
     

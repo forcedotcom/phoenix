@@ -46,8 +46,7 @@ public class DoubleAddExpression extends AddExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         double result = 0.0;
-        for (int i = 0; i < children.size(); i++) {
-            Expression child = children.get(i);
+        for (Expression child : children) {
             if (!child.evaluate(tuple, ptr)) {
                 return false;
             }

@@ -327,7 +327,6 @@ public class DescColumnSortOrderExpressionTest {
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         cal.setTimeZone(DateUtil.DATE_TIME_ZONE);
-        Date d = new Date(cal.getTimeInMillis()); 
-        return d;
+        return new Date(cal.getTimeInMillis());
     }    
 }

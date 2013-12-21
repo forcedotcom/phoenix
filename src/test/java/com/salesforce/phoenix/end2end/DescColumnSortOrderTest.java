@@ -422,8 +422,7 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
         cal.set(Calendar.MINUTE, 2);
         cal.set(Calendar.SECOND, 5);
         cal.set(Calendar.MILLISECOND, 101);
-        Date d = new Date(cal.getTimeInMillis()); 
-        return d;
+        return new Date(cal.getTimeInMillis());
     }
         
     private static String[] upsert(String...args) {
@@ -485,8 +484,8 @@ public class DescColumnSortOrderTest extends BaseHBaseManagedTimeTest {
     
     private static class HavingCondition {
         
-        private String groupby;
-        private String having;
+        private final String groupby;
+        private final String having;
         
         HavingCondition(String groupby, String having) {
             this.groupby = groupby;

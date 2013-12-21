@@ -59,9 +59,9 @@ public class IndexWriter implements Stoppable {
   private static final Log LOG = LogFactory.getLog(IndexWriter.class);
   private static final String INDEX_COMMITTER_CONF_KEY = "index.writer.commiter.class";
   public static final String INDEX_FAILURE_POLICY_CONF_KEY = "index.writer.failurepolicy.class";
-  private AtomicBoolean stopped = new AtomicBoolean(false);
-  private IndexCommitter writer;
-  private IndexFailurePolicy failurePolicy;
+  private final AtomicBoolean stopped = new AtomicBoolean(false);
+  private final IndexCommitter writer;
+  private final IndexFailurePolicy failurePolicy;
 
   /**
    * @throws IOException if the {@link IndexWriter} or {@link IndexFailurePolicy} cannot be
@@ -74,10 +74,8 @@ public class IndexWriter implements Stoppable {
   public static IndexCommitter getCommitter(RegionCoprocessorEnvironment env) throws IOException {
     Configuration conf = env.getConfiguration();
     try {
-      IndexCommitter committer =
-          conf.getClass(INDEX_COMMITTER_CONF_KEY, ParallelWriterIndexCommitter.class,
-            IndexCommitter.class).newInstance();
-      return committer;
+        return conf.getClass(INDEX_COMMITTER_CONF_KEY, ParallelWriterIndexCommitter.class,
+          IndexCommitter.class).newInstance();
     } catch (InstantiationException e) {
       throw new IOException(e);
     } catch (IllegalAccessException e) {
@@ -89,10 +87,8 @@ public class IndexWriter implements Stoppable {
       throws IOException {
     Configuration conf = env.getConfiguration();
     try {
-      IndexFailurePolicy committer =
-          conf.getClass(INDEX_FAILURE_POLICY_CONF_KEY, KillServerOnFailurePolicy.class,
-            IndexFailurePolicy.class).newInstance();
-      return committer;
+        return conf.getClass(INDEX_FAILURE_POLICY_CONF_KEY, KillServerOnFailurePolicy.class,
+          IndexFailurePolicy.class).newInstance();
     } catch (InstantiationException e) {
       throw new IOException(e);
     } catch (IllegalAccessException e) {

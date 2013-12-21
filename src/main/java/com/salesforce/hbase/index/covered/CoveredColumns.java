@@ -40,7 +40,7 @@ import com.salesforce.hbase.index.covered.update.ColumnReference;
  */
 public class CoveredColumns {
 
-  Set<ColumnReference> columns = new HashSet<ColumnReference>();
+  final Set<ColumnReference> columns = new HashSet<ColumnReference>();
 
   public Collection<? extends ColumnReference> findNonCoveredColumns(
       Collection<? extends ColumnReference> columns2) {

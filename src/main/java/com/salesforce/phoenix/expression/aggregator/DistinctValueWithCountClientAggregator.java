@@ -67,10 +67,9 @@ public abstract class DistinctValueWithCountClientAggregator extends BaseAggrega
         try {
             if (Bytes.equals(ptr.get(), ptr.getOffset(), 1, DistinctValueWithCountServerAggregator.COMPRESS_MARKER, 0,
                     1)) {
-                InputStream decompressionStream = DistinctValueWithCountServerAggregator.COMPRESS_ALGO
+                is = DistinctValueWithCountServerAggregator.COMPRESS_ALGO
                         .createDecompressionStream(is,
                                 DistinctValueWithCountServerAggregator.COMPRESS_ALGO.getDecompressor(), 0);
-                is = decompressionStream;
             }
             DataInputStream in = new DataInputStream(is);
             int mapSize = WritableUtils.readVInt(in);

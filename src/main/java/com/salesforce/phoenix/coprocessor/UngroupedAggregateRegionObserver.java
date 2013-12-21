@@ -427,8 +427,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         try {
             DataOutputStream output = new DataOutputStream(stream);
             WritableUtils.writeVInt(output, selectExpressions.size());
-            for (int i = 0; i < selectExpressions.size(); i++) {
-                Expression expression = selectExpressions.get(i);
+            for (Expression expression : selectExpressions) {
                 WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
                 expression.write(output);
             }

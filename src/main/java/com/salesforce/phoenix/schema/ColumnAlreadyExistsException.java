@@ -42,7 +42,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ColumnAlreadyExistsException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_EXIST_IN_DEF;
+    private static final SQLExceptionCode code = SQLExceptionCode.COLUMN_EXIST_IN_DEF;
     private final String schemaName;
     private final String tableName;
     private final String columnName;

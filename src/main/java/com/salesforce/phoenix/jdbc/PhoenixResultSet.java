@@ -96,7 +96,7 @@ import com.salesforce.phoenix.util.SQLCloseable;
 public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce.phoenix.jdbc.Jdbc7Shim.ResultSet {
     private final static String STRING_FALSE = "0";
     private final static BigDecimal BIG_DECIMAL_FALSE = BigDecimal.valueOf(0);
-    private final static Integer INTEGER_FALSE = Integer.valueOf(0);
+    private final static Integer INTEGER_FALSE = 0;
     private final static Tuple BEFORE_FIRST = new ResultTuple();
     
     private final ResultIterator scanner;

@@ -51,24 +51,24 @@ public class DateAddExpression extends AddExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         long finalResult=0;
-        
-        for(int i=0;i<children.size();i++) {
-            if (!children.get(i).evaluate(tuple, ptr)) {
+
+        for (Expression aChildren : children) {
+            if (!aChildren.evaluate(tuple, ptr)) {
                 return false;
             }
             if (ptr.getLength() == 0) {
                 return true;
             }
             long value;
-            PDataType type = children.get(i).getDataType();
-            ColumnModifier columnModifier = children.get(i).getColumnModifier();
+            PDataType type = aChildren.getDataType();
+            ColumnModifier columnModifier = aChildren.getColumnModifier();
             if (type == PDataType.DECIMAL) {
-                BigDecimal bd = (BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier);
+                BigDecimal bd = (BigDecimal) PDataType.DECIMAL.toObject(ptr, columnModifier);
                 value = bd.multiply(BD_MILLIS_IN_DAY).longValue();
             } else if (type.isCoercibleTo(PDataType.LONG)) {
                 value = type.getCodec().decodeLong(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY;
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
-                value = (long)(type.getCodec().decodeDouble(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY);
+                value = (long) (type.getCodec().decodeDouble(ptr, columnModifier) * QueryConstants.MILLIS_IN_DAY);
             } else {
                 value = type.getCodec().decodeLong(ptr, columnModifier);
             }

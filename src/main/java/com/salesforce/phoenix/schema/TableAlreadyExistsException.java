@@ -42,7 +42,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class TableAlreadyExistsException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
+    private static final SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
     private final String schemaName;
     private final String tableName;
     private final PTable table;

@@ -35,8 +35,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
     private MappedByteBufferMap byteMap = null;
     // Keep a list of bloomfilters, one for every page to quickly determine
     // which page determines the requested key
-    private ArrayList<BloomFilter<byte[]>> bFilters;
-    private SpillFile spillFile;
+    private final ArrayList<BloomFilter<byte[]>> bFilters;
+    private final SpillFile spillFile;
 
     public SpillMap(SpillFile file, int thresholdBytes, int estValueSize) throws IOException {
         this.thresholdBytes = thresholdBytes;
@@ -170,10 +170,10 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
     private static class MappedByteBufferMap {
         private final int thresholdBytes;
         private long totalResultSize = 0;
-        private MappedByteBuffer buffer;
-        private int bufferIndex;
+        private final MappedByteBuffer buffer;
+        private final int bufferIndex;
         // Use a map for in memory page representation
-        Map<ImmutableBytesPtr, byte[]> pageMap = Maps.newConcurrentMap();
+        final Map<ImmutableBytesPtr, byte[]> pageMap = Maps.newConcurrentMap();
 
         private MappedByteBufferMap(int index, MappedByteBuffer buffer,
                 int thresholdBytes) {
@@ -336,11 +336,11 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements
         return new Iterator<byte[]>() {
             List<byte[]> bufferEntries;
             int pageIndex = 0;
-            int inMemPageIndex = byteMap.getCurIndex();
+            final int inMemPageIndex = byteMap.getCurIndex();
             int curBufferIndex = 0;
             int curBufferSize = 0;
-            long highestPageId = spillFile.getMaxPageId();
-            Iterator<byte[]> entriesIter = byteMap.getPageMapEntries();
+            final long highestPageId = spillFile.getMaxPageId();
+            final Iterator<byte[]> entriesIter = byteMap.getPageMapEntries();
 
             @Override
             public boolean hasNext() {

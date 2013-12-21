@@ -51,10 +51,10 @@ import com.salesforce.phoenix.schema.tuple.ResultTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
-    private Comparator<ResultEntry> comparator;
+    private final Comparator<ResultEntry> comparator;
     private final int limit;
     private final int thresholdBytes;
-    private List<MappedByteBufferPriorityQueue> queues = new ArrayList<MappedByteBufferPriorityQueue>();
+    private final List<MappedByteBufferPriorityQueue> queues = new ArrayList<MappedByteBufferPriorityQueue>();
     private MappedByteBufferPriorityQueue currentQueue = null;
     private int currentIndex = 0;
     MinMaxPriorityQueue<IndexedResultEntry> mergedQueue = null;
@@ -172,7 +172,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
     }
 
     private static class IndexedResultEntry extends ResultEntry {
-        private int index;
+        private final int index;
 
         public IndexedResultEntry(int index, ResultEntry resultEntry) {
             super(resultEntry.sortKeys, resultEntry.result);
@@ -202,7 +202,7 @@ public class MappedByteBufferSortedQueue extends AbstractQueue<ResultEntry> {
         private boolean isClosed = false;
         MinMaxPriorityQueue<ResultEntry> results = null;
         private boolean flushBuffer = false;
-        private int index;
+        private final int index;
         private int flushedCount;
 
         public MappedByteBufferPriorityQueue(int index, int limit, int thresholdBytes,

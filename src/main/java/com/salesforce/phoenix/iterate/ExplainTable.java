@@ -184,7 +184,7 @@ public abstract class ExplainTable {
     
     private static class RowKeyValueIterator implements Iterator<byte[]> {
         private final RowKeySchema schema;
-        private ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+        private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
         private int position = 0;
         private final int maxOffset;
         private byte[] nextValue;

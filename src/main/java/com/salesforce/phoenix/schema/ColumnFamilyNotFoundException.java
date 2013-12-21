@@ -39,7 +39,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ColumnFamilyNotFoundException extends MetaDataEntityNotFoundException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.COLUMN_FAMILY_NOT_FOUND;
+    private static final SQLExceptionCode code = SQLExceptionCode.COLUMN_FAMILY_NOT_FOUND;
     private final String familyName;
 
     public ColumnFamilyNotFoundException(String familyName) {

@@ -95,7 +95,7 @@ public class DateUtil {
         return DateUtil.DEFAULT_DATE_FORMAT.equals(pattern) ? DateUtil.DEFAULT_DATE_FORMATTER : FastDateFormat.getInstance(pattern, DateUtil.DATE_TIME_ZONE);
     }
 
-    private static ThreadLocal<Format> dateFormat =
+    private static final ThreadLocal<Format> dateFormat =
             new ThreadLocal < Format > () {
         @Override protected Format initialValue() {
             return getDateParser(DEFAULT_DATE_FORMAT);
@@ -110,7 +110,7 @@ public class DateUtil {
         }
     }
 
-    private static ThreadLocal<Format> timeFormat =
+    private static final ThreadLocal<Format> timeFormat =
             new ThreadLocal < Format > () {
         @Override protected Format initialValue() {
             return getTimeParser(DEFAULT_DATE_FORMAT);
@@ -125,7 +125,7 @@ public class DateUtil {
         }
     }
 
-    private static ThreadLocal<Format> timestampFormat =
+    private static final ThreadLocal<Format> timestampFormat =
             new ThreadLocal < Format > () {
         @Override protected Format initialValue() {
             return getTimestampParser(DEFAULT_DATE_FORMAT);

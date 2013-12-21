@@ -55,7 +55,7 @@ import com.salesforce.phoenix.flume.serializer.EventSerializers;
 
 public final class PhoenixSink  extends AbstractSink implements Configurable {
     private static final Logger logger = LoggerFactory.getLogger(PhoenixSink.class);
-    private static AtomicInteger counter = new AtomicInteger();
+    private static final AtomicInteger counter = new AtomicInteger();
     private static final String NAME   = "Phoenix Sink__";
   
     private SinkCounter sinkCounter;

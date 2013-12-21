@@ -47,14 +47,14 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class HashJoinInfo {
     private static final String HASH_JOIN = "HashJoin";
     
-    private KeyValueSchema joinedSchema;
-    private ImmutableBytesPtr[] joinIds;
-    private List<Expression>[] joinExpressions;
-    private JoinType[] joinTypes;
-    private boolean[] earlyEvaluation;
-    private KeyValueSchema[] schemas;
-    private int[] fieldPositions;
-    private Expression postJoinFilterExpression;
+    private final KeyValueSchema joinedSchema;
+    private final ImmutableBytesPtr[] joinIds;
+    private final List<Expression>[] joinExpressions;
+    private final JoinType[] joinTypes;
+    private final boolean[] earlyEvaluation;
+    private final KeyValueSchema[] schemas;
+    private final int[] fieldPositions;
+    private final Expression postJoinFilterExpression;
     
     public HashJoinInfo(PTable joinedTable, ImmutableBytesPtr[] joinIds, List<Expression>[] joinExpressions, JoinType[] joinTypes, boolean[] earlyEvaluation, PTable[] tables, int[] fieldPositions, Expression postJoinFilterExpression) {
     	this(buildSchema(joinedTable), joinIds, joinExpressions, joinTypes, earlyEvaluation, buildSchemas(tables), fieldPositions, postJoinFilterExpression);

@@ -15,7 +15,7 @@ import org.apache.hadoop.hbase.filter.FilterBase;
  */
 public class NewerTimestampFilter extends FilterBase {
 
-  private long timestamp;
+  private final long timestamp;
 
   public NewerTimestampFilter(long timestamp) {
     this.timestamp = timestamp;

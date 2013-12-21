@@ -34,7 +34,7 @@ import org.apache.hadoop.hbase.Abortable;
  */
 public class CapturingAbortable implements Abortable {
 
-  private Abortable delegate;
+  private final Abortable delegate;
   private Throwable cause;
   private String why;
 

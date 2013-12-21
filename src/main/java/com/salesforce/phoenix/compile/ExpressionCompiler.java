@@ -687,8 +687,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
     @Override
     public Expression visitLeave(InListParseNode node, List<Expression> l) throws SQLException {
-        List<Expression> inChildren = l;
-        Expression firstChild = inChildren.get(0);
+        Expression firstChild = l.get(0);
         ImmutableBytesWritable ptr = context.getTempPtr();
         PDataType firstChildType = firstChild.getDataType();
         ParseNode firstChildNode = node.getChildren().get(0);
@@ -696,7 +695,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (firstChildNode instanceof BindParseNode) {
             PDatum datum = firstChild;
             if (firstChildType == null) {
-                datum = inferBindDatum(inChildren);
+                datum = inferBindDatum(l);
             }
             context.getBindManager().addParamMetaData((BindParseNode)firstChildNode, datum);
         }
@@ -710,7 +709,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             return LiteralExpression.newConstant(null, PDataType.BOOLEAN);
         }
         
-        Expression e = InListExpression.create(inChildren, ptr);
+        Expression e = InListExpression.create(l, ptr);
         if (node.isNegate()) {
             e = new NotExpression(e);
         }
@@ -1071,10 +1070,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             public Expression create(ArithmeticParseNode node, List<Expression> children) throws SQLException {
                 boolean foundDate = false;
                 PDataType theType = null;
-                for(int i = 0; i < children.size(); i++) {
-                    PDataType type = children.get(i).getDataType();
+                for (Expression child : children) {
+                    PDataType type = child.getDataType();
                     if (type == null) {
-                        continue; 
+                        continue;
                     } else if (type.isCoercibleTo(PDataType.TIMESTAMP)) {
                         if (foundDate) {
                             throw new TypeMismatchException(type, node.toString());
@@ -1083,7 +1082,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = type;
                         }
                         foundDate = true;
-                    }else if (type == PDataType.DECIMAL) {
+                    } else if (type == PDataType.DECIMAL) {
                         if (theType == null || !theType.isCoercibleTo(PDataType.TIMESTAMP)) {
                             theType = PDataType.DECIMAL;
                         }
@@ -1129,8 +1128,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             @Override
             public Expression create(ArithmeticParseNode node, List<Expression> children) throws SQLException {
                 PDataType theType = null;
-                for(int i = 0; i < children.size(); i++) {
-                    PDataType type = children.get(i).getDataType();
+                for (Expression child : children) {
+                    PDataType type = child.getDataType();
                     if (type == null) {
                         continue;
                     } else if (type == PDataType.DECIMAL) {
@@ -1187,8 +1186,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             @Override
             public Expression create(ArithmeticParseNode node, List<Expression> children) throws SQLException {
                 PDataType theType = null;
-                for(int i = 0; i < children.size(); i++) {
-                    PDataType type = children.get(i).getDataType();
+                for (Expression child : children) {
+                    PDataType type = child.getDataType();
                     if (type == null) {
                         continue;
                     } else if (type == PDataType.DECIMAL) {

@@ -130,14 +130,14 @@ public class Indexer extends BaseRegionObserver {
    * batch if there were no {@link KeyValue}s attached to the {@link WALEdit}. When you get down to
    * the preBatch hook, there won't be any WALEdits to which to add the index updates.
    */
-  private static KeyValue BATCH_MARKER = new KeyValue();
+  private static final KeyValue BATCH_MARKER = new KeyValue();
 
   /**
    * cache the failed updates to the various regions. Used for making the WAL recovery mechanisms
    * more robust in the face of recoverying index regions that were on the same server as the
    * primary table region
    */
-  private PerRegionIndexWriteCache failedIndexEdits = new PerRegionIndexWriteCache();
+  private final PerRegionIndexWriteCache failedIndexEdits = new PerRegionIndexWriteCache();
 
   /**
    * IndexWriter for writing the recovered index edits. Separate from the main indexer since we need
@@ -371,7 +371,7 @@ public class Indexer extends BaseRegionObserver {
 
   private class MultiMutation extends Mutation {
 
-    private ImmutableBytesPtr rowKey;
+    private final ImmutableBytesPtr rowKey;
 
     public MultiMutation(ImmutableBytesPtr rowkey, boolean writeToWal) {
       this.rowKey = rowkey;
