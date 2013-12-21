@@ -247,6 +247,6 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     @Override
     public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
         // TODO: support this on connectionless by maintaining a Map here
-        return null;
+        return Collections.emptyMap();
     }
 }

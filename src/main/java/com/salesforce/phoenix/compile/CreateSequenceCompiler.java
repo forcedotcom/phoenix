@@ -40,10 +40,13 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PDatum;
 
 
 public class CreateSequenceCompiler {
@@ -52,6 +55,41 @@ public class CreateSequenceCompiler {
     public CreateSequenceCompiler(PhoenixStatement statement) {
         this.statement = statement;
     }
+    
+    private static class LongDatum implements PDatum {
+
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+
+        @Override
+        public PDataType getDataType() {
+            return PDataType.LONG;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return PDataType.LONG.getByteSize();
+        }
+
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }
+    private static final PDatum LONG_DATUM = new LongDatum();
 
     public MutationPlan compile(final CreateSequenceStatement sequence) throws SQLException {
         ParseNode startsWithNode = sequence.getStartWith();
@@ -71,6 +109,12 @@ public class CreateSequenceCompiler {
         final ColumnResolver resolver = FromCompiler.EMPTY_TABLE_RESOLVER;
         
         final StatementContext context = new StatementContext(sequence, connection, resolver, statement.getParameters(), new Scan());
+        if (startsWithNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)startsWithNode, LONG_DATUM);
+        }
+        if (incrementByNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)incrementByNode, LONG_DATUM);
+        }
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
         Expression startsWithExpr = startsWithNode.accept(expressionCompiler);
         ImmutableBytesWritable ptr = context.getTempPtr();

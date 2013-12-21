@@ -61,7 +61,7 @@ public class SequenceCompiler {
         PhoenixConnection conn = context.getConnection();
         ConnectionQueryServices services = conn.getQueryServices();
         Map<NextSequenceValueParseNode, Long> sequenceValuesMap = services.incrementSequences(nodes);
-        context.setNextSequenceValuesMap(sequenceValuesMap);
+        context.setResolvedSequences(sequenceValuesMap);
 	}
 	
 	private static class NextSequenceParseNodeVisitor extends StatelessTraverseAllParseNodeVisitor {

@@ -77,7 +77,6 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
     private KeyRange minMaxRange = null;
-    private List<NextSequenceValueParseNode> sequenceNodes = Collections.emptyList();
     private Map<NextSequenceValueParseNode, Long> sequenceMap = Collections.emptyMap();
 
     private TableRef currentTable;
@@ -228,19 +227,11 @@ public class StatementContext {
         return this.getScanRanges().isSingleRowScan() && ! (this.getScan().getFilter() instanceof FilterList);
     }
     
-    public List<NextSequenceValueParseNode> getNextSequenceValueNodes(){
-    	return sequenceNodes;
-    }
-    
-    public void setNextSequenceValueNodes(List<NextSequenceValueParseNode> sequenceNodes){
-        this.sequenceNodes = sequenceNodes;
-    }
-    
-    public Map<NextSequenceValueParseNode,Long> getNextSequenceValuesMap(){
+    public Map<NextSequenceValueParseNode,Long> getResolvedSequences(){
         return sequenceMap;
     }
     
-    public void setNextSequenceValuesMap(Map<NextSequenceValueParseNode,Long> sequenceValuesMap){
+    public void setResolvedSequences(Map<NextSequenceValueParseNode,Long> sequenceValuesMap){
         this.sequenceMap = sequenceValuesMap;
     }
 
