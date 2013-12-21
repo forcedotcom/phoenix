@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.ColumnProjector;
@@ -15,9 +15,9 @@ import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.parse.TableNode;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
@@ -44,9 +44,9 @@ public class QueryOptimizer {
     }
 
     public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
-        QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory, Collections.<TableName>emptySet());
+        QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory, Collections.<NextSequenceValueParseNode, Long>emptyMap());
         QueryPlan dataPlan = compiler.compile(select);
-        Set<TableName> resolvedSequences = dataPlan.getContext().getResolvedSequences();
+        Map<NextSequenceValueParseNode, Long> resolvedSequences = dataPlan.getContext().getNextSequenceValuesMap();
         if (!useIndexes) {
             return dataPlan;
         }
@@ -86,7 +86,7 @@ public class QueryOptimizer {
         return chooseBestPlan(select, plans);
     }
     
-    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement select, List<PTable> indexes, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans, Set<TableName> resolvedSequences) throws SQLException {
+    private static QueryPlan getHintedQueryPlan(PhoenixStatement statement, SelectStatement select, List<PTable> indexes, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans,  Map<NextSequenceValueParseNode, Long> resolvedSequences) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         String indexHint = select.getHint().getHint(Hint.INDEX);
         if (indexHint == null) {
@@ -141,7 +141,7 @@ public class QueryOptimizer {
         return -1;
     }
     
-    private static boolean addPlan(PhoenixStatement statement, SelectStatement select, PTable index, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans, Set<TableName> resolvedSequences) throws SQLException {
+    private static boolean addPlan(PhoenixStatement statement, SelectStatement select, PTable index, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, List<QueryPlan> plans,  Map<NextSequenceValueParseNode, Long> resolvedSequences) throws SQLException {
         QueryPlan dataPlan = plans.get(0);
         int nColumns = dataPlan.getProjector().getColumnCount();
         String alias = '"' + dataPlan.getTableRef().getTableAlias() + '"'; // double quote in case it's case sensitive

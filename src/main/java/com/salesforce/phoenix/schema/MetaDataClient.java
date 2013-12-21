@@ -529,12 +529,11 @@ public class MetaDataClient {
         return buildIndex(table, tableRef);
     }
 
-    public MutationState createSequence(CreateSequenceStatement statement) throws SQLException {
+    public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
         final String schemaName = statement.getSequenceName().getSchemaName();
         final String sequenceName = statement.getSequenceName().getTableName();
-        final Long startWith = new Long((Integer)statement.getStartWith().getValue());
-        final Long incrementBy = new Long(((Integer)statement.getIncrementBy().getValue()));
 
+        // TODO: fix race condition by going through ConnectionQueryServices and MetaDataProtocol here
         String query = "SELECT sequence_schema FROM SYSTEM.\"SEQUENCE\" WHERE sequence_schema='" + schemaName + "' AND sequence_name='" + sequenceName + "'";
         ResultSet rs = connection.prepareStatement(query).executeQuery();
         if (rs.next()){
@@ -545,11 +544,12 @@ public class MetaDataClient {
         PreparedStatement upsertStatement = connection.prepareStatement(sql);
         upsertStatement.setString(1, schemaName);
         upsertStatement.setString(2, sequenceName);
-        upsertStatement.setLong(3, startWith);
+        upsertStatement.setLong(3, startWith - incrementBy); // So that first increment starts at startWith
         upsertStatement.setLong(4, incrementBy);
         upsertStatement.execute();
-        connection.commit();        
-        return new MutationState(0, connection);
+        connection.commit();
+        
+        return new MutationState(1, connection);
     }
     
     private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {

@@ -54,7 +54,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PMetaData;
@@ -244,8 +244,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         return false;
     }
 
-	@Override
-	public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) {		
-		return null;
-	}
+    @Override
+    public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
+        // TODO: support this on connectionless by maintaining a Map here
+        return null;
+    }
 }

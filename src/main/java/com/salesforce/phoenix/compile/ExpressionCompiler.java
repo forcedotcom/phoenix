@@ -1270,7 +1270,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 	@Override
 	public Expression visit(NextSequenceValueParseNode node)
 			throws SQLException {		
-		Long value = context.getNextSequenceValue(node.getTableName());		
-		return LiteralExpression.newConstant(value);
+		Long value = context.resolveSequenceValue(node);		
+		return LiteralExpression.newConstant(value, PDataType.LONG);
 	}
 }

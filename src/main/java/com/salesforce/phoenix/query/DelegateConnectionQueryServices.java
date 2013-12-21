@@ -44,7 +44,7 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
@@ -179,7 +179,7 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-	public Map<TableName, Long> incrementSequences(List<TableName> sequenceNames) {		
-		return null;
+	public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> sequenceNames) throws SQLException {		
+		return getDelegate().incrementSequences(sequenceNames);
 	}
 }

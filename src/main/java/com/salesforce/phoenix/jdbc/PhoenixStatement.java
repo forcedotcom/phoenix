@@ -84,7 +84,6 @@ import com.salesforce.phoenix.parse.DropTableStatement;
 import com.salesforce.phoenix.parse.ExplainStatement;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.LimitNode;
-import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.NamedNode;
 import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.OrderByNode;
@@ -426,7 +425,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
 
-		public ExecutableCreateSequenceStatement(TableName sequenceName, LiteralParseNode startWith, LiteralParseNode incrementBy, int bindCount) {
+		public ExecutableCreateSequenceStatement(TableName sequenceName, ParseNode startWith, ParseNode incrementBy, int bindCount) {
 			super(sequenceName, startWith, incrementBy, bindCount);
 		}
 
@@ -454,7 +453,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
 		@Override
 		public MutationPlan compilePlan() throws SQLException {
-		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(connection);
+		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(PhoenixStatement.this);
             return compiler.compile(this);
 		}
 
@@ -857,7 +856,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateSequenceStatement createSequence(TableName tableName, LiteralParseNode startsWith, LiteralParseNode incrementBy, int bindCount){
+        public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, int bindCount){
         	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, bindCount);
         }
         

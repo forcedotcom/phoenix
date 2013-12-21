@@ -31,26 +31,72 @@ import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
 
+import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateSequenceStatement;
+import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PDataType;
 
 
 public class CreateSequenceCompiler {
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
 
-    public CreateSequenceCompiler(PhoenixConnection connection) {
-        this.connection = connection;
+    public CreateSequenceCompiler(PhoenixStatement statement) {
+        this.statement = statement;
     }
 
-    public MutationPlan compile(final CreateSequenceStatement statement) throws SQLException {
+    public MutationPlan compile(final CreateSequenceStatement sequence) throws SQLException {
+        ParseNode startsWithNode = sequence.getStartWith();
+        ParseNode incrementByNode = sequence.getIncrementBy();
+        if (!startsWithNode.isConstant()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.STARTS_WITH_MUST_BE_CONSTANT)
+            .setSchemaName(sequence.getSequenceName().getSchemaName())
+            .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+        }
+        if (!incrementByNode.isConstant()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INCREMENT_BY_MUST_BE_CONSTANT)
+            .setSchemaName(sequence.getSequenceName().getSchemaName())
+            .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+        }
+        
+        final PhoenixConnection connection = statement.getConnection();
+        final ColumnResolver resolver = FromCompiler.EMPTY_TABLE_RESOLVER;
+        
+        final StatementContext context = new StatementContext(sequence, connection, resolver, statement.getParameters(), new Scan());
+        ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
+        Expression startsWithExpr = startsWithNode.accept(expressionCompiler);
+        ImmutableBytesWritable ptr = context.getTempPtr();
+        startsWithExpr.evaluate(null, ptr);
+        if (ptr.getLength() == 0 || !startsWithExpr.getDataType().isCoercibleTo(PDataType.LONG)) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.STARTS_WITH_MUST_BE_CONSTANT)
+            .setSchemaName(sequence.getSequenceName().getSchemaName())
+            .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+        }
+        final long startsWith = (Long)PDataType.LONG.toObject(ptr, startsWithExpr.getDataType());
+
+        Expression incrementByExpr = incrementByNode.accept(expressionCompiler);
+        incrementByExpr.evaluate(null, ptr);
+        if (ptr.getLength() == 0 || !incrementByExpr.getDataType().isCoercibleTo(PDataType.LONG)) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INCREMENT_BY_MUST_BE_CONSTANT)
+            .setSchemaName(sequence.getSequenceName().getSchemaName())
+            .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+        }
+        final long incrementBy = (Long)PDataType.LONG.toObject(ptr, incrementByExpr.getDataType());
+        
         final MetaDataClient client = new MetaDataClient(connection);        
         return new MutationPlan() {           
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createSequence(statement);
+                return client.createSequence(sequence, startsWith, incrementBy);
             }
 
             @Override
@@ -65,7 +111,7 @@ public class CreateSequenceCompiler {
 
             @Override
             public ParameterMetaData getParameterMetaData() {                
-                return null;
+                return context.getBindManager().getParameterMetaData();
             }
 
         };

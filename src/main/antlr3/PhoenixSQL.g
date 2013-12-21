@@ -396,10 +396,15 @@ create_index_node returns [CreateIndexStatement ret]
 
 // Parse a create sequence statement.
 create_sequence_node returns [CreateSequenceStatement ret]
-    :   CREATE SEQUENCE t=from_table_name ?
-    	START WITH s=int_literal	?
-    	INCREMENT BY i=int_literal 
-        {ret = factory.createSequence(t, s, i, getBindCount()); }
+    :   CREATE SEQUENCE t=from_table_name
+        (START WITH s=int_literal_or_bind)?
+        (INCREMENT BY i=int_literal_or_bind)?
+    { $ret = factory.createSequence(t, s, i, getBindCount()); }
+    ;
+
+int_literal_or_bind returns [ParseNode ret]
+    : n=int_literal { $ret = n; }
+    | b=bind_expression { $ret = b; }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]

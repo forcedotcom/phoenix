@@ -1,16 +1,17 @@
 package com.salesforce.phoenix.parse;
 
+
 public class CreateSequenceStatement implements BindableStatement {
 
 	private final TableName sequenceName;
-	private final LiteralParseNode startWith;
-	private final LiteralParseNode incrementBy;
+	private final ParseNode startWith;
+	private final ParseNode incrementBy;
 	private final int bindCount;
 
-	protected CreateSequenceStatement(TableName sequenceName, LiteralParseNode startWith, LiteralParseNode incrementBy, int bindCount) {
+	protected CreateSequenceStatement(TableName sequenceName, ParseNode startsWith, ParseNode incrementBy, int bindCount) {
 		this.sequenceName = sequenceName;
-		this.startWith = startWith;
-		this.incrementBy = incrementBy;
+		this.startWith = startsWith == null ? LiteralParseNode.ZERO : startsWith;
+		this.incrementBy = incrementBy == null ? LiteralParseNode.ONE : incrementBy;
 		this.bindCount = bindCount;
 	}
 
@@ -19,7 +20,7 @@ public class CreateSequenceStatement implements BindableStatement {
 		return this.bindCount;
 	}
 	
-	public LiteralParseNode getIncrementBy() {
+	public ParseNode getIncrementBy() {
 		return incrementBy;
 	}
 
@@ -27,7 +28,7 @@ public class CreateSequenceStatement implements BindableStatement {
 		return sequenceName;
 	}
 
-	public LiteralParseNode getStartWith() {
+	public ParseNode getStartWith() {
 		return startWith;
 	}
 }

@@ -19,7 +19,7 @@ import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class CreateSequenceTest extends BaseClientMangedTimeTest {	
+public abstract class CreateSequenceTest extends BaseClientMangedTimeTest {	
 
 	@Test
 	public void testSystemTable() throws Exception {		
