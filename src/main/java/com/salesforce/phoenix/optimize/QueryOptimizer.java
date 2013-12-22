@@ -44,7 +44,7 @@ public class QueryOptimizer {
     }
 
     public QueryPlan optimize(SelectStatement select, PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
-        QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory, Collections.<NextSequenceValueParseNode, Long>emptyMap());
+        QueryCompiler compiler = new QueryCompiler(statement, targetColumns, parallelIteratorFactory);
         QueryPlan dataPlan = compiler.compile(select);
         Map<NextSequenceValueParseNode, Long> resolvedSequences = dataPlan.getContext().getResolvedSequences();
         if (!useIndexes) {

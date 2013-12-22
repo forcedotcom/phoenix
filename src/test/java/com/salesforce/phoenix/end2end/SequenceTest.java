@@ -19,7 +19,7 @@ import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.TestUtil;
 
-public abstract class SequenceTest extends BaseHBaseManagedTimeTest {	
+public class SequenceTest extends BaseHBaseManagedTimeTest {	
 
 	@Test
 	public void testSystemTable() throws Exception {		
@@ -64,7 +64,7 @@ public abstract class SequenceTest extends BaseHBaseManagedTimeTest {
 		assertEquals("ALPHA", rs.getString("sequence_schema"));
 		assertEquals("OMEGA", rs.getString("sequence_name"));
 		assertEquals(2-4, rs.getInt("current_value"));
-		assertEquals(4, rs.getInt("increment_by"));
+		assertEquals(-4, rs.getInt("increment_by"));
 		assertFalse(rs.next());
 	}
 
@@ -92,11 +92,14 @@ public abstract class SequenceTest extends BaseHBaseManagedTimeTest {
 		conn.createStatement().execute("CREATE TABLE test.sequence_number ( id INTEGER NOT NULL PRIMARY KEY)");
 		conn.createStatement().execute("CREATE SEQUENCE alpha.tau START WITH 2 INCREMENT BY 1");
 		conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
+        conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
 		conn.commit();
 		String query = "SELECT id FROM test.sequence_number";		
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
 		assertEquals(2, rs.getInt(1));
+        assertTrue(rs.next());
+        assertEquals(3, rs.getInt(1));
 	}
 
 	@Test
@@ -146,6 +149,7 @@ public abstract class SequenceTest extends BaseHBaseManagedTimeTest {
 		assertTrue(rs.next());
 		assertEquals(5, rs.getInt(1));
 		assertEquals(1, rs.getInt(2));
+        assertFalse(rs.next());
 	}
 
 	private Connection getConnection() throws Exception {

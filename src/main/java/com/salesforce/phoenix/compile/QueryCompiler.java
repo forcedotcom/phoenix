@@ -94,9 +94,13 @@ public class QueryCompiler {
     private final Map<NextSequenceValueParseNode, Long> resolvedSequences;
     
     public QueryCompiler(PhoenixStatement statement) throws SQLException {
-        this(statement, Collections.<PDatum>emptyList(), null, Collections.<NextSequenceValueParseNode, Long>emptyMap());
+        this(statement, Collections.<PDatum>emptyList(), null);
     }
     
+    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
+        this(statement, Collections.<PDatum>emptyList(), parallelIteratorFactory, null);
+    }
+
     public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, Map<NextSequenceValueParseNode, Long> resolvedSequences) throws SQLException {
         this.statement = statement;
         this.scan = new Scan();
@@ -131,8 +135,10 @@ public class QueryCompiler {
         select = StatementNormalizer.normalize(select, resolver);
         StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
         
-        if (this.resolvedSequences.isEmpty()) {
+        if (this.resolvedSequences == null) {
         	SequenceCompiler.resolveSequencesSelect(context, select);
+        } else {
+            context.setResolvedSequences(this.resolvedSequences);
         }
         
         if (select.getFrom().size() == 1)

@@ -1141,7 +1141,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     	    NextSequenceValueParseNode node = cachedSequences.get(i);
     		Result result = (Result)cacheResultObjects[i];
     		KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
-    		long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueLength(), null);
+    		long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
     		resultMap.put(node, current);
     	}
     }
@@ -1168,7 +1168,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     			throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
     		}
     		KeyValue incrementKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-    		long increment = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueLength(), null);
+    		long increment = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
     		latestMetaData.setSequenceIncrementValue(t, increment); // Cache the value
     	}
     }
@@ -1180,7 +1180,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] key = SchemaUtil.getSequenceKey(schemaName, sequenceName);
         Put put = new Put(key);
         put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith-incrementBy));
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(incrementBy));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(-incrementBy));
         try {
             return htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, put);
         } catch (IOException e) {
