@@ -98,7 +98,7 @@ public class QueryCompiler {
     }
     
     public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
-        this(statement, Collections.<PDatum>emptyList(), parallelIteratorFactory, null);
+        this(statement, targetColumns, parallelIteratorFactory, null);
     }
 
     public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, Map<NextSequenceValueParseNode, Long> resolvedSequences) throws SQLException {
