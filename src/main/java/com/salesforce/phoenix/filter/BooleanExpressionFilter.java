@@ -52,7 +52,7 @@ abstract public class BooleanExpressionFilter extends FilterBase {
 
     protected Expression expression;
     protected boolean evaluateOnCompletion;
-    private ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+    private final ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
     
     public BooleanExpressionFilter() {
     }
@@ -83,8 +83,7 @@ abstract public class BooleanExpressionFilter extends FilterBase {
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         BooleanExpressionFilter other = (BooleanExpressionFilter)obj;
-        if (!expression.equals(other.expression)) return false;
-        return true;
+        return expression.equals(other.expression);
     }
 
     @Override

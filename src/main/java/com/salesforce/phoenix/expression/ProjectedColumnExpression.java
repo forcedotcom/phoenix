@@ -114,7 +114,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
 			bitSet.or(value);
 			schema.iterator(value, ptr, position, bitSet);
 			Boolean hasValue = schema.next(ptr, position, value.getOffset() + value.getLength(), bitSet);
-			if (hasValue == null || !hasValue.booleanValue())
+			if (hasValue == null || !hasValue)
 				return false;
 		} catch (IOException e) {
 			return false;

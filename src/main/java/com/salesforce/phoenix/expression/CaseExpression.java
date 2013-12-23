@@ -207,10 +207,7 @@ public class CaseExpression extends BaseCompoundExpression {
             ptr.set(PDataType.NULL_BYTES);
             return true;
         }
-        if (children.get(index).evaluate(tuple, ptr)) {
-            return true;
-        }
-        return false;
+        return children.get(index).evaluate(tuple, ptr);
     }
     
     @Override

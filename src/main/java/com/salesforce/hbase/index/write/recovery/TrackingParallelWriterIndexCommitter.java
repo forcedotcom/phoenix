@@ -172,10 +172,8 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
             // reset the interrupt status on the thread
             Thread.currentThread().interrupt();
             throw e;
-          } catch (Exception e) {
-            throw e;
           }
-          return Boolean.TRUE;
+            return Boolean.TRUE;
         }
 
         private void throwFailureIfDone() throws SingleIndexWriteFailureException {
@@ -219,7 +217,6 @@ public class TrackingParallelWriterIndexCommitter implements IndexCommitter {
       // make the list unmodifiable to avoid any more synchronization concerns
       throw new MultiIndexWriteFailureException(Collections.unmodifiableList(failures));
     }
-    return;
   }
 
   @Override

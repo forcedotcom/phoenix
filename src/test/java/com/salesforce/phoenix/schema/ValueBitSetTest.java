@@ -71,8 +71,7 @@ public class ValueBitSetTest {
                 builder.addField(datum);
             }
         }
-        KeyValueSchema schema = builder.build();
-        return schema;
+        return builder.build();
     }
     
     private static void setValueBitSet(KeyValueSchema schema, ValueBitSet valueSet) {

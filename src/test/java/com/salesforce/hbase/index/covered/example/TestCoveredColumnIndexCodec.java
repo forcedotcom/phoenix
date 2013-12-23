@@ -139,7 +139,7 @@ public class TestCoveredColumnIndexCodec {
 
   private static class SimpleTableState implements LocalHBaseState {
 
-    private Result r;
+    private final Result r;
 
     public SimpleTableState(Result r) {
       this.r = r;

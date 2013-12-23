@@ -84,8 +84,7 @@ public class ServerAggregators extends Aggregators {
             DataOutputStream output = new DataOutputStream(stream);
             WritableUtils.writeVInt(output, minNullableIndex);
             WritableUtils.writeVInt(output, aggFuncs.size());
-            for (int i = 0; i < aggFuncs.size(); i++) {
-                SingleAggregateFunction aggFunc = aggFuncs.get(i);
+            for (SingleAggregateFunction aggFunc : aggFuncs) {
                 WritableUtils.writeVInt(output, ExpressionType.valueOf(aggFunc).ordinal());
                 aggFunc.write(output);
             }

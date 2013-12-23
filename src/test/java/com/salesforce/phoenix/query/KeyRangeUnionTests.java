@@ -2,6 +2,7 @@ package com.salesforce.phoenix.query;
 
 import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
 import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
+import static junit.framework.Assert.assertEquals;
 import static org.apache.hadoop.hbase.util.Bytes.toBytes;
 
 import java.util.Arrays;
@@ -17,7 +18,7 @@ import org.junit.runners.Parameterized.Parameters;
 import com.salesforce.phoenix.schema.PDataType;
 
 @RunWith(Parameterized.class)
-public class KeyRangeUnionTests extends TestCase {
+public class KeyRangeUnionTests {
     private final KeyRange a, b, union;
 
     public KeyRangeUnionTests(KeyRange a, KeyRange b, KeyRange union) {

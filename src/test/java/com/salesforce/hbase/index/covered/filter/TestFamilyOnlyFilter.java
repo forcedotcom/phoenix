@@ -39,9 +39,9 @@ import org.junit.Test;
  */
 public class TestFamilyOnlyFilter {
 
-  byte[] row = new byte[] { 'a' };
-  byte[] qual = new byte[] { 'b' };
-  byte[] val = Bytes.toBytes("val");
+  final byte[] row = new byte[] { 'a' };
+  final byte[] qual = new byte[] { 'b' };
+  final byte[] val = Bytes.toBytes("val");
 
   @Test
   public void testPassesFirstFamily() {

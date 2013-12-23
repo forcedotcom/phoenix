@@ -924,8 +924,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                                         } else {
                                             invalidateList.add(new ImmutableBytesPtr(indexKey));
                                         }
-                                    } catch (ColumnNotFoundException e) {
-                                    } catch (AmbiguousColumnException e) {
+                                    } catch (ColumnNotFoundException ignored) {
+                                    } catch (AmbiguousColumnException ignored) {
                                     }
                                 }
                             } catch (ColumnFamilyNotFoundException e) {

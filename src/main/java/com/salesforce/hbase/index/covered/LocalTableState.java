@@ -64,15 +64,15 @@ import com.salesforce.hbase.index.scanner.ScannerBuilder;
 public class LocalTableState implements TableState {
 
   private long ts;
-  private RegionCoprocessorEnvironment env;
-  private KeyValueStore memstore;
-  private LocalHBaseState table;
-  private Mutation update;
-  private Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
-  private ScannerBuilder scannerBuilder;
-  private List<KeyValue> kvs = new ArrayList<KeyValue>();
+  private final RegionCoprocessorEnvironment env;
+  private final KeyValueStore memstore;
+  private final LocalHBaseState table;
+  private final Mutation update;
+  private final Set<ColumnTracker> trackedColumns = new HashSet<ColumnTracker>();
+  private final ScannerBuilder scannerBuilder;
+  private final List<KeyValue> kvs = new ArrayList<KeyValue>();
   private List<? extends IndexedColumnGroup> hints;
-  private CoveredColumns columnSet;
+  private final CoveredColumns columnSet;
 
   public LocalTableState(RegionCoprocessorEnvironment environment, LocalHBaseState table, Mutation update) {
     this.env = environment;

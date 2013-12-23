@@ -60,26 +60,26 @@ public class TimestampAddExpression extends AddExpression {
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         BigDecimal finalResult = BigDecimal.ZERO;
-        
-        for(int i=0; i<children.size(); i++) {
-            if (!children.get(i).evaluate(tuple, ptr)) {
+
+        for (Expression expression : children) {
+            if (!expression.evaluate(tuple, ptr)) {
                 return false;
             }
             if (ptr.getLength() == 0) {
                 return true;
             }
             BigDecimal value;
-            PDataType type = children.get(i).getDataType();
-            ColumnModifier columnModifier = children.get(i).getColumnModifier();
-            if(type == PDataType.TIMESTAMP || type == PDataType.UNSIGNED_TIMESTAMP) {
-                value = (BigDecimal)(PDataType.DECIMAL.toObject(ptr, type, columnModifier));
+            PDataType type = expression.getDataType();
+            ColumnModifier columnModifier = expression.getColumnModifier();
+            if (type == PDataType.TIMESTAMP || type == PDataType.UNSIGNED_TIMESTAMP) {
+                value = (BigDecimal) (PDataType.DECIMAL.toObject(ptr, type, columnModifier));
             } else if (type.isCoercibleTo(PDataType.DECIMAL)) {
-                value = (((BigDecimal)PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
+                value = (((BigDecimal) PDataType.DECIMAL.toObject(ptr, columnModifier)).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else if (type.isCoercibleTo(PDataType.DOUBLE)) {
                 value = ((BigDecimal.valueOf(type.getCodec().decodeDouble(ptr, columnModifier))).multiply(QueryConstants.BD_MILLIS_IN_DAY)).setScale(6, RoundingMode.HALF_UP);
             } else {
                 value = BigDecimal.valueOf(type.getCodec().decodeLong(ptr, columnModifier));
-            } 
+            }
             finalResult = finalResult.add(value);
         }
         Timestamp ts = DateUtil.getTimestamp(finalResult);

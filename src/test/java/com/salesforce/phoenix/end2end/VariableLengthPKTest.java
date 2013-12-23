@@ -59,7 +59,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 public class VariableLengthPKTest extends BaseClientMangedTimeTest {
-    private static Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
+    private static final Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
     private static final String DS1 = "1970-01-01 00:58:00";
     private static final Date D1 = toDate(DS1);
 

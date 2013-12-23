@@ -20,7 +20,7 @@ public class CoprocessorHTableFactory implements HTableFactory {
   /** Number of retries for zookeeper */
   private static final String ZOOKEEPER_RECOVERY_RETRY_KEY = "zookeeper.recovery.retry";
   private static final Log LOG = LogFactory.getLog(CoprocessorHTableFactory.class);
-  private CoprocessorEnvironment e;
+  private final CoprocessorEnvironment e;
 
   public CoprocessorHTableFactory(CoprocessorEnvironment e) {
     this.e = e;

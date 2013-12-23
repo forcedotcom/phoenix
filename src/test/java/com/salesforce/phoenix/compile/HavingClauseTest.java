@@ -65,8 +65,8 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
     private static StatementContext context;
     
     private static class Expressions {
-        private Expression whereClause;
-        private Expression havingClause;
+        private final Expression whereClause;
+        private final Expression havingClause;
         
         private Expressions(Expression whereClause, Expression havingClause) {
             this.whereClause = whereClause;

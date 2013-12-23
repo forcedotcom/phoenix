@@ -35,10 +35,10 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 public class TestNewerTimestampFilter {
-  byte[] row = new byte[] { 'a' };
-  byte[] fam = Bytes.toBytes("family");
-  byte[] qual = new byte[] { 'b' };
-  byte[] val = Bytes.toBytes("val");
+  final byte[] row = new byte[] { 'a' };
+  final byte[] fam = Bytes.toBytes("family");
+  final byte[] qual = new byte[] { 'b' };
+  final byte[] val = Bytes.toBytes("val");
 
   @Test
   public void testOnlyAllowsOlderTimestamps() {

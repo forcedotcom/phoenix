@@ -103,8 +103,7 @@ public class FromCompiler {
     		throws SQLException {
     	List<TableNode> fromNodes = statement.getFrom();
     	if (fromNodes.size() > 1) { throw new SQLFeatureNotSupportedException("Joins not supported"); }
-    	SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, (NamedTableNode)fromNodes.get(0), false);
-    	return visitor;
+        return new SingleTableColumnResolver(connection, (NamedTableNode)fromNodes.get(0), false);
     }
     
     public static ColumnResolver getMultiTableResolver(SelectStatement statement, PhoenixConnection connection)
@@ -118,14 +117,12 @@ public class FromCompiler {
     }
 
     public static ColumnResolver getResolver(NamedTableNode tableNode, PhoenixConnection connection) throws SQLException {
-        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, tableNode, false);
-        return visitor;
+        return new SingleTableColumnResolver(connection, tableNode, false);
     }
     
     public static ColumnResolver getResolver(SingleTableSQLStatement statement, PhoenixConnection connection,
             List<ColumnDef> dyn_columns) throws SQLException {
-        SingleTableColumnResolver visitor = new SingleTableColumnResolver(connection, statement.getTable(), true);
-        return visitor;
+        return new SingleTableColumnResolver(connection, statement.getTable(), true);
     }
 
     public static ColumnResolver getResolver(SingleTableSQLStatement statement, PhoenixConnection connection)
@@ -279,8 +276,7 @@ public class FromCompiler {
             if (!dynamicColumnDefs.isEmpty()) {
                 theTable = this.addDynamicColumns(dynamicColumnDefs, theTable);
             }
-            TableRef tableRef = new TableRef(alias, theTable, timeStamp, !dynamicColumnDefs.isEmpty());
-            return tableRef;
+            return new TableRef(alias, theTable, timeStamp, !dynamicColumnDefs.isEmpty());
         }
 
 
@@ -345,14 +341,15 @@ public class FromCompiler {
         private ColumnFamilyRef resolveColumnFamily(String tableName, String cfName) throws SQLException {
             if (tableName == null) {
                 ColumnFamilyRef theColumnFamilyRef = null;
-                Iterator<TableRef> iterator = tables.iterator();
-                while (iterator.hasNext()) {
-                    TableRef tableRef = iterator.next();
+                for (TableRef tableRef : tables) {
                     try {
                         PColumnFamily columnFamily = tableRef.getTable().getColumnFamily(cfName);
-                        if (theColumnFamilyRef != null) { throw new TableNotFoundException(cfName); }
+                        if (theColumnFamilyRef != null) {
+                            throw new TableNotFoundException(cfName);
+                        }
                         theColumnFamilyRef = new ColumnFamilyRef(tableRef, columnFamily);
-                    } catch (ColumnFamilyNotFoundException e) {}
+                    } catch (ColumnFamilyNotFoundException ignored) {
+                    }
                 }
                 if (theColumnFamilyRef != null) { return theColumnFamilyRef; }
                 throw new TableNotFoundException(cfName);
@@ -368,15 +365,15 @@ public class FromCompiler {
             if (tableName == null) {
                 int theColumnPosition = -1;
                 TableRef theTableRef = null;
-                Iterator<TableRef> iterator = tables.iterator();
-                while (iterator.hasNext()) {
-                    TableRef tableRef = iterator.next();
+                for (TableRef tableRef : tables) {
                     try {
                         PColumn column = tableRef.getTable().getColumn(colName);
-                        if (theTableRef != null) { throw new AmbiguousColumnException(colName); }
+                        if (theTableRef != null) {
+                            throw new AmbiguousColumnException(colName);
+                        }
                         theTableRef = tableRef;
                         theColumnPosition = column.getPosition();
-                    } catch (ColumnNotFoundException e) {
+                    } catch (ColumnNotFoundException ignored) {
 
                     }
                 }

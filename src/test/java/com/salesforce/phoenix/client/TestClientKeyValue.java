@@ -52,9 +52,9 @@ import org.junit.Test;
  */
 public abstract class TestClientKeyValue {
   private final static HBaseTestingUtility TEST_UTIL = new HBaseTestingUtility();
-  private static byte[] ROW = Bytes.toBytes("testRow");
-  private static byte[] FAMILY = Bytes.toBytes("testFamily");
-  private static byte[] QUALIFIER = Bytes.toBytes("testQualifier");
+  private static final byte[] ROW = Bytes.toBytes("testRow");
+  private static final byte[] FAMILY = Bytes.toBytes("testFamily");
+  private static final byte[] QUALIFIER = Bytes.toBytes("testQualifier");
 
   /**
    * @throws java.lang.Exception

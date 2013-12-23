@@ -126,7 +126,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
     
     private long ts;
     private Date date;
-    private String indexDDL;
+    private final String indexDDL;
     
     public QueryTest(String indexDDL) {
         this.indexDDL = indexDDL;
@@ -2650,7 +2650,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         }
     }
     
-    private static AtomicInteger runCount = new AtomicInteger(0);
+    private static final AtomicInteger runCount = new AtomicInteger(0);
     private static int nextRunCount() {
         return runCount.getAndAdd(1);
     }
@@ -2687,7 +2687,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
             HTable htable = (HTable)conn.unwrap(PhoenixConnection.class).getQueryServices().getTable(tableName);
             htable.clearRegionCache();
             int nRegions = htable.getRegionLocations().size();
-            admin.split(tableName, ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes("00A" + Character.valueOf((char)('3' + nextRunCount()))+ ts))); // vary split point with test run
+            admin.split(tableName, ByteUtil.concat(Bytes.toBytes(tenantId), Bytes.toBytes("00A" + (char) ('3' + nextRunCount()) + ts))); // vary split point with test run
             int retryCount = 0;
             do {
                 Thread.sleep(2000);

@@ -207,7 +207,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                 out.println("Time: " + elapsedDuration + " sec(s)\n");
                 nStatements++;
             }
-        } catch (EOFException e) {
+        } catch (EOFException ignored) {
         }
         return nStatements;
     }

@@ -50,7 +50,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
  */
 public class IndexUpdateManager {
 
-  public Comparator<Mutation> COMPARATOR = new MutationComparator();
+  public final Comparator<Mutation> COMPARATOR = new MutationComparator();
   class MutationComparator implements Comparator<Mutation> {
 
     @Override

@@ -41,7 +41,7 @@ import com.salesforce.phoenix.expression.Expression;
  * @since 0.1
  */
 public class MultiCQKeyValueComparisonFilter extends MultiKeyValueComparisonFilter {
-    private ImmutableBytesPtr ptr = new ImmutableBytesPtr();
+    private final ImmutableBytesPtr ptr = new ImmutableBytesPtr();
     private byte[] cf;
 
     public MultiCQKeyValueComparisonFilter() {

@@ -61,11 +61,8 @@ public class IndexManagementUtil {
         } catch (Throwable t) {
             return false;
         }
-        if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WAL_EDIT_CODEC_CLASS_KEY, null))) {
-            // its installed, and it can handle compression and non-compression cases
-            return true;
-        }
-        return false;
+        // its installed, and it can handle compression and non-compression cases
+        return INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WAL_EDIT_CODEC_CLASS_KEY, null));
     }
 
     public static void ensureMutableIndexingCorrectlyConfigured(Configuration conf) throws IllegalStateException {
@@ -115,8 +112,8 @@ public class IndexManagementUtil {
     }
 
     private static class ReferencingColumn {
-        ImmutableBytesPtr family;
-        ImmutableBytesPtr qual;
+        final ImmutableBytesPtr family;
+        final ImmutableBytesPtr qual;
 
         static ReferencingColumn wrap(ColumnReference ref) {
             ImmutableBytesPtr family = new ImmutableBytesPtr(ref.getFamily());

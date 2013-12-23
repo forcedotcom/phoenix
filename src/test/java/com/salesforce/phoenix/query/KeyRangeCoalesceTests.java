@@ -3,6 +3,7 @@ package com.salesforce.phoenix.query;
 import static com.salesforce.phoenix.query.KeyRange.EMPTY_RANGE;
 import static com.salesforce.phoenix.query.KeyRange.EVERYTHING_RANGE;
 import static java.util.Arrays.asList;
+import static junit.framework.Assert.assertEquals;
 import static org.apache.hadoop.hbase.util.Bytes.toBytes;
 
 import java.util.*;
@@ -17,7 +18,7 @@ import org.junit.runners.Parameterized.Parameters;
 import com.salesforce.phoenix.schema.PDataType;
 
 @RunWith(Parameterized.class)
-public class KeyRangeCoalesceTests extends TestCase {
+public class KeyRangeCoalesceTests {
     private static final Random RANDOM = new Random(1);
     private final List<KeyRange> expected, input;
 
@@ -133,11 +134,11 @@ public class KeyRangeCoalesceTests extends TestCase {
         assertEquals(expected, KeyRange.coalesce(input));
     }
     
-    private static final List<KeyRange> expect(KeyRange... kr) {
+    private static List<KeyRange> expect(KeyRange... kr) {
         return asList(kr);
     }
     
-    private static final List<KeyRange> input(KeyRange... kr) {
+    private static List<KeyRange> input(KeyRange... kr) {
         return asList(kr);
     }
 }

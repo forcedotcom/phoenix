@@ -65,9 +65,9 @@ public abstract class CompoundParseNode extends ParseNode {
 
 
     final <T> List<T> acceptChildren(ParseNodeVisitor<T> visitor) throws SQLException {
-        List<T> l = visitor.newElementList(children.size());        
-        for (int i = 0; i < children.size(); i++) {
-            T e = children.get(i).accept(visitor);
+        List<T> l = visitor.newElementList(children.size());
+        for (ParseNode aChildren : children) {
+            T e = aChildren.accept(visitor);
             visitor.addElement(l, e);
         }
         return l;

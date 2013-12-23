@@ -440,7 +440,7 @@ public class RowValueConstructorTest extends BaseClientMangedTimeTest {
         _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(true);
     }
 
-    private void _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(boolean salted) throws Exception, SQLException {
+    private void _testQueryMoreFunctionalityUsingAllPkColsInRowValueConstructor(boolean salted) throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
         Date date = new Date(System.currentTimeMillis());

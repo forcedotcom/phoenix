@@ -642,8 +642,8 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         String query = null;
         try {
-            for (int i = 0; i < queries.length; i++) {
-                query = queries[i];
+            for (String q : queries) {
+                query = q;
                 Scan scan = compileQuery(query, binds);
                 ServerAggregators aggregators = ServerAggregators.deserialize(scan.getAttribute(GroupedAggregateRegionObserver.AGGREGATORS), null);
                 Aggregator aggregator = aggregators.getAggregators()[0];

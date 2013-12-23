@@ -40,7 +40,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class TypeMismatchException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
+    private static final SQLExceptionCode code = SQLExceptionCode.TYPE_MISMATCH;
 
     public TypeMismatchException(PDataType type, String location) {
         super(new SQLExceptionInfo.Builder(code).setMessage(type + " for " + location).build().toString(), code.getSQLState(), code.getErrorCode());

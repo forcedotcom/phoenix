@@ -42,7 +42,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class AmbiguousColumnException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_COLUMN;
+    private static final SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_COLUMN;
 
     public AmbiguousColumnException() {
         super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState(), code.getErrorCode());

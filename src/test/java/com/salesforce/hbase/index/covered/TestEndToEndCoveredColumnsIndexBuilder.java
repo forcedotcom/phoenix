@@ -72,9 +72,9 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
 
   public class TestState {
 
-    private HTable table;
-    private long ts;
-    private VerifyingIndexCodec codec;
+    private final HTable table;
+    private final long ts;
+    private final VerifyingIndexCodec codec;
 
     /**
      * @param primary
@@ -138,9 +138,9 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
    */
   private class ListMatchingVerifier implements TableStateVerifier {
 
-    private List<KeyValue> expectedKvs;
-    private ColumnReference[] columns;
-    private String msg;
+    private final List<KeyValue> expectedKvs;
+    private final ColumnReference[] columns;
+    private final String msg;
 
     public ListMatchingVerifier(String msg, List<KeyValue> kvs, ColumnReference... columns) {
       this.expectedKvs = kvs;
@@ -173,7 +173,7 @@ public class TestEndToEndCoveredColumnsIndexBuilder {
 
   private class VerifyingIndexCodec extends CoveredIndexCodecForTesting {
 
-    private Queue<TableStateVerifier> verifiers = new ArrayDeque<TableStateVerifier>();
+    private final Queue<TableStateVerifier> verifiers = new ArrayDeque<TableStateVerifier>();
 
     @Override
     public Iterable<IndexUpdate> getIndexDeletes(TableState state) {

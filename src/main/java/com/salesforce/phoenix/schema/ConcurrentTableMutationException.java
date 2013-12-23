@@ -35,7 +35,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 public class ConcurrentTableMutationException extends SQLException {
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.CONCURRENT_TABLE_MUTATION;
+    private static final SQLExceptionCode code = SQLExceptionCode.CONCURRENT_TABLE_MUTATION;
     private final String schemaName;
     private final String tableName;
 

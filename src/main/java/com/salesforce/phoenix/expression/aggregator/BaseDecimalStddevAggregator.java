@@ -51,8 +51,8 @@ import com.salesforce.phoenix.util.BigDecimalUtil.Operation;
 public abstract class BaseDecimalStddevAggregator extends DistinctValueWithCountClientAggregator {
 
     private BigDecimal cachedResult = null;
-    private int colPrecision;
-    private int colScale;
+    private final int colPrecision;
+    private final int colScale;
 
     public BaseDecimalStddevAggregator(List<Expression> exps, ColumnModifier columnModifier) {
         super(columnModifier);

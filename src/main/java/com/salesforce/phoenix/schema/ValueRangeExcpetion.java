@@ -40,7 +40,7 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
  */
 public class ValueRangeExcpetion extends SQLException{
     private static final long serialVersionUID = 1L;
-    private static SQLExceptionCode code = SQLExceptionCode.VALUE_OUTSIDE_RANGE;
+    private static final SQLExceptionCode code = SQLExceptionCode.VALUE_OUTSIDE_RANGE;
     
     public ValueRangeExcpetion(Object minValue, Object maxValue, Object actualValue, String location){
         super(new SQLExceptionInfo.Builder(code).setMessage("expected: [" + minValue + " , " + maxValue + "] but was: " + actualValue + " at " + location).build().toString(), code.getSQLState());

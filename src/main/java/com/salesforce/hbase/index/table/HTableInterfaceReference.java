@@ -10,7 +10,7 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
  */
 public class HTableInterfaceReference {
 
-  private ImmutableBytesPtr tableName;
+  private final ImmutableBytesPtr tableName;
 
 
   public HTableInterfaceReference(ImmutableBytesPtr tableName) {

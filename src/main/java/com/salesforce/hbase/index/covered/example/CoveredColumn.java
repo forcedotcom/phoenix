@@ -11,7 +11,7 @@ import com.salesforce.hbase.index.covered.update.ColumnReference;
 public class CoveredColumn extends ColumnReference {
 
   public static final String SEPARATOR = ":";
-  String familyString;
+  final String familyString;
   private final int hashCode;
 
   public CoveredColumn(byte[] family, byte[] qualifier){

@@ -34,8 +34,8 @@ public class CoveredColumnIndexSpecifierBuilder {
   // right now, we don't support this should be easy enough to add later
   // private static final String INDEX_GROUP_FULLY_COVERED = ".covered";
 
-  List<ColumnGroup> groups = new ArrayList<ColumnGroup>();
-  private Map<String, String> specs = new HashMap<String, String>();
+  final List<ColumnGroup> groups = new ArrayList<ColumnGroup>();
+  private final Map<String, String> specs = new HashMap<String, String>();
 
   /**
    * Add a group of columns to index

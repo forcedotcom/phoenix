@@ -105,8 +105,7 @@ abstract public class Aggregators {
      */
     private static KeyValueSchema newValueSchema(Aggregator[] aggregators, int minNullableIndex) {
         KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(minNullableIndex);
-        for (int i = 0; i < aggregators.length; i++) {
-            Aggregator aggregator = aggregators[i];
+        for (Aggregator aggregator : aggregators) {
             builder.addField(aggregator);
         }
         return builder.build();
@@ -130,8 +129,8 @@ abstract public class Aggregators {
     abstract public Aggregator[] newAggregators();
     
     public void reset(Aggregator[] aggregators) {
-        for (int i = 0; i < aggregators.length; i++) {
-            aggregators[i].reset();
+        for (Aggregator aggregator : aggregators) {
+            aggregator.reset();
         }
     }
     

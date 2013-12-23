@@ -43,7 +43,7 @@ public class ConfigReader
 	private String propertyFile = null;
 	private boolean loaded = false;
 	private static final Object _synObj = new Object();
-	private Map<String, String> properties = new HashMap<String, String>();
+	private final Map<String, String> properties = new HashMap<String, String>();
 	private Exception loadException = null;
 
 	/**

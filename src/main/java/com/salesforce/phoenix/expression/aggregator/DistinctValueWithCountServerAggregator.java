@@ -61,7 +61,7 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
     public static final byte[] COMPRESS_MARKER = new byte[] { (byte)1 };
     public static final Algorithm COMPRESS_ALGO = Compression.Algorithm.SNAPPY;
 
-    private int compressThreshold;
+    private final int compressThreshold;
     private byte[] buffer = null;
     private Map<ImmutableBytesPtr, Integer> valueVsCount = new HashMap<ImmutableBytesPtr, Integer>();
 
@@ -106,7 +106,7 @@ public class DistinctValueWithCountServerAggregator extends BaseAggregator {
             offset += ByteUtil.vintToBytes(buffer, offset, key.getLength());
             System.arraycopy(key.get(), key.getOffset(), buffer, offset, key.getLength());
             offset += key.getLength();
-            offset += ByteUtil.vintToBytes(buffer, offset, entry.getValue().intValue());
+            offset += ByteUtil.vintToBytes(buffer, offset, entry.getValue());
         }
         if (serializationSize > compressThreshold) {
             // The size for the map serialization is above the threshold. We will do the Snappy compression here.

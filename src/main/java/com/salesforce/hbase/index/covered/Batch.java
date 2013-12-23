@@ -39,7 +39,7 @@ public class Batch {
 
   private static final long pointDeleteCode = KeyValue.Type.Delete.getCode();
   private final long timestamp;
-  private List<KeyValue> batch = new ArrayList<KeyValue>();
+  private final List<KeyValue> batch = new ArrayList<KeyValue>();
   private boolean allPointDeletes = true;
 
   /**

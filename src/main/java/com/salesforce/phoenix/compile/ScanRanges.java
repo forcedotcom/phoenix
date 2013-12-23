@@ -67,8 +67,8 @@ public class ScanRanges {
 
     private ScanRanges (List<List<KeyRange>> ranges, RowKeySchema schema, boolean forceRangeScan) {
         List<List<KeyRange>> sortedRanges = Lists.newArrayListWithExpectedSize(ranges.size());
-        for (int i = 0; i < ranges.size(); i++) {
-            List<KeyRange> sorted = Lists.newArrayList(ranges.get(i));
+        for (List<KeyRange> range : ranges) {
+            List<KeyRange> sorted = Lists.newArrayList(range);
             Collections.sort(sorted, KeyRange.COMPARATOR);
             sortedRanges.add(ImmutableList.copyOf(sorted));
         }

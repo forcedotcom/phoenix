@@ -44,7 +44,7 @@ import com.google.common.collect.Iterators;
  */
 class SortedCollection<T> implements Collection<T>, Iterable<T> {
 
-  private PriorityQueue<T> queue;
+  private final PriorityQueue<T> queue;
   private Comparator<T> comparator;
 
   /**

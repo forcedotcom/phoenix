@@ -79,7 +79,7 @@ public class ColumnReference implements Comparable<ColumnReference> {
   }
 
   public boolean matchesQualifier(byte[] bytes, int offset, int length) {
-    return allColumns() ? true : match(bytes, offset, length, qualifier);
+    return allColumns() || match(bytes, offset, length, qualifier);
   }
 
   /**

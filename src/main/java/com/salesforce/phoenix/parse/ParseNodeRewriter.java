@@ -121,8 +121,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
         // Add to map in separate pass so that we don't try to use aliases
         // while processing the select expressions
         if (aliasMap != null) {
-            for (int i = 0; i < normSelectNodes.size(); i++) {
-                AliasedNode aliasedNode = normSelectNodes.get(i);
+            for (AliasedNode aliasedNode : normSelectNodes) {
                 ParseNode selectNode = aliasedNode.getNode();
                 String alias = aliasedNode.getAlias();
                 if (alias != null) {

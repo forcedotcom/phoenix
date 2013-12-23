@@ -66,8 +66,8 @@ import com.salesforce.phoenix.util.QueryUtil;
 @RunWith(Parameterized.class)
 public class HashJoinTest extends BaseClientMangedTimeTest {
     
-    private String[] indexDDL;
-    private String[] plans;
+    private final String[] indexDDL;
+    private final String[] plans;
     
     public HashJoinTest(String[] indexDDL, String[] plans) {
         this.indexDDL = indexDDL;

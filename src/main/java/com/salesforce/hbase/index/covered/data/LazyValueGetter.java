@@ -45,9 +45,9 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
  */
 public class LazyValueGetter implements ValueGetter {
 
-  private Scanner scan;
+  private final Scanner scan;
   private volatile Map<ColumnReference, ImmutableBytesPtr> values;
-  private byte[] row;
+  private final byte[] row;
   
   /**
    * Back the getter with a {@link Scanner} to actually access the local data.

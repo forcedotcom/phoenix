@@ -62,7 +62,7 @@ public class HashJoinRegionScanner implements RegionScanner {
     private final RegionScanner scanner;
     private final ScanProjector projector;
     private final HashJoinInfo joinInfo;
-    private Queue<List<KeyValue>> resultQueue;
+    private final Queue<List<KeyValue>> resultQueue;
     private boolean hasMore;
     private HashCache[] hashCaches;
     

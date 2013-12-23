@@ -116,8 +116,7 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
         info.setProperty(MAJOR_VERSION_PROP, Integer.toString(getMajorVersion()));
         info.setProperty(MINOR_VERSION_PROP, Integer.toString(getMinorVersion()));
         info.setProperty(DRIVER_NAME_PROP, getDriverName());
-        PhoenixConnection connection = connectionServices.connect(url, info);
-        return connection;
+        return connectionServices.connect(url, info);
     }
 
     /**

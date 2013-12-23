@@ -38,7 +38,7 @@ import java.util.Random;
 public class GeneratePerformanceData {
     private static final String FILENAME = "data.csv";
 
-    public static void main(String[] args) throws FileNotFoundException, IOException {
+    public static void main(String[] args) throws IOException {
         String[] host = {"NA","CS","EU"};
         String[] domain = {"Salesforce.com","Apple.com","Google.com"};
         String[] feature = {"Login","Report","Dashboard"};

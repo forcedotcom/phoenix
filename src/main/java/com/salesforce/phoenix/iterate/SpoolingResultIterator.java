@@ -223,9 +223,9 @@ public class SpoolingResultIterator implements PeekingResultIterator {
         private final File file;
         private DataInputStream spoolFrom;
         private Tuple next;
-        private int maxSize;
+        private final int maxSize;
         private int bufferIndex;
-        private byte[][] buffers = new byte[2][];
+        private final byte[][] buffers = new byte[2][];
         private boolean isClosed;
         
         private OnDiskResultIterator (int maxSize, File file) {

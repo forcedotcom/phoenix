@@ -71,8 +71,8 @@ public abstract class BaseEventSerializer implements EventSerializer {
     protected ColumnInfo[] columnMetadata;
     protected boolean autoGenerateKey = false;
     protected KeyGenerator  keyGenerator;
-    protected List<String>  colNames = Lists.newArrayListWithExpectedSize(10);
-    protected List<String>  headers  = Lists.newArrayListWithExpectedSize(5);
+    protected final List<String>  colNames = Lists.newArrayListWithExpectedSize(10);
+    protected final List<String>  headers  = Lists.newArrayListWithExpectedSize(5);
     protected String upsertStatement;
     private   String jdbcUrl;
     private   Integer batchSize;
@@ -213,17 +213,17 @@ public abstract class BaseEventSerializer implements EventSerializer {
     private int addToColumnMetadataInfo(final List<String> columns , final Map<String,Integer> allColumnsInfoMap, int position) throws SQLException {
         Preconditions.checkNotNull(columns);
         Preconditions.checkNotNull(allColumnsInfoMap);
-       for (int i = 0 ; i < columns.size() ; i++) {
-            String columnName = SchemaUtil.normalizeIdentifier(columns.get(i).trim());
+        for (String column : columns) {
+            String columnName = SchemaUtil.normalizeIdentifier(column.trim());
             Integer sqlType = allColumnsInfoMap.get(columnName);
             if (sqlType == null) {
-                   throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_NOT_FOUND)
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.COLUMN_NOT_FOUND)
                         .setColumnName(columnName).setTableName(this.fullTableName).build().buildException();
             } else {
                 columnMetadata[position] = new ColumnInfo(columnName, sqlType);
                 position++;
             }
-       }
+        }
        return position;
     }
     

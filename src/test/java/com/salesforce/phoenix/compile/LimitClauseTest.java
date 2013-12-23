@@ -144,7 +144,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testBindTypeMismatch() throws SQLException {
-        Long tenantId = Long.valueOf(0);
+        Long tenantId = 0L;
         String keyPrefix = "002";
         List<Object> binds = Arrays.<Object>asList(tenantId,keyPrefix);
         String query = "select * from atable where organization_id=? and substr(entity_id,1,3)=?";
