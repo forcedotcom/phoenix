@@ -720,10 +720,8 @@ public class MetaDataClient {
                     }
                     // disallow array type usage in primary key constraint
                     if (colDef.isArray()) {
-                    	throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_PRIMARY_KEY_CONSTRAINT)
+                    	throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT)
                         .setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
-                    	//throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT)
-                        //.setColumnName(colDef.getColumnDefName().getColumnName()).build().buildException();
                     }
                     if (!pkColumns.add(column)) {
                         throw new ColumnAlreadyExistsException(schemaName, tableName, column.getName().getString());
