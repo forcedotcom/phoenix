@@ -44,7 +44,6 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.primitives.Floats;
@@ -262,7 +261,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 	}
 
     @Test
-    @Ignore
+   // @Ignore
     public void testCaseWithArray() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
