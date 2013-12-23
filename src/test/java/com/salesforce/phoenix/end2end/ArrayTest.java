@@ -261,7 +261,6 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 	}
 
     @Test
-   // @Ignore
     public void testCaseWithArray() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
