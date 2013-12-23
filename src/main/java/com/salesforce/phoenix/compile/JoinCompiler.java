@@ -53,7 +53,6 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.AliasedNode;
@@ -245,10 +244,6 @@ public class JoinCompiler {
         	ListMultimap<String, String> columnNameMap = ArrayListMultimap.<String, String>create();
             PTable table = tableRef.getTable();
             boolean hasSaltingColumn = retainPKColumns && table.getBucketNum() != null;
-            if (hasSaltingColumn) {
-                // This serves a place-holder for the SALTING_COLUMN
-                sourceExpressions.add(LiteralExpression.NULL_EXPRESSION);
-            }
             if (retainPKColumns) {
             	for (PColumn column : table.getPKColumns()) {
             		addProjectedColumn(projectedColumns, sourceExpressions, columnNameMap,
@@ -1032,7 +1027,7 @@ public class JoinCompiler {
     	}
     	
     	public Expression getSourceExpression(PColumn column) {
-    		return sourceExpressions.get(column.getPosition());
+    		return sourceExpressions.get(column.getPosition() - (table.getBucketNum() == null ? 0 : 1));
     	}
     }
     
