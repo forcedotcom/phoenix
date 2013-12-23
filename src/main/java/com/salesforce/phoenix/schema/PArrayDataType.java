@@ -111,22 +111,15 @@ public class PArrayDataType {
 	}
 	
 	public boolean isCoercibleTo(PDataType targetType, PDataType expectedTargetType) {
-		PDataType targetElementType;
-		PDataType expectedTargetElementType;
-		if (!targetType.isArrayType()) {
-			targetElementType = targetType;
+		if(!targetType.isArrayType()) {
+			return false;
 		} else {
-			targetElementType = PDataType.fromTypeId(targetType.getSqlType()
+			PDataType targetElementType = PDataType.fromTypeId(targetType.getSqlType()
 					- Types.ARRAY);
-		}
-		if (!expectedTargetType.isArrayType()) {
-			expectedTargetElementType = expectedTargetType;
-		} else {
-			expectedTargetElementType = PDataType.fromTypeId(expectedTargetType
+			PDataType expectedTargetElementType = PDataType.fromTypeId(expectedTargetType
 					.getSqlType() - Types.ARRAY);
+			return expectedTargetElementType.isCoercibleTo(targetElementType);
 		}
-        return expectedTargetElementType.isCoercibleTo(targetElementType);
-        
     }
 	
 	public boolean isSizeCompatible(PDataType srcType, Object value,
