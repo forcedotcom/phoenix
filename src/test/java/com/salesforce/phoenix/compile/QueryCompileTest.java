@@ -1182,15 +1182,33 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
     
+
     @Test
-    public void testTypeMismatch2ForArrayElem() throws Exception {
-        String query = "SELECT ROUND(a_date, 'days', 1.23)[1] FROM aTable";
-        List<Object> binds = Collections.emptyList();
+    public void testInvalidArrayTypeAsPK () throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
         try {
-            compileQuery(query, binds);
-            fail("Compilation should have failed since ROUND does not return an array");
+        	String query = "CREATE TABLE foo (col1 INTEGER[10] NOT NULL PRIMARY KEY)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
         } catch (SQLException e) {
-            assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
+        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 512 (42891): Invalid column reference in primary key constraint"));
+        	//assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): "Array type not allowed as primary key constraint"));
+        } finally {
+        	conn.close();
+        }
+        
+        conn = DriverManager.getConnection(getUrl()); 
+        try {
+            String query = "CREATE TABLE foo (col1 VARCHAR, col2 INTEGER ARRAY[10] CONSTRAINT pk PRIMARY KEY (col1, col2))";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 512 (42891): Invalid column reference in primary key constraint"));
+            //assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): "Array type not allowed as primary key constraint"));
+        } finally {
+            conn.close();
         }
     }
  }
