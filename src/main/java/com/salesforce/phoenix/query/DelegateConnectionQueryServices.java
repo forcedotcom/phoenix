@@ -44,6 +44,8 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
@@ -175,5 +177,26 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public boolean hasInvalidIndexConfiguration() {
         return getDelegate().hasInvalidIndexConfiguration();
+    }
+
+    @Override
+	public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> sequenceNames) throws SQLException {		
+		return getDelegate().incrementSequences(sequenceNames);
+	}
+
+    @Override
+    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy)
+            throws SQLException {
+        return getDelegate().createSequence(schemaName, sequenceName, startWith, incrementBy);
+    }
+
+    @Override
+    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
+        return getDelegate().dropSequence(schemaName, sequenceName);
+    }
+
+    @Override
+    public PMetaData setSequenceIncrementValue(TableName name, Long value) {
+        return getDelegate().setSequenceIncrementValue(name, value);
     }
 }

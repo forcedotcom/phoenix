@@ -111,9 +111,11 @@ import com.salesforce.phoenix.parse.AlterIndexStatement;
 import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
 import com.salesforce.phoenix.parse.DropIndexStatement;
+import com.salesforce.phoenix.parse.DropSequenceStatement;
 import com.salesforce.phoenix.parse.DropTableStatement;
 import com.salesforce.phoenix.parse.NamedTableNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
@@ -527,6 +529,29 @@ public class MetaDataClient {
         return buildIndex(table, tableRef);
     }
 
+    public MutationState dropSequence(DropSequenceStatement statement) throws SQLException {
+        String schemaName = statement.getSequenceName().getSchemaName();
+        String sequenceName = statement.getSequenceName().getTableName();
+        boolean success = connection.getQueryServices().dropSequence(schemaName, sequenceName);
+        if (!success && !statement.ifExists()) {
+            throw new SequenceNotFoundException(schemaName, sequenceName);
+        }
+        connection.setSequenceIncrementValue(statement.getSequenceName(), null);
+        return new MutationState(1, connection);
+    }
+    
+    public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
+        String schemaName = statement.getSequenceName().getSchemaName();
+        String sequenceName = statement.getSequenceName().getTableName();
+        boolean success = connection.getQueryServices().createSequence(schemaName, sequenceName, startWith, incrementBy);
+        if (!success && !statement.ifNotExists()) {
+            throw new SequenceAlreadyExistsException(schemaName, sequenceName);
+        }
+        
+        connection.setSequenceIncrementValue(statement.getSequenceName(), incrementBy);
+        return new MutationState(1, connection);
+    }
+    
     private static ColumnDef findColumnDefOrNull(List<ColumnDef> colDefs, ColumnName colName) {
         for (ColumnDef colDef : colDefs) {
             if (colDef.getColumnDefName().getColumnName().equals(colName.getColumnName())) {

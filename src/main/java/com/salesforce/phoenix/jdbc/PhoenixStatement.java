@@ -50,8 +50,10 @@ import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.CreateIndexCompiler;
+import com.salesforce.phoenix.compile.CreateSequenceCompiler;
 import com.salesforce.phoenix.compile.CreateTableCompiler;
 import com.salesforce.phoenix.compile.DeleteCompiler;
+import com.salesforce.phoenix.compile.DropSequenceCompiler;
 import com.salesforce.phoenix.compile.ExplainPlan;
 import com.salesforce.phoenix.compile.ExpressionProjector;
 import com.salesforce.phoenix.compile.MutationPlan;
@@ -74,10 +76,12 @@ import com.salesforce.phoenix.parse.BindableStatement;
 import com.salesforce.phoenix.parse.ColumnDef;
 import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.CreateIndexStatement;
+import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.DeleteStatement;
 import com.salesforce.phoenix.parse.DropColumnStatement;
 import com.salesforce.phoenix.parse.DropIndexStatement;
+import com.salesforce.phoenix.parse.DropSequenceStatement;
 import com.salesforce.phoenix.parse.DropTableStatement;
 import com.salesforce.phoenix.parse.ExplainStatement;
 import com.salesforce.phoenix.parse.HintNode;
@@ -415,6 +419,97 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             return compiler.compile(this);
         }
         
+        @Override
+        public MutationPlan optimizePlan() throws SQLException {
+            return compilePlan();
+        }
+    }
+    
+    private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
+
+		public ExecutableCreateSequenceStatement(TableName sequenceName, ParseNode startWith, ParseNode incrementBy, boolean ifNotExists, int bindCount) {
+			super(sequenceName, startWith, incrementBy, ifNotExists, bindCount);
+		}
+
+		@Override
+		public PhoenixResultSet executeQuery() throws SQLException {
+			throw new ExecuteQueryNotApplicableException("CREATE SEQUENCE",	this.toString());
+		}
+
+		@Override
+		public boolean execute() throws SQLException {
+		    executeUpdate();
+		    return false;
+		}
+
+		@Override
+		public int executeUpdate() throws SQLException {
+            MutationPlan plan = optimizePlan();
+            MutationState state = plan.execute();
+            lastQueryPlan = null;
+            lastResultSet = null;
+            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
+            lastUpdateOperation = UpdateOperation.UPSERTED;
+            return lastUpdateCount;
+		}
+
+		@Override
+		public ResultSetMetaData getResultSetMetaData() throws SQLException {
+			return null;
+		}
+
+		@Override
+		public MutationPlan compilePlan() throws SQLException {
+		    CreateSequenceCompiler compiler = new CreateSequenceCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
+		}
+
+        @Override
+        public MutationPlan optimizePlan() throws SQLException {
+            return compilePlan();
+        }
+	}
+
+    private class ExecutableDropSequenceStatement extends DropSequenceStatement implements ExecutableStatement {
+
+
+        public ExecutableDropSequenceStatement(TableName sequenceName, boolean ifExists, int bindCount) {
+            super(sequenceName, ifExists, bindCount);
+        }
+
+        @Override
+        public PhoenixResultSet executeQuery() throws SQLException {
+            throw new ExecuteQueryNotApplicableException("DROP SEQUENCE", this.toString());
+        }
+
+        @Override
+        public boolean execute() throws SQLException {
+            executeUpdate();
+            return false;
+        }
+
+        @Override
+        public int executeUpdate() throws SQLException {
+            MutationPlan plan = optimizePlan();
+            MutationState state = plan.execute();
+            lastQueryPlan = null;
+            lastResultSet = null;
+            lastUpdateCount = (int)Math.min(state.getUpdateCount(), Integer.MAX_VALUE);
+            lastUpdateOperation = UpdateOperation.UPSERTED;
+            return lastUpdateCount;
+        }
+
+        @Override
+        public ResultSetMetaData getResultSetMetaData() throws SQLException {
+            return null;
+        }
+
+        @Override
+        public MutationPlan compilePlan() throws SQLException {
+            DropSequenceCompiler compiler = new DropSequenceCompiler(PhoenixStatement.this);
+            return compiler.compile(this);
+        }
+
         @Override
         public MutationPlan optimizePlan() throws SQLException {
             return compilePlan();
@@ -811,6 +906,16 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         @Override
         public CreateTableStatement createTable(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splits, PTableType tableType, boolean ifNotExists, int bindCount) {
             return new ExecutableCreateTableStatement(tableName, props, columns, pkConstraint, splits, tableType, ifNotExists, bindCount);
+        }
+        
+        @Override
+        public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExists, int bindCount){
+        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, ifNotExists, bindCount);
+        }
+        
+        @Override
+        public DropSequenceStatement dropSequence(TableName tableName, boolean ifExists, int bindCount){
+            return new ExecutableDropSequenceStatement(tableName, ifExists, bindCount);
         }
         
         @Override

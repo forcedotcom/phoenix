@@ -71,7 +71,7 @@ public class SpillManager implements Closeable {
      * @param numSpillFiles
      * @param serverAggregators
      */
-    public SpillManager(int numSpillFiles, ServerAggregators serverAggregators,
+    public SpillManager(int numSpillFiles, int estValueSize, ServerAggregators serverAggregators,
             Configuration conf) {
         try {
             spillMaps = Lists.newArrayList();
@@ -83,7 +83,7 @@ public class SpillManager implements Closeable {
             // Each Spillfile only handles up to 2GB data
             for (int i = 0; i < numSpillFiles; i++) {
                 SpillFile file = SpillFile.createSpillFile();
-                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE));
+                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE, estValueSize));
             }
         } catch (IOException ioe) {
             throw new RuntimeException("Could not init the SpillManager");

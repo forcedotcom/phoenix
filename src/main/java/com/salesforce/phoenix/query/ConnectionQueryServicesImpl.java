@@ -27,16 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
-import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -57,19 +53,16 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
+import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.ResultScanner;
-import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
-import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
-import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
@@ -82,7 +75,6 @@ import com.google.common.collect.Sets;
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
 import com.salesforce.phoenix.compile.MutationPlan;
-import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.coprocessor.MetaDataEndpointImpl;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
@@ -101,6 +93,8 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -109,10 +103,9 @@ import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
-import com.salesforce.phoenix.schema.TableAlreadyExistsException;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
-import com.salesforce.phoenix.util.IndexUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -352,7 +345,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     latestMetaDataLock.wait(waitTime);
                 } catch (InterruptedException e) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
-                        .setRootCause(e).build().buildException();
+                        .setRootCause(e).build().buildException(); // FIXME
                 }
             }
             latestMetaData = metaData;
@@ -400,6 +393,16 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         });
     }
 
+
+    @Override
+    public PMetaData setSequenceIncrementValue(final TableName name, final Long value) {
+        synchronized(latestMetaDataLock) {
+            latestMetaData = latestMetaData.setSequenceIncrementValue(name, value);
+            return latestMetaData;
+        }
+    }
+    
+        
     private static boolean hasNewerTables(long scn, PMetaData metaData) {
         for (PTable table : metaData.getTables().values()) {
             if (table.getTimeStamp() >= scn) {
@@ -423,7 +426,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             }
         }
         if (wasModified) {
-            return new PMetaDataImpl(newTables);
+            return new PMetaDataImpl(newTables, metaData.getSequenceIncrementValues());
         }
         return metaData;
     }
@@ -507,7 +510,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             // Since indexes can't have indexes, don't install our indexing coprocessor for indexes. Also,
             // don't install on the metadata table until we fix the TODO there.
             if (tableType != PTableType.INDEX && !descriptor.hasCoprocessor(Indexer.class.getName())
-                  && !SchemaUtil.isMetaTable(tableName)) {
+                  && !SchemaUtil.isMetaTable(tableName) && !SchemaUtil.isSequenceTable(tableName)) {
                 Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
                 opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
                 Indexer.enableIndexing(descriptor, PhoenixIndexBuilder.class, opts);
@@ -657,25 +660,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return false;
                 }
 
-                boolean updateTo2_0 = false;
-                boolean updateTo1_2 = false;
-                boolean updateTo2_1 = false;
                 boolean updateTo3_0 = false;
                 if (isMetaTable) {
-                    /*
-                     *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
-                     *  This hack checks to see if we've got "phoenix.jar" specified as
-                     *  the jar file path. We need to set this to null in this case due
-                     *  to a change in behavior of HBase.
-                     */
-                    String value = existingDesc.getValue("coprocessor$1");
-                    updateTo1_2 = (value != null && value.startsWith("phoenix.jar"));
-                    if (!updateTo1_2) {
-                        checkClientServerCompatibility();
-                    }
+                    checkClientServerCompatibility();
                     
-                    updateTo2_0 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_2_0) == null;
-                    updateTo2_1 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_2_1) == null;
                     updateTo3_0 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_3_0) == null;
                     if (updateTo3_0) {
                         // Check if SYSTEM.TABLE has multiple regions which is problematic, as
@@ -690,28 +678,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 // We'll do this alter at the end of the upgrade
                 // Just let the table metadata be updated for 3.0 here, as otherwise
                 // we have a potential race condition
-                if (!updateTo2_1 && !updateTo2_0) {
-                    // Update metadata of table
-                    // TODO: Take advantage of online schema change ability by setting "hbase.online.schema.update.enable" to true
-                    admin.disableTable(tableName);
-                    // TODO: What if not all existing column families are present?
-                    admin.modifyTable(tableName, newDesc);
-                    admin.enableTable(tableName);
-                }
-                /*
-                 *  FIXME: remove this once everyone has been upgraded to v 0.94.4+
-                 * We've detected that the SYSTEM.TABLE needs to be upgraded, so let's
-                 * query and update all tables here.
-                 */
-                if (updateTo1_2) {
-                    upgradeTablesFrom0_94_2to0_94_4(admin);
-                    // Do the compatibility check here, now that the jar path has been corrected.
-                    // This will work with the new and the old jar, so do the compatibility check now.
-                    checkClientServerCompatibility();
-                }
-                if (updateTo2_1 && !updateTo2_0) {
-                    upgradeTablesFrom2_0to2_1(admin, newDesc);
-                }
+                // Update metadata of table
+                // TODO: Take advantage of online schema change ability by setting "hbase.online.schema.update.enable" to true
+                admin.disableTable(tableName);
+                // TODO: What if not all existing column families are present?
+                admin.modifyTable(tableName, newDesc);
+                admin.enableTable(tableName);
                 return false;
             }
 
@@ -737,208 +709,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return true; // will never make it here
     }
 
-    /**
-     * FIXME: Temporary code to convert tables to 0.94.4 format (i.e. no jar specified
-     * in coprocessor definition). This is necessary because of a change in
-     * HBase behavior between 0.94.3 and 0.94.4. Once everyone has been upgraded
-     * this code can be removed.
-     * @throws SQLException
-     */
-    private void upgradeTablesFrom0_94_2to0_94_4(HBaseAdmin admin) throws IOException {
-        if (logger.isInfoEnabled()) {
-            logger.info("Upgrading tables from HBase 0.94.2 to 0.94.4+");
-        }
-        /* Use regular HBase scan instead of query because the jar on the server may
-         * not be compatible (we don't know yet) and this is our one chance to do
-         * the conversion automatically.
-         */
-        Scan scan = new Scan();
-        scan.addColumn(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES);
-        // Add filter so that we only get the table row and not the column rows
-        scan.setFilter(new SingleColumnValueFilter(TABLE_FAMILY_BYTES, COLUMN_COUNT_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.INTEGER.toBytes(0)));
-        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME_BYTES, connection, getExecutor());
-        ResultScanner scanner = table.getScanner(scan);
-        Result result = null;
-        while ((result = scanner.next()) != null) {
-            byte[] rowKey = result.getRow();
-            byte[][] rowKeyMetaData = new byte[2][];
-            getVarChars(rowKey, rowKeyMetaData);
-            byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
-            byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-            byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-            if (!SchemaUtil.isMetaTable(tableName)) {
-                try {
-                    HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
-                    existingDesc.removeCoprocessor(ScanRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(UngroupedAggregateRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(GroupedAggregateRegionObserver.class.getName());
-                    existingDesc.removeCoprocessor(ServerCachingEndpointImpl.class.getName());                    
-                    existingDesc.addCoprocessor(ScanRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(UngroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(GroupedAggregateRegionObserver.class.getName(), null, 1, null);
-                    existingDesc.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
-                    boolean wasEnabled = admin.isTableEnabled(tableName);
-                    if (wasEnabled) {
-                        admin.disableTable(tableName);
-                    }
-                    admin.modifyTable(tableName, existingDesc);
-                    if (wasEnabled) {
-                        admin.enableTable(tableName);
-                    }
-                } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
-                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
-                } catch (IOException e) {
-                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
-                }
-            }
-        }
-    }
-
-    /**
-     * FIXME: Temporary code to convert tables from 2.0 to 2.1 by:
-     * 1) adding the new coprocessors for mutable secondary indexing
-     * 2) add a ":" prefix to any index column names that are for data table pk columns
-     * @param newDesc 
-     * @throws IOException
-     */
-    private void upgradeTablesFrom2_0to2_1(HBaseAdmin admin, HTableDescriptor newDesc) throws IOException {
-        if (logger.isInfoEnabled()) {
-            logger.info("Upgrading tables from Phoenix 2.0 to Phoenix 2.1");
-        }
-        /* Use regular HBase scan instead of query because the jar on the server may
-         * not be compatible (we don't know yet) and this is our one chance to do
-         * the conversion automatically.
-         */
-        Scan scan = new Scan();
-        scan.addColumn(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
-        scan.addColumn(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
-        SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES, CompareOp.GREATER_OR_EQUAL, PDataType.CHAR.toBytes("a"));
-        filter.setFilterIfMissing(true);
-        // Add filter so that we only get the table row and not the column rows
-        scan.setFilter(filter);
-        HTableInterface table = HBaseFactoryProvider.getHTableFactory().getTable(TYPE_TABLE_NAME_BYTES, connection, getExecutor());
-        ResultScanner scanner = table.getScanner(scan);
-        Result result = null;
-        List<byte[][]> indexesToUpdate = Lists.newArrayList();
-        while ((result = scanner.next()) != null) {
-            boolean wasModified = false;
-            byte[] rowKey = result.getRow();
-            byte[][] rowKeyMetaData = new byte[2][];
-            getVarChars(rowKey, rowKeyMetaData);
-            byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
-            byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-            byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-            KeyValue kv = result.getColumnLatest(TABLE_FAMILY_BYTES, TABLE_TYPE_BYTES);
-            PTableType tableType = PTableType.fromSerializedValue(kv.getBuffer()[kv.getValueOffset()]);
-            if (!SchemaUtil.isMetaTable(tableName)) {
-                try {
-                    HTableDescriptor existingDesc = admin.getTableDescriptor(tableName);
-                    if (!existingDesc.hasCoprocessor(ServerCachingEndpointImpl.class.getName())) {
-                        existingDesc.addCoprocessor(ServerCachingEndpointImpl.class.getName(), null, 1, null);
-                        wasModified = true;
-                    }
-                    if (tableType == PTableType.INDEX) {
-                        byte[] dataTableName = result.getColumnLatest(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES).getValue();
-                        if (logger.isInfoEnabled()) {
-                            logger.info("Detected index " + SchemaUtil.getTableName(schemaBytes, dataTableName) + " that needs to be upgraded" );
-                        }
-                        indexesToUpdate.add(new byte[][] {schemaBytes, tableBytes, dataTableName});
-                    } else if (!existingDesc.hasCoprocessor(Indexer.class.getName())) {
-                        Map<String, String> opts = Maps.newHashMapWithExpectedSize(1);
-                        opts.put(CoveredColumnsIndexBuilder.CODEC_CLASS_NAME_KEY, PhoenixIndexCodec.class.getName());
-                        Indexer.enableIndexing(existingDesc, PhoenixIndexBuilder.class, opts);
-                        wasModified = true;
-                    }
-                    if (wasModified) {
-                        boolean wasEnabled = admin.isTableEnabled(tableName);
-                        if (wasEnabled) {
-                            admin.disableTable(tableName);
-                        }
-                        admin.modifyTable(tableName, existingDesc);
-                        if (wasEnabled) {
-                            admin.enableTable(tableName);
-                        }
-                    }
-                } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
-                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
-                } catch (IOException e) {
-                    logger.error("Unable to convert " + Bytes.toString(tableName), e);
-                }
-            }
-        }
-        
-        List<Mutation> mutations = Lists.newArrayList();
-        for (byte[][] indexInfo : indexesToUpdate) {
-            scan = new Scan();
-            scan.addFamily(TABLE_FAMILY_BYTES);
-            byte[] startRow = ByteUtil.concat(indexInfo[0],QueryConstants.SEPARATOR_BYTE_ARRAY, indexInfo[2], QueryConstants.SEPARATOR_BYTE_ARRAY);
-            byte[] stopRow = ByteUtil.nextKey(startRow);
-            scan.setStartRow(startRow);
-            scan.setStopRow(stopRow);
-            scan.setFilter(new FirstKeyOnlyFilter());
-            scanner = table.getScanner(scan);
-            List<KeyRange> indexRowsToUpdate = Lists.newArrayList();
-            while ((result = scanner.next()) != null) {
-                byte[] rowKey = result.getRow();
-                byte[][] rowKeyMetaData = new byte[4][];
-                getVarChars(rowKey, rowKeyMetaData);
-                byte[] columnBytes = rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX];
-                byte[] familyBytes = rowKeyMetaData[PhoenixDatabaseMetaData.FAMILY_NAME_INDEX];
-                if (familyBytes == null || familyBytes.length == 0) {
-                    byte[] indexRowKey = ByteUtil.concat(indexInfo[0],QueryConstants.SEPARATOR_BYTE_ARRAY, indexInfo[1], QueryConstants.SEPARATOR_BYTE_ARRAY, columnBytes);
-                    KeyRange keyRange = PDataType.VARBINARY.getKeyRange(indexRowKey, true, indexRowKey, true);
-                    indexRowsToUpdate.add(keyRange);
-                }
-            }
-            ScanRanges ranges = ScanRanges.create(Collections.singletonList(indexRowsToUpdate), SchemaUtil.VAR_BINARY_SCHEMA);
-            Scan indexScan = new Scan();
-            scan.addFamily(TABLE_FAMILY_BYTES);
-            indexScan.setFilter(ranges.getSkipScanFilter());
-            ResultScanner indexScanner = table.getScanner(indexScan);
-            while ((result = indexScanner.next()) != null) {
-                byte[] rowKey = result.getRow();
-                byte[][] rowKeyMetaData = new byte[3][];
-                getVarChars(rowKey, rowKeyMetaData);
-                byte[] schemaBytes = rowKeyMetaData[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
-                byte[] tableBytes = rowKeyMetaData[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-                byte[] columnBytes = rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX];
-                Delete del = new Delete(rowKey);
-                // All this to add a ':' to the beginning of the column name...
-                byte[] newRowKey = ByteUtil.concat(schemaBytes,QueryConstants.SEPARATOR_BYTE_ARRAY, tableBytes, QueryConstants.SEPARATOR_BYTE_ARRAY, IndexUtil.INDEX_COLUMN_NAME_SEP_BYTES, columnBytes);
-                Put put = new Put(newRowKey);
-                for (KeyValue kv : result.raw()) {
-                    byte[] cf = kv.getFamily();
-                    byte[] cq= kv.getQualifier();
-                    long ts = kv.getTimestamp();
-                    del.deleteColumn(cf, cq, ts);
-                    put.add(cf,cq,ts,kv.getValue());
-                }
-                mutations.add(del);
-                mutations.add(put);
-            }
-        }
-        if (!mutations.isEmpty()) {
-            if (logger.isInfoEnabled()) {
-                logger.info("Performing batched mutation of " + mutations.size() + " index column rows to update" );
-            }
-            try {
-                table.batch(mutations);
-            } catch (InterruptedException e) {
-                throw new IOException(e);
-            }
-        }
-        
-        // Finally, at the end, modify the system table
-        // which will include the flag that'll prevent this
-        // update from occurring again
-        admin.disableTable(TYPE_TABLE_NAME_BYTES);
-        admin.modifyTable(TYPE_TABLE_NAME_BYTES, newDesc);
-        admin.enableTable(TYPE_TABLE_NAME_BYTES);
-        if (logger.isInfoEnabled()) {
-            logger.info("Upgrade to 2.1.0 completed successfully" );
-        }
-    }
-    
     private static boolean isInvalidMutableIndexConfig(Long serverVersion) {
         if (serverVersion == null) {
             return false;
@@ -1221,9 +991,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_METADATA);
-        } catch (TableAlreadyExistsException e) {
-            SchemaUtil.updateSystemTableTo2(metaConnection, e.getTable());
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
         } catch (SQLException e) {
             sqlE = e;
         } finally {
@@ -1319,5 +1088,115 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                       return instance.updateIndexState(tableMetaData);
                     }
                 });
+    }
+
+    @Override
+    public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
+    	Map<NextSequenceValueParseNode, Long> resultMap = Maps.newHashMapWithExpectedSize(nodes.size());   	
+    	List<NextSequenceValueParseNode> cachedSequences = Lists.newArrayListWithExpectedSize(nodes.size());
+    	List<NextSequenceValueParseNode> uncachedSequences = Lists.newArrayListWithExpectedSize(nodes.size());
+    	// First check the cache    		
+    	for (NextSequenceValueParseNode node: nodes){
+    	    TableName t = node.getTableName();
+    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		if (incrementValue!=null){
+    			cachedSequences.add(node);
+    		}
+    		else {
+    			uncachedSequences.add(node);
+    		}		
+    	}
+    	try {
+            if (!uncachedSequences.isEmpty()) {
+                handleUncachedSequences(uncachedSequences);
+                cachedSequences.addAll(uncachedSequences);
+            }
+    		if (!cachedSequences.isEmpty())
+    			handleCachedSequences(cachedSequences, resultMap);
+    	}
+    	catch (IOException e){
+            throw ServerUtil.parseServerException(e);
+    	}
+    	catch (InterruptedException e){
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+            .setRootCause(e).build().buildException(); // FIXME
+    	}
+    	return resultMap;
+    }
+
+    private void handleCachedSequences(List<NextSequenceValueParseNode> cachedSequences, Map<NextSequenceValueParseNode, Long> resultMap) throws IOException, InterruptedException, SQLException {
+        HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+    	List<Increment> cacheBatch = new ArrayList<Increment>();
+
+    	for (NextSequenceValueParseNode node: cachedSequences){    	
+    	    TableName t = node.getTableName();
+    		byte[] key = SchemaUtil.getSequenceKey(t.getSchemaName(), t.getTableName());
+    		long incrementValue = latestMetaData.getSequenceIncrementValue(t);
+    		Increment inc = new Increment(key);
+    		inc.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, incrementValue);
+    		cacheBatch.add(inc); 
+    	}
+    	Object[] cacheResultObjects = hTable.batch(cacheBatch);
+    	for (int i=0;i<cachedSequences.size();i++){
+    	    NextSequenceValueParseNode node = cachedSequences.get(i);
+    		Result result = (Result)cacheResultObjects[i];
+    		KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
+    		long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
+    		resultMap.put(node, current);
+    	}
+    }
+
+    private void handleUncachedSequences(List<NextSequenceValueParseNode> uncachedSequences) throws IOException, InterruptedException, SQLException {
+        HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+
+    	// Get the current value    		
+    	List<Get> getBatch = new ArrayList<Get>();
+    	for (NextSequenceValueParseNode node: uncachedSequences){    			
+            TableName t = node.getTableName();
+    		byte[] key = SchemaUtil.getSequenceKey(t.getSchemaName(), t.getTableName());
+    		Get get = new Get(key);
+    		get.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
+    		// TODO: use skip scan instead as it's 2x faster
+    		getBatch.add(get);	
+    	}
+    	Object[] resultObjects = hTable.batch(getBatch);
+    	for (int i=0;i<uncachedSequences.size();i++){
+            NextSequenceValueParseNode node = uncachedSequences.get(i);
+            TableName t = node.getTableName();
+    		Result result = (Result)resultObjects[i];
+    		if (result.isEmpty()){
+    			throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
+    		}
+    		KeyValue incrementKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
+    		long increment = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
+    		latestMetaData.setSequenceIncrementValue(t, increment); // Cache the value
+    	}
+    }
+
+    @Override
+    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy) 
+            throws SQLException {
+        HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+        byte[] key = SchemaUtil.getSequenceKey(schemaName, sequenceName);
+        Put put = new Put(key);
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith-incrementBy));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(-incrementBy));
+        try {
+            return htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, put);
+        } catch (IOException e) {
+            throw ServerUtil.parseServerException(e);
+        }
+    }
+
+    @Override
+    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
+        HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+        byte[] key = SchemaUtil.getSequenceKey(schemaName, sequenceName);
+        Delete del = new Delete(key);
+        try {
+            return htable.checkAndDelete(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, del);
+        } catch (IOException e) {
+            throw ServerUtil.parseServerException(e);
+        }
     }
 }

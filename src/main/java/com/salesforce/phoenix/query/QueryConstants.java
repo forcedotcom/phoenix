@@ -35,12 +35,14 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_DEF;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_SIZE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CURRENT_VALUE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DECIMAL_DIGITS;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INCREMENT_BY;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
@@ -55,6 +57,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_CATALOG;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SCOPE_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SELF_REFERENCING_COL_NAME_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SEQUENCE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SEQUENCE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SOURCE_DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATETIME_SUB;
@@ -67,6 +71,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 
 import java.math.BigDecimal;
@@ -137,8 +142,8 @@ public interface QueryConstants {
     public static final BigDecimal BD_MILLIS_IN_DAY = BigDecimal.valueOf(QueryConstants.MILLIS_IN_DAY);
     
 
-    public static final String CREATE_METADATA =
-            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
+    public static final String CREATE_TABLE_METADATA =
+            "CREATE TABLE IF NOT EXISTS " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -188,4 +193,14 @@ public interface QueryConstants {
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +
             DEFAULT_COLUMN_FAMILY_NAME + "=" + "'_0'" + ",\n" + // Use original default for b/w compat
             HTableDescriptor.SPLIT_POLICY + "='" + MetaDataSplitPolicy.class.getName() + "'\n";
+    
+    public static final String CREATE_SEQUENCE_METADATA =
+            "CREATE TABLE IF NOT EXISTS " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
+    		SEQUENCE_SCHEMA + " VARCHAR NULL, \n" + 
+            SEQUENCE_NAME +  " VARCHAR NOT NULL, \n" +
+    		CURRENT_VALUE + " BIGINT NOT NULL, \n" + 
+            INCREMENT_BY  + " BIGINT NOT NULL \n" + 
+    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
+    		HConstants.VERSIONS + "=" + 1 + "\n";
+	
 }

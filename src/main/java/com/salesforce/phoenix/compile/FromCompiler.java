@@ -68,7 +68,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class FromCompiler {
     private static final Logger logger = LoggerFactory.getLogger(FromCompiler.class);
 
-    private static final ColumnResolver EMPTY_TABLE_RESOLVER = new ColumnResolver() {
+    public static final ColumnResolver EMPTY_TABLE_RESOLVER = new ColumnResolver() {
 
         @Override
         public List<TableRef> getTables() {

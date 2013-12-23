@@ -153,4 +153,9 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     public boolean visitEnter(RowValueConstructorParseNode node) throws SQLException {
         return true;
     }
+    
+    @Override
+    public T visit(NextSequenceValueParseNode node) throws SQLException {			
+		return null;
+	}
 }

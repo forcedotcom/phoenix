@@ -112,6 +112,7 @@ public class LimitCompiler {
             visit(NODE_FACTORY.literal(value, LIMIT_DATUM.getDataType()));
             return null;
         }
+		
     }
 
 }

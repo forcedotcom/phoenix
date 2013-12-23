@@ -425,9 +425,9 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 				+ "    a_time time,\n"
 				+ "    a_timestamp timestamp,\n"
 				+ "    x_decimal decimal(31,10),\n"
-				+ "    x_long_array bigint array[],\n"
+				+ "    x_long_array bigint[],\n"
 				+ "    x_integer integer,\n"
-				+ "    a_byte_array tinyint array[],\n"
+				+ "    a_byte_array tinyint array,\n"
 				+ "    a_short smallint,\n"
 				+ "    a_float float,\n"
 				+ "    a_double_array double array[],\n"
@@ -437,4 +437,5 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 				+ ")";
 		BaseTest.createTestTable(url, ddlStmt, bs, ts);
 	}
+	
 }

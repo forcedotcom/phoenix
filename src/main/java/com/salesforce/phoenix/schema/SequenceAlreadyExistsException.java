@@ -27,15 +27,30 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.Map;
+import java.sql.SQLException;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+
+public class SequenceAlreadyExistsException extends SQLException {
+	private static final long serialVersionUID = 1L;
+	private static SQLExceptionCode code = SQLExceptionCode.SEQUENCE_ALREADY_EXIST;
+	private final String schemaName;
+	private final String sequenceName;
 
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public Map<TableName, Long> getSequenceIncrementValues();
+	public SequenceAlreadyExistsException(String schemaName, String sequenceName) {
+		super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(sequenceName).build().toString(),
+				code.getSQLState());        
+		this.schemaName = schemaName;
+		this.sequenceName = sequenceName;
+	}
+
+	public String getSequenceName() {
+		return sequenceName;
+	}
+
+	public String getSchemaName() {
+		return schemaName;
+	}
 }

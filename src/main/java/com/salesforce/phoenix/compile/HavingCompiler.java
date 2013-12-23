@@ -244,5 +244,6 @@ public class HavingCompiler {
         public boolean visitEnter(BetweenParseNode node) throws SQLException {
             return true;
         }
+		
     }
 }

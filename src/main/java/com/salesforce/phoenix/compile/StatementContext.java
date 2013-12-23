@@ -29,14 +29,19 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.BindableStatement;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
@@ -72,6 +77,7 @@ public class StatementContext {
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
     private KeyRange minMaxRange = null;
+    private Map<NextSequenceValueParseNode, Long> sequenceMap = Collections.emptyMap();
 
     private TableRef currentTable;
     
@@ -219,5 +225,23 @@ public class StatementContext {
     
     public boolean isSingleRowScan() {
         return this.getScanRanges().isSingleRowScan() && ! (this.getScan().getFilter() instanceof FilterList);
+    }
+    
+    public Map<NextSequenceValueParseNode,Long> getResolvedSequences(){
+        return sequenceMap;
+    }
+    
+    public void setResolvedSequences(Map<NextSequenceValueParseNode,Long> sequenceValuesMap){
+        this.sequenceMap = sequenceValuesMap;
+    }
+
+    public Long resolveSequenceValue(NextSequenceValueParseNode node) throws SQLException {
+    	Long value = sequenceMap.get(node);
+    	if (value == null) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_NOT_FOUND)
+            .setSchemaName(node.getTableName().getSchemaName())
+            .setTableName(node.getTableName().getTableName()).build().buildException();
+    	}
+    	return value;
     }
 }

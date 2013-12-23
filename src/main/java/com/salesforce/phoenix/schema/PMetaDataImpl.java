@@ -35,13 +35,16 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.parse.TableName;
 
 public class PMetaDataImpl implements PMetaData {
-    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap());
+    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap(), Collections.<TableName, Long>emptyMap());
     private final Map<String,PTable> metaData;
+    private final Map<TableName, Long> sequences;
     
-    public PMetaDataImpl(Map<String,PTable> metaData) {
-        this.metaData = ImmutableMap.copyOf(metaData);
+    public PMetaDataImpl(Map<String,PTable> tables, Map<TableName, Long> sequences) {
+        this.metaData = ImmutableMap.copyOf(tables);
+        this.sequences = ImmutableMap.copyOf(sequences);
     }
     
     @Override
@@ -81,7 +84,7 @@ public class PMetaDataImpl implements PMetaData {
         for (PTable index : table.getIndexes()) {
             tables.put(index.getName().getString(), index);
         }
-        return new PMetaDataImpl(tables);
+        return new PMetaDataImpl(tables, sequences);
     }
 
     @Override
@@ -99,7 +102,7 @@ public class PMetaDataImpl implements PMetaData {
         }
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, newColumns, isImmutableRows);
         tables.put(tableName, newTable);
-        return new PMetaDataImpl(tables);
+        return new PMetaDataImpl(tables, sequences);
     }
 
     @Override
@@ -115,7 +118,7 @@ public class PMetaDataImpl implements PMetaData {
                 }
             }
         }
-        return new PMetaDataImpl(tables);
+        return new PMetaDataImpl(tables, sequences);
     }
     
     @Override
@@ -147,6 +150,32 @@ public class PMetaDataImpl implements PMetaData {
         
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns);
         tables.put(tableName, newTable);
-        return new PMetaDataImpl(tables);
+        return new PMetaDataImpl(tables, sequences);
+    }
+
+    @Override
+    public Long getSequenceIncrementValue(TableName name) {		
+    	return sequences.get(name);
+    }
+
+    @Override
+    public PMetaData setSequenceIncrementValue(TableName name, Long incrementBy) {
+        Map<TableName, Long> sequences = Maps.newHashMap(this.sequences);
+        if (incrementBy == null) {
+            if (sequences.remove(name) == null) {
+                return this; 
+            }
+        } else {
+            Long oldIncrementBy = sequences.put(name, incrementBy);
+            if (oldIncrementBy != null && oldIncrementBy.equals(incrementBy)) {
+                return this;
+            }
+        }
+        return new PMetaDataImpl(metaData, sequences);
+    }
+
+    @Override
+    public Map<TableName, Long> getSequenceIncrementValues() {
+        return sequences;
     }
 }

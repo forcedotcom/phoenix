@@ -25,17 +25,42 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.parse;
 
-import java.util.Map;
+public class CreateSequenceStatement implements BindableStatement {
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+	private final TableName sequenceName;
+	private final ParseNode startWith;
+	private final ParseNode incrementBy;
+    private final boolean ifNotExists;
+	private final int bindCount;
 
+	protected CreateSequenceStatement(TableName sequenceName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExists, int bindCount) {
+		this.sequenceName = sequenceName;
+		this.startWith = startsWith == null ? LiteralParseNode.ZERO : startsWith;
+		this.incrementBy = incrementBy == null ? LiteralParseNode.ONE : incrementBy;
+		this.ifNotExists = ifNotExists;
+		this.bindCount = bindCount;
+	}
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public Map<TableName, Long> getSequenceIncrementValues();
+	@Override
+	public int getBindCount() {
+		return this.bindCount;
+	}
+	
+	public ParseNode getIncrementBy() {
+		return incrementBy;
+	}
+
+	public TableName getSequenceName() {
+		return sequenceName;
+	}
+
+	public ParseNode getStartWith() {
+		return startWith;
+	}
+
+    public boolean ifNotExists() {
+        return ifNotExists;
+    }
 }

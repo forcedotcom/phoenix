@@ -122,6 +122,13 @@ public enum SQLExceptionCode {
     UNEXPECTED_MUTATION_CODE(1011, "42M02", "Unexpected mutation code."),
     TABLE_UNDEFINED(1012, "42M03", "Table undefined."),
     TABLE_ALREADY_EXIST(1013, "42M04", "Table already exists."),
+    SEQUENCE_ALREADY_EXIST(1014, "42M05", "Sequence already exists."),
+    SEQUENCE_UNDEFINED(1015, "42M06", "Sequence undefined."),
+    STARTS_WITH_MUST_BE_CONSTANT(1016, "42M07", "Sequence STARTS WITH value must be an integer or long constant."),
+    INCREMENT_BY_MUST_BE_CONSTANT(1017, "42M08", "Sequence INCREMENT BY value must be an integer or long constant."),
+    INVALID_USE_OF_NEXT_VALUE_FOR(1018, "42M09", "NEXT VALUE FOR may only be used in the SELECT expressions and WHERE clause."),
+    NEXT_VALUE_FOR_NOT_FOUND(1019, "42M10", "Could not resolve NEXT VALUE FOR sequence."),
+
     // Index related errors
     INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),
     CANNOT_MUTATE_INDEX(1024, "42N02", "Cannot mutate existing index."),

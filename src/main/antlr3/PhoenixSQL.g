@@ -97,6 +97,13 @@ tokens
     DISABLE='disable';
     REBUILD='rebuild';
     ARRAY='array';
+    SEQUENCE='sequence';
+    START='start';
+    WITH='with';
+    INCREMENT='increment';
+    NEXT='next';
+    VALUE='value';
+    FOR='for';    
 }
 
 
@@ -360,6 +367,8 @@ non_select_node returns [BindableStatement ret]
     |   s=drop_index_node
     |   s=alter_index_node
     |   s=alter_table_node
+    |	s=create_sequence_node
+    |	s=drop_sequence_node
     |   s=explain_node) { contextStack.pop();  $ret = s; }
     ;
     
@@ -384,6 +393,25 @@ create_index_node returns [CreateIndexStatement ret]
         (p=fam_properties)?
         (SPLIT ON v=list_expressions)?
         {ret = factory.createIndex(i, factory.namedTable(null,t), pk, icrefs, v, p, ex!=null, getBindCount()); }
+    ;
+
+// Parse a create sequence statement.
+create_sequence_node returns [CreateSequenceStatement ret]
+    :   CREATE SEQUENCE  (IF NOT ex=EXISTS)? t=from_table_name
+        (START WITH s=int_literal_or_bind)?
+        (INCREMENT BY i=int_literal_or_bind)?
+    { $ret = factory.createSequence(t, s, i, ex!=null, getBindCount()); }
+    ;
+
+int_literal_or_bind returns [ParseNode ret]
+    : n=int_literal { $ret = n; }
+    | b=bind_expression { $ret = b; }
+    ;
+
+// Parse a drop sequence statement.
+drop_sequence_node returns [DropSequenceStatement ret]
+    :   DROP SEQUENCE  (IF ex=EXISTS)? t=from_table_name
+    { $ret = factory.dropSequence(t, ex!=null, getBindCount()); }
     ;
 
 pk_constraint returns [PrimaryKeyConstraint ret]
@@ -477,8 +505,8 @@ column_defs returns [List<ColumnDef> ret]
 ;
 
 column_def returns [ColumnDef ret]
-    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (ar=ARRAY (LSQUARE (a=NUMBER)? RSQUARE))? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
-        { $ret = factory.columnDef(c, dt, ar != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
+    :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? ar=ARRAY? (lsq=LSQUARE (a=NUMBER)? RSQUARE)? (n=NOT? NULL)? (pk=PRIMARY KEY (order=ASC|order=DESC)?)?
+        { $ret = factory.columnDef(c, dt, ar != null || lsq != null, a == null ? null :  Integer.parseInt( a.getText() ), n==null, 
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             pk != null, 
@@ -757,6 +785,7 @@ arrayable_expression_term returns [ParseNode ret]
     		}	 
     	}
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt); }
+    |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}    
     ;
 
 expression_terms returns [List<ParseNode> ret]

@@ -232,4 +232,9 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     public T visitLeave(RowValueConstructorParseNode node, List<T> l) throws SQLException {
         return null;
     }
+    
+    @Override
+    public T visit(NextSequenceValueParseNode node) throws SQLException {			
+		return null;
+	}
 }

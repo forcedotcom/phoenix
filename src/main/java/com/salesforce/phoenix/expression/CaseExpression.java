@@ -84,7 +84,7 @@ public class CaseExpression extends BaseCompoundExpression {
         }
         // If we found an "unknown" child type and the return type is a number
         // make the return type be the most general number type of DECIMAL.
-        if (isChildTypeUnknown && returnType.isCoercibleTo(PDataType.DECIMAL)) {
+        if (isChildTypeUnknown && returnType != null && returnType.isCoercibleTo(PDataType.DECIMAL)) {
             returnType = PDataType.DECIMAL;
         }
         List<Expression> newChildren = children;

@@ -27,15 +27,32 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.Map;
-
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public Map<TableName, Long> getSequenceIncrementValues();
+public class SequenceNotFoundException extends MetaDataEntityNotFoundException {
+	private static final long serialVersionUID = 1L;
+	private static SQLExceptionCode code = SQLExceptionCode.SEQUENCE_UNDEFINED;
+	private final String schemaName;
+	private final String tableName;
+
+	public SequenceNotFoundException(String tableName) {
+		this(null, tableName);
+	}
+
+	public SequenceNotFoundException(String schemaName, String tableName) {
+		super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
+				code.getSQLState(), code.getErrorCode());
+		this.tableName = tableName;
+		this.schemaName = schemaName;
+	}
+
+	public String getTableName() {
+		return tableName;
+	}
+
+	public String getSchemaName() {
+		return schemaName;
+	}
 }

@@ -88,6 +88,7 @@ import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LikeParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.MultiplyParseNode;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.NotParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
@@ -1265,4 +1266,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         // variables that aren't bound yet.
         return new RowValueConstructorExpression(l, node.isConstant());
     }
+
+	@Override
+	public Expression visit(NextSequenceValueParseNode node)
+			throws SQLException {		
+		Long value = context.resolveSequenceValue(node);		
+		return LiteralExpression.newConstant(value, PDataType.LONG);
+	}
 }

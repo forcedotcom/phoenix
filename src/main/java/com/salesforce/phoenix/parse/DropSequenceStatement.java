@@ -25,17 +25,30 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.parse;
 
-import java.util.Map;
+public class DropSequenceStatement implements BindableStatement {
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+    private final TableName sequenceName;
+    private final boolean ifExists;
+    private final int bindCount;
 
+    protected DropSequenceStatement(TableName sequenceName, boolean ifExists, int bindCount) {
+        this.sequenceName = sequenceName;
+        this.ifExists = ifExists;
+        this.bindCount = bindCount;
+    }
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public Long getSequenceIncrementValue(TableName name);
-    public Map<TableName, Long> getSequenceIncrementValues();
+    @Override
+    public int getBindCount() {
+        return bindCount;
+    }
+
+    public TableName getSequenceName() {
+        return sequenceName;
+    }
+
+    public boolean ifExists() {
+        return ifExists;
+    }
 }
