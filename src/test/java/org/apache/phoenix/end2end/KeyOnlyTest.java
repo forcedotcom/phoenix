@@ -19,10 +19,17 @@
  */
 package org.apache.phoenix.end2end;
 
-import static org.apache.phoenix.util.TestUtil.*;
-import static org.junit.Assert.*;
+import static org.apache.phoenix.util.TestUtil.KEYONLY_NAME;
+import static org.apache.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static org.apache.phoenix.util.TestUtil.TEST_PROPERTIES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.junit.Test;
@@ -99,6 +106,26 @@ public class KeyOnlyTest extends BaseClientMangedTimeTest {
         conn8.close();
     }
     
+    @Test
+    public void testOr() throws Exception {
+        long ts = nextTimestamp();
+        ensureTableCreated(getUrl(),KEYONLY_NAME,null, ts);
+        initTableValues(ts+1);
+        Properties props = new Properties();
+        
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        Connection conn5 = DriverManager.getConnection(getUrl(), props);
+        String query = "SELECT i1 FROM KEYONLY WHERE i1 < 2 or i1 = 3";
+        PreparedStatement statement = conn5.prepareStatement(query);
+        ResultSet rs = statement.executeQuery();
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+        assertTrue(rs.next());
+        assertEquals(3, rs.getInt(1));
+        assertFalse(rs.next());
+        conn5.close();
+    }
+        
     protected static void initTableValues(long ts) throws Exception {
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;
         Properties props = new Properties(TEST_PROPERTIES);
