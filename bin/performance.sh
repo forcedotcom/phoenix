@@ -43,7 +43,7 @@ statements=""
 
 # Phoenix client jar. To generate new jars: $ mvn package -DskipTests
 current_dir=$(cd $(dirname $0);pwd)
-phoenix_jar_path="$current_dir/../target"
+phoenix_jar_path="$current_dir/../phoenix-assembly/target"
 phoenix_client_jar=$(find $phoenix_jar_path/phoenix-*-client.jar)
 testjar="$phoenix_jar_path/phoenix-*-tests.jar"
 
