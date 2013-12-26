@@ -1193,4 +1193,31 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
         }
     }
+    @Test
+    public void testInvalidArrayTypeAsPK () throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (col1 INTEGER[10] NOT NULL PRIMARY KEY)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): Array type not allowed as primary key constraint"));
+        } finally {
+                conn.close();
+        }
+
+        conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (col1 VARCHAR, col2 INTEGER ARRAY[10] CONSTRAINT pk PRIMARY KEY (col1, col2))";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): Array type not allowed as primary key constraint"));
+        } finally {
+            conn.close();
+        }
+    }
+
  }
