@@ -96,6 +96,7 @@ import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
 import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
+import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
@@ -991,8 +992,18 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);
         SQLException sqlE = null;
         try {
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
-            metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
+            try {
+                metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
+            } catch (NewerTableAlreadyExistsException ignore) {
+                // Ignore, as this will happen if the SYSTEM.TABLE already exists at this fixed timestamp.
+                // A TableAlreadyExistsException is not thrown, since the table only exists *after* this fixed timestamp.
+            }
+            try {
+                metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);
+            } catch (NewerTableAlreadyExistsException ignore) {
+                // Ignore, as this will happen if the SYSTEM.SEQUENCE already exists at this fixed timestamp.
+                // A TableAlreadyExistsException is not thrown, since the table only exists *after* this fixed timestamp.
+            }
         } catch (SQLException e) {
             sqlE = e;
         } finally {
