@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.util;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.hadoop.hbase.KeyValue;
@@ -94,6 +95,7 @@ public class KeyValueUtil {
      * Binary search for latest column value without allocating memory in the process
      * @param kvs
      * @param searchTerm
+     * @deprecated Use {@link #getColumnLatest(List, byte[], byte[])} instead
      */
     public static KeyValue getColumnLatest(List<KeyValue>kvs, KeyValue searchTerm) {
         if (kvs.size() == 0) {
@@ -127,16 +129,80 @@ public class KeyValueUtil {
      * Binary search for latest column value without allocating memory in the process
      */
     public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] family, byte[] qualifier) {
-        KeyValue kv = kvs.get(0);
-        return KeyValueUtil.getColumnLatest(kvs, kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), family, 0, family.length, qualifier, 0, qualifier.length);
+        if (kvs.size() == 0) {
+        	return null;
+        }
+        KeyValue row = kvs.get(0);
+        Comparator<KeyValue> comp = new SearchComparator(row.getBuffer(), row.getRowOffset(), row.getRowLength(), family, qualifier);
+        // pos === ( -(insertion point) - 1)
+        int pos = Collections.binarySearch(kvs, null, comp);
+        // never will exact match
+        if (pos < 0) {
+          pos = (pos+1) * -1;
+          // pos is now insertion point
+        }
+        if (pos == kvs.size()) {
+          return null; // doesn't exist
+        }
+    
+        KeyValue kv = kvs.get(pos);
+        if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(),
+                family, 0, family.length) != 0) {
+            return null;
+        }
+        if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(),
+                qualifier, 0, qualifier.length) != 0) {
+            return null;
+        }
+        return kv;
     }
 
-    /**
-     * Binary search for latest column value without allocating memory in the process
+    /*
+     * Special comparator, *only* works for binary search.
+     * Current JDKs only uses the search term on the right side,
+     * Making use of that saves instanceof checks, and allows us
+     * to inline the search term in the comparator
      */
-    public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] row, int roffset, int rlength, byte[] family, int foffset, int flength, byte[] qualifier, int qoffset, int qlength) {
-        KeyValue searchTerm = KeyValue.createFirstOnRow(row, roffset, rlength, family, foffset, flength, qualifier, qoffset, qlength);
-        return getColumnLatest(kvs,searchTerm);
-        
-    }
+	private static class SearchComparator implements Comparator<KeyValue> {
+		private final byte[] row;
+		private final byte[] family;
+		private final byte[] qualifier;
+		private final int rowOff;
+		private final int rowLen;
+
+		public SearchComparator(byte[] r, int rOff, int rLen, byte[] f, byte[] q) {
+			row = r;
+			family = f;
+			qualifier = q;
+			rowOff = rOff;
+			rowLen = rLen;
+		}
+
+		public int compare(final KeyValue l, final KeyValue ignored) {
+			assert ignored == null;
+			final byte[] buf = l.getBuffer();
+			final int rOff = l.getRowOffset();
+			final short rLen = l.getRowLength();
+			// row
+			int val = Bytes.compareTo(buf, rOff, rLen, row, rowOff, rowLen);
+			if (val != 0) {
+				return val;
+			}
+			// family
+			final int fOff = l.getFamilyOffset(rLen);
+			final byte fLen = l.getFamilyLength(fOff);
+			val = Bytes.compareTo(buf, fOff, fLen, family, 0, family.length);
+			if (val != 0) {
+				return val;
+			}
+			// qualifier
+			val = Bytes.compareTo(buf, l.getQualifierOffset(fOff),
+					l.getQualifierLength(rLen, fLen), qualifier, 0, qualifier.length);
+			if (val != 0) {
+				return val;
+			}
+			// want latest TS and type, so we get the first
+			return 1;
+		}
+	}
 }
