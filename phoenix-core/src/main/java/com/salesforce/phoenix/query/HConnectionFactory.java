@@ -27,39 +27,33 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import com.salesforce.phoenix.util.InstanceResolver;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.ZooKeeperConnectionException;
+import org.apache.hadoop.hbase.client.HConnection;
+import org.apache.hadoop.hbase.client.HConnectionManager;
 
 /**
- * Manages factories that provide extension points for HBase.
- * <p/>
- * Dependent modules may register their own implementations of the following using {@link java.util.ServiceLoader}:
- * <ul>
- *     <li>{@link ConfigurationFactory}</li>
- *     <li>{@link HTableFactory}</li>
- *     <li> {@link HConnectionFactory} </li>
- * </ul>
+ * Factory for creating {@link HConnection}
  *
- * If a custom implementation is not registered, the default implementations will be used.
- *
- * @author aaraujo
- * @since 0.2
+ * @author ukuchibhotla
  */
-public class HBaseFactoryProvider {
+public interface HConnectionFactory {
 
-    private static final HTableFactory DEFAULT_HTABLE_FACTORY = new HTableFactory.HTableFactoryImpl();
-    private static final HConnectionFactory DEFAULT_HCONNECTION_FACTORY =
-        new HConnectionFactory.HConnectionFactoryImpl();
-    private static final ConfigurationFactory DEFAULT_CONFIGURATION_FACTORY = new ConfigurationFactory.ConfigurationFactoryImpl();
+    /**
+     * Creates HConnection to access HBase clusters.
+     * 
+     * @param configuration object
+     * @return A HConnection instance
+     */
+    HConnection createConnection(Configuration conf) throws ZooKeeperConnectionException;
 
-    public static HTableFactory getHTableFactory() {
-        return InstanceResolver.getSingleton(HTableFactory.class, DEFAULT_HTABLE_FACTORY);
-    }
-
-    public static HConnectionFactory getHConnectionFactory() {
-        return InstanceResolver.getSingleton(HConnectionFactory.class, DEFAULT_HCONNECTION_FACTORY);
-    }
-
-    public static ConfigurationFactory getConfigurationFactory() {
-        return InstanceResolver.getSingleton(ConfigurationFactory.class, DEFAULT_CONFIGURATION_FACTORY);
+    /**
+     * Default implementation.  Uses standard HBase HConnections.
+     */
+    static class HConnectionFactoryImpl implements HConnectionFactory {
+        @Override
+        public HConnection createConnection(Configuration conf) throws ZooKeeperConnectionException {
+            return HConnectionManager.createConnection(conf);
+        }
     }
 }

@@ -56,7 +56,6 @@ import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
-import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
@@ -153,7 +152,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         this.config = HBaseConfiguration.create(config);
         this.props = new ReadOnlyProps(this.config.iterator());
         try {
-            this.connection = HConnectionManager.createConnection(this.config);
+            this.connection = HBaseFactoryProvider.getHConnectionFactory().createConnection(this.config);
         } catch (ZooKeeperConnectionException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
                 .setRootCause(e).build().buildException();
