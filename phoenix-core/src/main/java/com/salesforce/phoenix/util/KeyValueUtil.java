@@ -93,40 +93,6 @@ public class KeyValueUtil {
 
     /**
      * Binary search for latest column value without allocating memory in the process
-     * @param kvs
-     * @param searchTerm
-     * @deprecated Use {@link #getColumnLatest(List, byte[], byte[])} instead
-     */
-    public static KeyValue getColumnLatest(List<KeyValue>kvs, KeyValue searchTerm) {
-        if (kvs.size() == 0) {
-          return null;
-        }
-        
-        // pos === ( -(insertion point) - 1)
-        int pos = Collections.binarySearch(kvs, searchTerm, KeyValue.COMPARATOR);
-        // never will exact match
-        if (pos < 0) {
-          pos = (pos+1) * -1;
-          // pos is now insertion point
-        }
-        if (pos == kvs.size()) {
-          return null; // doesn't exist
-        }
-    
-        KeyValue kv = kvs.get(pos);
-        if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(),
-                searchTerm.getBuffer(), searchTerm.getFamilyOffset(), searchTerm.getFamilyLength()) != 0) {
-            return null;
-        }
-        if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(),
-                searchTerm.getBuffer(), searchTerm.getQualifierOffset(), searchTerm.getQualifierLength()) != 0) {
-            return null;
-        }
-        return kv;
-    }
-
-    /**
-     * Binary search for latest column value without allocating memory in the process
      */
     public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] family, byte[] qualifier) {
         if (kvs.size() == 0) {
