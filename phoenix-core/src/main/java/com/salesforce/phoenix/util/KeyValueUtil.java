@@ -93,6 +93,9 @@ public class KeyValueUtil {
 
     /**
      * Binary search for latest column value without allocating memory in the process
+     * @param kvs
+     * @param family
+     * @param qualifier
      */
     public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] family, byte[] qualifier) {
         if (kvs.size() == 0) {
