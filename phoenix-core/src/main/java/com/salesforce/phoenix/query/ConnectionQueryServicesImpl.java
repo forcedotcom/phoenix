@@ -1199,8 +1199,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 TableName t = entry.getKey();
                 Result result = (Result)resultObjects[i];
                 if (result == null) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_FAILED)
-                    .setSchemaName(t.getSchemaName()).setTableName(t.getTableName()).build().buildException();
+                    // Silently remove - client must check after call
+                    sequences.remove(t);
                 }
                 KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
                 long current = Bytes.toLong(currentKV.getBuffer(), currentKV.getValueOffset());

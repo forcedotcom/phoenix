@@ -708,12 +708,18 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     public long nextSequenceValue(TableName sequence) throws SQLException {
         SequenceValue value = sequenceMap.get(sequence);
         if (value == null) {
-            throw new IllegalStateException("Expected to find sequence " + sequence + " cached on connection");
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_FAILED)
+            .setSchemaName(sequence.getSchemaName()).setTableName(sequence.getTableName()).build().buildException();
         }
         String tenantId = this.tenantId == null ? null : this.tenantId.getString();
-        // TODO: only throw if sequence cannot be found, as the other may not even be
-        // used in this statement
         this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize);
+        // Means that another client dropped the sequence
+        if (!sequenceMap.containsKey(sequence)) {
+            // Remove from our cache and throw
+            metaData.setSequenceIncrementValue(sequence, null);
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_FAILED)
+            .setSchemaName(sequence.getSchemaName()).setTableName(sequence.getTableName()).build().buildException();
+        }
         long currentValue = value.currentValue;
         value.currentValue += value.incrementBy;
         return currentValue;
