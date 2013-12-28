@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -44,12 +45,12 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceValue;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -180,23 +181,36 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-	public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> sequenceNames) throws SQLException {		
-		return getDelegate().incrementSequences(sequenceNames);
-	}
-
-    @Override
-    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy)
+    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy)
             throws SQLException {
-        return getDelegate().createSequence(schemaName, sequenceName, startWith, incrementBy);
+        return getDelegate().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy);
     }
 
     @Override
-    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
-        return getDelegate().dropSequence(schemaName, sequenceName);
+    public boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException {
+        return getDelegate().dropSequence(tenantId, schemaName, sequenceName);
     }
 
     @Override
     public PMetaData setSequenceIncrementValue(TableName name, Long value) {
         return getDelegate().setSequenceIncrementValue(name, value);
+    }
+
+    @Override
+    public void initSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences)
+            throws SQLException {
+        getDelegate().initSequences(tenantId, sequences);
+    }
+
+    @Override
+    public void reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long batchSize)
+            throws SQLException {
+        getDelegate().reserveSequences(tenantId, sequences, batchSize);
+    }
+
+    @Override
+    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences)
+            throws SQLException {
+        getDelegate().returnSequences(tenantId, sequences);
     }
 }

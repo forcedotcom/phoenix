@@ -532,7 +532,8 @@ public class MetaDataClient {
     public MutationState dropSequence(DropSequenceStatement statement) throws SQLException {
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
-        boolean success = connection.getQueryServices().dropSequence(schemaName, sequenceName);
+        String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+        boolean success = connection.getQueryServices().dropSequence(tenantId, schemaName, sequenceName);
         if (!success && !statement.ifExists()) {
             throw new SequenceNotFoundException(schemaName, sequenceName);
         }
@@ -543,7 +544,8 @@ public class MetaDataClient {
     public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
-        boolean success = connection.getQueryServices().createSequence(schemaName, sequenceName, startWith, incrementBy);
+        String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+        boolean success = connection.getQueryServices().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy);
         if (!success && !statement.ifNotExists()) {
             throw new SequenceAlreadyExistsException(schemaName, sequenceName);
         }
@@ -945,9 +947,8 @@ public class MetaDataClient {
         connection.rollback();
         boolean wasAutoCommit = connection.getAutoCommit();
         try {
-            byte[] tenantIdBytes = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
-            if (tenantIdBytes == null) tenantIdBytes = ByteUtil.EMPTY_BYTE_ARRAY;
-            byte[] key = SchemaUtil.getTableKey(tenantIdBytes, schemaName, tableName);
+            String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
+            byte[] key = SchemaUtil.getTableKey(tenantId, schemaName, tableName);
             Long scn = connection.getSCN();
             long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
             List<Mutation> tableMetaData = Lists.newArrayListWithExpectedSize(2);
@@ -955,7 +956,7 @@ public class MetaDataClient {
             Delete tableDelete = new Delete(key, clientTimeStamp, null);
             tableMetaData.add(tableDelete);
             if (parentTableName != null) {
-                byte[] linkKey = MetaDataUtil.getParentLinkKey(tenantIdBytes, schemaName, parentTableName, tableName);
+                byte[] linkKey = MetaDataUtil.getParentLinkKey(tenantId, schemaName, parentTableName, tableName);
                 @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
                 Delete linkDelete = new Delete(linkKey, clientTimeStamp, null);
                 tableMetaData.add(linkDelete);

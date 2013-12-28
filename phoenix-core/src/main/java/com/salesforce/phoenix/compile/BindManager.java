@@ -61,9 +61,9 @@ public class BindManager {
     private final List<Object> binds;
     private final PhoenixParameterMetaData bindMetaData;
 
-    public BindManager(List<Object> binds, int bindCount) {
+    public BindManager(List<Object> binds) {
         this.binds = binds;
-        this.bindMetaData = new PhoenixParameterMetaData(bindCount);
+        this.bindMetaData = new PhoenixParameterMetaData(binds.size());
     }
 
     public ParameterMetaData getParameterMetaData() {

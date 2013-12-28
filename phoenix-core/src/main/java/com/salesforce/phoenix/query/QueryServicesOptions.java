@@ -51,15 +51,16 @@ import static com.salesforce.phoenix.query.QueryServices.REGIONSERVER_LEASE_PERI
 import static com.salesforce.phoenix.query.QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.RPC_TIMEOUT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SCAN_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SPGBY_ENABLED_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.THREAD_POOL_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.THREAD_TIMEOUT_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.USE_INDEXES_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_ENABLED_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
 
 import java.util.Map.Entry;
 
@@ -119,6 +120,8 @@ public class QueryServicesOptions {
     // Max size of 1st level main memory cache in bytes --> upper bound
     public static final long DEFAULT_SPGBY_CACHE_MAX_SIZE = 1024L*1024L*100L;  // 100 Mb
     
+    public static final long DEFAULT_SEQUENCE_BATCH_SIZE = 100L;  // reserve 100 sequences at a time
+    
     
     private final Configuration config;
     
@@ -172,6 +175,7 @@ public class QueryServicesOptions {
             .setIfUnset(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED)
             .setIfUnset(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE)
             .setIfUnset(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES)
+            .setIfUnset(SEQUENCE_BATCH_SIZE_ATTRIB, DEFAULT_SEQUENCE_BATCH_SIZE)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
         // Hopefully HBase will change this, because we can't know if a user set

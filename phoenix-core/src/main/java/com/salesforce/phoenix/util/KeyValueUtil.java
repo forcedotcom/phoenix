@@ -147,7 +147,8 @@ public class KeyValueUtil {
 			rowLen = rLen;
 		}
 
-		public int compare(final KeyValue l, final KeyValue ignored) {
+		@Override
+        public int compare(final KeyValue l, final KeyValue ignored) {
 			assert ignored == null;
 			final byte[] buf = l.getBuffer();
 			final int rOff = l.getRowOffset();

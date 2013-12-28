@@ -56,6 +56,7 @@ import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.PeekingResultIterator;
 import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SequenceResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.iterate.UngroupedAggregatingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
@@ -178,6 +179,9 @@ public class AggregatePlan extends BasicQueryPlan {
             resultScanner = new OrderedAggregatingResultIterator(aggResultIterator, orderBy.getOrderByExpressions(), thresholdBytes, limit);
         }
         
+        if (context.getSequenceManager().getSequenceCount() > 0) {
+            resultScanner = new SequenceResultIterator(resultScanner, context.getSequenceManager());
+        }
         return resultScanner;
     }
 }

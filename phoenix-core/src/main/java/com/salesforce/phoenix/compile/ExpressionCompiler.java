@@ -1269,8 +1269,10 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
 
 	@Override
 	public Expression visit(NextSequenceValueParseNode node)
-			throws SQLException {		
-		Long value = context.resolveSequenceValue(node);		
-		return LiteralExpression.newConstant(value, PDataType.LONG);
+			throws SQLException {
+	    // NEXT VALUE FOR is only supported in SELECT expressions and UPSERT VALUES
+        throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR)
+        .setSchemaName(node.getTableName().getSchemaName())
+        .setTableName(node.getTableName().getTableName()).build().buildException();
 	}
 }

@@ -59,6 +59,7 @@ import com.salesforce.phoenix.expression.OrExpression;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -92,7 +93,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         statement = StatementNormalizer.normalize(statement, resolver);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
 
         Integer actualLimit = LimitCompiler.compile(context, statement);
         assertEquals(limit, actualLimit);

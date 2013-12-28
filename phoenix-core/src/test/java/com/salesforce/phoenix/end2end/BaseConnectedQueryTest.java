@@ -127,6 +127,8 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
                 conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
+            conn.setAutoCommit(true);
+            conn.createStatement().execute("DELETE FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
         } finally {
             conn.close();
         }

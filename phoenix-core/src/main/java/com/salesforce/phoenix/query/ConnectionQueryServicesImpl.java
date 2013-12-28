@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_MET
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -93,18 +92,17 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
+import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
@@ -1102,96 +1100,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
-    	Map<NextSequenceValueParseNode, Long> resultMap = Maps.newHashMapWithExpectedSize(nodes.size());   	
-    	List<NextSequenceValueParseNode> cachedSequences = Lists.newArrayListWithExpectedSize(nodes.size());
-    	List<NextSequenceValueParseNode> uncachedSequences = Lists.newArrayListWithExpectedSize(nodes.size());
-    	// First check the cache    		
-    	for (NextSequenceValueParseNode node: nodes){
-    	    TableName t = node.getTableName();
-    		Long incrementValue = latestMetaData.getSequenceIncrementValue(t);
-    		if (incrementValue!=null){
-    			cachedSequences.add(node);
-    		}
-    		else {
-    			uncachedSequences.add(node);
-    		}		
-    	}
-    	try {
-            if (!uncachedSequences.isEmpty()) {
-                handleUncachedSequences(uncachedSequences);
-                cachedSequences.addAll(uncachedSequences);
-            }
-    		if (!cachedSequences.isEmpty())
-    			handleCachedSequences(cachedSequences, resultMap);
-    	}
-    	catch (IOException e){
-            throw ServerUtil.parseServerException(e);
-    	}
-    	catch (InterruptedException e){
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
-            .setRootCause(e).build().buildException(); // FIXME
-    	}
-    	return resultMap;
-    }
-
-    private void handleCachedSequences(List<NextSequenceValueParseNode> cachedSequences, Map<NextSequenceValueParseNode, Long> resultMap) throws IOException, InterruptedException, SQLException {
-        HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-    	List<Increment> cacheBatch = new ArrayList<Increment>();
-
-    	for (NextSequenceValueParseNode node: cachedSequences){    	
-    	    TableName t = node.getTableName();
-    		byte[] key = SchemaUtil.getSequenceKey(t.getSchemaName(), t.getTableName());
-    		long incrementValue = latestMetaData.getSequenceIncrementValue(t);
-    		Increment inc = new Increment(key);
-    		inc.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, incrementValue);
-    		cacheBatch.add(inc); 
-    	}
-    	Object[] cacheResultObjects = hTable.batch(cacheBatch);
-    	for (int i=0;i<cachedSequences.size();i++){
-    	    NextSequenceValueParseNode node = cachedSequences.get(i);
-    		Result result = (Result)cacheResultObjects[i];
-    		KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
-    		long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-    		resultMap.put(node, current);
-    	}
-    }
-
-    private void handleUncachedSequences(List<NextSequenceValueParseNode> uncachedSequences) throws IOException, InterruptedException, SQLException {
-        HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-
-    	// Get the current value    		
-    	List<Get> getBatch = new ArrayList<Get>();
-    	for (NextSequenceValueParseNode node: uncachedSequences){    			
-            TableName t = node.getTableName();
-    		byte[] key = SchemaUtil.getSequenceKey(t.getSchemaName(), t.getTableName());
-    		Get get = new Get(key);
-    		get.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-    		// TODO: use skip scan instead as it's 2x faster
-    		getBatch.add(get);	
-    	}
-    	Object[] resultObjects = hTable.batch(getBatch);
-    	for (int i=0;i<uncachedSequences.size();i++){
-            NextSequenceValueParseNode node = uncachedSequences.get(i);
-            TableName t = node.getTableName();
-    		Result result = (Result)resultObjects[i];
-    		if (result.isEmpty()){
-    			throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
-    		}
-    		KeyValue incrementKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-    		long increment = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
-    		latestMetaData.setSequenceIncrementValue(t, increment); // Cache the value
-    	}
-    }
-
-    @Override
-    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy) 
+    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy) 
             throws SQLException {
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-        byte[] key = SchemaUtil.getSequenceKey(schemaName, sequenceName);
+        byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
         Put put = new Put(key);
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith-incrementBy));
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(-incrementBy));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, Bytes.toBytes(startWith));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, Bytes.toBytes(incrementBy));
         try {
             return htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, put);
         } catch (IOException e) {
@@ -1200,13 +1115,131 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
+    public boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException {
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-        byte[] key = SchemaUtil.getSequenceKey(schemaName, sequenceName);
+        byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
         Delete del = new Delete(key);
         try {
             return htable.checkAndDelete(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, del);
         } catch (IOException e) {
+            throw ServerUtil.parseServerException(e);
+        }
+    }
+
+    @Override
+    public void initSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences) throws SQLException {
+        try {
+            if (!sequences.isEmpty()) {
+                HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+
+                // Get the current value            
+                List<Get> getBatch = Lists.newArrayListWithExpectedSize(sequences.size());
+                List<Map.Entry<TableName,SequenceValue>> uninitializedSequences = Lists.newArrayListWithExpectedSize(sequences.size());
+                for (Map.Entry<TableName,SequenceValue> entry: sequences){
+                    SequenceValue value = entry.getValue();
+                    if (value.incrementBy == SequenceValue.UNINITIALIZED) {
+                        TableName t = entry.getKey();
+                        byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
+                        Get get = new Get(key);
+                        get.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
+                        // TODO: use skip scan instead as it's 2x faster
+                        getBatch.add(get);
+                        uninitializedSequences.add(entry);
+                    }
+                }
+                Object[] resultObjects = hTable.batch(getBatch);
+                for (int i=0;i<resultObjects.length;i++){
+                    Map.Entry<TableName,SequenceValue> entry = uninitializedSequences.get(i);
+                    TableName t = entry.getKey();
+                    Result result = (Result)resultObjects[i];
+                    if (result.isEmpty()){
+                        throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
+                    }
+                    KeyValue incrementKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
+                    long incrementBy = Bytes.toLong(incrementKV.getBuffer(), incrementKV.getValueOffset());
+                    entry.getValue().incrementBy = incrementBy;
+                }
+            }
+        }
+        catch (IOException e){
+            throw ServerUtil.parseServerException(e);
+        }
+        catch (InterruptedException e){
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+            .setRootCause(e).build().buildException(); // FIXME?
+        }
+    }
+
+    @Override
+    public void reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException {
+        try {
+            HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+            List<Increment> cacheBatch = Lists.newArrayListWithExpectedSize(sequences.size());
+            List<Map.Entry<TableName, SequenceValue>> reserveEntries = Lists.newArrayListWithExpectedSize(sequences.size());
+
+            for (Map.Entry<TableName, SequenceValue> entry : sequences){
+                SequenceValue value = entry.getValue();
+                if (value.currentValue == value.nextValue) {
+                    TableName t = entry.getKey();
+                    byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
+                    Increment inc = new Increment(key);
+                    // Negate incrementBy since we flip the sign bit of a LONG. We do not want to use UNSIGNED_LONG,
+                    // as then we cannot have a startWith that is a negative number.
+                    inc.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, value.incrementBy * batchSize);
+                    cacheBatch.add(inc);
+                    reserveEntries.add(entry);
+                }
+            }
+            if (reserveEntries.isEmpty()) {
+                return;
+            }
+            Object[] resultObjects = hTable.batch(cacheBatch);
+            for (int i=0;i<resultObjects.length;i++){
+                Map.Entry<TableName, SequenceValue> entry = reserveEntries.get(i);
+                TableName t = entry.getKey();
+                Result result = (Result)resultObjects[i];
+                if (result == null) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_FAILED)
+                    .setSchemaName(t.getSchemaName()).setTableName(t.getTableName()).build().buildException();
+                }
+                KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
+                long current = Bytes.toLong(currentKV.getBuffer(), currentKV.getValueOffset());
+                SequenceValue sequence = entry.getValue();
+                sequence.currentValue = current - sequence.incrementBy * batchSize;
+                sequence.nextValue = current;
+            }
+        }
+        catch (IOException e){
+            throw ServerUtil.parseServerException(e);
+        }
+        catch (InterruptedException e){
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+            .setRootCause(e).build().buildException(); // FIXME ?
+        }
+    }
+
+    @Override
+    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences)
+            throws SQLException {
+        try {
+            if (sequences.isEmpty()) {
+                return;
+            }
+            // Reset sequence value back to what we've actually used if no other client has incremented
+            // it in the meantime.
+            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+            for (Map.Entry<TableName, SequenceValue> entry : sequences){
+                TableName t = entry.getKey();
+                SequenceValue sequence = entry.getValue();
+                byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
+                Put put = new Put(key);
+                put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, Bytes.toBytes(sequence.currentValue));
+                htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, 
+                        Bytes.toBytes(sequence.nextValue), 
+                        put);
+            }
+        }
+        catch (IOException e){
             throw ServerUtil.parseServerException(e);
         }
     }

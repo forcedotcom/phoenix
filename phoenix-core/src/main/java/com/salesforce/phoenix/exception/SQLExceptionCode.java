@@ -129,6 +129,7 @@ public enum SQLExceptionCode {
     INCREMENT_BY_MUST_BE_CONSTANT(1017, "42M08", "Sequence INCREMENT BY value must be an integer or long constant."),
     INVALID_USE_OF_NEXT_VALUE_FOR(1018, "42M09", "NEXT VALUE FOR may only be used in the SELECT expressions and WHERE clause."),
     NEXT_VALUE_FOR_NOT_FOUND(1019, "42M10", "Could not resolve NEXT VALUE FOR sequence."),
+    NEXT_VALUE_FOR_FAILED(1020, "42M11", "Could not retrieve NEXT VALUE FOR sequence."),
 
     // Index related errors
     INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),

@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Pair;
@@ -57,7 +56,6 @@ import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -91,17 +89,12 @@ public class QueryCompiler {
     private final Scan scanCopy;
     private final List<? extends PDatum> targetColumns;
     private final ParallelIteratorFactory parallelIteratorFactory;
-    private final Map<NextSequenceValueParseNode, Long> resolvedSequences;
     
     public QueryCompiler(PhoenixStatement statement) throws SQLException {
         this(statement, Collections.<PDatum>emptyList(), null);
     }
     
     public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory) throws SQLException {
-        this(statement, targetColumns, parallelIteratorFactory, null);
-    }
-
-    public QueryCompiler(PhoenixStatement statement, List<? extends PDatum> targetColumns, ParallelIteratorFactory parallelIteratorFactory, Map<NextSequenceValueParseNode, Long> resolvedSequences) throws SQLException {
         this.statement = statement;
         this.scan = new Scan();
         this.targetColumns = targetColumns;
@@ -110,7 +103,6 @@ public class QueryCompiler {
             this.scan.setAttribute(LOAD_COLUMN_FAMILIES_ON_DEMAND_ATTR, QueryConstants.TRUE);
         }
         this.scanCopy = ScanUtil.newScan(scan);
-        this.resolvedSequences = resolvedSequences;
     }
 
     /**
@@ -133,13 +125,7 @@ public class QueryCompiler {
         List<Object> binds = statement.getParameters();
         ColumnResolver resolver = FromCompiler.getMultiTableResolver(select, connection);
         select = StatementNormalizer.normalize(select, resolver);
-        StatementContext context = new StatementContext(select, connection, resolver, binds, scan);
-        
-        if (this.resolvedSequences == null) {
-        	SequenceCompiler.resolveSequencesSelect(context, select);
-        } else {
-            context.setResolvedSequences(this.resolvedSequences);
-        }
+        StatementContext context = new StatementContext(statement, resolver, binds, scan);
         
         if (select.getFrom().size() == 1)
             return compileSingleQuery(context, select, binds);
@@ -158,7 +144,6 @@ public class QueryCompiler {
     
     @SuppressWarnings("unchecked")
     protected QueryPlan compileJoinQuery(StatementContext context, SelectStatement select, List<Object> binds, JoinSpec join, boolean asSubquery) throws SQLException {
-        PhoenixConnection connection = statement.getConnection();
         byte[] emptyByteArray = new byte[0];
         List<JoinTable> joinTables = join.getJoinTables();
         if (joinTables.isEmpty()) {
@@ -193,7 +178,7 @@ public class QueryCompiler {
                 ColumnResolver resolver = JoinCompiler.getColumnResolver(subProjTable);
                 Scan subScan = ScanUtil.newScan(scanCopy);
                 ScanProjector.serializeProjectorIntoScan(subScan, JoinCompiler.getScanProjector(subProjTable));
-                StatementContext subContext = new StatementContext(subStatement, connection, resolver, binds, subScan);
+                StatementContext subContext = new StatementContext(statement, resolver, binds, subScan);
                 subContext.setCurrentTable(joinTable.getTable());
                 join.projectColumns(subScan, joinTable.getTable());
                 joinPlans[i] = compileSingleQuery(subContext, subStatement, binds);
@@ -228,7 +213,7 @@ public class QueryCompiler {
             SelectStatement rhs = JoinCompiler.getSubqueryForLastJoinTable(select, join);
             JoinSpec lhsJoin = JoinCompiler.getSubJoinSpecWithoutPostFilters(join);
             Scan subScan = ScanUtil.newScan(scanCopy);
-            StatementContext lhsCtx = new StatementContext(select, connection, context.getResolver(), binds, subScan);
+            StatementContext lhsCtx = new StatementContext(statement, context.getResolver(), binds, subScan);
             QueryPlan lhsPlan = compileJoinQuery(lhsCtx, lhs, binds, lhsJoin, true);
             ColumnResolver lhsResolver = lhsCtx.getResolver();
             PTableWrapper lhsProjTable = ((JoinedTableColumnResolver) (lhsResolver)).getPTableWrapper();

@@ -56,6 +56,7 @@ import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -81,7 +82,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         statement = StatementNormalizer.normalize(statement, resolver);
-        context = new StatementContext(statement, pconn, resolver, binds, scan);
+        context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
 
         GroupBy groupBy = GroupByCompiler.compile(context, statement);
         // Optimize the HAVING clause by finding any group by expressions that can be moved

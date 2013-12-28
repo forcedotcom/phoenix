@@ -69,6 +69,7 @@ import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.LiteralParseNode;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
@@ -89,6 +90,7 @@ import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class UpsertCompiler {
@@ -554,40 +556,55 @@ public class UpsertCompiler {
         int nodeIndex = 0;
         // Allocate array based on size of all columns in table,
         // since some values may not be set (if they're nullable).
-        final StatementContext context = new StatementContext(upsert, connection, resolver, statement.getParameters(), new Scan());
+        final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), new Scan());
+        ImmutableBytesWritable ptr = context.getTempPtr();
         UpsertValuesCompiler expressionBuilder = new UpsertValuesCompiler(context);
-        SequenceCompiler.resolveSequencesUpsert(context, upsert);
-        final byte[][] values = new byte[nValuesToSet][];
+        List<Expression> constantExpressions = Lists.newArrayListWithExpectedSize(valueNodes.size());
+        // First build all the expressions, as with sequences we want to collect them all first
+        // and initialize them in one batch
         for (ParseNode valueNode : valueNodes) {
             if (!valueNode.isConstant()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
             }
             PColumn column = allColumns.get(columnIndexes[nodeIndex]);
             expressionBuilder.setColumn(column);
-            LiteralExpression literalExpression = (LiteralExpression)valueNode.accept(expressionBuilder);
-            byte[] byteValue = literalExpression.getBytes();
-            if (literalExpression.getDataType() != null) {
+            constantExpressions.add(valueNode.accept(expressionBuilder));
+            nodeIndex++;
+        }
+        if (context.getSequenceManager().getSequenceCount() > 0) {
+            context.getSequenceManager().initSequences();
+        }
+        // Next evaluate all the expressions
+        nodeIndex = 0;
+        final byte[][] values = new byte[nValuesToSet][];
+        for (Expression constantExpression : constantExpressions) {
+            PColumn column = allColumns.get(columnIndexes[nodeIndex]);
+            constantExpression.evaluate(null, ptr);
+            Object value = null;
+            byte[] byteValue = ByteUtil.copyKeyBytesIfNecessary(ptr);
+            if (constantExpression.getDataType() != null) {
                 // If ColumnModifier from expression in SELECT doesn't match the
                 // column being projected into then invert the bits.
-                if (literalExpression.getColumnModifier() != column.getColumnModifier()) {
+                if (constantExpression.getColumnModifier() != column.getColumnModifier()) {
                     byte[] tempByteValue = Arrays.copyOf(byteValue, byteValue.length);
                     byteValue = ColumnModifier.SORT_DESC.apply(byteValue, 0, tempByteValue, 0, byteValue.length);
                 }
-                if (!literalExpression.getDataType().isCoercibleTo(column.getDataType(), literalExpression.getValue())) { 
+                value = constantExpression.getDataType().toObject(byteValue);
+                if (!constantExpression.getDataType().isCoercibleTo(column.getDataType(), value)) { 
                     throw new TypeMismatchException(
-                        literalExpression.getDataType(), column.getDataType(), "expression: "
-                                + literalExpression.toString() + " in column " + column);
+                        constantExpression.getDataType(), column.getDataType(), "expression: "
+                                + constantExpression.toString() + " in column " + column);
                 }
-                if (!column.getDataType().isSizeCompatible(literalExpression.getDataType(),
-                        literalExpression.getValue(), byteValue, literalExpression.getMaxLength(),
-                        column.getMaxLength(), literalExpression.getScale(), column.getScale())) { 
+                if (!column.getDataType().isSizeCompatible(constantExpression.getDataType(),
+                        value, byteValue, constantExpression.getMaxLength(),
+                        column.getMaxLength(), constantExpression.getScale(), column.getScale())) { 
                     throw new SQLExceptionInfo.Builder(
                         SQLExceptionCode.DATA_INCOMPATIBLE_WITH_TYPE).setColumnName(column.getName().getString())
-                        .setMessage("value=" + literalExpression.toString()).build().buildException();
+                        .setMessage("value=" + constantExpression.toString()).build().buildException();
                 }
             }
-            byteValue = column.getDataType().coerceBytes(byteValue, literalExpression.getValue(),
-                    literalExpression.getDataType(), literalExpression.getMaxLength(), literalExpression.getScale(),
+            byteValue = column.getDataType().coerceBytes(byteValue, value,
+                    constantExpression.getDataType(), constantExpression.getMaxLength(), constantExpression.getScale(),
                     column.getMaxLength(), column.getScale());
             values[nodeIndex] = byteValue;
             nodeIndex++;
@@ -613,7 +630,12 @@ public class UpsertCompiler {
 
             @Override
             public ExplainPlan getExplainPlan() throws SQLException {
-                return new ExplainPlan(Collections.singletonList("PUT SINGLE ROW"));
+                List<String> planSteps = Lists.newArrayListWithExpectedSize(2);
+                if (context.getSequenceManager().getSequenceCount() > 0) {
+                    planSteps.add("CLIENT RESERVE " + context.getSequenceManager().getSequenceCount() + " SEQUENCES");
+                }
+                planSteps.add("PUT SINGLE ROW");
+                return new ExplainPlan(planSteps);
             }
 
         };
@@ -646,6 +668,11 @@ public class UpsertCompiler {
                 return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
             }
             return super.visit(node);
+        }
+        
+        @Override
+        public Expression visit(NextSequenceValueParseNode node) throws SQLException {
+            return context.getSequenceManager().newSequenceReference(node);
         }
     }
     

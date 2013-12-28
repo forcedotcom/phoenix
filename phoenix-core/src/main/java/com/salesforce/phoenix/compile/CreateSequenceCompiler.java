@@ -108,7 +108,7 @@ public class CreateSequenceCompiler {
         final PhoenixConnection connection = statement.getConnection();
         final ColumnResolver resolver = FromCompiler.EMPTY_TABLE_RESOLVER;
         
-        final StatementContext context = new StatementContext(sequence, connection, resolver, statement.getParameters(), new Scan());
+        final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), new Scan());
         if (startsWithNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)startsWithNode, LONG_DATUM);
         }

@@ -102,6 +102,7 @@ public interface QueryServices extends SQLCloseable {
     public static final String ZOOKEEPER_PORT_ATTRIB = "hbase.zookeeper.property.clientPort";
     public static final String ZOOKEEPER_ROOT_NODE_ATTRIB = "zookeeper.znode.parent";
     public static final String DISTINCT_VALUE_COMPRESS_THRESHOLD_ATTRIB = "phoenix.distinct.value.compress.threshold";
+    public static final String SEQUENCE_BATCH_SIZE_ATTRIB = "phoenix.sequence.batchSize";
 
     
     /**

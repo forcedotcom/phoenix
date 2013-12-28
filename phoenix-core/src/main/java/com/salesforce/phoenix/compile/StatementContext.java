@@ -29,19 +29,14 @@ package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
 import java.text.Format;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.BindableStatement;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
@@ -72,28 +67,30 @@ public class StatementContext {
     private final Format dateParser;
     private final String numberFormat;
     private final ImmutableBytesWritable tempPtr;
-    private final PhoenixConnection connection;
+    private final PhoenixStatement statement;
     
     private long currentTime = QueryConstants.UNSET_TIMESTAMP;
     private ScanRanges scanRanges = ScanRanges.EVERYTHING;
     private KeyRange minMaxRange = null;
-    private Map<NextSequenceValueParseNode, Long> sequenceMap = Collections.emptyMap();
+    private final SequenceManager sequences; 
 
     private TableRef currentTable;
     
-    public StatementContext(BindableStatement statement, PhoenixConnection connection, ColumnResolver resolver, List<Object> binds, Scan scan) {
-        this.connection = connection;
+    public StatementContext(PhoenixStatement statement, ColumnResolver resolver, List<Object> binds, Scan scan) {
+        this.statement = statement;
         this.resolver = resolver;
         this.scan = scan;
-        this.binds = new BindManager(binds, statement.getBindCount());
+        this.binds = new BindManager(binds);
         this.aggregates = new AggregationManager();
         this.expressions = new ExpressionManager();
+        PhoenixConnection connection = statement.getConnection();
         this.dateFormat = connection.getQueryServices().getProps().get(QueryServices.DATE_FORMAT_ATTRIB, DateUtil.DEFAULT_DATE_FORMAT);
         this.dateFormatter = DateUtil.getDateFormatter(dateFormat);
         this.dateParser = DateUtil.getDateParser(dateFormat);
         this.numberFormat = connection.getQueryServices().getProps().get(QueryServices.NUMBER_FORMAT_ATTRIB, NumberUtil.DEFAULT_NUMBER_FORMAT);
         this.tempPtr = new ImmutableBytesWritable();
         this.currentTable = resolver != null && !resolver.getTables().isEmpty() ? resolver.getTables().get(0) : null;
+        this.sequences = new SequenceManager(statement);
     }
 
     public String getDateFormat() {
@@ -192,7 +189,11 @@ public class StatementContext {
     }
     
     public PhoenixConnection getConnection() {
-        return connection;
+        return statement.getConnection();
+    }
+
+    public PhoenixStatement getStatement() {
+        return statement;
     }
 
     public long getCurrentTime() throws SQLException {
@@ -210,7 +211,7 @@ public class StatementContext {
          * purely to bind the current time based on the server time.
          */
         PTable table = this.getCurrentTable().getTable();
-        MetaDataClient client = new MetaDataClient(connection);
+        MetaDataClient client = new MetaDataClient(getConnection());
         currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
     }
@@ -227,21 +228,7 @@ public class StatementContext {
         return this.getScanRanges().isSingleRowScan() && ! (this.getScan().getFilter() instanceof FilterList);
     }
     
-    public Map<NextSequenceValueParseNode,Long> getResolvedSequences(){
-        return sequenceMap;
-    }
-    
-    public void setResolvedSequences(Map<NextSequenceValueParseNode,Long> sequenceValuesMap){
-        this.sequenceMap = sequenceValuesMap;
-    }
-
-    public Long resolveSequenceValue(NextSequenceValueParseNode node) throws SQLException {
-    	Long value = sequenceMap.get(node);
-    	if (value == null) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_NOT_FOUND)
-            .setSchemaName(node.getTableName().getSchemaName())
-            .setTableName(node.getTableName().getTableName()).build().buildException();
-    	}
-    	return value;
+    public SequenceManager getSequenceManager(){
+        return sequences;
     }
 }

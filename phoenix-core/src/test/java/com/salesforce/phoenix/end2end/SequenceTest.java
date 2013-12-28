@@ -3,6 +3,7 @@ package com.salesforce.phoenix.end2end;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -10,6 +11,7 @@ import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -26,7 +28,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		Connection conn = getConnection();
 		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
-		assertTrue(rs.next());
+		assertFalse(rs.next());
 	}
 
 	@Test
@@ -48,12 +50,13 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		String query = "SELECT NEXT value FOR qwert.asdf FROM SYSTEM.\"SEQUENCE\"";
 		try {
 			conn.prepareStatement(query).executeQuery();
-			Assert.fail("Sequence not found");
+			fail("Sequence not found");
 		}catch(SequenceNotFoundException e){
 
 		}
 	}
 
+	@Ignore
 	@Test
 	public void testCreateSequence() throws Exception {	
 		Connection conn = getConnection();
@@ -63,8 +66,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		assertTrue(rs.next());
 		assertEquals("ALPHA", rs.getString("sequence_schema"));
 		assertEquals("OMEGA", rs.getString("sequence_name"));
-		assertEquals(2-4, rs.getInt("current_value"));
-		assertEquals(-4, rs.getInt("increment_by"));
+		assertEquals(2, rs.getInt("current_value"));
+		assertEquals(4, rs.getInt("increment_by"));
 		assertFalse(rs.next());
 	}
 
@@ -125,6 +128,22 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		assertTrue(rs.next());
 		assertEquals(4, rs.getInt(1));
 		assertEquals(9, rs.getInt(2));
+        assertTrue(rs.next());
+        assertEquals(4+7, rs.getInt(1));
+        assertEquals(9+2, rs.getInt(2));
+        assertFalse(rs.next());
+        conn.close();
+        // Test that sequences don't have gaps (if no other client request the same sequence before we close it)
+        conn = getConnection();
+        rs = conn.prepareStatement(query).executeQuery();
+        assertTrue(rs.next());
+        assertEquals(4+7*2, rs.getInt(1));
+        assertEquals(9+2*2, rs.getInt(2));
+        assertTrue(rs.next());
+        assertEquals(4+7*3, rs.getInt(1));
+        assertEquals(9+2*3, rs.getInt(2));
+        assertFalse(rs.next());
+        conn.close();
 	}
 	
 	@Test

@@ -54,6 +54,7 @@ import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
+import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.WildcardParseNode;
@@ -360,6 +361,11 @@ public class ProjectionCompiler {
             elementCount++;
             isCaseSensitive &= elementCount == 1;
             super.addElement(l, element);
+        }
+        
+        @Override
+        public Expression visit(NextSequenceValueParseNode node) throws SQLException {
+            return context.getSequenceManager().newSequenceReference(node);
         }
     }
 }

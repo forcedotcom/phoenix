@@ -60,8 +60,8 @@ import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.iterate.SkipRangeParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.HintNode;
-import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -362,7 +362,7 @@ public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMange
             
         };
         PhoenixConnection connection = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, connection, resolver, Collections.emptyList(), scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(connection), resolver, Collections.emptyList(), scan);
         context.setScanRanges(scanRanges);
         SkipRangeParallelIteratorRegionSplitter splitter = SkipRangeParallelIteratorRegionSplitter.getInstance(context, tableRef, HintNode.EMPTY_HINT_NODE);
         List<KeyRange> keyRanges = splitter.getSplits();

@@ -46,6 +46,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -61,7 +62,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         statement = StatementNormalizer.normalize(statement, resolver);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
 
         Integer limit = LimitCompiler.compile(context, statement);
         GroupBy groupBy = GroupByCompiler.compile(context, statement);
@@ -120,7 +121,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList("foo");
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
         try {
             LimitCompiler.compile(context, statement);
             fail();
@@ -138,7 +139,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Arrays.<Object>asList(-1);
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
         assertNull(LimitCompiler.compile(context, statement));
     }
 
@@ -153,7 +154,7 @@ public class LimitClauseTest extends BaseConnectionlessQueryTest {
         Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
         try {
             WhereCompiler.compile(context, statement);
             fail();

@@ -43,6 +43,7 @@ import com.salesforce.phoenix.iterate.MergeSortTopNResultIterator;
 import com.salesforce.phoenix.iterate.ParallelIterators;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
 import com.salesforce.phoenix.iterate.ResultIterator;
+import com.salesforce.phoenix.iterate.SequenceResultIterator;
 import com.salesforce.phoenix.iterate.SpoolingResultIterator;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.KeyRange;
@@ -110,6 +111,9 @@ public class ScanPlan extends BasicQueryPlan {
             }
         }
 
+        if (context.getSequenceManager().getSequenceCount() > 0) {
+            scanner = new SequenceResultIterator(scanner, context.getSequenceManager());
+        }
         return scanner;
     }
 }

@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -55,7 +56,6 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
@@ -66,6 +66,7 @@ import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
+import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -81,7 +82,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class ConnectionlessQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices  {
     private PMetaData metaData;
-    private final Map<TableName, Pair<Long,Long>> sequenceMap = Maps.newHashMap();
+    private final Map<TableName, SequenceValue> sequenceMap = Maps.newHashMap();
     
     public ConnectionlessQueryServicesImpl(QueryServices queryServices) {
         super(queryServices);
@@ -260,35 +261,42 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException {
-        Map<NextSequenceValueParseNode, Long> sequenceValues = Maps.newHashMapWithExpectedSize(nodes.size());
-        for (NextSequenceValueParseNode node : nodes) {
-            TableName name = node.getTableName();
-            Pair<Long,Long> value = sequenceMap.get(name);
+    public void initSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException {
+        for (Map.Entry<TableName, SequenceValue> entry : sequences) {
+            TableName name = entry.getKey();
+            SequenceValue value = sequenceMap.get(name);
             if (value == null) {
                 throw new SequenceNotFoundException(name.getSchemaName(), name.getTableName());
             }
-            // Increment sequence
-            Pair<Long,Long> newValue = new Pair<Long,Long>(value.getFirst()+value.getSecond(),value.getSecond());
-            sequenceMap.put(name, newValue);
-            sequenceValues.put(node, newValue.getFirst());
+            // Set incrementBy for sequence
+            entry.getValue().incrementBy = value.incrementBy;
         }
-        return sequenceValues;
+    }
+    
+    @Override
+    public void reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long batchSize) throws SQLException {
     }
 
     @Override
-    public boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy)
+    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException {
+    }
+
+    @Override
+    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy)
             throws SQLException {
         TableName tableName = TableName.create(schemaName, sequenceName);
         if (sequenceMap.containsKey(tableName)) {
             return false;
         }
-        sequenceMap.put(tableName, new Pair<Long,Long>(startWith-incrementBy,incrementBy));
+        SequenceValue value = new SequenceValue(incrementBy);
+        value.currentValue = startWith;
+        sequenceMap.put(tableName, value);
+        
         return true;
     }
 
     @Override
-    public boolean dropSequence(String schemaName, String sequenceName) throws SQLException {
+    public boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException {
         TableName tableName = TableName.create(schemaName, sequenceName);
         return sequenceMap.remove(tableName) != null;
     }

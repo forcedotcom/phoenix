@@ -31,6 +31,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -44,8 +45,9 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceValue;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
@@ -91,7 +93,9 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     boolean hasInvalidIndexConfiguration();
     
-    boolean createSequence(String schemaName, String sequenceName, long startWith, long incrementBy) throws SQLException;
-    boolean dropSequence(String schemaName, String sequenceName) throws SQLException;
-    Map<NextSequenceValueParseNode, Long> incrementSequences(List<NextSequenceValueParseNode> nodes) throws SQLException;
+    boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy) throws SQLException;
+    boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException;
+    void initSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences) throws SQLException;
+    void reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException;
+    void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException;
 }

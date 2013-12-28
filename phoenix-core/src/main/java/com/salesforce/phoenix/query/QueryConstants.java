@@ -196,11 +196,12 @@ public interface QueryConstants {
     
     public static final String CREATE_SEQUENCE_METADATA =
             "CREATE TABLE IF NOT EXISTS " + TYPE_SCHEMA + ".\"" + TYPE_SEQUENCE + "\"(\n" +                                    
+            TENANT_ID + " VARCHAR NULL," +
     		SEQUENCE_SCHEMA + " VARCHAR NULL, \n" + 
             SEQUENCE_NAME +  " VARCHAR NOT NULL, \n" +
     		CURRENT_VALUE + " BIGINT NOT NULL, \n" + 
             INCREMENT_BY  + " BIGINT NOT NULL \n" + 
-    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
+    		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + "," + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
     		HConstants.VERSIONS + "=" + 1 + "\n";
 	
 }

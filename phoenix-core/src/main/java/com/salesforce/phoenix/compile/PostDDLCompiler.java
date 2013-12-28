@@ -45,6 +45,7 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnRef;
@@ -129,7 +130,7 @@ public class PostDDLCompiler {
                                 throw new UnsupportedOperationException();
                             }
                         };
-                        StatementContext context = new StatementContext(SelectStatement.COUNT_ONE, connection, resolver, Collections.<Object>emptyList(), scan);
+                        StatementContext context = new StatementContext(new PhoenixStatement(connection), resolver, Collections.<Object>emptyList(), scan);
                         ScanUtil.setTimeRange(scan, timestamp);
                         if (emptyCF != null) {
                             scan.setAttribute(UngroupedAggregateRegionObserver.EMPTY_CF, emptyCF);

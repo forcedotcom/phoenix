@@ -46,6 +46,8 @@ import java.util.List;
 import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.QueryPlan;
 import com.salesforce.phoenix.compile.StatementPlan;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
@@ -102,6 +104,17 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
         return parameters;
     }
 
+    private void throwIfUnboundParameters() throws SQLException {
+        int i = 0;
+        for (Object param : getParameters()) {
+            if (param == BindManager.UNBOUND_PARAMETER) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
+                    .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
+            }
+            i++;
+        }
+    }
+    
     @Override
     public boolean execute() throws SQLException {
         throwIfUnboundParameters();

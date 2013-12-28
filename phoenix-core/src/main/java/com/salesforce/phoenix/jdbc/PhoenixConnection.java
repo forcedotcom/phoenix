@@ -56,12 +56,17 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import javax.annotation.Nullable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
@@ -78,6 +83,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
 import com.salesforce.phoenix.util.SQLCloseable;
@@ -98,6 +104,8 @@ import com.salesforce.phoenix.util.SQLCloseables;
  * @since 0.1
  */
 public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdbc.Jdbc7Shim.Connection, MetaDataMutated  {
+    private static final Logger logger = LoggerFactory.getLogger(PhoenixConnection.class);
+
     private final String url;
     private final ConnectionQueryServices services;
     private final Properties info;
@@ -110,6 +118,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     private PMetaData metaData;
     private final PName tenantId;
     private final String datePattern;
+    private final long sequenceBatchSize;
     
     private boolean isClosed = false;
     
@@ -133,6 +142,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         formatters[PDataType.TIME.ordinal()] = dateTimeFormat;
         this.metaData = metaData;
         this.mutationState = new MutationState(maxSize, this);
+        this.sequenceBatchSize = services.getProps().getLong(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_SEQUENCE_BATCH_SIZE);
     }
 
     public int executeStatements(Reader reader, List<Object> binds, PrintStream out) throws IOException, SQLException {
@@ -268,8 +278,10 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         }
     }
     
-    protected boolean removeStatement(SQLCloseable statement) throws SQLException {
-         return statements.remove(statement);
+    protected boolean removeStatement(PhoenixStatement statement) throws SQLException {
+         boolean removed = statements.remove(statement);
+         removeSequences(statement.getSequences());
+         return removed;
     }
     
     @Override
@@ -278,9 +290,13 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             return;
         }
         try {
-            closeStatements();
+            returnAllSequences();
         } finally {
-            isClosed = true;
+            try {
+                closeStatements();
+            } finally {
+                isClosed = true;
+            }
         }
     }
 
@@ -635,8 +651,89 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     @Override
     public PMetaData setSequenceIncrementValue(TableName name, Long value) {
         metaData = metaData.setSequenceIncrementValue(name, value);
-        //Cascade through to connectionQueryServices too
+        // Cascade through to connectionQueryServices too
+        // TODO: only cascade if no tenant id on connection?
         getQueryServices().setSequenceIncrementValue(name, value);
         return metaData;
     }
+
+    private Map<TableName,SequenceValue> sequenceMap = Maps.newHashMapWithExpectedSize(5);
+    
+    public void initSequences(Set<TableName> sequences) throws SQLException {
+        Map<TableName,SequenceValue> newSequenceMap = Maps.newHashMapWithExpectedSize(sequences.size());
+        for (TableName sequence : sequences) {
+            SequenceValue value = sequenceMap.get(sequence);
+            if (value == null) {
+                Long incrementBy = metaData.getSequenceIncrementValue(sequence);
+                if (incrementBy == null) {
+                    // Don't put directly in sequenceMap, but wait until after we call
+                    // services.initSequences() as this validates the existence of the
+                    // sequence.
+                    newSequenceMap.put(sequence, new SequenceValue());
+                } else {
+                    sequenceMap.put(sequence, new SequenceValue(incrementBy));
+                }
+            } else {
+                value.referenceCount++;
+            }
+        }
+        if (!newSequenceMap.isEmpty()) {
+            String tenantId = this.tenantId == null ? null : this.tenantId.getString();
+            this.getQueryServices().initSequences(tenantId, newSequenceMap.entrySet());
+            // Now that sequence has been validated, add to sequenceMap and update metaData cache
+            sequenceMap.putAll(newSequenceMap);
+            for (Map.Entry<TableName, SequenceValue> entry : newSequenceMap.entrySet()) {
+                metaData.setSequenceIncrementValue(entry.getKey(), entry.getValue().incrementBy);
+            }
+        }
+    }
+
+    private void removeSequences(Set<TableName> sequences) {
+        if (sequenceMap.isEmpty()) {
+            return;
+        }
+        Map<TableName,SequenceValue> toBeReturnedSequences = Maps.newHashMapWithExpectedSize(sequenceMap.size());
+        for (TableName sequence : sequences) {
+            SequenceValue value = sequenceMap.get(sequence);
+            if (value != null) {
+                if (--value.referenceCount == 0) {
+                    sequenceMap.remove(sequence);
+                    toBeReturnedSequences.put(sequence, value);
+                }
+            }
+        }
+        returnSequences(toBeReturnedSequences.entrySet());
+    }
+
+    public long nextSequenceValue(TableName sequence) throws SQLException {
+        SequenceValue value = sequenceMap.get(sequence);
+        if (value == null) {
+            throw new IllegalStateException("Expected to find sequence " + sequence + " cached on connection");
+        }
+        String tenantId = this.tenantId == null ? null : this.tenantId.getString();
+        // TODO: only throw if sequence cannot be found, as the other may not even be
+        // used in this statement
+        this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize);
+        long currentValue = value.currentValue;
+        value.currentValue += value.incrementBy;
+        return currentValue;
+    }
+    
+    private void returnAllSequences() {
+        returnSequences(sequenceMap.entrySet());
+        sequenceMap.clear();
+    }
+    
+    private void returnSequences(Set<Map.Entry<TableName,SequenceValue>> sequences) {
+        if (sequences.isEmpty()) {
+            return;
+        }
+        String tenantId = this.tenantId == null ? null : this.tenantId.getString();
+        try {
+            this.getQueryServices().returnSequences(tenantId, sequences);
+        } catch (SQLException e) {
+            logger.warn("Unable to return unused sequences for " + sequences, e);
+        }
+    }
+
 }

@@ -57,8 +57,8 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.DefaultParallelIteratorRegionSplitter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.HintNode;
-import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryServices;
@@ -134,7 +134,7 @@ public class DefaultParallelIteratorsRegionSplitterTest extends BaseClientManged
         TableRef tableRef = getTableRef(conn, ts);
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
         final List<HRegionLocation> regions =  pconn.getQueryServices().getAllTableRegions(tableRef.getTable().getPhysicalName().getBytes());
-        StatementContext context = new StatementContext(SelectStatement.SELECT_ONE, pconn, null, Collections.emptyList(), scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), null, Collections.emptyList(), scan);
         DefaultParallelIteratorRegionSplitter splitter = new DefaultParallelIteratorRegionSplitter(context, tableRef, HintNode.EMPTY_HINT_NODE) {
             @Override
             protected List<HRegionLocation> getAllRegions() throws SQLException {

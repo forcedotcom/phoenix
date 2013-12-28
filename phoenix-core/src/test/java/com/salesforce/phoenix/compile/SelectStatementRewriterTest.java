@@ -47,6 +47,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -62,7 +63,7 @@ public class SelectStatementRewriterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(statement, pconn);
         statement = StatementNormalizer.normalize(statement, resolver);
-        StatementContext context = new StatementContext(statement, pconn, resolver, binds, scan);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
         Expression whereClause = WhereCompiler.compile(context, statement);
         return WhereOptimizer.pushKeyExpressionsToScan(context, statement, whereClause);
     }

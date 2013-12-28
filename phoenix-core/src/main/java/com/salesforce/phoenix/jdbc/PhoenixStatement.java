@@ -42,12 +42,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.hadoop.hbase.util.Pair;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
-import com.salesforce.phoenix.compile.BindManager;
 import com.salesforce.phoenix.compile.ColumnProjector;
 import com.salesforce.phoenix.compile.CreateIndexCompiler;
 import com.salesforce.phoenix.compile.CreateSequenceCompiler;
@@ -1019,17 +1019,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         return Collections.<Object>emptyList();
     }
     
-    protected void throwIfUnboundParameters() throws SQLException {
-        int i = 0;
-        for (Object param : getParameters()) {
-            if (param == BindManager.UNBOUND_PARAMETER) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.PARAM_VALUE_UNBOUND)
-                    .setMessage("Parameter " + (i + 1) + " is unbound").build().buildException();
-            }
-            i++;
-        }
-    }
-    
     protected ExecutableStatement parseStatement(String sql) throws SQLException {
         PhoenixStatementParser parser = null;
         try {
@@ -1043,29 +1032,24 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     @Override
     public boolean execute(String sql) throws SQLException {
-        throwIfUnboundParameters();
         return parseStatement(sql).execute();
     }
 
     public QueryPlan optimizeQuery(String sql) throws SQLException {
-        throwIfUnboundParameters();
         return (QueryPlan)parseStatement(sql).optimizePlan();
     }
 
     public QueryPlan compileQuery(String sql) throws SQLException {
-        throwIfUnboundParameters();
         return (QueryPlan)parseStatement(sql).compilePlan();
     }
 
     @Override
     public ResultSet executeQuery(String sql) throws SQLException {
-        throwIfUnboundParameters();
         return parseStatement(sql).executeQuery();
     }
 
     @Override
     public int executeUpdate(String sql) throws SQLException {
-        throwIfUnboundParameters();
         return parseStatement(sql).executeUpdate();
     }
 
@@ -1105,7 +1089,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     }
 
     @Override
-    public PhoenixConnection getConnection() throws SQLException {
+    public PhoenixConnection getConnection() {
         return connection;
     }
 
@@ -1276,5 +1260,19 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
         throw new SQLFeatureNotSupportedException();
+    }
+
+    private Set<TableName> sequences;
+    
+    public Set<TableName> getSequences() {
+        return sequences;
+    }
+    
+    public void initSequences(Set<TableName> sequences) throws SQLException {
+        connection.initSequences(sequences);
+    }
+
+    public long nextSequenceValue(TableName sequence) throws SQLException {
+        return connection.nextSequenceValue(sequence);
     }
 }

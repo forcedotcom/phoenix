@@ -55,7 +55,7 @@ public class CreateIndexCompiler {
         final PhoenixConnection connection = statement.getConnection();
         final ColumnResolver resolver = FromCompiler.getResolver(create, connection);
         Scan scan = new Scan();
-        final StatementContext context = new StatementContext(create, connection, resolver, statement.getParameters(), scan);
+        final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
         List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
