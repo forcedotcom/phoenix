@@ -11,7 +11,6 @@ import java.sql.ResultSet;
 import java.util.Properties;
 
 import org.junit.Assert;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
@@ -56,7 +55,6 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		}
 	}
 
-	@Ignore
 	@Test
 	public void testCreateSequence() throws Exception {	
 		Connection conn = getConnection();

@@ -1576,4 +1576,37 @@ public class PDataTypeTest {
         assertEquals(bd.toString(), bd.precision(), v[0]);
         assertEquals(bd.toString(), bd.scale(), v[1]);
     }
+
+    @Test
+    public void testArithmeticOnLong() {
+        long startWith = -5;
+        long incrementBy = 1;
+        for (int i = 0; i < 10; i++) {
+            long next = nextValueFor(startWith, incrementBy);
+            assertEquals(startWith + incrementBy, next);
+            startWith = next;
+        }
+        startWith = 5;
+        incrementBy = -1;
+        for (int i = 0; i < 10; i++) {
+            long next = nextValueFor(startWith, incrementBy);
+            assertEquals(startWith + incrementBy, next);
+            startWith = next;
+        }
+        startWith = 0;
+        incrementBy = 100;
+        for (int i = 0; i < 10; i++) {
+            long next = nextValueFor(startWith, incrementBy);
+            assertEquals(startWith + incrementBy, next);
+            startWith = next;
+        }
+    }
+
+    // Simulate what an HBase Increment does with the value encoded as a long
+    private long nextValueFor(long startWith, long incrementBy) {
+        long hstartWith = Bytes.toLong(PDataType.LONG.toBytes(startWith));
+        hstartWith += incrementBy;
+        return (Long)PDataType.LONG.toObject(Bytes.toBytes(hstartWith));
+    }
+    
 }

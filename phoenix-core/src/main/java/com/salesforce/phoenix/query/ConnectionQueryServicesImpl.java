@@ -96,6 +96,7 @@ import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PTable;
@@ -1105,8 +1106,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
         byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
         Put put = new Put(key);
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, Bytes.toBytes(startWith));
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, Bytes.toBytes(incrementBy));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith));
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(incrementBy));
         try {
             return htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, put);
         } catch (IOException e) {
@@ -1156,7 +1157,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                         throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
                     }
                     KeyValue incrementKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-                    long incrementBy = Bytes.toLong(incrementKV.getBuffer(), incrementKV.getValueOffset());
+                    long incrementBy = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
                     entry.getValue().incrementBy = incrementBy;
                 }
             }
@@ -1183,8 +1184,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     TableName t = entry.getKey();
                     byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
                     Increment inc = new Increment(key);
-                    // Negate incrementBy since we flip the sign bit of a LONG. We do not want to use UNSIGNED_LONG,
-                    // as then we cannot have a startWith that is a negative number.
                     inc.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, value.incrementBy * batchSize);
                     cacheBatch.add(inc);
                     reserveEntries.add(entry);
@@ -1203,7 +1202,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     sequences.remove(t);
                 }
                 KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
-                long current = Bytes.toLong(currentKV.getBuffer(), currentKV.getValueOffset());
+                long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
                 SequenceValue sequence = entry.getValue();
                 sequence.currentValue = current - sequence.incrementBy * batchSize;
                 sequence.nextValue = current;
@@ -1233,9 +1232,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 SequenceValue sequence = entry.getValue();
                 byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
                 Put put = new Put(key);
-                put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, Bytes.toBytes(sequence.currentValue));
+                put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(sequence.currentValue));
                 htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, 
-                        Bytes.toBytes(sequence.nextValue), 
+                        PDataType.LONG.toBytes(sequence.nextValue), 
                         put);
             }
         }
