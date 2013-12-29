@@ -96,7 +96,7 @@ public class OrderByCompiler {
         for (OrderByNode node : orderByNodes) {
             boolean isAscending = node.isAscending();
             Expression expression = node.getNode().accept(visitor);
-            if (visitor.addEntry(expression, isAscending ? null : ColumnModifier.SORT_DESC)) {
+            if (!expression.isConstant() && visitor.addEntry(expression, isAscending ? null : ColumnModifier.SORT_DESC)) {
                 // Detect mix of aggregate and non aggregates (i.e. ORDER BY txns, SUM(txns)
                 if (!visitor.isAggregate()) {
                     if (statement.isAggregate() || statement.isDistinct()) {

@@ -30,7 +30,6 @@ package com.salesforce.phoenix.parse;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import com.salesforce.phoenix.expression.function.CountAggregateFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunctionInfo;
@@ -83,38 +82,15 @@ public class SelectStatement implements FilterableStatement {
     private final int bindCount;
     private final boolean isAggregate;
     
-    // Filter out constants from GROUP BY as they're useless
-    private static List<ParseNode> filterGroupByConstants(List<ParseNode> nodes) {
-        List<ParseNode> filteredNodes = nodes;
+    // Count constant expressions
+    private static int countConstants(List<ParseNode> nodes) {
+        int count = 0;
         for (int i = 0; i < nodes.size(); i++) {
-            ParseNode node = nodes.get(i);
-            if (node.isConstant()) {
-                if (filteredNodes == nodes) {
-                    filteredNodes = Lists.newArrayListWithExpectedSize(nodes.size());
-                    filteredNodes.addAll(nodes.subList(0, i));
-                }
-            } else if (filteredNodes != nodes) {
-                filteredNodes.add(node);
+            if (nodes.get(i).isConstant()) {
+                count++;
             }
         }
-        return filteredNodes;
-    }
-    
-    // Filter out constants from ORDER BY as they're useless
-    private static List<OrderByNode> filterOrderByConstants(List<OrderByNode> nodes) {
-        List<OrderByNode> filteredNodes = nodes;
-        for (int i = 0; i < nodes.size(); i++) {
-            ParseNode node = nodes.get(i).getNode();
-            if (node.isConstant()) {
-                if (filteredNodes == nodes) {
-                    filteredNodes = Lists.newArrayListWithExpectedSize(nodes.size());
-                    filteredNodes.addAll(nodes.subList(0, i));
-                }
-            } else if (filteredNodes != nodes) {
-                filteredNodes.add(nodes.get(i));
-            }
-        }
-        return filteredNodes;
+        return count;
     }
     
     protected SelectStatement(List<? extends TableNode> from, HintNode hint, boolean isDistinct, List<AliasedNode> select, ParseNode where, List<ParseNode> groupBy, ParseNode having, List<OrderByNode> orderBy, LimitNode limit, int bindCount, boolean isAggregate) {
@@ -123,12 +99,12 @@ public class SelectStatement implements FilterableStatement {
         this.isDistinct = isDistinct;
         this.select = Collections.unmodifiableList(select);
         this.where = where;
-        this.groupBy = Collections.unmodifiableList(filterGroupByConstants(groupBy));
+        this.groupBy = Collections.unmodifiableList(groupBy);
         this.having = having;
-        this.orderBy = Collections.unmodifiableList(filterOrderByConstants(orderBy));
+        this.orderBy = Collections.unmodifiableList(orderBy);
         this.limit = limit;
         this.bindCount = bindCount;
-        this.isAggregate = isAggregate || !this.groupBy.isEmpty() || this.having != null;
+        this.isAggregate = isAggregate || groupBy.size() != countConstants(groupBy) || this.having != null;
     }
     
     @Override

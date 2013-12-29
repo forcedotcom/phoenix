@@ -116,7 +116,20 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         assertEquals(Long.valueOf(1), value);
 	}
 
-	@Test
+    @Test
+    public void testSameMultipleSequenceValues() throws Exception {
+        Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
+        String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.zeta FROM SYSTEM.\"SEQUENCE\"";
+        ResultSet rs = conn.prepareStatement(query).executeQuery();
+        assertTrue(rs.next());
+        assertEquals(4, rs.getInt(1));
+        assertEquals(4, rs.getInt(2));
+        assertFalse(rs.next());
+        conn.close();
+    }
+
+    @Test
 	public void testMultipleSequenceValues() throws Exception {
 		Connection conn = getConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");

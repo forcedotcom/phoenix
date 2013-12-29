@@ -1220,4 +1220,27 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
         }
     }
 
- }
+    @Test
+    public void testInvalidNextValueFor() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE SEQUENCE alpha.zeta");
+        String[] queries = {
+                "SELECT * FROM aTable WHERE a_integer < next value for alpha.zeta",
+                "SELECT * FROM aTable GROUP BY a_string,next value for alpha.zeta",
+                "SELECT * FROM aTable GROUP BY 1 + next value for alpha.zeta",
+                "SELECT * FROM aTable GROUP BY a_integer HAVING a_integer < next value for alpha.zeta",
+                "SELECT * FROM aTable WHERE a_integer < 3 GROUP BY a_integer HAVING a_integer < next value for alpha.zeta",
+                "SELECT * FROM aTable ORDER BY next value for alpha.zeta",
+        };
+        for (String query : queries) {
+            List<Object> binds = Collections.emptyList();
+            try {
+                compileQuery(query, binds);
+                fail("Compilation should have failed since this is an invalid usage of NEXT VALUE FOR: " + query);
+            } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR.getErrorCode(), e.getErrorCode());
+            }
+        }
+    }
+    
+}

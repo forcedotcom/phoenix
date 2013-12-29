@@ -48,6 +48,8 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
 
 
@@ -175,7 +177,9 @@ public class GroupByCompiler {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_GROUP_BY)
                     .setMessage(expression.toString()).build().buildException();
             }
-            groupByVisitor.addEntry(expression);
+            if (!expression.isConstant()) {
+                groupByVisitor.addEntry(expression);
+            }
             groupByVisitor.reset();
         }
         
