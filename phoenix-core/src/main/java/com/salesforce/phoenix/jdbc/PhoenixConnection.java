@@ -83,6 +83,7 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
@@ -683,7 +684,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             // Now that sequence has been validated, add to sequenceMap and update metaData cache
             sequenceMap.putAll(newSequenceMap);
             for (Map.Entry<TableName, SequenceValue> entry : newSequenceMap.entrySet()) {
-                metaData.setSequenceIncrementValue(entry.getKey(), entry.getValue().incrementBy);
+                metaData = metaData.setSequenceIncrementValue(entry.getKey(), entry.getValue().incrementBy);
             }
         }
     }
@@ -712,13 +713,18 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             .setSchemaName(sequence.getSchemaName()).setTableName(sequence.getTableName()).build().buildException();
         }
         String tenantId = this.tenantId == null ? null : this.tenantId.getString();
-        this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize);
-        // Means that another client dropped the sequence
-        if (!sequenceMap.containsKey(sequence)) {
-            // Remove from our cache and throw
-            metaData.setSequenceIncrementValue(sequence, null);
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NEXT_VALUE_FOR_FAILED)
-            .setSchemaName(sequence.getSchemaName()).setTableName(sequence.getTableName()).build().buildException();
+        if (value.currentValue == value.nextValue) {
+            List<TableName> deletedSequences = this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize);
+            if (!deletedSequences.isEmpty()) {
+                for (TableName deletedSequence : deletedSequences) {
+                    sequenceMap.remove(deletedSequence);
+                    setSequenceIncrementValue(deletedSequence, null);
+                }
+                // Means that another client dropped the sequence
+                if (!sequenceMap.containsKey(sequence)) {
+                    throw new SequenceNotFoundException(sequence.getSchemaName(), sequence.getTableName());
+                }
+            }
         }
         long currentValue = value.currentValue;
         value.currentValue += value.incrementBy;

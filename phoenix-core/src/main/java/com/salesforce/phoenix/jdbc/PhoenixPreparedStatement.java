@@ -118,25 +118,51 @@ public class PhoenixPreparedStatement extends PhoenixStatement implements Prepar
     @Override
     public boolean execute() throws SQLException {
         throwIfUnboundParameters();
-        return statement.execute();
+        try {
+            return statement.execute();
+        } catch (RuntimeException e) {
+            // FIXME: Expression.evaluate does not throw SQLException
+            // so this will unwrap throws from that.
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw e;
+        }
     }
 
     @Override
     public ResultSet executeQuery() throws SQLException {
         throwIfUnboundParameters();
-        return statement.executeQuery();
+        try {
+            return statement.executeQuery();
+        } catch (RuntimeException e) {
+            // FIXME: Expression.evaluate does not throw SQLException
+            // so this will unwrap throws from that.
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw e;
+        }
+    }
+
+    @Override
+    public int executeUpdate() throws SQLException {
+        throwIfUnboundParameters();
+        try {
+            return statement.executeUpdate();
+        } catch (RuntimeException e) {
+            // FIXME: Expression.evaluate does not throw SQLException
+            // so this will unwrap throws from that.
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw e;
+        }
     }
 
     public QueryPlan optimizeQuery() throws SQLException {
         throwIfUnboundParameters();
         return (QueryPlan)statement.optimizePlan();
-    }
-
-
-    @Override
-    public int executeUpdate() throws SQLException {
-        throwIfUnboundParameters();
-        return statement.executeUpdate();
     }
 
     @Override

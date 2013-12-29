@@ -738,7 +738,16 @@ public class PhoenixResultSet implements ResultSet, SQLCloseable, com.salesforce
     @Override
     public boolean next() throws SQLException {
         checkOpen();
-        currentRow = scanner.next();
+        try {
+            currentRow = scanner.next();
+        } catch (RuntimeException e) {
+            // FIXME: Expression.evaluate does not throw SQLException
+            // so this will unwrap throws from that.
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw e;
+        }
         return currentRow != null;
     }
 

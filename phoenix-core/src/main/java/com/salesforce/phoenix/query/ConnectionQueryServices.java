@@ -96,6 +96,6 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy) throws SQLException;
     boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException;
     void initSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences) throws SQLException;
-    void reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException;
+    List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException;
     void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException;
 }

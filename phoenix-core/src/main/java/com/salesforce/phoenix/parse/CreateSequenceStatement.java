@@ -37,7 +37,7 @@ public class CreateSequenceStatement implements BindableStatement {
 
 	protected CreateSequenceStatement(TableName sequenceName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExists, int bindCount) {
 		this.sequenceName = sequenceName;
-		this.startWith = startsWith == null ? LiteralParseNode.ZERO : startsWith;
+		this.startWith = startsWith == null ? LiteralParseNode.ONE : startsWith;
 		this.incrementBy = incrementBy == null ? LiteralParseNode.ONE : incrementBy;
 		this.ifNotExists = ifNotExists;
 		this.bindCount = bindCount;

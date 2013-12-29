@@ -1106,6 +1106,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
         byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
         Put put = new Put(key);
+        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, PDataType.TRUE_BYTES);
         put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith));
         put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(incrementBy));
         try {
@@ -1121,7 +1122,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
         Delete del = new Delete(key);
         try {
-            return htable.checkAndDelete(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, del);
+            // Delete of known, none changing cf:cq, as HBase checkAndDelete with null makes no sense
+            // Need to use a non empty byte array value, as otherwise this appears to be the same as null.
+            return htable.checkAndDelete(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, PDataType.TRUE_BYTES, del);
         } catch (IOException e) {
             throw ServerUtil.parseServerException(e);
         }
@@ -1172,7 +1175,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public void reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException {
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException {
         try {
             HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
             List<Increment> cacheBatch = Lists.newArrayListWithExpectedSize(sequences.size());
@@ -1190,23 +1193,36 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 }
             }
             if (reserveEntries.isEmpty()) {
-                return;
+                return Collections.emptyList();
             }
+            List<TableName> deletedSequences = Lists.newArrayListWithExpectedSize(reserveEntries.size());
             Object[] resultObjects = hTable.batch(cacheBatch);
             for (int i=0;i<resultObjects.length;i++){
                 Map.Entry<TableName, SequenceValue> entry = reserveEntries.get(i);
                 TableName t = entry.getKey();
                 Result result = (Result)resultObjects[i];
-                if (result == null) {
-                    // Silently remove - client must check after call
-                    sequences.remove(t);
+                // Unfortunately, HBase never seems to tell us that it can't find the row,
+                // instead, it increments it from zero.
+                if (result == null || result.isEmpty()){
+                    deletedSequences.add(t);
+                    continue;
                 }
+                SequenceValue sequence = entry.getValue();
                 KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
                 long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-                SequenceValue sequence = entry.getValue();
+                if (Bytes.toLong(currentKV.getBuffer(), currentKV.getValueOffset()) == sequence.incrementBy * batchSize) {
+                    // This means that HBase did not find the sequence. Instead of telling
+                    // us, HBase creates a new KeyValue starting from 0 incremented by
+                    // our increment amount (retarded). Since we're encoding as a LONG,
+                    // we can detect this, but down side is that sequences can't go lower
+                    // than Long.MIN_VALUE+(incrementBy * batchSize)
+                    deletedSequences.add(t);
+                    continue;
+                }
                 sequence.currentValue = current - sequence.incrementBy * batchSize;
                 sequence.nextValue = current;
             }
+            return deletedSequences;
         }
         catch (IOException e){
             throw ServerUtil.parseServerException(e);

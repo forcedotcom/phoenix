@@ -274,7 +274,8 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
     
     @Override
-    public void reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long batchSize) throws SQLException {
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long batchSize) throws SQLException {
+        return Collections.emptyList();
     }
 
     @Override
