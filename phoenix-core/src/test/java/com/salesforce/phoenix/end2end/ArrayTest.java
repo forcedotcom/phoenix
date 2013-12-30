@@ -188,15 +188,12 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			PreparedStatement statement = conn.prepareStatement(query);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
-			// Need to support primitive
-			// Need to support primitive
 			String[] strArr = new String[4];
 			strArr[0] = "ABC";
 			strArr[1] = "CEDF";
 			strArr[2] = "XYZWER";
 			strArr[3] = "AB";
 			Array array = conn.createArrayOf("VARCHAR", strArr);
-			// assertEquals(25.343d, rs.getDouble(1));
 			PhoenixArray resultArray = (PhoenixArray) rs.getArray(1);
 			assertEquals(resultArray, array);
 			assertFalse(rs.next());
@@ -320,9 +317,6 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		}
 	}
 
-	// The below testcase does not pass. This is because as array has been
-	// implemented as a function group by with array index
-	// does not match with the select clause
 	@Test
 	public void testArrayIndexUsedInGroupByClause() throws Exception {
 		long ts = nextTimestamp();
@@ -368,13 +362,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			PreparedStatement statement = conn.prepareStatement(query);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
-			// Need to support primitive
-			// Need to support primitive
 			String[] strArr = new String[1];
 			strArr[0] = "XYZWER";
-			// strArr[1] = "CEDF";
-			
-			// assertEquals(25.343d, rs.getDouble(1));
 			String result = rs.getString(1);
 			assertNull(result);
 		} finally {
@@ -398,13 +387,8 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			PreparedStatement statement = conn.prepareStatement(query);
 			ResultSet rs = statement.executeQuery();
 			assertTrue(rs.next());
-			// Need to support primitive
-			// Need to support primitive
 			String[] strArr = new String[1];
 			strArr[0] = "XYZWER";
-			// strArr[1] = "CEDF";
-			
-			// assertEquals(25.343d, rs.getDouble(1));
 			String result = rs.getString(1);
 			assertEquals(result, strArr[0]);
 			assertFalse(rs.next());
