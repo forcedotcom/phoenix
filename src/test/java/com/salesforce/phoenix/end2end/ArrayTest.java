@@ -33,6 +33,7 @@ import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Array;
@@ -59,7 +60,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_float";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -95,7 +96,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_byte_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -135,7 +136,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array, /* comment ok? */ b_string, a_float FROM table_with_array WHERE ?=organization_id and ?=a_string_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -177,7 +178,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_string_array FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -211,7 +212,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -239,7 +240,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array[2] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -266,7 +267,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
         String tenantId = getOrganizationId();
         createTableWithArray(BaseConnectedQueryTest.getUrl(),
                 getDefaultSplits(tenantId), null, ts - 2);
-        initTablesWithArrays(tenantId, null, ts);
+        initTablesWithArrays(tenantId, null, ts, false);
         String query = "SELECT CASE WHEN A_INTEGER = 1 THEN a_double_array ELSE null END [2] FROM table_with_array";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -293,7 +294,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		int a_index = 0;
 		String query = "SELECT a_double_array[1] FROM table_with_array where a_double_array["+a_index+"1]<?";
 		Properties props = new Properties(TEST_PROPERTIES);
@@ -328,7 +329,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array[1] FROM table_with_array  GROUP BY a_double_array[1]";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -350,6 +351,36 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			conn.close();
 		}
 	}
+	
+	@Test
+	public void testVariableLengthArrayWithNullValue() throws Exception {
+		long ts = nextTimestamp();
+		String tenantId = getOrganizationId();
+		createTableWithArray(BaseConnectedQueryTest.getUrl(),
+				getDefaultSplits(tenantId), null, ts - 2);
+		initTablesWithArrays(tenantId, null, ts, true);
+		String query = "SELECT a_string_array[1] FROM table_with_array";
+		Properties props = new Properties(TEST_PROPERTIES);
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+				Long.toString(ts + 2)); // Execute at timestamp 2
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		try {
+			PreparedStatement statement = conn.prepareStatement(query);
+			ResultSet rs = statement.executeQuery();
+			assertTrue(rs.next());
+			// Need to support primitive
+			// Need to support primitive
+			String[] strArr = new String[1];
+			strArr[0] = "XYZWER";
+			// strArr[1] = "CEDF";
+			
+			// assertEquals(25.343d, rs.getDouble(1));
+			String result = rs.getString(1);
+			assertNull(result);
+		} finally {
+			conn.close();
+		}
+	}
 
 	@Test
 	public void testSelectSpecificIndexOfAVariableArray() throws Exception {
@@ -357,7 +388,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_string_array[2] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
@@ -388,7 +419,7 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
-		initTablesWithArrays(tenantId, null, ts);
+		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT a_double_array[100] FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,

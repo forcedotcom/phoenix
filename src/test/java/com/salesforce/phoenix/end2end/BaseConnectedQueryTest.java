@@ -196,7 +196,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         initATableValues(tenantId, splits, date, null);
     }
     
-    protected static void initTablesWithArrays(String tenantId, Date date, Long ts) throws Exception {
+    protected static void initTablesWithArrays(String tenantId, Date date, Long ts, boolean useNull) throws Exception {
     	 Properties props = new Properties();
          if (ts != null) {
              props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
@@ -228,7 +228,11 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
              // Need to support primitive
              String[] strArr =  new String[4];
              strArr[0] = "ABC";
-             strArr[1] = "CEDF";
+			if (useNull) {
+				strArr[1] = null;
+			} else {
+				strArr[1] = "CEDF";
+			}
              strArr[2] = "XYZWER";
              strArr[3] = "AB";
              Array array = conn.createArrayOf("VARCHAR", strArr);
