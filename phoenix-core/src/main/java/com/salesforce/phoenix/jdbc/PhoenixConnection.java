@@ -119,7 +119,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     private PMetaData metaData;
     private final PName tenantId;
     private final String datePattern;
-    private final long sequenceBatchSize;
+    private final int sequenceBatchSize;
     
     private boolean isClosed = false;
     
@@ -143,7 +143,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         formatters[PDataType.TIME.ordinal()] = dateTimeFormat;
         this.metaData = metaData;
         this.mutationState = new MutationState(maxSize, this);
-        this.sequenceBatchSize = services.getProps().getLong(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_SEQUENCE_BATCH_SIZE);
+        this.sequenceBatchSize = services.getProps().getInt(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_SEQUENCE_BATCH_SIZE);
     }
 
     public int executeStatements(Reader reader, List<Object> binds, PrintStream out) throws IOException, SQLException {

@@ -120,7 +120,7 @@ public class QueryServicesOptions {
     // Max size of 1st level main memory cache in bytes --> upper bound
     public static final long DEFAULT_SPGBY_CACHE_MAX_SIZE = 1024L*1024L*100L;  // 100 Mb
     
-    public static final long DEFAULT_SEQUENCE_BATCH_SIZE = 100L;  // reserve 100 sequences at a time
+    public static final int DEFAULT_SEQUENCE_BATCH_SIZE = 100;  // reserve 100 sequences at a time
     
     
     private final Configuration config;

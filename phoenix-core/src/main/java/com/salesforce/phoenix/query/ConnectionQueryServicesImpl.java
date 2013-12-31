@@ -80,6 +80,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.coprocessor.MetaDataRegionObserver;
+import com.salesforce.phoenix.coprocessor.PreIncrementRegionObserver;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
 import com.salesforce.phoenix.coprocessor.ServerCachingEndpointImpl;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
@@ -528,6 +529,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 if (!descriptor.hasCoprocessor(MetaDataRegionObserver.class.getName())) {
                     descriptor.addCoprocessor(MetaDataRegionObserver.class.getName(), null, 2, null);
                 }
+            } else if (SchemaUtil.isSequenceTable(tableName)) {
+                if (!descriptor.hasCoprocessor(PreIncrementRegionObserver.class.getName())) {
+                    descriptor.addCoprocessor(PreIncrementRegionObserver.class.getName(), null, 1, null);
+                }
             }
         } catch (IOException e) {
             throw ServerUtil.parseServerException(e);
@@ -813,6 +818,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             throw new SQLException(t);
         }
     }
+
 
     @Override
     public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps,
@@ -1175,7 +1181,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException {
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize) throws SQLException {
         try {
             HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
             List<Increment> cacheBatch = Lists.newArrayListWithExpectedSize(sequences.size());
@@ -1201,24 +1207,13 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 Map.Entry<TableName, SequenceValue> entry = reserveEntries.get(i);
                 TableName t = entry.getKey();
                 Result result = (Result)resultObjects[i];
-                // Unfortunately, HBase never seems to tell us that it can't find the row,
-                // instead, it increments it from zero.
-                if (result == null || result.isEmpty()){
+                if (result.isEmpty()){
                     deletedSequences.add(t);
                     continue;
                 }
                 SequenceValue sequence = entry.getValue();
-                KeyValue currentKV = result.getColumnLatest(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
+                KeyValue currentKV = result.raw()[0];
                 long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-                if (Bytes.toLong(currentKV.getBuffer(), currentKV.getValueOffset()) == sequence.incrementBy * batchSize) {
-                    // This means that HBase did not find the sequence. Instead of telling
-                    // us, HBase creates a new KeyValue starting from 0 incremented by
-                    // our increment amount (retarded). Since we're encoding as a LONG,
-                    // we can detect this, but down side is that sequences can't go lower
-                    // than Long.MIN_VALUE+(incrementBy * batchSize)
-                    deletedSequences.add(t);
-                    continue;
-                }
                 sequence.currentValue = current - sequence.incrementBy * batchSize;
                 sequence.nextValue = current;
             }

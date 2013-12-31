@@ -203,7 +203,7 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long batchSize)
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize)
             throws SQLException {
         return getDelegate().reserveSequences(tenantId, sequences, batchSize);
     }
