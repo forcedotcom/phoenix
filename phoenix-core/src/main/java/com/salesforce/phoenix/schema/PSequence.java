@@ -27,15 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.Map;
-
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
-
-
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public PSequence getSequence(TableName name);
-    public Map<TableName, PSequence> getSequences();
+public interface PSequence {
+    long getIncrementBy();
+    long getStartWith();
+    long getTimestamp();
 }

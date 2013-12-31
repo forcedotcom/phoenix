@@ -27,15 +27,30 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.util.Map;
+public class PSequenceImpl implements PSequence {
+    private final long incrementBy;
+    private final long startWith;
+    private final long timestamp;
+    
+    public PSequenceImpl(long incrementBy, long startWith, long timestamp) {
+        this.incrementBy = incrementBy;
+        this.startWith = startWith;
+        this.timestamp = timestamp;
+    }
+    
+    @Override
+    public long getIncrementBy() {
+        return incrementBy;
+    }
 
-import com.salesforce.phoenix.parse.TableName;
-import com.salesforce.phoenix.query.MetaDataMutated;
+    @Override
+    public long getStartWith() {
+        return startWith;
+    }
 
+    @Override
+    public long getTimestamp() {
+        return timestamp;
+    }
 
-public interface PMetaData extends MetaDataMutated {
-    public PTable getTable(String name) throws TableNotFoundException;
-    public Map<String, PTable> getTables();
-    public PSequence getSequence(TableName name);
-    public Map<TableName, PSequence> getSequences();
 }

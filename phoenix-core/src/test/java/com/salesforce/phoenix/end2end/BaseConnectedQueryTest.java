@@ -79,8 +79,11 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 
+import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.BaseTest;
+import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -128,7 +131,14 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                 conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
             conn.setAutoCommit(true);
+            // TODO: metadata way of getting all sequences
+            // We currently need to manually remove the sequences from the client-side cache
             conn.createStatement().execute("DELETE FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
+            PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
+            PMetaData metaData = pconn.getPMetaData();
+            for (TableName sequence : metaData.getSequences().keySet()) {
+                pconn.removeSequence(sequence, ts);
+            }
         } finally {
             conn.close();
         }

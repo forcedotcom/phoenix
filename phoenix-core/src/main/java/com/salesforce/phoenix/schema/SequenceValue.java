@@ -28,17 +28,20 @@
 package com.salesforce.phoenix.schema;
 
 public final class SequenceValue {
-    public static final long UNINITIALIZED = 0;
-    public long incrementBy;
+    public final long incrementBy;
+    public final long startWith;
+    
     public long currentValue;
     public long nextValue;
     public int referenceCount = 1;
     
-    public SequenceValue() {
-        this(UNINITIALIZED);
+    public SequenceValue(long incrementBy, long startWith) {
+        this.incrementBy = incrementBy;
+        this.startWith = startWith;
     }
 
-    public SequenceValue(long incrementBy) {
-        this.incrementBy = incrementBy;
+    public SequenceValue(PSequence sequence) {
+        this.incrementBy = sequence.getIncrementBy();
+        this.startWith = sequence.getStartWith();
     }
 }

@@ -530,27 +530,42 @@ public class MetaDataClient {
     }
 
     public MutationState dropSequence(DropSequenceStatement statement) throws SQLException {
+        Long scn = connection.getSCN();
+        long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
         String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        boolean success = connection.getQueryServices().dropSequence(tenantId, schemaName, sequenceName);
+        boolean success = connection.getQueryServices().dropSequence(tenantId, schemaName, sequenceName, timestamp);
         if (!success && !statement.ifExists()) {
             throw new SequenceNotFoundException(schemaName, sequenceName);
         }
-        connection.setSequenceIncrementValue(statement.getSequenceName(), null);
+        // If there's an SCN, then we're dropping this sequence for *later* timestamps.
+        // It's still available at this timestamp.
+        if (scn == null) {
+            connection.removeSequence(statement.getSequenceName(), HConstants.LATEST_TIMESTAMP);
+        }
         return new MutationState(1, connection);
     }
     
     public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
+        Long scn = connection.getSCN();
+        long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
         String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        boolean success = connection.getQueryServices().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy);
+        boolean success = connection.getQueryServices().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, timestamp);
         if (!success && !statement.ifNotExists()) {
             throw new SequenceAlreadyExistsException(schemaName, sequenceName);
         }
         
-        connection.setSequenceIncrementValue(statement.getSequenceName(), incrementBy);
+        // We cannot cache the sequence metadata here on the connection, as we don't know
+        // the exact timestamp at which it was created. If there is an SCN, we do know the
+        // exact timestamp, but in that case the sequence is not available on this connection
+        // at this timestamp, but only at later timestamps. We can, however, propagate the
+        // sequence metadata into the cache at the ConnectionQueryServices level.
+        if (scn != null) {
+            connection.getPMetaData().addSequence(statement.getSequenceName(), new PSequenceImpl(incrementBy, startWith, timestamp));
+        }
         return new MutationState(1, connection);
     }
     

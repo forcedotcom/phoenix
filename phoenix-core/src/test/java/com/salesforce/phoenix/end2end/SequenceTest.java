@@ -2,6 +2,7 @@ package com.salesforce.phoenix.end2end;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -21,6 +22,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.schema.PSequence;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -151,12 +153,13 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		Connection conn = getConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 1");
 		TableName tableName = TableName.createNormalized("ALPHA", "GAMMA");
-		Long value = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequenceIncrementValue(tableName);
-		assertEquals(Long.valueOf(1), value);
+		PSequence sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
+		assertNull(sequence);
 		final String query = "SELECT NEXT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"";
 		conn.prepareStatement(query).executeQuery();
-		value = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequenceIncrementValue(tableName);
-        assertEquals(Long.valueOf(1), value);
+        sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
+        assertEquals(1L, sequence.getIncrementBy());
+        assertEquals(2L, sequence.getStartWith());
 	}
 
     @Test
