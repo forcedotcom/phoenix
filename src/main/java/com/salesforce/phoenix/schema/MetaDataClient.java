@@ -847,6 +847,9 @@ public class MetaDataClient {
                 return null;
             case PARENT_TABLE_NOT_FOUND:
                 throw new TableNotFoundException(schemaName, parent.getName().getString());
+            case TYPE_ID_USED:
+            	throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_ID_USED)
+            		.setSchemaName(schemaName).setTableName(tableName).build().buildException();
             case NEWER_TABLE_FOUND:
                 throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
             case UNALLOWED_TABLE_MUTATION:

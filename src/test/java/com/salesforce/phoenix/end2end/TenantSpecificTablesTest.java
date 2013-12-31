@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
@@ -60,7 +59,6 @@ import org.junit.Test;
 import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.SchemaUtil;
 
@@ -72,7 +70,6 @@ public class TenantSpecificTablesTest extends BaseClientMangedTimeTest {
     
     private static final String TENANT_ID = "ZZTop";
     private static final String TENANT_TYPE_ID = "abc";
-    private static final String TENANT_TYPE_ID2 = "def";
     private static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;
     
     private static final String PARENT_TABLE_NAME = "PARENT_TABLE";
