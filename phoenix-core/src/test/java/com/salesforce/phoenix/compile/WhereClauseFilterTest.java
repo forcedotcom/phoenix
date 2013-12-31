@@ -926,7 +926,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    public void testTenantIdRowKeyFilterAddedToScan() throws SQLException {
+    public void testTenantConstraintsAddedToScan() throws SQLException {
         String tenantTypeId = "567";
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
