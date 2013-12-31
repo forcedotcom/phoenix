@@ -42,5 +42,5 @@
 # -error                         Ignore error while reading rows from CSV ? (1 - YES | 0 - NO, defaults to 1) (optional)
 # -help                          Print all options (optional)
 
-phoenix_client_jar=$(find ../target/phoenix-*-client.jar)
+phoenix_client_jar=$(find ../phoenix-assembly/target/phoenix-*-client.jar)
 java -cp "$phoenix_client_jar" com.salesforce.phoenix.map.reduce.CSVBulkLoader "$@"
