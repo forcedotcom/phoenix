@@ -28,6 +28,7 @@
 package com.salesforce.phoenix.compile;
 
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
+import static com.salesforce.phoenix.util.TestUtil.PHOENIX_CONNECTIONLESS_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static com.salesforce.phoenix.util.TestUtil.and;
 import static com.salesforce.phoenix.util.TestUtil.assertDegenerate;
@@ -38,6 +39,7 @@ import static com.salesforce.phoenix.util.TestUtil.kvColumn;
 import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
 import static com.salesforce.phoenix.util.TestUtil.not;
 import static com.salesforce.phoenix.util.TestUtil.or;
+import static com.salesforce.phoenix.util.TestUtil.pkColumn;
 import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
 import static java.util.Collections.emptyList;
 import static org.junit.Assert.assertArrayEquals;
@@ -54,6 +56,7 @@ import java.text.Format;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
@@ -64,7 +67,9 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
@@ -78,11 +83,13 @@ import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.NumberUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.StringUtil;
 
 
@@ -920,10 +927,12 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     
     @Test
     public void testTenantIdRowKeyFilterAddedToScan() throws SQLException {
-
+        String tenantTypeId = "567";
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
-        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='ATABLE'");
+        createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, type_id char(3) not null, " +
+        		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id))");
+        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='BASE_TABLE_FOR_TENANT_FILTER_TEST',TENANT_TYPE_ID='" + tenantTypeId + "'");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
         SQLParser parser = new SQLParser(query);
@@ -933,24 +942,48 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
         StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        select = compileStatement(context, select, resolver, binds, scan, 1, null);
+        select = compileStatement(context, select, resolver, binds, scan, 2, null);
         Filter filter = scan.getFilter();
         
+        PColumn tenantIdCol = getColumn("BASE_TABLE_FOR_TENANT_FILTER_TEST", "TENANT_ID");
+        PColumn tenantTypeIdCol = getColumn("BASE_TABLE_FOR_TENANT_FILTER_TEST", "TYPE_ID");
         assertEquals(
             multiKVFilter(and(
-                constantComparison(
-                    CompareOp.EQUAL,
-                    BaseConnectionlessQueryTest.A_INTEGER,
-                    0),
-                constantComparison(
-                    CompareOp.EQUAL,
-                    BaseConnectionlessQueryTest.A_STRING,
-                    "foo"))),
+                and(
+                    constantComparison(
+                        CompareOp.EQUAL,
+                        pkColumn(tenantIdCol, Lists.newArrayList(tenantIdCol, tenantTypeIdCol)),
+                        tenantId),
+                    constantComparison(
+                        CompareOp.EQUAL,
+                        pkColumn(tenantTypeIdCol, Lists.newArrayList(tenantIdCol, tenantTypeIdCol)),
+                        tenantTypeId)),
+                 and(
+                    constantComparison(
+                        CompareOp.EQUAL,
+                        getColumn("BASE_TABLE_FOR_TENANT_FILTER_TEST", "A_INTEGER"),
+                        0),
+                    constantComparison(
+                        CompareOp.EQUAL,
+                        getColumn("BASE_TABLE_FOR_TENANT_FILTER_TEST", "A_STRING"),
+                        "foo")))),
             filter);
         
-        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + tenantTypeId);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+    }
+    
+    
+    private PColumn getColumn(String table, String column) throws SQLException {
+        Properties props = new Properties();
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_TABLE_TIMESTAMP));
+        PhoenixConnection conn = DriverManager.getConnection(PHOENIX_CONNECTIONLESS_JDBC_URL, props).unwrap(PhoenixConnection.class);
+        try {
+            return conn.getPMetaData().getTable(table).getColumn(column);
+        } finally {
+            conn.close();
+        }
     }
 }

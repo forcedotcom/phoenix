@@ -524,6 +524,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         SchemaUtil.upgradeTo3(region, tableMetadata);
                     }
                 }
+                
                 if (tenantIdBytes.length > 0 && typeIdExistsForTenantOnBaseTable(region, tenantIdBytes, MetaDataUtil.getBaseTableName(tableMetadata), MetaDataUtil.getTenantTypeId(tableMetadata))) {
                     return new MetaDataMutationResult(MutationCode.TYPE_ID_USED, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
