@@ -32,6 +32,7 @@ import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_MET
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -51,7 +52,7 @@ import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
-import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Append;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
@@ -59,7 +60,6 @@ import org.apache.hadoop.hbase.client.HConnectionManager;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -80,8 +80,8 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
 import com.salesforce.phoenix.coprocessor.MetaDataRegionObserver;
-import com.salesforce.phoenix.coprocessor.PreIncrementRegionObserver;
 import com.salesforce.phoenix.coprocessor.ScanRegionObserver;
+import com.salesforce.phoenix.coprocessor.SequenceRegionObserver;
 import com.salesforce.phoenix.coprocessor.ServerCachingEndpointImpl;
 import com.salesforce.phoenix.coprocessor.UngroupedAggregateRegionObserver;
 import com.salesforce.phoenix.exception.PhoenixIOException;
@@ -109,6 +109,7 @@ import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
+import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -401,7 +402,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public PMetaData addSequence(final TableName name, PSequence sequence) throws SQLException {
         synchronized(latestMetaDataLock) {
             PSequence existingSequence = latestMetaData.getSequence(name);
-            if (existingSequence == null || existingSequence.getTimestamp() <= sequence.getTimestamp()) {
+            if (existingSequence == null || existingSequence.getTimeStamp() <= sequence.getTimeStamp()) {
                 latestMetaData = latestMetaData.addSequence(name, sequence);
             }
             return latestMetaData;
@@ -412,16 +413,21 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public PMetaData removeSequence(final TableName name, long timestamp) throws SQLException {
         synchronized(latestMetaDataLock) {
             PSequence existingSequence = latestMetaData.getSequence(name);
-            if (existingSequence != null && existingSequence.getTimestamp() <= timestamp) {
+            if (existingSequence != null && existingSequence.getTimeStamp() <= timestamp) {
                 latestMetaData = latestMetaData.removeSequence(name, timestamp);
             }
             return latestMetaData;
         }
     }
         
-    private static boolean hasNewerTables(long scn, PMetaData metaData) {
+    private static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
         for (PTable table : metaData.getTables().values()) {
             if (table.getTimeStamp() >= scn) {
+                return true;
+            }
+        }
+        for (PSequence sequence : metaData.getSequences().values()) {
+            if (sequence.getTimeStamp() >= scn) {
                 return true;
             }
         }
@@ -429,20 +435,29 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
     
     private static PMetaData pruneNewerTables(long scn, PMetaData metaData) {
-        if (!hasNewerTables(scn, metaData)) {
+        if (!hasMetaDataToPrune(scn, metaData)) {
             return metaData;
         }
         Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
-        Iterator<Map.Entry<String, PTable>> iterator = newTables.entrySet().iterator();
+        Iterator<Map.Entry<String, PTable>> tableIterator = newTables.entrySet().iterator();
         boolean wasModified = false;
-        while (iterator.hasNext()) {
-            if (iterator.next().getValue().getTimeStamp() >= scn) {
-                iterator.remove();
+        while (tableIterator.hasNext()) {
+            if (tableIterator.next().getValue().getTimeStamp() >= scn) {
+                tableIterator.remove();
                 wasModified = true;
             }
         }
+        Map<TableName,PSequence> newSequences = Maps.newHashMap(metaData.getSequences());
+        Iterator<Map.Entry<TableName,PSequence>> sequenceIterator = newSequences.entrySet().iterator();
+        while (sequenceIterator.hasNext()) {
+            if (sequenceIterator.next().getValue().getTimeStamp() >= scn) {
+                sequenceIterator.remove();
+                wasModified = true;
+            }
+        }
+
         if (wasModified) {
-            return new PMetaDataImpl(newTables, metaData.getSequences());
+            return new PMetaDataImpl(newTables, newSequences);
         }
         return metaData;
     }
@@ -545,8 +560,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     descriptor.addCoprocessor(MetaDataRegionObserver.class.getName(), null, 2, null);
                 }
             } else if (SchemaUtil.isSequenceTable(tableName)) {
-                if (!descriptor.hasCoprocessor(PreIncrementRegionObserver.class.getName())) {
-                    descriptor.addCoprocessor(PreIncrementRegionObserver.class.getName(), null, 1, null);
+                if (!descriptor.hasCoprocessor(SequenceRegionObserver.class.getName())) {
+                    descriptor.addCoprocessor(SequenceRegionObserver.class.getName(), null, 1, null);
                 }
             }
         } catch (IOException e) {
@@ -1122,31 +1137,48 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp) 
+    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp) 
             throws SQLException {
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
         byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
-        Put put = new Put(key, timestamp);
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, PDataType.TRUE_BYTES);
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(startWith));
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.START_WITH_BYTES, PDataType.LONG.toBytes(startWith));
-        put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, PDataType.LONG.toBytes(incrementBy));
+        Append append = new Append(key);
+        append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, new byte[] {(byte)SequenceRegionObserver.SequenceOp.CREATE.ordinal()});
+        append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, PDataType.LONG.toBytes(timestamp));
+        Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
+        byte[] startWithBuf = PDataType.LONG.toBytes(startWith);
+        familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
+                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, timestamp, ByteUtil.EMPTY_BYTE_ARRAY),
+                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, timestamp, startWithBuf),
+                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.START_WITH_BYTES, timestamp, startWithBuf),
+                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, timestamp, PDataType.LONG.toBytes(incrementBy))
+                ));
         try {
-            return htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, null, put);
+            Result result = htable.append(append);
+            if (result.isEmpty()) {
+                return null;
+            }
+            return result.raw()[0].getTimestamp();
         } catch (IOException e) {
             throw ServerUtil.parseServerException(e);
         }
     }
 
     @Override
-    public boolean dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
         HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
         byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
-        Delete del = new Delete(key, timestamp);
+        Append append = new Append(key);
+        append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, new byte[] {(byte)SequenceRegionObserver.SequenceOp.DROP.ordinal()});
+        append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, PDataType.LONG.toBytes(timestamp));
+        Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
+        familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
+                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, timestamp, ByteUtil.EMPTY_BYTE_ARRAY)));
         try {
-            // Delete of known, none changing cf:cq, as HBase checkAndDelete with null makes no sense
-            // Need to use a non empty byte array value, as otherwise this appears to be the same as null.
-            return htable.checkAndDelete(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, PDataType.TRUE_BYTES, del);
+            Result result = htable.append(append);
+            if (result.isEmpty()) {
+                return null;
+            }
+            return result.raw()[0].getTimestamp();
         } catch (IOException e) {
             throw ServerUtil.parseServerException(e);
         }
@@ -1186,7 +1218,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 long incrementBy = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
                 long startWith = PDataType.LONG.getCodec().decodeLong(startWithKV.getBuffer(), startWithKV.getValueOffset(), null);
                 long currentValue = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-                SequenceValue value = new SequenceValue(incrementBy, startWith);
+                SequenceValue value = new SequenceValue(incrementBy, startWith, currentKV.getTimestamp());
                 value.currentValue = currentValue;
                 value.nextValue = currentValue;
                 sequenceMap.put(t, value);
@@ -1203,7 +1235,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize) throws SQLException {
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException {
         try {
             HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
             List<Increment> cacheBatch = Lists.newArrayListWithExpectedSize(sequences.size());
@@ -1215,7 +1247,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     TableName t = entry.getKey();
                     byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
                     Increment inc = new Increment(key);
-                    inc.addColumn(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, value.incrementBy * batchSize);
+                    inc.setTimeRange(MetaDataProtocol.MIN_TABLE_TIMESTAMP, timestamp);
+                    inc.addColumn(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, value.incrementBy * batchSize);
                     cacheBatch.add(inc);
                     reserveEntries.add(entry);
                 }
@@ -1251,28 +1284,49 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences)
+    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp)
             throws SQLException {
         try {
             if (sequences.isEmpty()) {
-                return;
+                return Collections.emptyList();
             }
+            List<Append> mutations = Lists.newArrayListWithExpectedSize(sequences.size());
+            List<TableName> sequenceList = Lists.newArrayListWithExpectedSize(sequences.size());
+            List<TableName> deletedSequences = Lists.newArrayListWithExpectedSize(sequences.size());
             // Reset sequence value back to what we've actually used if no other client has incremented
             // it in the meantime.
+            byte[] timestampBuf = PDataType.LONG.toBytes(timestamp);
+            byte[] opBuf = new byte[] {(byte)SequenceRegionObserver.SequenceOp.RESET.ordinal()};
             HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
             for (Map.Entry<TableName, SequenceValue> entry : sequences){
                 TableName t = entry.getKey();
+                sequenceList.add(t);
                 SequenceValue sequence = entry.getValue();
                 byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
-                Put put = new Put(key);
-                put.add(QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, PDataType.LONG.toBytes(sequence.currentValue));
-                htable.checkAndPut(key, QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, 
-                        PDataType.LONG.toBytes(sequence.nextValue), 
-                        put);
+                Append append = new Append(key);
+                append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, opBuf);
+                append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, timestampBuf);
+                append.setAttribute(SequenceRegionObserver.CURRENT_VALUE_ATTRIB, PDataType.LONG.toBytes(sequence.nextValue));
+                Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
+                familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
+                        KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, sequence.timestamp, PDataType.LONG.toBytes(sequence.currentValue))
+                        ));
+                mutations.add(append);
             }
+            Object[] results = htable.batch(mutations);
+            for (int i = 0; i < results.length; i++) {
+                Result result = (Result) results[i];
+                if (result.isEmpty()) {
+                    deletedSequences.add(sequenceList.get(i));
+                }
+            }
+            return deletedSequences;
         }
         catch (IOException e){
             throw ServerUtil.parseServerException(e);
+        } catch (InterruptedException e) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+            .setRootCause(e).build().buildException(); // FIXME ?
         }
     }
 }

@@ -43,6 +43,11 @@ import org.apache.hadoop.hbase.util.Bytes;
  * @since 0.1
  */
 public class ResultUtil {
+    public static final Result EMPTY_RESULT = new Result() {
+        @Override
+        public final boolean isEmpty() { return true; }
+    };
+    
     private ResultUtil() {
     }
     

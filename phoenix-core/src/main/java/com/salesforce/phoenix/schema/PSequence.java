@@ -30,5 +30,5 @@ package com.salesforce.phoenix.schema;
 public interface PSequence {
     long getIncrementBy();
     long getStartWith();
-    long getTimestamp();
+    long getTimeStamp();
 }

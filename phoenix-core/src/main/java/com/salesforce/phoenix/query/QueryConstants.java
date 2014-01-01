@@ -204,6 +204,6 @@ public interface QueryConstants {
     		CURRENT_VALUE + " BIGINT NOT NULL, \n" + 
             INCREMENT_BY  + " BIGINT NOT NULL \n" + 
     		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + "," + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
-    		HConstants.VERSIONS + "=" + 1 + "\n";
+    		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + "\n";
 	
 }

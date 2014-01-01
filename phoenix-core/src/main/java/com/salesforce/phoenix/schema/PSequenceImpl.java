@@ -38,6 +38,12 @@ public class PSequenceImpl implements PSequence {
         this.timestamp = timestamp;
     }
     
+    public PSequenceImpl(SequenceValue value) {
+        this.incrementBy = value.incrementBy;
+        this.startWith = value.startWith;
+        this.timestamp = value.timestamp;
+    }
+    
     @Override
     public long getIncrementBy() {
         return incrementBy;
@@ -49,7 +55,7 @@ public class PSequenceImpl implements PSequence {
     }
 
     @Override
-    public long getTimestamp() {
+    public long getTimeStamp() {
         return timestamp;
     }
 

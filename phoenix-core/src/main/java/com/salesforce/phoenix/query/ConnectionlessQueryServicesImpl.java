@@ -272,7 +272,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
                 throw new SequenceNotFoundException(name.getSchemaName(), name.getTableName());
             }
             SequenceValue existingValue = sequenceMap.get(name);
-            SequenceValue value = new SequenceValue(sequence.getIncrementBy(), sequence.getStartWith());
+            SequenceValue value = new SequenceValue(sequence);
             if (existingValue != null) {
                 value.currentValue = existingValue.currentValue;
                 value.nextValue = existingValue.nextValue;
@@ -283,7 +283,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
     
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize) throws SQLException {
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException {
         List<TableName> droppedSequences = Lists.newArrayListWithExpectedSize(sequences.size());
         for (Map.Entry<TableName, SequenceValue> entry : sequences) {
             SequenceValue value = entry.getValue();
@@ -299,33 +299,34 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException {
+    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp) throws SQLException {
+        return Collections.emptyList();
     }
 
     @Override
-    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
+    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
             throws SQLException {
         TableName tableName = TableName.create(schemaName, sequenceName);
         if (metaData.getSequence(tableName) != null) {
-            return false;
+            return null;
         }
         addSequence(tableName, new PSequenceImpl(incrementBy, startWith, timestamp));
-        SequenceValue value = new SequenceValue(incrementBy, startWith);
+        SequenceValue value = new SequenceValue(incrementBy, startWith, timestamp);
         value.currentValue = startWith;
         value.nextValue = startWith;
         sequenceMap.put(tableName, value);
-        return true;
+        return HConstants.LATEST_TIMESTAMP;
     }
 
     @Override
-    public boolean dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
         TableName tableName = TableName.create(schemaName, sequenceName);
         if (metaData.getSequence(tableName) == null) {
-            return false;
+            return null;
         }
         sequenceMap.remove(tableName);
         removeSequence(tableName, HConstants.LATEST_TIMESTAMP);
-        return true;
+        return HConstants.LATEST_TIMESTAMP;
     }
 
     @Override

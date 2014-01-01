@@ -684,11 +684,11 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
                         sequenceMap.put(sequenceName, value);
                         continue;
                     }
-                    // Don't put directly in sequenceMap, but wait until after we call
-                    // services.initSequences() as this validates the existence of the
-                    // sequence.
-                    sequencesToInit.add(sequenceName);
                 }
+                // Don't put directly in sequenceMap, but wait until after we call
+                // services.initSequences() as this validates the existence of the
+                // sequence.
+                sequencesToInit.add(sequenceName);
             } else {
                 value.referenceCount++;
             }
@@ -701,7 +701,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             sequenceMap.putAll(newSequenceMap);
             for (Map.Entry<TableName, SequenceValue> entry : newSequenceMap.entrySet()) {
                 SequenceValue value = entry.getValue();
-                addSequence(entry.getKey(), new PSequenceImpl(value.incrementBy, value.startWith, timestamp));
+                addSequence(entry.getKey(), new PSequenceImpl(value));
             }
         }
     }
@@ -731,11 +731,13 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         }
         String tenantId = this.tenantId == null ? null : this.tenantId.getString();
         if (value.currentValue == value.nextValue) {
-            List<TableName> deletedSequences = this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize);
+            long timestamp = this.scn == null ? HConstants.LATEST_TIMESTAMP : this.scn;
+            List<TableName> deletedSequences = this.getQueryServices().reserveSequences(tenantId, sequenceMap.entrySet(), sequenceBatchSize, timestamp);
             if (!deletedSequences.isEmpty()) {
                 for (TableName deletedSequence : deletedSequences) {
                     sequenceMap.remove(deletedSequence);
-                    removeSequence(deletedSequence, this.scn == null ? HConstants.LATEST_TIMESTAMP : scn );
+                    // TODO: ok to use LATEST_TIMESTAMP here?
+                    removeSequence(deletedSequence, timestamp );
                 }
                 // Means that another client dropped the sequence
                 if (!sequenceMap.containsKey(sequence)) {
@@ -759,7 +761,13 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         }
         String tenantId = this.tenantId == null ? null : this.tenantId.getString();
         try {
-            this.getQueryServices().returnSequences(tenantId, sequences);
+            long timestamp = this.scn == null ? HConstants.LATEST_TIMESTAMP : this.scn;
+            List<TableName> deletedSequences = this.getQueryServices().returnSequences(tenantId, sequences, timestamp);
+            for (TableName deletedSequence : deletedSequences) {
+                sequenceMap.remove(deletedSequence);
+                // TODO: ok to use LATEST_TIMESTAMP here?
+                removeSequence(deletedSequence, timestamp );
+            }
         } catch (SQLException e) {
             logger.warn("Unable to return unused sequences for " + sequences, e);
         }

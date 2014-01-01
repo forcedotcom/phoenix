@@ -2,7 +2,7 @@ package com.salesforce.phoenix.end2end;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -154,10 +154,13 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 1");
 		TableName tableName = TableName.createNormalized("ALPHA", "GAMMA");
 		PSequence sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
-		assertNull(sequence);
+		assertNotNull(sequence);
+        assertEquals(1L, sequence.getIncrementBy());
+        assertEquals(2L, sequence.getStartWith());
 		final String query = "SELECT NEXT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"";
 		conn.prepareStatement(query).executeQuery();
         sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
+        assertNotNull(sequence);
         assertEquals(1L, sequence.getIncrementBy());
         assertEquals(2L, sequence.getStartWith());
 	}

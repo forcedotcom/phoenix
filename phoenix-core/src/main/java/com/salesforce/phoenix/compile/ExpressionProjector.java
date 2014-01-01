@@ -75,14 +75,23 @@ public class ExpressionProjector implements ColumnProjector {
 
     @Override
     public final Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr) throws SQLException {
-        Expression expression = getExpression();
-        if (!expression.evaluate(tuple, ptr)) {
-            return null;
+        try {
+            Expression expression = getExpression();
+            if (!expression.evaluate(tuple, ptr)) {
+                return null;
+            }
+            if (ptr.getLength() == 0) {
+                return null;
+            }        
+            return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier());
+        } catch (RuntimeException e) {
+            // FIXME: Expression.evaluate does not throw SQLException
+            // so this will unwrap throws from that.
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw e;
         }
-        if (ptr.getLength() == 0) {
-            return null;
-        }        
-        return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier());
     }
 
     @Override

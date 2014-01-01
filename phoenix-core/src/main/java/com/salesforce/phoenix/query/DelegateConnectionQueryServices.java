@@ -182,13 +182,13 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
+    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
             throws SQLException {
         return getDelegate().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, timestamp);
     }
 
     @Override
-    public boolean dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
         return getDelegate().dropSequence(tenantId, schemaName, sequenceName, timestamp);
     }
 
@@ -209,14 +209,14 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize)
+    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize, long timestamp)
             throws SQLException {
-        return getDelegate().reserveSequences(tenantId, sequences, batchSize);
+        return getDelegate().reserveSequences(tenantId, sequences, batchSize, timestamp);
     }
 
     @Override
-    public void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences)
+    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp)
             throws SQLException {
-        getDelegate().returnSequences(tenantId, sequences);
+        return getDelegate().returnSequences(tenantId, sequences, timestamp);
     }
 }
