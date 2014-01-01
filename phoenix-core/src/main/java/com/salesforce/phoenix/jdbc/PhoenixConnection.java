@@ -736,7 +736,6 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             if (!deletedSequences.isEmpty()) {
                 for (TableName deletedSequence : deletedSequences) {
                     sequenceMap.remove(deletedSequence);
-                    // TODO: ok to use LATEST_TIMESTAMP here?
                     removeSequence(deletedSequence, timestamp );
                 }
                 // Means that another client dropped the sequence
@@ -765,7 +764,6 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
             List<TableName> deletedSequences = this.getQueryServices().returnSequences(tenantId, sequences, timestamp);
             for (TableName deletedSequence : deletedSequences) {
                 sequenceMap.remove(deletedSequence);
-                // TODO: ok to use LATEST_TIMESTAMP here?
                 removeSequence(deletedSequence, timestamp );
             }
         } catch (SQLException e) {
