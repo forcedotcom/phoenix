@@ -27,14 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.sql.Types;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.ByteBufferUtils;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -155,13 +152,15 @@ public class PArrayDataType {
 		int initPos = ptr.getOffset();
 		int noOfElements = 0;
 		// As no of elements is written as Vint we need to know how many bytes does this occupy
-		try {
+/*		try {
 			// One byte for version
 			noOfElements = (int)Bytes.readVLong(bytes, initPos + Bytes.SIZEOF_BYTE);
 		} catch(IOException ioe) {
 			throw new RuntimeException(ioe);
-		}
-		int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
+		}*/
+		noOfElements = Bytes.toInt(bytes, ptr.getOffset() + Bytes.SIZEOF_BYTE, Bytes.SIZEOF_INT);
+		//int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
+		int noOFElementsSize = Bytes.SIZEOF_INT;
 		if(arrayIndex >= noOfElements) {
 			throw new IndexOutOfBoundsException(
 					"Invalid index "
@@ -274,7 +273,8 @@ public class PArrayDataType {
 		int temp = noOfElements;
         if (buffer == null) return null;
         buffer.put(ARRAY_SERIALIZATION_VERSION);
-        ByteBufferUtils.writeVLong(buffer, noOfElements);
+        buffer.putInt(noOfElements);
+        //ByteBufferUtils.writeVLong(buffer, noOfElements);
         if (byteSize == null) {
             int fillerForOffsetByteArray = buffer.position();
             buffer.position(fillerForOffsetByteArray + Bytes.SIZEOF_INT);
@@ -319,7 +319,8 @@ public class PArrayDataType {
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int initPos = buffer.position();
 		buffer.get();
-		int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
+		//int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
+		int noOfElements = buffer.getInt();
 		boolean useShort = true;
 		int baseSize = Bytes.SIZEOF_SHORT;
 		if(noOfElements < 0) {
@@ -411,6 +412,24 @@ public class PArrayDataType {
 			return 0;
 		}
 		return 1;
+	}
+
+	public static void getArrayElement(ImmutableBytesWritable ptr,
+			PDataType baseType) {
+		byte[] bytes = ptr.get();
+		int initPos = ptr.getOffset();
+		/* int noOfElements = 0;
+		// As no of elements is written as Vint we need to know how many bytes does this occupy
+		try {
+			// One byte for version
+			noOfElements = (int)Bytes.readVLong(bytes, initPos + Bytes.SIZEOF_BYTE);
+		} catch(IOException ioe) {
+			throw new RuntimeException(ioe);
+		}
+		int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);*/
+		int noOfElements = Bytes.toInt(bytes, ptr.getOffset() + Bytes.SIZEOF_BYTE);
+		//int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
+		ptr.set(bytes, initPos + Bytes.SIZEOF_BYTE, Bytes.SIZEOF_INT);
 	}
 
 }

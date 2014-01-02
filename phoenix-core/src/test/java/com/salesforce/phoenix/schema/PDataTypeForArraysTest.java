@@ -155,6 +155,28 @@ public class PDataTypeForArraysTest {
 		System.arraycopy(bs, offset, res, 0, length);
 		assertEquals("ranzzz", Bytes.toString(res));
 	}
+	
+	@Test
+	public void testGetArrayLength() {
+		String[] strArr = new String[5];
+		strArr[0] = "abx";
+		strArr[1] = "ereref";
+		strArr[2] = "random";
+		strArr[3] = "random12";
+		strArr[4] = "ranzzz";
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.VARCHAR, strArr);
+		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
+		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
+		PArrayDataType.getArrayElement(ptr, PDataType.VARCHAR);
+		int offset = ptr.getOffset();
+		int length = ptr.getLength();
+		byte[] bs = ptr.get();
+		byte[] res = new byte[length];
+		System.arraycopy(bs, offset, res, 0, length);
+		int result = Bytes.toInt(res, 0, 4);
+		assertEquals(5, result);
+	}
 
 	@Test
 	public void testForVarCharArrayForOddNumberWithIndex() {
