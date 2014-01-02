@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -38,7 +37,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.junit.Test;
 
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -49,16 +47,6 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @since 2.0
  */
 public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
-    
-//    private void dropTable(String url, String tableName) throws SQLException {
-//        Connection conn = DriverManager.getConnection(url);
-//        try {
-//            conn.createStatement().execute("DROP TABLE IF EXISTS " + tableName);
-//        }
-//        finally {
-//            conn.close();
-//        }
-//    }
     
     @Test
     public void testBasicUpsertSelect() throws Exception {
@@ -73,10 +61,6 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             assertTrue("Expected 1 row in result set", rs.next());
             assertEquals("Cheap Sunglasses", rs.getString(1));
             assertFalse("Expected 1 row in result set", rs.next());
-            
-            // ensure we didn't create a physical HBase table for the tenant-specific table
-            HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
-            assertEquals(0, admin.listTables(TENANT_TABLE_NAME).length);
         }
         finally {
             conn.close();
@@ -88,8 +72,10 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("delete from " + PARENT_TABLE_NAME);
             conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', '" + TENANT_TYPE_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 1, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
@@ -113,8 +99,10 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("delete from " + PARENT_TABLE_NAME);
             conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', '" + TENANT_TYPE_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 1, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
@@ -129,7 +117,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             conn = DriverManager.getConnection(getUrl());
             rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME);
             rs.next();
-            assertEquals(1, rs.getInt(1));
+            assertEquals(2, rs.getInt(1));
         }
         finally {
             conn.close();
@@ -143,8 +131,11 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
         Connection conn = DriverManager.getConnection(getUrl(), props);
         try {
             conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("delete from " + PARENT_TABLE_NAME);
             conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'abc', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', '" + TENANT_TYPE_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 1, 'Billy Gibbons')");
+            
             conn.close();
             
             props = new Properties();
@@ -158,7 +149,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             conn = DriverManager.getConnection(getUrl(), props);
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME);
             rs.next();
-            assertEquals(1, rs.getInt(1));
+            assertEquals(2, rs.getInt(1));
         }
         finally {
             conn.close();
@@ -170,14 +161,44 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
         Connection conn = DriverManager.getConnection(getUrl());
         try {
             conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("delete from " + PARENT_TABLE_NAME);
             conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'aaa', 1, 'Bon Scott')");
-            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'abc', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', '" + TENANT_TYPE_ID + "', 1, 'Billy Gibbons')");
             conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 2, 'Billy Gibbons')");
             conn.close();
             
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
             conn.setAutoCommit(true);
             int count = conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + "(id, user) select id+100, user from " + TENANT_TABLE_NAME);
+            assertEquals("Expected 1 row to have been inserted", 1, count);
+            
+            ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
+            rs.next();
+            assertEquals(2, rs.getInt(1));
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testUpsertSelectOnlyUpsertsTenantDataWithDifferentTenantTable() throws Exception {
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE ANOTHER_TENANT_TABLE ( " + 
+            "tenant_col VARCHAR) BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='def'", null, nextTimestamp(), false);
+        tenantTableNames.add("ANOTHER_TENANT_TABLE");
+        
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            conn.setAutoCommit(true);
+            conn.createStatement().executeUpdate("delete from " + PARENT_TABLE_NAME);
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('AC/DC', 'aaa', 1, 'Bon Scott')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', '" + TENANT_TYPE_ID + "', 1, 'Billy Gibbons')");
+            conn.createStatement().executeUpdate("upsert into " + PARENT_TABLE_NAME + " (tenant_id, tenant_type_id, id, user) values ('" + TENANT_ID + "', 'def', 2, 'Billy Gibbons')");
+            conn.close();
+            
+            conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+            conn.setAutoCommit(true);
+            int count = conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + "(id, user) select id+100, user from ANOTHER_TENANT_TABLE where id=2");
             assertEquals("Expected 1 row to have been inserted", 1, count);
             
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + TENANT_TABLE_NAME);
@@ -235,6 +256,4 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             conn.close();
         }
     }
-    
-
 }
