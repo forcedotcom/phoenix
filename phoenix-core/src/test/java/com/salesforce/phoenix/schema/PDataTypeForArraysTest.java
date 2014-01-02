@@ -157,7 +157,7 @@ public class PDataTypeForArraysTest {
 	}
 	
 	@Test
-	public void testGetArrayLength() {
+	public void testGetArrayLengthForVariableLengthArray() {
 		String[] strArr = new String[5];
 		strArr[0] = "abx";
 		strArr[1] = "ereref";
@@ -168,13 +168,7 @@ public class PDataTypeForArraysTest {
 				PDataType.VARCHAR, strArr);
 		byte[] bytes = PDataType.VARCHAR_ARRAY.toBytes(arr);
 		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
-		PArrayDataType.getArrayElement(ptr, PDataType.VARCHAR);
-		int offset = ptr.getOffset();
-		int length = ptr.getLength();
-		byte[] bs = ptr.get();
-		byte[] res = new byte[length];
-		System.arraycopy(bs, offset, res, 0, length);
-		int result = Bytes.toInt(res, 0, 4);
+		int result = PArrayDataType.getArrayLength(ptr, PDataType.VARCHAR);
 		assertEquals(5, result);
 	}
 
@@ -254,6 +248,22 @@ public class PDataTypeForArraysTest {
 		System.arraycopy(bs, offset, res, 0, length);
 		long result = (Long) PDataType.LONG.toObject(res);
 		assertEquals(4l, result);
+	}
+	
+	@Test
+	public void testGetArrayLengthForFixedLengthArray() {
+		Long[] longArr = new Long[4];
+		longArr[0] = 1l;
+		longArr[1] = 2l;
+		longArr[2] = 4l;
+		longArr[3] = 5l;
+		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
+				PDataType.LONG, longArr);
+		PDataType.LONG_ARRAY.toObject(arr, PDataType.LONG_ARRAY);
+		byte[] bytes = PDataType.LONG_ARRAY.toBytes(arr);
+		ImmutableBytesWritable ptr = new ImmutableBytesWritable(bytes);
+		int length = PArrayDataType.getArrayLength(ptr, PDataType.LONG);
+		assertEquals(4, length);
 	}
 
 	@Test

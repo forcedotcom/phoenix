@@ -62,14 +62,17 @@ public class ArrayLengthFunction extends ScalarFunction {
 		PDataType baseType = PDataType.fromTypeId(children.get(0).getDataType()
 				.getSqlType()
 				- Types.ARRAY);
-		PArrayDataType.getArrayElement(ptr, baseType);
+		int length = PArrayDataType.getArrayLength(ptr, baseType);
+		byte[] lengthBuf = new byte[PDataType.INTEGER.getByteSize()];
+		PDataType.INTEGER.getCodec().encodeInt(length, lengthBuf, 0);
+		ptr.set(lengthBuf);
 		return true;
 	}
 
 	@Override
 	public PDataType getDataType() {
 		// Array length will return an Integer
-		return PDataType.VARBINARY;
+		return PDataType.INTEGER;
 	}
 
 	@Override

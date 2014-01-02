@@ -151,15 +151,7 @@ public class PArrayDataType {
 		byte[] bytes = ptr.get();
 		int initPos = ptr.getOffset();
 		int noOfElements = 0;
-		// As no of elements is written as Vint we need to know how many bytes does this occupy
-/*		try {
-			// One byte for version
-			noOfElements = (int)Bytes.readVLong(bytes, initPos + Bytes.SIZEOF_BYTE);
-		} catch(IOException ioe) {
-			throw new RuntimeException(ioe);
-		}*/
 		noOfElements = Bytes.toInt(bytes, ptr.getOffset() + Bytes.SIZEOF_BYTE, Bytes.SIZEOF_INT);
-		//int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
 		int noOFElementsSize = Bytes.SIZEOF_INT;
 		if(arrayIndex >= noOfElements) {
 			throw new IndexOutOfBoundsException(
@@ -274,7 +266,6 @@ public class PArrayDataType {
         if (buffer == null) return null;
         buffer.put(ARRAY_SERIALIZATION_VERSION);
         buffer.putInt(noOfElements);
-        //ByteBufferUtils.writeVLong(buffer, noOfElements);
         if (byteSize == null) {
             int fillerForOffsetByteArray = buffer.position();
             buffer.position(fillerForOffsetByteArray + Bytes.SIZEOF_INT);
@@ -319,7 +310,6 @@ public class PArrayDataType {
 		ByteBuffer buffer = ByteBuffer.wrap(bytes, offset, length);
 		int initPos = buffer.position();
 		buffer.get();
-		//int noOfElements = (int) ByteBufferUtils.readVLong(buffer);
 		int noOfElements = buffer.getInt();
 		boolean useShort = true;
 		int baseSize = Bytes.SIZEOF_SHORT;
@@ -414,22 +404,13 @@ public class PArrayDataType {
 		return 1;
 	}
 
-	public static void getArrayElement(ImmutableBytesWritable ptr,
+	public static int getArrayLength(ImmutableBytesWritable ptr,
 			PDataType baseType) {
 		byte[] bytes = ptr.get();
-		int initPos = ptr.getOffset();
-		/* int noOfElements = 0;
-		// As no of elements is written as Vint we need to know how many bytes does this occupy
-		try {
-			// One byte for version
-			noOfElements = (int)Bytes.readVLong(bytes, initPos + Bytes.SIZEOF_BYTE);
-		} catch(IOException ioe) {
-			throw new RuntimeException(ioe);
+		if(baseType.isFixedWidth()) {
+			return ((ptr.getLength() - (Bytes.SIZEOF_BYTE + Bytes.SIZEOF_INT))/baseType.getByteSize());
 		}
-		int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);*/
-		int noOfElements = Bytes.toInt(bytes, ptr.getOffset() + Bytes.SIZEOF_BYTE);
-		//int noOFElementsSize = WritableUtils.getVIntSize(noOfElements);
-		ptr.set(bytes, initPos + Bytes.SIZEOF_BYTE, Bytes.SIZEOF_INT);
+		return Bytes.toInt(bytes, ptr.getOffset() + Bytes.SIZEOF_BYTE);
 	}
 
 }

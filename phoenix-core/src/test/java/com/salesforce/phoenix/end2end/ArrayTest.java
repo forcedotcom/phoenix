@@ -427,13 +427,38 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 	}
 
 	@Test
-	public void testArrayLengthFunction() throws Exception {
+	public void testArrayLengthFunctionForVariableLength() throws Exception {
 		long ts = nextTimestamp();
 		String tenantId = getOrganizationId();
 		createTableWithArray(BaseConnectedQueryTest.getUrl(),
 				getDefaultSplits(tenantId), null, ts - 2);
 		initTablesWithArrays(tenantId, null, ts, false);
 		String query = "SELECT ARRAY_LENGTH(a_string_array) FROM table_with_array";
+		Properties props = new Properties(TEST_PROPERTIES);
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+				Long.toString(ts + 2)); // Execute at timestamp 2
+		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+		try {
+			PreparedStatement statement = conn.prepareStatement(query);
+			ResultSet rs = statement.executeQuery();
+			assertTrue(rs.next());			
+			int result = rs.getInt(1);
+			assertEquals(result, 4);
+			assertFalse(rs.next());
+		} finally {
+			conn.close();
+		}
+	}
+	
+
+	@Test
+	public void testArrayLengthFunctionForFixedLength() throws Exception {
+		long ts = nextTimestamp();
+		String tenantId = getOrganizationId();
+		createTableWithArray(BaseConnectedQueryTest.getUrl(),
+				getDefaultSplits(tenantId), null, ts - 2);
+		initTablesWithArrays(tenantId, null, ts, false);
+		String query = "SELECT ARRAY_LENGTH(a_double_array) FROM table_with_array";
 		Properties props = new Properties(TEST_PROPERTIES);
 		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
 				Long.toString(ts + 2)); // Execute at timestamp 2
