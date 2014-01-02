@@ -9,7 +9,7 @@ Become the standard means of accessing HBase data through a well-defined, indust
 Tired of reading already and just want to get started? Take a look at our [FAQs](faq.html), listen to the Phoenix talks from [Hadoop Summit 2013](http://www.youtube.com/watch?v=YHsHdQ08trg) and [HBaseConn 2013](http://www.cloudera.com/content/cloudera/en/resources/library/hbasecon/hbasecon-2013--how-and-why-phoenix-puts-the-sql-back-into-nosql-video.html), and jump over to our quick start guide [here](Phoenix-in-15-minutes-or-less.html).
 
 ##SQL Support##
-To see what's supported, go to our [language reference](language/). It includes all typical SQL query statement clauses, including `SELECT`, `FROM`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, etc. It also supports a full set of DML commands as well as table creation and versioned incremental alterations through our DDL commands. We try to follow the SQL standards wherever possible.
+To see what's supported, go to our [language reference](grammar.html). It includes all typical SQL query statement clauses, including `SELECT`, `FROM`, `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, etc. It also supports a full set of DML commands as well as table creation and versioned incremental alterations through our DDL commands. We try to follow the SQL standards wherever possible.
 
 <a id="connStr"></a>Use JDBC to get a connection to an HBase cluster like this:
 

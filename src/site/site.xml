@@ -27,15 +27,6 @@
     <version>1.0.0</version>
   </skin>
 
-    <bannerLeft>
-        <name></name>
-    </bannerLeft>
-    <bannerRight>
-        <name>Phoenix</name>
-        <src>images/logo.png</src>
-        <href>http://phoenix.incubator.apache.org/</href>
-    </bannerRight>
-
   <custom>
     <reflowSkin>
     <smoothScroll>true</smoothScroll>
@@ -49,7 +40,7 @@
     <titleTemplate>%2$s | %1$s</titleTemplate>
     <topNav>Phoenix|Using Phoenix|Language Reference</topNav>
     <brand>
-      <name>Apache Phoenix</name>
+        <name><![CDATA[<img src="images/topbar-logo.png"/>]]></name>
       <href>index.html</href>
     </brand>
     <skinAttribution>false</skinAttribution>
@@ -60,7 +51,6 @@
 
         <menu name="Phoenix">
             <item href="index.html" name="Overview"/>
-            <item href="download.html" name="Download" />
             <item href="recent.html" name="New Features"/>
             <item href="roadmap.html" name="Roadmap"/>
             <item href="performance.html" name="Performance"/>
@@ -68,6 +58,7 @@
             <item href="mailing_list.html" name="Mailing Lists"/>
             <item href="source.html" name="Source Repository"/>
             <item href="issues.html" name="Issue Tracking"/>
+            <item href="download.html" name="Download" />
         </menu>
         <menu name="Using Phoenix">
             <item href="faq.html" name="F.A.Q."/>

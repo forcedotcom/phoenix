@@ -15,7 +15,7 @@ To install a pre-built phoenix, use these directions:
 * Add the phoenix-[version]-client.jar to the classpath of any Phoenix client.
 
 ### Getting Started ###
-Wanted to get started quickly? Take a look at our [FAQs](faq.html) and take our quick start guide [here](phoenix-in-15-minutes-or-less.html).
+Wanted to get started quickly? Take a look at our [FAQs](faq.html) and take our quick start guide [here](Phoenix-in-15-minutes-or-less.html).
 
 <h4>Command Line</h4>
 
