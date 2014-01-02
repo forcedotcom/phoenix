@@ -15,7 +15,7 @@
 
 ### I want to get started. Is there a Phoenix _Hello World_?
 
-*Pre-requisite:* Download latest Phoenix from [here](Download.html)
+*Pre-requisite:* Download latest Phoenix from [here](download.html)
 and copy phoenix-*.jar to HBase lib folder and restart HBase.
 
 **1. Using console**
