@@ -127,8 +127,13 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
                 conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
-            conn.setAutoCommit(true);
-            conn.createStatement().execute("DELETE FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
+            rs = conn.createStatement().executeQuery("SELECT " 
+                    + PhoenixDatabaseMetaData.SEQUENCE_SCHEMA + "," 
+                    + PhoenixDatabaseMetaData.SEQUENCE_NAME 
+                    + " FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
+            while (rs.next()) {
+                conn.createStatement().execute("DROP SEQUENCE " + SchemaUtil.getTableName(rs.getString(1), rs.getString(2)));
+            }
         } finally {
             conn.close();
         }

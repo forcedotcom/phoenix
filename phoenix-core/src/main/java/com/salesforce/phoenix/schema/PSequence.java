@@ -27,24 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-public final class SequenceValue {
-    public final long incrementBy;
-    public final long startWith;
-    public final long timestamp;
-    
-    public long currentValue;
-    public long nextValue;
-    public int referenceCount = 1;
-    
-    public SequenceValue(long incrementBy, long startWith, long timestamp) {
-        this.incrementBy = incrementBy;
-        this.startWith = startWith;
-        this.timestamp = timestamp;
-    }
-
-    public SequenceValue(PSequence sequence) {
-        this.incrementBy = sequence.getIncrementBy();
-        this.startWith = sequence.getStartWith();
-        this.timestamp = sequence.getTimeStamp();
-    }
+public interface PSequence {
+    long getIncrementBy();
+    long getStartWith();
+    long getTimeStamp();
 }

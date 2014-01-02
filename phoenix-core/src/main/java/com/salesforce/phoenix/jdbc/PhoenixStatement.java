@@ -1281,7 +1281,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         // it's detected that a sequence no longer exists.
         PMetaData metaData = connection.getPMetaData();
         for (TableName sequence : sequences) {
-            if (metaData.getSequenceIncrementValue(sequence) == null) {
+            if (metaData.getSequence(sequence) == null) {
                 return true;
             }
         }
@@ -1294,7 +1294,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         // don't mess up our reference counting.
         if (initSequencesRequired(sequences)) {
             this.sequences = sequences;
-            connection.initSequences(sequences);
+            connection.initSequences(sequences, true);
         }
     }
 

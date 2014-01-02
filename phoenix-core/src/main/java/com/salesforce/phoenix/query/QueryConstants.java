@@ -62,6 +62,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SEQUENCE_SCHEM
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SOURCE_DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATA_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.SQL_DATETIME_SUB;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.START_WITH;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
@@ -199,9 +200,10 @@ public interface QueryConstants {
             TENANT_ID + " VARCHAR NULL," +
     		SEQUENCE_SCHEMA + " VARCHAR NULL, \n" + 
             SEQUENCE_NAME +  " VARCHAR NOT NULL, \n" +
+            START_WITH + " BIGINT NOT NULL, \n" + 
     		CURRENT_VALUE + " BIGINT NOT NULL, \n" + 
             INCREMENT_BY  + " BIGINT NOT NULL \n" + 
     		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + "," + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
-    		HConstants.VERSIONS + "=" + 1 + "\n";
+    		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + "\n";
 	
 }

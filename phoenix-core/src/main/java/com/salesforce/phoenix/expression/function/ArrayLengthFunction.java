@@ -25,77 +25,59 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.compile;
+package com.salesforce.phoenix.expression.function;
 
-
-import java.sql.SQLException;
+import java.sql.Types;
+import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
+@BuiltInFunction(name = ArrayLengthFunction.NAME, args = { @Argument(allowedTypes = {
+		PDataType.BINARY_ARRAY, PDataType.VARBINARY_ARRAY }) })
+public class ArrayLengthFunction extends ScalarFunction {
+	public static final String NAME = "ARRAY_LENGTH";
 
+	public ArrayLengthFunction() {
+	}
 
-/**
- * 
- * Projector for getting value from a select statement for an expression
- *
- * @author jtaylor
- * @since 0.1
- */
-public class ExpressionProjector implements ColumnProjector {
-    private final String name;
-    private final Expression expression;
-    private final String tableName;
-    private final boolean isCaseSensitive;
-    
-    public ExpressionProjector(String name, String tableName, Expression expression, boolean isCaseSensitive) {
-        this.name = name;
-        this.expression = expression;
-        this.tableName = tableName;
-        this.isCaseSensitive = isCaseSensitive;
-    }
-    
-    @Override
-    public String getTableName() {
-        return tableName;
-    }
+	public ArrayLengthFunction(List<Expression> children) {
+		super(children);
+	}
 
-    @Override
-    public Expression getExpression() {
-        return expression;
-    }
+	@Override
+	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+		Expression arrayExpr = children.get(0);
+		if (!arrayExpr.evaluate(tuple, ptr)) {
+			return false;
+		} else if (ptr.getLength() == 0) {
+			return true;
+		}
+		PDataType baseType = PDataType.fromTypeId(children.get(0).getDataType()
+				.getSqlType()
+				- Types.ARRAY);
+		int length = PArrayDataType.getArrayLength(ptr, baseType);
+		byte[] lengthBuf = new byte[PDataType.INTEGER.getByteSize()];
+		PDataType.INTEGER.getCodec().encodeInt(length, lengthBuf, 0);
+		ptr.set(lengthBuf);
+		return true;
+	}
 
-    @Override
-    public String getName() {
-        return name;
-    }
+	@Override
+	public PDataType getDataType() {
+		// Array length will return an Integer
+		return PDataType.INTEGER;
+	}
 
-    @Override
-    public final Object getValue(Tuple tuple, PDataType type, ImmutableBytesWritable ptr) throws SQLException {
-        try {
-            Expression expression = getExpression();
-            if (!expression.evaluate(tuple, ptr)) {
-                return null;
-            }
-            if (ptr.getLength() == 0) {
-                return null;
-            }        
-            return type.toObject(ptr, expression.getDataType(), expression.getColumnModifier());
-        } catch (RuntimeException e) {
-            // FIXME: Expression.evaluate does not throw SQLException
-            // so this will unwrap throws from that.
-            if (e.getCause() instanceof SQLException) {
-                throw (SQLException) e.getCause();
-            }
-            throw e;
-        }
-    }
+	@Override
+	public String getName() {
+		return NAME;
+	}
 
-    @Override
-    public boolean isCaseSensitive() {
-        return isCaseSensitive;
-    }
 }

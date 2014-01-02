@@ -92,6 +92,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -109,16 +110,19 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
 public class QueryTest extends BaseClientMangedTimeTest {
     private static final String tenantId = getOrganizationId();
     private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
+    private static final long BATCH_SIZE = 3;
     
     @BeforeClass
     public static void doSetup() throws Exception {
         int targetQueryConcurrency = 2;
         int maxQueryConcurrency = 3;
-        Map<String,String> props = Maps.newHashMapWithExpectedSize(3);
+        Map<String,String> props = Maps.newHashMapWithExpectedSize(5);
         props.put(QueryServices.QUEUE_SIZE_ATTRIB, Integer.toString(100));
         props.put(QueryServices.MAX_QUERY_CONCURRENCY_ATTRIB, Integer.toString(maxQueryConcurrency));
         props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
         props.put(IndexWriterUtils.HTABLE_THREAD_KEY, Integer.toString(100));
+        // Make a small batch size to test multiple calls to reserve sequences
+        props.put(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB, Long.toString(BATCH_SIZE));
         
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
@@ -873,6 +877,72 @@ public class QueryTest extends BaseClientMangedTimeTest {
         assertFalse(rs.next());
         conn.close();
     }
+
+    @Test
+    public void testPointInTimeSequence() throws Exception {
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn;
+        ResultSet rs;
+
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+5));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("CREATE SEQUENCE s");
+        
+        try {
+            conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+            fail();
+        } catch (SequenceNotFoundException e) {
+            conn.close();
+        }
+        
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+10));
+        conn = DriverManager.getConnection(getUrl(), props);
+        rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+        conn.close();
+        
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+7));
+        conn = DriverManager.getConnection(getUrl(), props);
+        rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+        assertTrue(rs.next());
+        assertEquals(2, rs.getInt(1));
+        conn.close();
+        
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+15));
+        conn = DriverManager.getConnection(getUrl(), props);
+        conn.createStatement().execute("DROP SEQUENCE s");
+        rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+        assertTrue(rs.next());
+        assertEquals(3, rs.getInt(1));
+        conn.close();
+
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+20));
+        conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+            fail();
+        } catch (SequenceNotFoundException e) {
+            conn.close();            
+        }
+        
+        conn.createStatement().execute("CREATE SEQUENCE s");
+        conn.close();
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+25));
+        conn = DriverManager.getConnection(getUrl(), props);
+        rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+        assertTrue(rs.next());
+        assertEquals(1, rs.getInt(1));
+        conn.close();
+
+        props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+6));
+        conn = DriverManager.getConnection(getUrl(), props);
+        rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
+        assertTrue(rs.next());
+        assertEquals(4, rs.getInt(1));
+        conn.close();
+    }
+    
 
     @SuppressWarnings("unchecked")
     @Test

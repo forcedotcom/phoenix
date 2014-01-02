@@ -93,9 +93,9 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     boolean hasInvalidIndexConfiguration();
     
-    boolean createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy) throws SQLException;
-    boolean dropSequence(String tenantId, String schemaName, String sequenceName) throws SQLException;
-    void initSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences) throws SQLException;
-    List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, long batchSize) throws SQLException;
-    void returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences) throws SQLException;
+    Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp) throws SQLException;
+    Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException;
+    Map<TableName, SequenceValue> initSequences(String tenantId, List<TableName> sequences, long timestamp) throws SQLException;
+    List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException;
+    List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp) throws SQLException;
 }

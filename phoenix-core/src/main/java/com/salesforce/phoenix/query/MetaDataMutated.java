@@ -33,6 +33,7 @@ import java.util.List;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PSequence;
 import com.salesforce.phoenix.schema.PTable;
 
 
@@ -48,5 +49,6 @@ public interface MetaDataMutated {
     PMetaData removeTable(String tableName) throws SQLException;
     PMetaData addColumn(String tableName, List<PColumn> columns, long tableTimeStamp, long tableSeqNum, boolean isImmutableRows) throws SQLException;
     PMetaData removeColumn(String tableName, String familyName, String columnName, long tableTimeStamp, long tableSeqNum) throws SQLException;
-    PMetaData setSequenceIncrementValue(TableName name, Long value);
+    PMetaData addSequence(TableName name, PSequence sequence) throws SQLException;
+    PMetaData removeSequence(TableName name, long timestamp) throws SQLException;
 }

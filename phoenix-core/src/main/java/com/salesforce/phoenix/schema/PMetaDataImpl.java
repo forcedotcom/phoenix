@@ -38,11 +38,11 @@ import com.google.common.collect.Maps;
 import com.salesforce.phoenix.parse.TableName;
 
 public class PMetaDataImpl implements PMetaData {
-    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap(), Collections.<TableName, Long>emptyMap());
+    public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap(), Collections.<TableName, PSequence>emptyMap());
     private final Map<String,PTable> metaData;
-    private final Map<TableName, Long> sequences;
+    private final Map<TableName, PSequence> sequences;
     
-    public PMetaDataImpl(Map<String,PTable> tables, Map<TableName, Long> sequences) {
+    public PMetaDataImpl(Map<String,PTable> tables, Map<TableName, PSequence> sequences) {
         this.metaData = ImmutableMap.copyOf(tables);
         this.sequences = ImmutableMap.copyOf(sequences);
     }
@@ -154,28 +154,31 @@ public class PMetaDataImpl implements PMetaData {
     }
 
     @Override
-    public Long getSequenceIncrementValue(TableName name) {		
+    public PSequence getSequence(TableName name) {		
     	return sequences.get(name);
     }
 
     @Override
-    public PMetaData setSequenceIncrementValue(TableName name, Long incrementBy) {
-        Map<TableName, Long> sequences = Maps.newHashMap(this.sequences);
-        if (incrementBy == null) {
-            if (sequences.remove(name) == null) {
-                return this; 
-            }
-        } else {
-            Long oldIncrementBy = sequences.put(name, incrementBy);
-            if (oldIncrementBy != null && oldIncrementBy.equals(incrementBy)) {
-                return this;
-            }
+    public PMetaData addSequence(TableName name, PSequence sequence) throws SQLException {
+        Map<TableName, PSequence> sequences = Maps.newHashMap(this.sequences);
+        if (sequence == null) {
+            throw new NullPointerException();
+        } 
+        sequences.put(name, sequence);
+        return new PMetaDataImpl(metaData, sequences);
+    }
+
+    @Override
+    public PMetaData removeSequence(TableName name, long timestamp) throws SQLException {
+        Map<TableName, PSequence> sequences = Maps.newHashMap(this.sequences);
+        if (sequences.remove(name) == null) {
+            return this;
         }
         return new PMetaDataImpl(metaData, sequences);
     }
 
     @Override
-    public Map<TableName, Long> getSequenceIncrementValues() {
+    public Map<TableName, PSequence> getSequences() {
         return sequences;
     }
 }

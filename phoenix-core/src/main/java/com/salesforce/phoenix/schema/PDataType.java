@@ -41,7 +41,6 @@ import java.util.Map;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Base64;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.WritableUtils;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
@@ -5312,7 +5311,8 @@ public enum PDataType {
         if(isArrayType()) {
             PhoenixArray array = (PhoenixArray)o;
             int noOfElements = array.numElements;
-            int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            //int vIntSize = WritableUtils.getVIntSize(noOfElements);
+            int vIntSize = Bytes.SIZEOF_INT;
 
             int totalVarSize = 0;
             for (int i = 0; i < noOfElements; i++) {
