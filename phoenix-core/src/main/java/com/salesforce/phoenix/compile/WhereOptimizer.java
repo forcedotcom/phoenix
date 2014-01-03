@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static java.util.Collections.singletonList;
+
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -65,6 +67,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.SaltingUtil;
@@ -101,7 +104,9 @@ public class WhereOptimizer {
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, FilterableStatement statement,
             Expression whereClause, Set<Expression> extractNodes) {
-        if (whereClause == null) {
+        // TODO: Single table for now
+        PTable table = context.getResolver().getTables().get(0).getTable();
+        if (whereClause == null && ! table.isTenantSpecificTable()) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
@@ -109,26 +114,30 @@ public class WhereOptimizer {
             context.setScanRanges(ScanRanges.NOTHING);
             return null;
         }
-        // TODO: Single table for now
-        PTable table = context.getResolver().getTables().get(0).getTable();
         KeyExpressionVisitor visitor = new KeyExpressionVisitor(context, table);
-        // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
-        // instead of an array of slots for the corresponding column. Change the behavior so it
-        // becomes consistent.
-        KeyExpressionVisitor.KeySlots keySlots = whereClause.accept(visitor);
-
+        KeyExpressionVisitor.KeySlots keySlots = null;
+        if (whereClause != null) {
+            // TODO:: When we only have one where clause, the keySlots returns as a single slot object,
+            // instead of an array of slots for the corresponding column. Change the behavior so it
+            // becomes consistent.
+            keySlots = whereClause.accept(visitor);
+    
+            if (keySlots == null && ! table.isTenantSpecificTable()) {
+                context.setScanRanges(ScanRanges.EVERYTHING);
+                return whereClause;
+            }
+            // If a parameter is bound to null (as will be the case for calculating ResultSetMetaData and
+            // ParameterMetaData), this will be the case. It can also happen for an equality comparison
+            // for unequal lengths.
+            if (keySlots == KeyExpressionVisitor.DEGENERATE_KEY_PARTS) {
+                context.setScanRanges(ScanRanges.NOTHING);
+                return null;
+            }
+        }
         if (keySlots == null) {
-            context.setScanRanges(ScanRanges.EVERYTHING);
-            return whereClause;
+            keySlots = KeyExpressionVisitor.DEGENERATE_KEY_PARTS;
         }
-        // If a parameter is bound to null (as will be the case for calculating ResultSetMetaData and
-        // ParameterMetaData), this will be the case. It can also happen for an equality comparison
-        // for unequal lengths.
-        if (keySlots == KeyExpressionVisitor.DEGENERATE_KEY_PARTS) {
-            context.setScanRanges(ScanRanges.NOTHING);
-            return null;
-        }
-
+        
         if (extractNodes == null) {
             extractNodes = new HashSet<Expression>(table.getPKColumns().size());
         }
@@ -142,6 +151,16 @@ public class WhereOptimizer {
         boolean forcedRangeScan = statement.getHint().hasHint(Hint.RANGE_SCAN);
         boolean hasUnboundedRange = false;
         boolean hasAnyRange = false;
+        
+        // add tenant data isolation for tenant-specific tables
+        if (table.isTenantSpecificTable() && table.isTenantSpecificTable()) {
+            // tenant id and tenant type id are always first parts of a pk
+            PName tenantId = context.getConnection().getTenantId();
+            KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
+            cnf.add(singletonList(tenantIdKeyRange));
+            KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTenantTypeId().getBytes());
+            cnf.add(singletonList(tenantTypeIdKeyRange));
+        }
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {
             // If the position of the pk columns in the query skips any part of the row k
@@ -206,7 +225,11 @@ public class WhereOptimizer {
         context.setScanRanges(
                 ScanRanges.create(ranges, schema, statement.getHint().hasHint(Hint.RANGE_SCAN)),
                 keySlots.getMinMaxRange());
-        return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+        if (whereClause == null) {
+            return null;
+        } else {
+            return whereClause.accept(new RemoveExtractedNodesVisitor(extractNodes));
+        }
     }
 
     private static class RemoveExtractedNodesVisitor extends TraverseNoExpressionVisitor<Expression> {
