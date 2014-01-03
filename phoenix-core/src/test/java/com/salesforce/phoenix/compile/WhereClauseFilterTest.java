@@ -931,11 +931,24 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         SQLParser parser = new SQLParser(query);
         SelectStatement select = parser.parseQuery();
         Scan scan = new Scan();
-        List<Object> binds = Arrays.<Object>asList(tenantId);
+        List<Object> binds = emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
         ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
         StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
         select = compileStatement(context, select, resolver, binds, scan, 0, null);
+        Filter filter = scan.getFilter();
+
+        assertEquals(
+            multiKVFilter(and(
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_INTEGER,
+                    0),
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_STRING,
+                    "foo"))),
+            filter);
         
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + tenantTypeId);
         assertArrayEquals(startRow, scan.getStartRow());
