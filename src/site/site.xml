@@ -31,25 +31,27 @@
     <reflowSkin>
     <smoothScroll>true</smoothScroll>
     <bottomNav maxSpan="9" >
-        <column>Phoenix</column>
-        <column>Using Phoenix</column>
-        <column>Language Reference</column>
+        <column>About</column>
+        <column>Using</column>
+        <column>Reference</column>
     </bottomNav>
     <theme>bootswatch-united</theme>
     <highlightJs>true</highlightJs>
     <titleTemplate>%2$s | %1$s</titleTemplate>
-    <topNav>Phoenix|Using Phoenix|Language Reference</topNav>
     <brand>
         <name><![CDATA[<img src="images/topbar-logo.png"/>]]></name>
       <href>index.html</href>
     </brand>
     <skinAttribution>false</skinAttribution>
     <breadcrumbs>true</breadcrumbs>
+      <bottomDescription quote="false">
+        <![CDATA[<form action="https://www.google.com/search" method="get"><input value="phoenix.incubator.apache.org" name="sitesearch" type="hidden"><input placeholder="Search the site&hellip;" required="required" size="18" name="q" id="query" type="search"></form>]]>
+      </bottomDescription>
     </reflowSkin>
   </custom>
     <body>
 
-        <menu name="Phoenix">
+        <menu name="About">
             <item href="index.html" name="Overview"/>
             <item href="recent.html" name="New Features"/>
             <item href="roadmap.html" name="Roadmap"/>
@@ -60,7 +62,7 @@
             <item href="issues.html" name="Issue Tracking"/>
             <item href="download.html" name="Download" />
         </menu>
-        <menu name="Using Phoenix">
+        <menu name="Using">
             <item href="faq.html" name="F.A.Q."/>
             <item href="Phoenix-in-15-minutes-or-less.html" name="Phoenix Quick Start"/>
             <item href="tuning.html" name="Configuration and Tuning"/>
@@ -74,7 +76,7 @@
             <item href="mr_dataload.html" name="Bulk CSV via M/R"/>
             <item href="flume.html" name="Apache Flume Plugin"/>
         </menu>
-        <menu name="Language Reference">
+        <menu name="Reference">
             <item href="grammar.html" name="Grammar"/>
             <item href="functions.html" name="Functions"/>
             <item href="datatypes.html" name="Datatypes"/>
