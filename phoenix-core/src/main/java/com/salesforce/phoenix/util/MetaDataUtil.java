@@ -183,31 +183,29 @@ public class MetaDataUtil {
     }
     
     public static Mutation getTableHeaderRow(List<Mutation> tableMetaData) {
-    	return tableMetaData.get(0);
+        return tableMetaData.get(0);
     }
-    
+
     private static byte[] getMutationKVByteValue(Mutation headerRow, byte[] key) {
         List<KeyValue> kvs = headerRow.getFamilyMap().get(PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES);
-	    if (kvs != null) {
+        if (kvs != null) {
             for (KeyValue kv : kvs) {
-                if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), key, 0, key.length) == 0) {
-                	return kv.getValue();
-                }
+                if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), key, 0,
+                        key.length) == 0) { return kv.getValue(); }
             }
         }
-	    return ByteUtil.EMPTY_BYTE_ARRAY;
+        return ByteUtil.EMPTY_BYTE_ARRAY;
     }
-    
+
     /**
-     * Returns the first Put element in <code>tableMetaData</code>.  There could be leading Delete elements before the table header row
+     * Returns the first Put element in <code>tableMetaData</code>. There could be leading Delete elements before the
+     * table header row
      */
     public static Mutation getPutOnlyTableHeaderRow(List<Mutation> tableMetaData) {
-    	for (Mutation m : tableMetaData) {
-    		if (m instanceof Put) {
-    			return m;
-    		}
-    	}
-    	throw new IllegalStateException("No table header row found in table meatadata");
+        for (Mutation m : tableMetaData) {
+            if (m instanceof Put) { return m; }
+        }
+        throw new IllegalStateException("No table header row found in table meatadata");
     }
 
     public static Mutation getParentTableHeaderRow(List<Mutation> tableMetaData) {
