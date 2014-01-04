@@ -156,7 +156,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);
         RegionScanner theScanner = s;
-        if (p != null && j != null)  {
+        if (p != null || j != null)  {
             theScanner = new HashJoinRegionScanner(s, p, j, ScanUtil.getTenantId(scan), c.getEnvironment());
         }
         final RegionScanner innerScanner = theScanner;

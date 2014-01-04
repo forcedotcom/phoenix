@@ -107,4 +107,13 @@ public class SingleKeyValueTuple implements Tuple {
         }
         return keyValue;
     }
+
+    @Override
+    public boolean getValue(byte[] family, byte[] qualifier,
+            ImmutableBytesWritable ptr) {
+        if (keyValue == null)
+            return false;
+        ptr.set(keyValue.getBuffer(), keyValue.getValueOffset(), keyValue.getValueLength());
+        return true;
+    }
 }

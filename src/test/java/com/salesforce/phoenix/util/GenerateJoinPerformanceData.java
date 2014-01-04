@@ -25,66 +25,42 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.util;
 
-import org.apache.hadoop.hbase.HConstants;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.DecimalFormat;
+import java.util.Random;
 
+public class GenerateJoinPerformanceData {
+    private static final String FILENAME = "data.csv";
 
-
-public final class TableRef {
-    private final PTable table;
-    private final String alias;
-    private final long timeStamp;
-    private final boolean hasDynamicCols;
-
-    public TableRef(TableRef tableRef, long timeStamp) {
-        this(tableRef.alias, tableRef.table, timeStamp, tableRef.hasDynamicCols);
+    public static void main(String[] args) throws FileNotFoundException, IOException {
+        FileOutputStream fostream = new FileOutputStream(FILENAME);
+        try {
+            Random random = new Random();
+            DecimalFormat formatter = new DecimalFormat("0000000000");
+            if (args.length < 1) {
+                System.out.println("Row count must be specified as argument");
+                return;
+            }
+            int rowCount = Integer.parseInt(args[0]);
+            int loopMax = args.length < 2 ? rowCount : Integer.parseInt(args[1]);
+            for (int i=0; i<rowCount; i++) {
+                int c1 = i % loopMax;
+                fostream.write((formatter.format(i) + "," + 
+                        formatter.format(c1) + "," + 
+                        formatter.format(random.nextInt(1000))+"," + 
+                        formatter.format(random.nextInt(10000)) + 
+                        "\n").getBytes());
+                if (i % 10000 == 0) {
+                    System.out.print(".");
+                }
+            }
+        } finally {
+            fostream.close();
+        }
     }
     
-    public TableRef(PTable table) {
-        this(null, table, HConstants.LATEST_TIMESTAMP, false);
-    }
-
-    public TableRef(String alias, PTable table, long timeStamp, boolean hasDynamicCols) {
-        this.alias = alias;
-        this.table = table;
-        this.timeStamp = timeStamp;
-        this.hasDynamicCols = hasDynamicCols;
-    }
-    
-    public PTable getTable() {
-        return table;
-    }
-
-    public String getTableAlias() {
-        return alias;
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = this.alias == null ? 0 : this.alias.hashCode();
-        result = prime * result + this.table.getName().getString().hashCode();
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        TableRef other = (TableRef)obj;
-        if ((alias == null && other.alias != null) || (alias != null && !alias.equals(other.alias))) return false;
-        if (!table.getName().getString().equals(other.table.getName().getString())) return false;
-        return true;
-    }
-
-    public long getTimeStamp() {
-        return timeStamp;
-    }
-
-    public boolean hasDynamicCols() {
-        return hasDynamicCols;
-    }
-
 }

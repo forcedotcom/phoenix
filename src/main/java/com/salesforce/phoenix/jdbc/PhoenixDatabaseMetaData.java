@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.lang.StringEscapeUtils;
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -629,17 +628,12 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                                     @Override
                                     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
                                         if (pkNamePtr.get() == unsetValue) {
-                                            KeyValue kv = tuple.getValue(TABLE_FAMILY_BYTES, PK_NAME_BYTES);
-                                            if (kv == null) {
-                                                ptr.set(ByteUtil.EMPTY_BYTE_ARRAY);
+                                            boolean b = tuple.getValue(TABLE_FAMILY_BYTES, PK_NAME_BYTES, pkNamePtr);
+                                            if (!b) {
                                                 pkNamePtr.set(ByteUtil.EMPTY_BYTE_ARRAY);
-                                            } else {
-                                                ptr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
-                                                pkNamePtr.set(kv.getBuffer(),kv.getValueOffset(),kv.getValueLength());
                                             }
-                                        } else {
-                                            ptr.set(pkNamePtr.get(),pkNamePtr.getOffset(),pkNamePtr.getLength());
                                         }
+                                        ptr.set(pkNamePtr.get(),pkNamePtr.getOffset(),pkNamePtr.getLength());
                                         return true;
                                     }
 

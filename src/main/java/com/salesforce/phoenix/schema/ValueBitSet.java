@@ -123,7 +123,7 @@ public class ValueBitSet {
         // size of a short), then serialize the long array followed by the
         // array length.
         if (isVarLength()) {
-            short nLongs = (short)((maxSetBit + BITS_PER_LONG) / BITS_PER_LONG);
+            short nLongs = (short)((maxSetBit + BITS_PER_LONG - 1) / BITS_PER_LONG);
             for (int i = 0; i < nLongs; i++) {
                 offset = Bytes.putLong(b, offset, bits[i]);
             }

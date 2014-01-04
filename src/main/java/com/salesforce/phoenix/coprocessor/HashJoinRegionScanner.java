@@ -28,7 +28,6 @@
 package com.salesforce.phoenix.coprocessor;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -49,11 +48,12 @@ import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
+import com.salesforce.phoenix.join.ScanProjector.ProjectedValueTuple;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.KeyValueSchema;
+import com.salesforce.phoenix.schema.ValueBitSet;
 import com.salesforce.phoenix.schema.tuple.ResultTuple;
-import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.TupleUtil;
 
@@ -62,15 +62,20 @@ public class HashJoinRegionScanner implements RegionScanner {
     private final RegionScanner scanner;
     private final ScanProjector projector;
     private final HashJoinInfo joinInfo;
-    private Queue<List<KeyValue>> resultQueue;
+    private Queue<ProjectedValueTuple> resultQueue;
     private boolean hasMore;
     private HashCache[] hashCaches;
+    private List<Tuple>[] tempTuples;
+    private ValueBitSet tempDestBitSet;
+    private ValueBitSet[] tempSrcBitSet;
     
+    @SuppressWarnings("unchecked")
     public HashJoinRegionScanner(RegionScanner scanner, ScanProjector projector, HashJoinInfo joinInfo, ImmutableBytesWritable tenantId, RegionCoprocessorEnvironment env) throws IOException {
+        assert (projector != null);
         this.scanner = scanner;
         this.projector = projector;
         this.joinInfo = joinInfo;
-        this.resultQueue = new LinkedList<List<KeyValue>>();
+        this.resultQueue = new LinkedList<ProjectedValueTuple>();
         this.hasMore = true;
         if (joinInfo != null) {
             for (JoinType type : joinInfo.getJoinTypes()) {
@@ -78,7 +83,10 @@ public class HashJoinRegionScanner implements RegionScanner {
                     throw new IOException("Got join type '" + type + "'. Expect only INNER or LEFT with hash-joins.");
             }
             int count = joinInfo.getJoinIds().length;
+            this.tempTuples = new List[count];
+            this.tempDestBitSet = ValueBitSet.newInstance(joinInfo.getJoinedSchema());
             this.hashCaches = new HashCache[count];
+            this.tempSrcBitSet = new ValueBitSet[count];
             TenantCache cache = GlobalCache.getTenantCache(env, tenantId);
             for (int i = 0; i < count; i++) {
                 ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
@@ -86,94 +94,86 @@ public class HashJoinRegionScanner implements RegionScanner {
                 if (hashCache == null)
                     throw new IOException("Could not find hash cache for joinId: " + Bytes.toString(joinId.get(), joinId.getOffset(), joinId.getLength()));
                 hashCaches[i] = hashCache;
+                tempSrcBitSet[i] = ValueBitSet.newInstance(joinInfo.getSchemas()[i]);
             }
+            this.projector.setValueBitSet(tempDestBitSet);
         }
     }
     
-    @SuppressWarnings("unchecked")
     private void processResults(List<KeyValue> result, boolean hasLimit) throws IOException {
         if (result.isEmpty())
             return;
         
-        if (projector != null) {
-            List<KeyValue> kvs = projector.projectResults(new ResultTuple(new Result(result)));
-            if (joinInfo != null) {
-                result = kvs;
-            } else {
-                resultQueue.offer(kvs);               
-            }
+        ProjectedValueTuple tuple = projector.projectResults(new ResultTuple(new Result(result)));
+        if (joinInfo == null) {
+            resultQueue.offer(tuple);
+            return;
         }
         
-        if (joinInfo != null) {
-            if (hasLimit)
-                throw new UnsupportedOperationException("Cannot support join operations in scans with limit");
-            
-            int count = joinInfo.getJoinIds().length;
-            List<Tuple>[] tuples = new List[count];
-            Tuple tuple = new ResultTuple(new Result(result));
-            boolean cont = true;
-            for (int i = 0; i < count; i++) {
-            	if (!(joinInfo.earlyEvaluation()[i]))
-            		continue;
-                ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
-                tuples[i] = hashCaches[i].get(key);
-                JoinType type = joinInfo.getJoinTypes()[i];
-                if (type == JoinType.Inner && (tuples[i] == null || tuples[i].isEmpty())) {
-                    cont = false;
-                    break;
-                }
+        if (hasLimit)
+            throw new UnsupportedOperationException("Cannot support join operations in scans with limit");
+
+        int count = joinInfo.getJoinIds().length;
+        boolean cont = true;
+        for (int i = 0; i < count; i++) {
+            if (!(joinInfo.earlyEvaluation()[i]))
+                continue;
+            ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(tuple, joinInfo.getJoinExpressions()[i]);
+            tempTuples[i] = hashCaches[i].get(key);
+            JoinType type = joinInfo.getJoinTypes()[i];
+            if (type == JoinType.Inner && (tempTuples[i] == null || tempTuples[i].isEmpty())) {
+                cont = false;
+                break;
             }
-            if (cont) {
-            	KeyValueSchema schema = joinInfo.getJoinedSchema();
-                resultQueue.offer(result);
-                for (int i = 0; i < count; i++) {
-                	boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
-                    if (earlyEvaluation && 
-                    		(tuples[i] == null || tuples[i].isEmpty()))
-                        continue;
-                    int j = resultQueue.size();
-                    while (j-- > 0) {
-                        List<KeyValue> lhs = resultQueue.poll();
-                        if (!earlyEvaluation) {
-                        	Tuple t = new ResultTuple(new Result(lhs));
-                            ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
-                            tuples[i] = hashCaches[i].get(key);                        	
-                            if (tuples[i] == null || tuples[i].isEmpty()) {
-                            	if (joinInfo.getJoinTypes()[i] != JoinType.Inner) {
-                            		resultQueue.offer(lhs);
-                            	}
-                            	continue;
+        }
+        if (cont) {
+            KeyValueSchema schema = joinInfo.getJoinedSchema();
+            resultQueue.offer(tuple);
+            for (int i = 0; i < count; i++) {
+                boolean earlyEvaluation = joinInfo.earlyEvaluation()[i];
+                if (earlyEvaluation && 
+                        (tempTuples[i] == null || tempTuples[i].isEmpty()))
+                    continue;
+                int j = resultQueue.size();
+                while (j-- > 0) {
+                    ProjectedValueTuple lhs = resultQueue.poll();
+                    if (!earlyEvaluation) {
+                        ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(lhs, joinInfo.getJoinExpressions()[i]);
+                        tempTuples[i] = hashCaches[i].get(key);                        	
+                        if (tempTuples[i] == null || tempTuples[i].isEmpty()) {
+                            if (joinInfo.getJoinTypes()[i] != JoinType.Inner) {
+                                resultQueue.offer(lhs);
                             }
-                        }
-                        for (Tuple t : tuples[i]) {
-                            List<KeyValue> joined = ScanProjector.mergeProjectedValue(
-                            		new SingleKeyValueTuple(lhs.get(0)), schema, 
-                            		t, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
-                            resultQueue.offer(joined);
+                            continue;
                         }
                     }
+                    for (Tuple t : tempTuples[i]) {
+                        ProjectedValueTuple joined = ScanProjector.mergeProjectedValue(
+                                lhs, schema, tempDestBitSet,
+                                t, joinInfo.getSchemas()[i], tempSrcBitSet[i], 
+                                joinInfo.getFieldPositions()[i]);
+                        resultQueue.offer(joined);
+                    }
                 }
-                // apply post-join filter
-                Expression postFilter = joinInfo.getPostJoinFilterExpression();
-                for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
-                    List<KeyValue> kvs = iter.next();
-                    if (postFilter != null) {
-                        Tuple t = new ResultTuple(new Result(kvs));
-                        ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
-                        try {
-                            if (!postFilter.evaluate(t, tempPtr)) {
-                                iter.remove();
-                                continue;
-                            }
-                        } catch (IllegalDataException e) {
+            }
+            // apply post-join filter
+            Expression postFilter = joinInfo.getPostJoinFilterExpression();
+            if (postFilter != null) {
+                for (Iterator<ProjectedValueTuple> iter = resultQueue.iterator(); iter.hasNext();) {
+                    ProjectedValueTuple t = iter.next();
+                    ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
+                    try {
+                        if (!postFilter.evaluate(t, tempPtr)) {
                             iter.remove();
                             continue;
                         }
-                        Boolean b = (Boolean)postFilter.getDataType().toObject(tempPtr);
-                        if (!b.booleanValue()) {
-                            iter.remove();
-                            continue;
-                        }
+                    } catch (IllegalDataException e) {
+                        iter.remove();
+                        continue;
+                    }
+                    Boolean b = (Boolean)postFilter.getDataType().toObject(tempPtr);
+                    if (!b.booleanValue()) {
+                        iter.remove();
                     }
                 }
             }
@@ -191,7 +191,7 @@ public class HashJoinRegionScanner implements RegionScanner {
         if (resultQueue.isEmpty())
             return false;
         
-        results.addAll(resultQueue.poll());
+        results.add(resultQueue.poll().getValue(0));
         return resultQueue.isEmpty() ? hasMore : true;
     }
 
@@ -213,9 +213,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     @Override
     public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.nextRaw(tempResult, metric);
-            processResults(tempResult, false);
+            hasMore = scanner.nextRaw(result, metric);
+            processResults(result, false);
+            result.clear();
         }
         
         return nextInQueue(result);
@@ -225,9 +225,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     public boolean nextRaw(List<KeyValue> result, int limit, String metric)
             throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.nextRaw(tempResult, limit, metric);
-            processResults(tempResult, true);
+            hasMore = scanner.nextRaw(result, limit, metric);
+            processResults(result, true);
+            result.clear();
         }
         
         return nextInQueue(result);
@@ -246,9 +246,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     @Override
     public boolean next(List<KeyValue> result) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult);
-            processResults(tempResult, false);
+            hasMore = scanner.next(result);
+            processResults(result, false);
+            result.clear();
         }
         
         return nextInQueue(result);
@@ -257,9 +257,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     @Override
     public boolean next(List<KeyValue> result, String metric) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult, metric);
-            processResults(tempResult, false);
+            hasMore = scanner.next(result, metric);
+            processResults(result, false);
+            result.clear();
         }
         
         return nextInQueue(result);
@@ -268,9 +268,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     @Override
     public boolean next(List<KeyValue> result, int limit) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult, limit);
-            processResults(tempResult, true);
+            hasMore = scanner.next(result, limit);
+            processResults(result, true);
+            result.clear();
         }
         
         return nextInQueue(result);
@@ -280,9 +280,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     public boolean next(List<KeyValue> result, int limit, String metric)
             throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult, limit, metric);
-            processResults(tempResult, true);
+            hasMore = scanner.next(result, limit, metric);
+            processResults(result, true);
+            result.clear();
         }
         
         return nextInQueue(result);

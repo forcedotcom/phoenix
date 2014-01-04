@@ -40,7 +40,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
-import com.google.common.collect.ImmutableList;
 import com.salesforce.phoenix.compile.JoinCompiler.ProjectedPTableWrapper;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
@@ -60,7 +59,7 @@ public class ScanProjector {
     
     private final KeyValueSchema schema;
     private final Expression[] expressions;
-    private final ValueBitSet valueSet;
+    private ValueBitSet valueSet;
     private final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     
     public ScanProjector(ProjectedPTableWrapper projected) {
@@ -83,6 +82,10 @@ public class ScanProjector {
     	this.schema = schema;
     	this.expressions = expressions;
     	this.valueSet = ValueBitSet.newInstance(schema);
+    }
+    
+    public void setValueBitSet(ValueBitSet bitSet) {
+        this.valueSet = bitSet;
     }
     
     public static void serializeProjectorIntoScan(Scan scan, ScanProjector projector) {
@@ -138,61 +141,110 @@ public class ScanProjector {
         }
     }
     
-    public List<KeyValue> projectResults(Tuple tuple) {
+    public static class ProjectedValueTuple implements Tuple {
+        private ImmutableBytesWritable keyPtr = new ImmutableBytesWritable();
+        private long timestamp;
+        private byte[] projectedValue;
+        private int bitSetLen;
+        private KeyValue keyValue;
+
+        private ProjectedValueTuple(byte[] keyBuffer, int keyOffset, int keyLength, long timestamp, byte[] projectedValue, int bitSetLen) {
+            this.keyPtr.set(keyBuffer, keyOffset, keyLength);
+            this.timestamp = timestamp;
+            this.projectedValue = projectedValue;
+            this.bitSetLen = bitSetLen;
+        }
+        
+        public ImmutableBytesWritable getKeyPtr() {
+            return keyPtr;
+        }
+        
+        public long getTimestamp() {
+            return timestamp;
+        }
+        
+        public byte[] getProjectedValue() {
+            return projectedValue;
+        }
+        
+        public int getBitSetLength() {
+            return bitSetLen;
+        }
+        
+        @Override
+        public void getKey(ImmutableBytesWritable ptr) {
+            ptr.set(keyPtr.get(), keyPtr.getOffset(), keyPtr.getLength());
+        }
+
+        @Override
+        public KeyValue getValue(int index) {
+            if (index != 0) {
+                throw new IndexOutOfBoundsException(Integer.toString(index));
+            }
+            return getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+        }
+
+        @Override
+        public KeyValue getValue(byte[] family, byte[] qualifier) {
+            if (keyValue == null) {
+                keyValue = KeyValueUtil.newKeyValue(keyPtr.get(), keyPtr.getOffset(), keyPtr.getLength(), 
+                        VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER, timestamp, projectedValue, 0, projectedValue.length);
+            }
+            return keyValue;
+        }
+
+        @Override
+        public boolean getValue(byte[] family, byte[] qualifier,
+                ImmutableBytesWritable ptr) {
+            ptr.set(projectedValue);
+            return true;
+        }
+
+        @Override
+        public boolean isImmutable() {
+            return true;
+        }
+
+        @Override
+        public int size() {
+            return 1;
+        }
+    }
+    
+    public ProjectedValueTuple projectResults(Tuple tuple) {
     	byte[] bytesValue = schema.toBytes(tuple, expressions, valueSet, ptr);
-    	return encodeProjectedValue(bytesValue, valueSet, tuple.getValue(0));
+    	KeyValue base = tuple.getValue(0);
+        return new ProjectedValueTuple(base.getBuffer(), base.getRowOffset(), base.getRowLength(), base.getTimestamp(), bytesValue, valueSet.getEstimatedLength());
     }
     
-    public static List<KeyValue> encodeProjectedValue(byte[] value, ValueBitSet bitSet, KeyValue base) {
-    	byte[] buf = new byte[bitSet.getEstimatedLength()];
-    	int len = bitSet.toBytes(buf, 0);
-    	return encodeProjectedValue(value, len, base);
+    public static void decodeProjectedValue(Tuple tuple, ImmutableBytesWritable ptr) throws IOException {
+    	boolean b = tuple.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER, ptr);
+        if (!b)
+            throw new IOException("Trying to decode a non-projected value.");
     }
     
-    private static List<KeyValue> encodeProjectedValue(byte[] value, int bitSetLen, KeyValue base) {
-    	byte[] encoded = new byte[value.length + Bytes.SIZEOF_INT];
-    	int offset = Bytes.putBytes(encoded, 0, value, 0, value.length);
-    	Bytes.putInt(encoded, offset, bitSetLen);
-        KeyValue kv = KeyValueUtil.newKeyValue(base.getBuffer(), base.getRowOffset(), base.getRowLength(), 
-        		VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER, base.getTimestamp(), encoded, 0, encoded.length);
-        return ImmutableList.of(kv);
-    }
-    
-    public static ImmutableBytesWritable decodeProjectedValue(Tuple tuple) throws IOException {
-    	KeyValue kv = tuple.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
-    	if (kv == null)
-    		throw new IOException("Trying to decode a non-projected value.");
-    	
-    	return new ImmutableBytesWritable(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength() - Bytes.SIZEOF_INT);
-    }
-    
-    public static List<KeyValue> mergeProjectedValue(Tuple dest, KeyValueSchema destSchema, 
-    		Tuple src, KeyValueSchema srcSchema, int offset) throws IOException {
-    	KeyValue destKv = dest.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
-    	if (destKv == null)
-    		throw new IOException("Trying to decode a non-projected value.");
-    	ImmutableBytesWritable destValue = new ImmutableBytesWritable(destKv.getBuffer(), destKv.getValueOffset(), destKv.getValueLength() - Bytes.SIZEOF_INT);
-    	int destBitSetLen = Bytes.toInt(destKv.getBuffer(), destKv.getValueOffset() + destKv.getValueLength() - Bytes.SIZEOF_INT);
-    	ValueBitSet destBitSet = ValueBitSet.newInstance(destSchema);
+    public static ProjectedValueTuple mergeProjectedValue(ProjectedValueTuple dest, KeyValueSchema destSchema, ValueBitSet destBitSet,
+    		Tuple src, KeyValueSchema srcSchema, ValueBitSet srcBitSet, int offset) throws IOException {
+    	ImmutableBytesWritable destValue = new ImmutableBytesWritable(dest.getProjectedValue());
+    	destBitSet.clear();
     	destBitSet.or(destValue);
-    	KeyValue srcKv = src.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
-    	if (srcKv == null)
-    		throw new IOException("Trying to decode a non-projected value.");
-    	ImmutableBytesWritable srcValue = new ImmutableBytesWritable(srcKv.getBuffer(), srcKv.getValueOffset(), srcKv.getValueLength() - Bytes.SIZEOF_INT);
-    	int srcBitSetLen = Bytes.toInt(srcKv.getBuffer(), srcKv.getValueOffset() + srcKv.getValueLength() - Bytes.SIZEOF_INT);
-    	ValueBitSet srcBitSet = ValueBitSet.newInstance(srcSchema);
+    	int origDestBitSetLen = dest.getBitSetLength();
+    	ImmutableBytesWritable srcValue = new ImmutableBytesWritable();
+    	decodeProjectedValue(src, srcValue);
+    	srcBitSet.clear();
     	srcBitSet.or(srcValue);
+    	int origSrcBitSetLen = srcBitSet.getEstimatedLength();
     	for (int i = 0; i < srcBitSet.getMaxSetBit(); i++) {
     		if (srcBitSet.get(i)) {
     			destBitSet.set(offset + i);
     		}
     	}
-    	byte[] buf = new byte[destBitSet.getEstimatedLength()];
-    	int len = destBitSet.toBytes(buf, 0);
-    	byte[] merged = new byte[destValue.getLength() - destBitSetLen + srcValue.getLength() - srcBitSetLen + len];
-    	int o = Bytes.putBytes(merged, 0, destValue.get(), destValue.getOffset(), destValue.getLength() - destBitSetLen);
-    	o = Bytes.putBytes(merged, o, srcValue.get(), srcValue.getOffset(), srcValue.getLength() - srcBitSetLen);
-    	Bytes.putBytes(merged, o, buf, 0, len);
-    	return encodeProjectedValue(merged, len, dest.getValue(0));
+    	int destBitSetLen = destBitSet.getEstimatedLength();
+    	byte[] merged = new byte[destValue.getLength() - origDestBitSetLen + srcValue.getLength() - origSrcBitSetLen + destBitSetLen];
+    	int o = Bytes.putBytes(merged, 0, destValue.get(), destValue.getOffset(), destValue.getLength() - origDestBitSetLen);
+    	o = Bytes.putBytes(merged, o, srcValue.get(), srcValue.getOffset(), srcValue.getLength() - origSrcBitSetLen);
+    	destBitSet.toBytes(merged, o);
+    	ImmutableBytesWritable keyPtr = dest.getKeyPtr();
+        return new ProjectedValueTuple(keyPtr.get(), keyPtr.getOffset(), keyPtr.getLength(), dest.getTimestamp(), merged, destBitSetLen);
     }
 }

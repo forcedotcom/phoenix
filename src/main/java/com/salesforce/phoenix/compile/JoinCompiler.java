@@ -538,8 +538,6 @@ public class JoinCompiler {
                     .setMessage("On-clause LHS expression and RHS expression must be comparable. LHS type: " + lType + ", RHS type: " + rType)
                     .build().buildException();
 
-            // TODO: Does the type need to be nullable?
-            
             if ((lType == null || lType.isCoercibleTo(PDataType.TINYINT))
                     && (rType == null || rType.isCoercibleTo(PDataType.TINYINT))) {
                 return lType == null ? rType : lType; // to preserve UNSIGNED type
@@ -567,12 +565,12 @@ public class JoinCompiler {
 
             if ((lType == null || lType.isCoercibleTo(PDataType.DATE))
                     && (rType == null || rType.isCoercibleTo(PDataType.DATE))) {
-                return lType == null ? rType : lType; // to preserve UNSIGNED type
+                return lType == null ? rType : lType;
             }
 
             if ((lType == null || lType.isCoercibleTo(PDataType.TIMESTAMP))
                     && (rType == null || rType.isCoercibleTo(PDataType.TIMESTAMP))) {
-                return lType == null ? rType : lType; // to preserve UNSIGNED type
+                return lType == null ? rType : lType;
             }
 
             if ((lType == null || lType.isCoercibleTo(PDataType.VARCHAR))
