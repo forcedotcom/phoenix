@@ -70,11 +70,13 @@ public class HashJoinInfo {
     
     private static KeyValueSchema buildSchema(PTable table) {
     	KeyValueSchemaBuilder builder = new KeyValueSchemaBuilder(0);
-        for (PColumn column : table.getColumns()) {
-        	if (!SchemaUtil.isPKColumn(column)) {
-        		builder.addField(column);
-        	}
-        }
+    	if (table != null) {
+    	    for (PColumn column : table.getColumns()) {
+    	        if (!SchemaUtil.isPKColumn(column)) {
+    	            builder.addField(column);
+    	        }
+    	    }
+    	}
         return builder.build();
     }
     

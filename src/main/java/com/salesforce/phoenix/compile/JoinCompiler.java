@@ -102,13 +102,19 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class JoinCompiler {
     
+    public enum ColumnRefType {
+        PREFILTER,
+        JOINLOCAL,
+        GENERAL,
+    }
+    
     public static class JoinSpec {
         private TableRef mainTable;
         private List<AliasedNode> select; // all basic nodes related to mainTable, no aggregation.
         private List<ParseNode> preFilters;
         private List<ParseNode> postFilters;
         private List<JoinTable> joinTables;
-        private Set<ColumnRef> columnRefs;
+        private Map<ColumnRef, ColumnRefType> columnRefs;
         
         private JoinSpec(SelectStatement statement, ColumnResolver resolver) throws SQLException {
         	List<AliasedNode> selectList = statement.getSelect();
@@ -122,7 +128,9 @@ public class JoinCompiler {
             this.joinTables = new ArrayList<JoinTable>(tableNodes.size() - 1);
             this.preFilters = new ArrayList<ParseNode>();
             this.postFilters = new ArrayList<ParseNode>();
-            ColumnParseNodeVisitor visitor = new ColumnParseNodeVisitor(resolver);
+            ColumnParseNodeVisitor generalRefVisitor = new ColumnParseNodeVisitor(resolver);
+            ColumnParseNodeVisitor joinLocalRefVisitor = new ColumnParseNodeVisitor(resolver);
+            ColumnParseNodeVisitor prefilterRefVisitor = new ColumnParseNodeVisitor(resolver);            
             boolean hasRightJoin = false;
             TableNode tableNode = null;
             while (iter.hasNext()) {
@@ -132,7 +140,14 @@ public class JoinCompiler {
                 JoinTableNode joinTableNode = (JoinTableNode) tableNode;
                 JoinTable joinTable = new JoinTable(joinTableNode, tableRefIter.next(), selectList, resolver);
                 joinTables.add(joinTable);
-                joinTableNode.getOnNode().accept(visitor);
+                for (ParseNode prefilter : joinTable.preFilters) {
+                    prefilter.accept(prefilterRefVisitor);
+                }
+                for (ParseNode condition : joinTable.conditions) {
+                    ComparisonParseNode comparisonNode = (ComparisonParseNode) condition;
+                    comparisonNode.getLHS().accept(generalRefVisitor);
+                    comparisonNode.getRHS().accept(joinLocalRefVisitor);
+                }
                 if (joinTable.getType() == JoinType.Right) {
                 	hasRightJoin = true;
                 }
@@ -143,32 +158,46 @@ public class JoinCompiler {
             		postFilters.add(statement.getWhere());
             	} else {
             		statement.getWhere().accept(new WhereNodeVisitor(resolver));
+            		for (ParseNode prefilter : preFilters) {
+            		    prefilter.accept(prefilterRefVisitor);
+            		}
+            	}
+            	for (ParseNode postfilter : postFilters) {
+            		postfilter.accept(generalRefVisitor);
             	}
             }
             for (AliasedNode node : selectList) {
-                node.getNode().accept(visitor);
-            }
-            if (statement.getWhere() != null) {            
-                statement.getWhere().accept(visitor);
+                node.getNode().accept(generalRefVisitor);
             }
             if (statement.getGroupBy() != null) {
                 for (ParseNode node : statement.getGroupBy()) {
-                    node.accept(visitor);
+                    node.accept(generalRefVisitor);
                 }
             }
             if (statement.getHaving() != null) {
-                statement.getHaving().accept(visitor);
+                statement.getHaving().accept(generalRefVisitor);
             }
             if (statement.getOrderBy() != null) {
                 for (OrderByNode node : statement.getOrderBy()) {
-                    node.getNode().accept(visitor);
+                    node.getNode().accept(generalRefVisitor);
                 }
             }
-            this.columnRefs = visitor.getColumnRefMap().keySet();
+            this.columnRefs = new HashMap<ColumnRef, ColumnRefType>();
+            for (ColumnRef ref : generalRefVisitor.getColumnRefMap().keySet()) {
+                columnRefs.put(ref, ColumnRefType.GENERAL);
+            }
+            for (ColumnRef ref : joinLocalRefVisitor.getColumnRefMap().keySet()) {
+                if (!columnRefs.containsKey(ref))
+                    columnRefs.put(ref, ColumnRefType.JOINLOCAL);
+            }
+            for (ColumnRef ref : prefilterRefVisitor.getColumnRefMap().keySet()) {
+                if (!columnRefs.containsKey(ref))
+                    columnRefs.put(ref, ColumnRefType.PREFILTER);
+            }            
         }
         
         private JoinSpec(TableRef table, List<AliasedNode> select, List<ParseNode> preFilters, 
-                List<ParseNode> postFilters, List<JoinTable> joinTables, Set<ColumnRef> columnRefs) {
+                List<ParseNode> postFilters, List<JoinTable> joinTables, Map<ColumnRef, ColumnRefType> columnRefs) {
             this.mainTable = table;
             this.select = select;
             this.preFilters = preFilters;
@@ -230,7 +259,7 @@ public class JoinCompiler {
                 scan.getFamilyMap().clear();
                 return;
             }
-            for (ColumnRef columnRef : columnRefs) {
+            for (ColumnRef columnRef : columnRefs.keySet()) {
                 if (columnRef.getTableRef().equals(table)
                         && !SchemaUtil.isPKColumn(columnRef.getColumn())) {
                     scan.addColumn(columnRef.getColumn().getFamilyName().getBytes(), columnRef.getColumn().getName().getBytes());
@@ -258,8 +287,10 @@ public class JoinCompiler {
             		}
             	}
             } else {
-                for (ColumnRef columnRef : columnRefs) {
-                    if (columnRef.getTableRef().equals(tableRef)
+                for (Map.Entry<ColumnRef, ColumnRefType> e : columnRefs.entrySet()) {
+                    ColumnRef columnRef = e.getKey();
+                    if (e.getValue() != ColumnRefType.PREFILTER 
+                            && columnRef.getTableRef().equals(tableRef)
                             && (!retainPKColumns || !SchemaUtil.isPKColumn(columnRef.getColumn()))) {
                     	PColumn column = columnRef.getColumn();
             			addProjectedColumn(projectedColumns, sourceExpressions, columnNameMap,
@@ -292,6 +323,19 @@ public class JoinCompiler {
         	Expression sourceExpression = new ColumnRef(sourceTable, sourceColumn.getPosition()).newColumnExpression();
         	projectedColumns.add(column);
         	sourceExpressions.add(sourceExpression);
+        }
+        
+        public boolean hasPostReference(TableRef table) {
+            if (isWildCardSelect(select)) 
+                return true;
+            
+            for (Map.Entry<ColumnRef, ColumnRefType> e : columnRefs.entrySet()) {
+                if (e.getValue() == ColumnRefType.GENERAL && e.getKey().getTableRef().equals(table)) {
+                    return true;
+                }
+            }
+            
+            return false;
         }
         
         private class WhereNodeVisitor  extends TraverseNoParseNodeVisitor<Void> {
@@ -880,13 +924,13 @@ public class JoinCompiler {
         return IndexStatementRewriter.translate(NODE_FACTORY.select(select, newFrom), resolver, replacement);        
     }
     
-    private static SelectStatement getSubqueryForOptimizedPlan(SelectStatement select, TableRef table, Set<ColumnRef> columnRefs, ParseNode where) {
+    private static SelectStatement getSubqueryForOptimizedPlan(SelectStatement select, TableRef table, Map<ColumnRef, ColumnRefType> columnRefs, ParseNode where) {
         TableName tName = NODE_FACTORY.table(table.getTable().getSchemaName().getString(), table.getTable().getTableName().getString());
         List<AliasedNode> selectList = new ArrayList<AliasedNode>();
         if (isWildCardSelect(select.getSelect())) {
             selectList.add(NODE_FACTORY.aliasedNode(null, WildcardParseNode.INSTANCE));
         } else {
-            for (ColumnRef colRef : columnRefs) {
+            for (ColumnRef colRef : columnRefs.keySet()) {
                 if (colRef.getTableRef().equals(table)) {
                     selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, colRef.getColumn().getName().getString(), null)));
                 }

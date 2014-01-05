@@ -106,7 +106,14 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
                 "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
                 "    BUILD HASH TABLE 0\n" +
                 "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_SUPPLIER_TABLE\n" +
-                "            SERVER FILTER BY (NAME = 'S1' OR NAME = 'S5')"
+                "            SERVER FILTER BY (NAME = 'S1' OR NAME = 'S5')",
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
+                "    PARALLEL EQUI-JOIN 2 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0 (SKIP MERGE)\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ORDER_TABLE\n" +
+                "            SERVER FILTER BY QUANTITY < 5000\n" +
+                "    BUILD HASH TABLE 1\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_SUPPLIER_TABLE"
                 }});
         testCases.add(new String[][] {
                 {
@@ -122,7 +129,14 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
                 "    SERVER FILTER BY (NAME = 'T1' OR NAME = 'T5')\n" +
                 "    PARALLEL EQUI-JOIN 1 HASH TABLES:\n" +
                 "    BUILD HASH TABLE 0\n" +
-                "        CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 KEYS OVER INDEX_JOIN_SUPPLIER_TABLE ['S1'] - ['S5']"
+                "        CLIENT PARALLEL 1-WAY SKIP SCAN ON 2 KEYS OVER INDEX_JOIN_SUPPLIER_TABLE ['S1'] - ['S5']",
+                "CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
+                "    PARALLEL EQUI-JOIN 2 HASH TABLES:\n" +
+                "    BUILD HASH TABLE 0 (SKIP MERGE)\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ORDER_TABLE\n" +
+                "            SERVER FILTER BY QUANTITY < 5000\n" +
+                "    BUILD HASH TABLE 1\n" +
+                "        CLIENT PARALLEL 1-WAY FULL SCAN OVER INDEX_JOIN_SUPPLIER_TABLE"
                 }});
         return testCases;
     }
@@ -1305,6 +1319,34 @@ public class HashJoinTest extends BaseClientMangedTimeTest {
             
             rs = conn.createStatement().executeQuery("EXPLAIN " + query2);
             assertEquals(plans[1], QueryUtil.getExplainPlan(rs));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinWithSkipMergeOptimization() throws Exception {
+        String query = "SELECT s.name FROM " + JOIN_ITEM_TABLE + " i JOIN " 
+        + JOIN_ORDER_TABLE + " o ON o.item_id = i.item_id AND quantity < 5000 JOIN "
+        + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "S1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "S6");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "S6");
+            
+            assertFalse(rs.next());
+            
+            rs = conn.createStatement().executeQuery("EXPLAIN " + query);
+            assertEquals(plans[2], QueryUtil.getExplainPlan(rs));
         } finally {
             conn.close();
         }

@@ -148,10 +148,11 @@ public class HashJoinRegionScanner implements RegionScanner {
                         }
                     }
                     for (Tuple t : tempTuples[i]) {
-                        ProjectedValueTuple joined = ScanProjector.mergeProjectedValue(
-                                lhs, schema, tempDestBitSet,
-                                t, joinInfo.getSchemas()[i], tempSrcBitSet[i], 
-                                joinInfo.getFieldPositions()[i]);
+                        ProjectedValueTuple joined = tempSrcBitSet[i] == ValueBitSet.EMPTY_VALUE_BITSET ?
+                                lhs : ScanProjector.mergeProjectedValue(
+                                        lhs, schema, tempDestBitSet,
+                                        t, joinInfo.getSchemas()[i], tempSrcBitSet[i], 
+                                        joinInfo.getFieldPositions()[i]);
                         resultQueue.offer(joined);
                     }
                 }
