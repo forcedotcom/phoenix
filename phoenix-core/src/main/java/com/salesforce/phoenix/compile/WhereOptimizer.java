@@ -153,13 +153,15 @@ public class WhereOptimizer {
         boolean hasAnyRange = false;
         
         // add tenant data isolation for tenant-specific tables
-        if (table.isTenantSpecificTable() && table.isTenantSpecificTable()) {
+        if (table.isTenantSpecificTable()) {
             // tenant id and tenant type id are always first parts of a pk
             PName tenantId = context.getConnection().getTenantId();
             KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
             cnf.add(singletonList(tenantIdKeyRange));
-            KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTenantTypeId().getBytes());
-            cnf.add(singletonList(tenantTypeIdKeyRange));
+            if (table.getTenantTypeId() != null) {
+                KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTenantTypeId().getBytes());
+                cnf.add(singletonList(tenantTypeIdKeyRange));
+            }
         }
         // Concat byte arrays of literals to form scan start key
         for (KeyExpressionVisitor.KeySlot slot : keySlots) {

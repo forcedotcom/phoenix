@@ -38,6 +38,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import javax.annotation.Nullable;
+
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -680,11 +682,13 @@ public class UpsertCompiler {
         }
     }
     
-    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, @NotNull String tenantId, @NotNull String tenantTypeId) {
+    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, @NotNull String tenantId, @Nullable String tenantTypeId) {
         List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
         select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
-        select.add(new AliasedNode(null, new LiteralParseNode(tenantTypeId)));
-        select.addAll(2, statement.getSelect());
+        if (tenantTypeId != null) {
+            select.add(new AliasedNode(null, new LiteralParseNode(tenantTypeId)));
+        }
+        select.addAll(statement.getSelect());
         return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
     }
 }

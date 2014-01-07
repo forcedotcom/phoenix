@@ -29,17 +29,10 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
 
 import org.junit.After;
 import org.junit.Before;
-
-import com.salesforce.phoenix.util.PhoenixRuntime;
 
 /**
  * Describe your class here.
@@ -63,32 +56,30 @@ public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeT
     protected static final String TENANT_TABLE_NAME = "TENANT_TABLE";
     protected static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
             "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='" + TENANT_TYPE_ID + '\'';
+            "                BASE_TABLE='" + PARENT_TABLE_NAME + "', TENANT_TYPE_ID='" + TENANT_TYPE_ID + '\'';
     
-    protected List<String> tenantTableNames = new ArrayList<String>();
+    protected static final String PARENT_TABLE_NAME_NO_TENANT_TYPE_ID = "PARENT_TABLE_NO_TENANT_TYPE_ID";
+    protected static final String PARENT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
+            "                user VARCHAR ,\n" + 
+            "                tenant_id VARCHAR(5) NOT NULL,\n" + 
+            "                id INTEGER NOT NULL\n" + 
+            "                CONSTRAINT pk PRIMARY KEY (tenant_id, id))";
+    
+    protected static final String TENANT_TABLE_NAME_NO_TENANT_TYPE_ID = "TENANT_TABLE_NO_TENANT_TYPE_ID";
+    protected static final String TENANT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
+            "                tenant_col VARCHAR)\n" + 
+            "                BASE_TABLE='" + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + "'";
     
     @Before
     public void createTables() throws SQLException {
-        tenantTableNames.clear();
         createTestTable(getUrl(), PARENT_TABLE_DDL, null, nextTimestamp());
+        createTestTable(getUrl(), PARENT_TABLE_DDL_NO_TENANT_TYPE_ID, null, nextTimestamp());
         createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL, null, nextTimestamp());
-        tenantTableNames.add(TENANT_TABLE_NAME);
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL_NO_TENANT_TYPE_ID, null, nextTimestamp());
     }
     
-    /**
-     * {@link BaseClientMangedTimeTest} automatically drops all tables.  This method is here because
-     * tenant-specific tables need to be dropped first.
-     * @throws SQLException
-     */
     @After
-    public void dropTenantTables() throws SQLException {
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
-        props.setProperty(TENANT_ID_ATTRIB, TENANT_ID);
-        for (String tenantTableName : tenantTableNames) {
-            Connection conn = DriverManager.getConnection(getUrl(), props);
-            conn.createStatement().execute("DROP TABLE IF EXISTS " + tenantTableName);
-            conn.close();
-        }
+    public void dropTables() throws Exception {
+        deletePriorTables(nextTimestamp()-1, TENANT_ID);
     }
 }

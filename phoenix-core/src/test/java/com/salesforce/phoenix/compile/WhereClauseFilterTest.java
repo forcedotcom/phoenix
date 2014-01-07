@@ -955,4 +955,41 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         byte[] stopRow = startRow;
         assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
     }
+    
+    @Test
+    public void testTenantConstraintsAddedToScanWithNullTenantTypeId() throws SQLException {
+        String tenantId = "000000000000123";
+        String url = getUrl(tenantId);
+        createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, " +
+                "id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, id))");
+        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='BASE_TABLE_FOR_TENANT_FILTER_TEST'");
+        
+        String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
+        SQLParser parser = new SQLParser(query);
+        SelectStatement select = parser.parseQuery();
+        Scan scan = new Scan();
+        List<Object> binds = emptyList();
+        PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
+        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
+        select = compileStatement(context, select, resolver, binds, scan, 0, null);
+        Filter filter = scan.getFilter();
+
+        assertEquals(
+            multiKVFilter(and(
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_INTEGER,
+                    0),
+                constantComparison(
+                    CompareOp.EQUAL,
+                    BaseConnectionlessQueryTest.A_STRING,
+                    "foo"))),
+            filter);
+        
+        byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
+        assertArrayEquals(startRow, scan.getStartRow());
+        byte[] stopRow = startRow;
+        assertArrayEquals(ByteUtil.nextKey(stopRow), scan.getStopRow());
+    }
 }

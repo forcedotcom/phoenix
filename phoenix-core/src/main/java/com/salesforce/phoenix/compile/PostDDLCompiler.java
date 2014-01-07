@@ -37,7 +37,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
@@ -190,8 +189,12 @@ public class PostDDLCompiler {
                             PName tenantId = connection.getTenantId();
                             if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
                                 KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
-                                KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTenantTypeId().getBytes());
-                                List<List<KeyRange>> slots = ImmutableList.of(singletonList(tenantIdKeyRange), singletonList(tenantTypeIdKeyRange));
+                                List<List<KeyRange>> slots = Lists.newArrayListWithCapacity(2);
+                                slots.add(singletonList(tenantIdKeyRange));
+                                if (tableRef.getTable().getTenantTypeId() != null) {
+                                    KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTenantTypeId().getBytes());
+                                    slots.add(singletonList(tenantTypeIdKeyRange));
+                                }
                                 scan.setStartRow(ScanUtil.getMinKey(tableRef.getTable().getRowKeySchema(), slots));
                                 scan.setStopRow(ScanUtil.getMaxKey(tableRef.getTable().getRowKeySchema(), slots));
                             }
