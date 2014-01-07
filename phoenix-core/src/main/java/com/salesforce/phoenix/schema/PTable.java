@@ -197,10 +197,15 @@ public interface PTable extends Writable {
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     boolean isTenantSpecificTable();
     /**
-     * Return the column that identifies tenants.  If non-null, this column is always the leading column.   
+     * Return the column that identifies tenants.  If non-null, this column is always the leading PK column.   
      * @see #isTenantSpecificTable()
      */
     @Nullable PColumn getTenantIdColumn();
+    /**
+     * Return the column that identifies tenant's type id.  If non-null, this column is always the second PK column.   
+     * @see #isTenantSpecificTable()
+     */
+    @Nullable PColumn getTenantTypeIdColumn();
     PName getDefaultFamilyName();
     PName getTenantTypeId();
     

@@ -456,6 +456,10 @@ public abstract class BaseTest {
     }
 
     protected static void createTestTable(String url, String ddl, byte[][] splits, Long ts) throws SQLException {
+        createTestTable(url, ddl, splits, ts, true);
+    }
+    
+    protected static void createTestTable(String url, String ddl, byte[][] splits, Long ts, boolean swallowTableAlreadyExistsException) throws SQLException {
         assertNotNull(ddl);
         StringBuilder buf = new StringBuilder(ddl);
         if (splits != null) {
@@ -480,6 +484,9 @@ public abstract class BaseTest {
             }
             stmt.execute(ddl);
         } catch (TableAlreadyExistsException e) {
+            if (! swallowTableAlreadyExistsException) {
+                throw e;
+            }
         } finally {
             conn.close();
         }

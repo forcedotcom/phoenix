@@ -31,7 +31,8 @@ import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
 import static com.google.common.collect.Sets.newLinkedHashSet;
 import static com.google.common.collect.Sets.newLinkedHashSetWithExpectedSize;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -77,6 +78,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -667,6 +669,9 @@ public class MetaDataClient {
             
             String defaultFamilyName = (String)tableProps.remove(PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME);
             String tenantTypeId = (String)tableProps.remove(PhoenixDatabaseMetaData.TENANT_TYPE_ID);
+            if (StringUtils.isBlank(tenantTypeId)) {
+                tenantTypeId = null;
+            }
             boolean disableWAL = false;
             Boolean disableWALProp = (Boolean) tableProps.remove(PhoenixDatabaseMetaData.DISABLE_WAL);
             if (disableWALProp == null) {
@@ -690,7 +695,6 @@ public class MetaDataClient {
             String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
             String baseTableName = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
             
-            // TODO: require tenantTypeId to be set too
             if ((tenantId == null && baseTableName != null) || (tenantId != null && baseTableName == null)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).setMessage("When creating tenant-specific table, both " +
@@ -706,8 +710,9 @@ public class MetaDataClient {
                 if (baseTable.isTenantSpecificTable()) {
                     throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
-                if (!doesTableStructureSupportTenantTables(baseTable)) {
-                    throw new SQLExceptionInfo.Builder(BASE_TABLE_NO_TENANT_ID_PK).setSchemaName(schemaName).setTableName(tableName).build().buildException();
+                if (!doesTableStructureSupportTenantTables(baseTable, tenantTypeId != null)) {
+                    SQLExceptionCode code = tenantTypeId == null ? BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID : BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID;
+                    throw new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
                 columns = newArrayListWithExpectedSize(baseTable.getColumns().size() + colDefs.size());
                 columns.addAll(baseTable.getColumns());
@@ -908,6 +913,9 @@ public class MetaDataClient {
                 return null;
             case PARENT_TABLE_NOT_FOUND:
                 throw new TableNotFoundException(schemaName, parent.getName().getString());
+            case TYPE_ID_USED:
+            	throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_ID_USED)
+            		.setSchemaName(schemaName).setTableName(tableName).build().buildException();
             case NEWER_TABLE_FOUND:
                 throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
             case UNALLOWED_TABLE_MUTATION:
@@ -942,16 +950,38 @@ public class MetaDataClient {
     
     /**
      * A table can be a parent table to tenant-specific tables if all of the following conditions are true:
+     * <p>
+     * FOR TENANT-SPECIFIC TABLES WITH TENANT_TYPE_ID SPECIFIED:
+     * <ol>
+     * <li>It has 3 or more PK columns AND
+     * <li>First PK (tenant id) column is not nullible AND 
+     * <li>Firsts PK column's data type is either VARCHAR or CHAR AND
+     * <li>Second PK (tenant type id) column is not nullible AND
+     * <li>Second PK column data type is either VARCHAR or CHAR
+     * </ol>
+     * FOR TENANT-SPECIFIC TABLES WITH NO TENANT_TYPE_ID SPECIFIED:
      * <ol>
      * <li>It has 2 or more PK columns AND
-     * <li>The leading PK column is not nullible AND 
-     * <li>The leading PK column's data type is either VARCHAR or CHAR 
+     * <li>First PK (tenant id) column is not nullible AND 
+     * <li>Firsts PK column's data type is either VARCHAR or CHAR
      * </ol>
      */
-    private static boolean doesTableStructureSupportTenantTables(PTable table) {
+    private static boolean doesTableStructureSupportTenantTables(PTable table, boolean hasTenantTypeId) {
         List<PColumn> pkCols = table.getPKColumns();
-        PColumn firstPkCol = pkCols.get(0);
-        return (pkCols.size() > 1 && !firstPkCol.isNullable() && (firstPkCol.getDataType() == VARCHAR || firstPkCol.getDataType() == CHAR));
+        if (pkCols.size() < (hasTenantTypeId ? 3 : 2)) {
+        	return false;
+        }
+        PColumn tenantIdCol = pkCols.get(0);
+        if (tenantIdCol.isNullable() || (tenantIdCol.getDataType() != VARCHAR && tenantIdCol.getDataType() != CHAR)) {
+        	return false;
+        }
+        if (hasTenantTypeId) {
+            PColumn tenantTypeIdCol = pkCols.get(1);
+            if (tenantTypeIdCol.isNullable() || (tenantTypeIdCol.getDataType() != VARCHAR && tenantTypeIdCol.getDataType() != CHAR)) {
+            	return false;
+            }
+        }
+        return true;
     }
 
     private PTable resolveTable(PhoenixConnection connection, String schemaName, String tableName) throws TableNotFoundException {

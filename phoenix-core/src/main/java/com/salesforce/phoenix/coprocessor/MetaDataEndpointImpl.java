@@ -56,6 +56,7 @@ import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
+import static org.apache.hadoop.hbase.filter.FilterList.Operator.MUST_PASS_ALL;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
@@ -75,6 +76,7 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
 import org.apache.hadoop.hbase.regionserver.HRegion;
@@ -522,6 +524,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                         SchemaUtil.upgradeTo3(region, tableMetadata);
                     }
                 }
+                
+                if (tenantIdBytes.length > 0 && typeIdExistsForTenantOnBaseTable(region, tenantIdBytes, MetaDataUtil.getBaseTableName(tableMetadata), MetaDataUtil.getTenantTypeId(tableMetadata))) {
+                    return new MetaDataMutationResult(MutationCode.TYPE_ID_USED, EnvironmentEdgeManager.currentTimeMillis(), null);
+                }
                 // TODO: Switch this to HRegion#batchMutate when we want to support indexes on the system
                 // table. Basically, we get all the locks that we don't already hold for all the
                 // tableMetadata rows. This ensures we don't have deadlock situations (ensuring primary and
@@ -573,6 +579,26 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
         filter.setFilterIfMissing(true);
         scan.setFilter(filter);
+        RegionScanner scanner = region.getScanner(scan);
+        try {
+            List<KeyValue> results = newArrayList();
+            scanner.next(results);
+            return results.size() > 0;
+        }
+        finally {
+            scanner.close();
+        }
+    }
+    
+    private boolean typeIdExistsForTenantOnBaseTable(HRegion region, byte[] tenantId, byte[] baseTableName, byte[] tenantTypeId) throws IOException {
+        Scan scan = new Scan();
+        scan.setStartRow(tenantId);
+        scan.setStopRow(ByteUtil.nextKey(tenantId));
+        SingleColumnValueFilter tenantTypeIdFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES, EQUAL, tenantTypeId);
+        tenantTypeIdFilter.setFilterIfMissing(true);
+        SingleColumnValueFilter baseTableFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, baseTableName);
+        baseTableFilter.setFilterIfMissing(true);
+        scan.setFilter(new FilterList(MUST_PASS_ALL, tenantTypeIdFilter, baseTableFilter));
         RegionScanner scanner = region.getScanner(scan);
         try {
             List<KeyValue> results = newArrayList();

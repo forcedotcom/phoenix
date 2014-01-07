@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -39,19 +37,15 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.junit.Test;
 
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
-import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class CreateTableTest  extends BaseClientMangedTimeTest {
     
-    private static final String tenantId = "abc";
-
     @Test
     public void testStartKeyStopKey() throws SQLException {
         long ts = nextTimestamp();
@@ -114,87 +108,5 @@ public class CreateTableTest  extends BaseClientMangedTimeTest {
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 20));
         conn = DriverManager.getConnection(getUrl(), props);
         conn.createStatement().execute("DROP TABLE m_interface_job");
-    }
-    
-    @Test
-    public void testCreateTenantSpecificTable() throws Exception {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("CREATE TABLE PARENT_TABLE ( \n" + 
-                "                user VARCHAR ,\n" +
-                "                tenant_id VARCHAR not null,\n" +
-                "                id INTEGER not null\n" + 
-                "                constraint pk primary key (tenant_id, id)) ");
-        conn.close();
-        
-        props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId);
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 10));
-        conn = DriverManager.getConnection(getUrl(), props);
-        
-        conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
-                "                tenantCol VARCHAR\n" + 
-                "                ) BASE_TABLE='PARENT_TABLE'");
-        conn.close();
-        
-        // ensure we didn't create a physical HBase table for the tenant-specific table
-        HBaseAdmin admin = driver.getConnectionQueryServices(getUrl(), TEST_PROPERTIES).getAdmin();
-        assertEquals(0, admin.listTables("TENANT_SPECIFIC_TABLE").length);
-        
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 20));
-        
-        conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("DROP TABLE TENANT_SPECIFIC_TABLE");
-        conn.close();
-        
-        props.remove(PhoenixRuntime.TENANT_ID_ATTRIB);
-        conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("DROP TABLE PARENT_TABLE");
-        conn.close();
-    }
-    
-    @Test(expected=TableNotFoundException.class)
-    public void testDeletionOfParentTableFailsOnTenantSpecificConnection() throws Exception {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("CREATE TABLE PARENT_TABLE ( \n" + 
-                "                user VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
-                "                ) ");
-        conn.close();
-        
-        props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId); // connection is tenant-specific
-        conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("DROP TABLE PARENT_TABLE");
-        conn.close();
-    }
-    
-    @Test(expected=SQLException.class)
-    public void testCreationOfParentTableFailsOnTenantSpecificConnection() throws Exception {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        props.setProperty(PhoenixRuntime.TENANT_ID_ATTRIB, tenantId); // connection is tenant-specific
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("CREATE TABLE PARENT_TABLE ( \n" + 
-                "                user VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
-                "                ) ");
-        conn.close();
-    }
-    
-    @Test(expected=SQLException.class)
-    public void testCreationOfTenantSpecificTableFailsOnNonTenantSpecificConnection() throws Exception {
-        long ts = nextTimestamp();
-        Properties props = new Properties();
-        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
-        Connection conn = DriverManager.getConnection(getUrl(), props);
-        conn.createStatement().execute("CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
-                "                tenantCol VARCHAR \n" + 
-                "                ) BASE_TABLE='PARENT_TABLE'");
-        conn.close();
     }
 }
