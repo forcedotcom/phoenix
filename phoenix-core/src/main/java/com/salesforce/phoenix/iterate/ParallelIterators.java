@@ -170,6 +170,8 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
                     }
                 }
                 if (ScanUtil.intersectScanRange(splitScan, split.getLowerRange(), split.getUpperRange(), this.context.getScanRanges().useSkipScanFilter())) {
+                    // Delay the swapping of start/stop row until row so we don't muck with the intersect logic
+                    ScanUtil.swapStartStopRowIfReversed(splitScan);
                     Future<PeekingResultIterator> future =
                         executor.submit(new JobCallable<PeekingResultIterator>() {
 
@@ -199,12 +201,13 @@ public class ParallelIterators extends ExplainTable implements ResultIterators {
             }
 
             int timeoutMs = props.getInt(QueryServices.THREAD_TIMEOUT_MS_ATTRIB, DEFAULT_THREAD_TIMEOUT_MS);
+            final int factor = ScanUtil.isReversed(this.context.getScan()) ? -1 : 1;
             // Sort futures by row key so that we have a predicatble order we're getting rows back for scans.
             // We're going to wait here until they're finished anyway and this makes testing much easier.
             Collections.sort(futures, new Comparator<Pair<byte[],Future<PeekingResultIterator>>>() {
                 @Override
                 public int compare(Pair<byte[], Future<PeekingResultIterator>> o1, Pair<byte[], Future<PeekingResultIterator>> o2) {
-                    return Bytes.compareTo(o1.getFirst(), o2.getFirst());
+                    return factor * Bytes.compareTo(o1.getFirst(), o2.getFirst());
                 }
             });
             for (Pair<byte[],Future<PeekingResultIterator>> future : futures) {

@@ -130,4 +130,32 @@ public class OrderByTest extends BaseClientMangedTimeTest {
     }
         
 
+    @Test
+    public void testReverseScan() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        initATableValues(tenantId, getDefaultSplits(tenantId), null, ts);
+        String query = "SELECT entity_id FROM aTable WHERE entity_id >= ? ORDER BY organization_id DESC, entity_id DESC";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, ROW7);
+            ResultSet rs = statement.executeQuery();
+
+            assertTrue (rs.next());
+            assertEquals(ROW9,rs.getString(1));
+            assertTrue (rs.next());
+            assertEquals(ROW8,rs.getString(1));
+            assertTrue (rs.next());
+            assertEquals(ROW7,rs.getString(1));
+
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+
 }

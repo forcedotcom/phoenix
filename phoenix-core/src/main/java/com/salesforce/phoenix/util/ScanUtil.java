@@ -430,4 +430,26 @@ public class ScanUtil {
         ByteUtil.nextKey(key, key.length);
         return key;
     }
+
+    private static final String REVERSED_ATTR = "_reversed_";
+    
+    public static void setReversed(Scan scan) {
+        // TODO: set attribute dynamically here to prevent dependency on newer HBase release
+        scan.setAttribute(REVERSED_ATTR, PDataType.TRUE_BYTES);
+    }
+
+    // Start/stop row must be swapped if scan is being done in reverse
+    public static void swapStartStopRowIfReversed(Scan scan) {
+        if (isReversed(scan)) {
+            byte[] startRow = scan.getStartRow();
+            byte[] stopRow = scan.getStopRow();
+            scan.setStartRow(stopRow);
+            scan.setStopRow(startRow);
+        }
+    }
+
+    public static boolean isReversed(Scan scan) {
+        byte[] reversed = scan.getAttribute(REVERSED_ATTR);
+        return (PDataType.TRUE_BYTES.equals(reversed));
+    }
 }

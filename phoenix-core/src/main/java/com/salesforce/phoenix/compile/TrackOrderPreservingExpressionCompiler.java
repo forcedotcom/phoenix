@@ -40,6 +40,7 @@ public class TrackOrderPreservingExpressionCompiler extends ExpressionCompiler {
     private OrderPreserving orderPreserving = OrderPreserving.YES;
     private ColumnRef columnRef;
     private boolean isOrderPreserving = true;
+    private Boolean isReverse;
     
     TrackOrderPreservingExpressionCompiler(StatementContext context, GroupBy groupBy, int expectedEntrySize, Ordering ordering) {
         super(context, groupBy);
@@ -48,6 +49,9 @@ public class TrackOrderPreservingExpressionCompiler extends ExpressionCompiler {
         this.ordering = ordering;
     }
     
+    public Boolean isReverse() {
+        return isReverse;
+    }
 
     public boolean isOrderPreserving() {
         if (!isOrderPreserving) {
@@ -158,7 +162,17 @@ public class TrackOrderPreservingExpressionCompiler extends ExpressionCompiler {
         // If the expression is sorted in a different order than the specified sort order
         // then the expressions are not order preserving.
         if (!Objects.equal(expression.getColumnModifier(), modifier)) {
-            orderPreserving = OrderPreserving.NO;
+            if (isReverse == null) {
+                isReverse = true;
+            } else if (!isReverse){
+                orderPreserving = OrderPreserving.NO;
+            }
+        } else {
+            if (isReverse == null) {
+                isReverse = false;
+            } else if (isReverse){
+                orderPreserving = OrderPreserving.NO;
+            }
         }
         return addEntry(expression);
     }

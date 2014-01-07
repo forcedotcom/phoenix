@@ -30,7 +30,7 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("CREATE TABLE foo (k VARCHAR NOT NULL PRIMARY KEY, v VARCHAR) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.optimizeQuery("SELECT * FROM foo ORDER BY k");
-        assertEquals(OrderBy.ROW_KEY_ORDER_BY,plan.getOrderBy());
+        assertEquals(OrderBy.FWD_ROW_KEY_ORDER_BY,plan.getOrderBy());
     }
 
     @Test
@@ -57,7 +57,7 @@ public class QueryOptimizerTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("CREATE TABLE foo (j INTEGER NOT NULL, k BIGINT NOT NULL, v VARCHAR CONSTRAINT pk PRIMARY KEY (j,k)) IMMUTABLE_ROWS=true");
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         QueryPlan plan = stmt.optimizeQuery("SELECT * FROM foo ORDER BY j,k");
-        assertEquals(OrderBy.ROW_KEY_ORDER_BY,plan.getOrderBy());
+        assertEquals(OrderBy.FWD_ROW_KEY_ORDER_BY,plan.getOrderBy());
     }
 
     @Test
