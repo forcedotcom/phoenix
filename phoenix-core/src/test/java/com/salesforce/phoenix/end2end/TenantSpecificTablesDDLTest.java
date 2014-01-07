@@ -405,6 +405,8 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertTableMetaData(rs, TYPE_SCHEMA, TYPE_TABLE, SYSTEM);
             assertTrue(rs.next());
             assertTableMetaData(rs, null, PARENT_TABLE_NAME, USER);
+            assertTrue(rs.next());
+            assertTableMetaData(rs, null, PARENT_TABLE_NAME_NO_TENANT_TYPE_ID, USER);
             assertFalse(rs.next());
             
             // make sure connections w/o tenant id only see non-tenant-specific columns
@@ -424,6 +426,8 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             ResultSet rs = meta.getTables(null, null, null, null);
             assertTrue(rs.next());
             assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
+            assertTrue(rs.next());
+            assertTableMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, USER);
             assertFalse(rs.next());
             
             // make sure tenants see parent table's columns and their own
@@ -438,6 +442,14 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "id");
             assertTrue(rs.next());
             assertColumnMetaData(rs, null, TENANT_TABLE_NAME, "tenant_col");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, "user");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, "tenant_id");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, "id");
+            assertTrue(rs.next());
+            assertColumnMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, "tenant_col");
             assertFalse(rs.next()); 
         }
         finally {
