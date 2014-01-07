@@ -32,7 +32,6 @@ import java.io.DataOutput;
 import java.io.IOException;
 import java.util.Arrays;
 
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -98,12 +97,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        KeyValue keyValue = tuple.getValue(cf, cq);
-        if (keyValue != null) {
-            ptr.set(keyValue.getBuffer(), keyValue.getValueOffset(), keyValue.getValueLength());
-            return true;
-        }
-        return false;
+        return tuple.getValue(cf, cq, ptr);
     }
 
     @Override

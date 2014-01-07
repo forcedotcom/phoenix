@@ -77,4 +77,16 @@ public interface Tuple {
      * null if not found.
      */
     public KeyValue getValue(byte [] family, byte [] qualifier);
+    
+    /***
+     * Get the value byte array of the KeyValue contained by the Tuple with 
+     * the given family and qualifier name.
+     * @param family the column family of the KeyValue being retrieved
+     * @param qualifier the column qualify of the KeyValue being retrieved
+     * @param ptr the bytes pointer that will be updated to point to the 
+     * value buffer.
+     * @return true if the KeyValue with the given family and qualifier name
+     * exists; otherwise false.
+     */
+    public boolean getValue(byte [] family, byte [] qualifier, ImmutableBytesWritable ptr);
 }

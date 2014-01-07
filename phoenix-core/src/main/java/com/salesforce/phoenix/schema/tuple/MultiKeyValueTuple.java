@@ -80,4 +80,14 @@ public class MultiKeyValueTuple implements Tuple {
     public KeyValue getValue(int index) {
         return values.get(index);
     }
+
+    @Override
+    public boolean getValue(byte[] family, byte[] qualifier,
+            ImmutableBytesWritable ptr) {
+        KeyValue kv = getValue(family, qualifier);
+        if (kv == null)
+            return false;
+        ptr.set(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+        return true;
+    }
 }

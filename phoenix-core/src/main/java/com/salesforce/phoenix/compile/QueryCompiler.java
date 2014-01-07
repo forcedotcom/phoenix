@@ -174,7 +174,6 @@ public class QueryCompiler {
                 if (subStatement.getFrom().size() > 1)
                     throw new SQLFeatureNotSupportedException("Sub queries not supported.");
                 ProjectedPTableWrapper subProjTable = join.createProjectedTable(joinTable.getTable(), false);
-                tables[i] = subProjTable.getTable();
                 ColumnResolver resolver = JoinCompiler.getColumnResolver(subProjTable);
                 Scan subScan = ScanUtil.newScan(scanCopy);
                 ScanProjector.serializeProjectorIntoScan(subScan, JoinCompiler.getScanProjector(subProjTable));
@@ -182,7 +181,13 @@ public class QueryCompiler {
                 subContext.setCurrentTable(joinTable.getTable());
                 join.projectColumns(subScan, joinTable.getTable());
                 joinPlans[i] = compileSingleQuery(subContext, subStatement, binds);
-                projectedTable = JoinCompiler.mergeProjectedTables(projectedTable, subProjTable, joinTable.getType() == JoinType.Inner);
+                boolean hasPostReference = join.hasPostReference(joinTable.getTable());
+                if (hasPostReference) {
+                    tables[i] = subProjTable.getTable();
+                    projectedTable = JoinCompiler.mergeProjectedTables(projectedTable, subProjTable, joinTable.getType() == JoinType.Inner);
+                } else {
+                    tables[i] = null;
+                }
                 ColumnResolver leftResolver = JoinCompiler.getColumnResolver(starJoinVector[i] ? initialProjectedTable : projectedTable);
                 joinIds[i] = new ImmutableBytesPtr(emptyByteArray); // place-holder
                 Pair<List<Expression>, List<Expression>> joinConditions = joinTable.compileJoinConditions(context, leftResolver, resolver);
@@ -190,7 +195,7 @@ public class QueryCompiler {
                 hashExpressions[i] = joinConditions.getSecond();
                 joinTypes[i] = joinTable.getType();
                 if (i < count - 1) {
-                    fieldPositions[i + 1] = fieldPositions[i] + (tables[i].getColumns().size() - tables[i].getPKColumns().size());
+                    fieldPositions[i + 1] = fieldPositions[i] + (tables[i] == null ? 0 : (tables[i].getColumns().size() - tables[i].getPKColumns().size()));
                 }
             }
             ScanProjector.serializeProjectorIntoScan(context.getScan(), JoinCompiler.getScanProjector(initialProjectedTable));
