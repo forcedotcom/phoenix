@@ -518,15 +518,15 @@ syntax-end -->
 <h3 id="varchar_type" class="notranslate">VARCHAR Type</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-VARCHAR  [ ( <a href="index.html#int">precisionInt</a> ) ]
+VARCHAR  [ ( <a href="grammar.html#int">precisionInt</a> ) ]
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">VARCHAR</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="index.html#int">precisionInt</a> )</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">VARCHAR</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">( <a href="grammar.html#int">precisionInt</a> )</code></td></tr></table></td><td class="le"></td></tr></table></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-VARCHAR  [ ( <a href="index.html#int">precisionInt</a> ) ]
+VARCHAR  [ ( <a href="grammar.html#int">precisionInt</a> ) ]
 </pre>
 syntax-end -->
 <p>A variable length String with an optional max byte length. The binary representation is <code>UTF8</code> matching the <code>HBase</code> Bytes.toBytes(String) method. When used in a row key, it is terminated with a null byte unless it is the last column.</p><p>Mapped to <code>java.lang.String</code>.</p>
@@ -536,15 +536,15 @@ syntax-end -->
 <h3 id="char_type" class="notranslate">CHAR Type</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-CHAR ( <a href="index.html#int">precisionInt</a> )
+CHAR ( <a href="grammar.html#int">precisionInt</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CHAR ( <a href="index.html#int">precisionInt</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">CHAR ( <a href="grammar.html#int">precisionInt</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-CHAR ( <a href="index.html#int">precisionInt</a> )
+CHAR ( <a href="grammar.html#int">precisionInt</a> )
 </pre>
 syntax-end -->
 <p>A fixed length String with single-byte characters. The binary representation is <code>UTF8</code> matching the <code>HBase</code> Bytes.toBytes(String) method.</p><p>Mapped to <code>java.lang.String</code>.</p>
@@ -554,15 +554,15 @@ syntax-end -->
 <h3 id="binary_type" class="notranslate">BINARY Type</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-BINARY ( <a href="index.html#int">precisionInt</a> )
+BINARY ( <a href="grammar.html#int">precisionInt</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">BINARY ( <a href="index.html#int">precisionInt</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">BINARY ( <a href="grammar.html#int">precisionInt</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-BINARY ( <a href="index.html#int">precisionInt</a> )
+BINARY ( <a href="grammar.html#int">precisionInt</a> )
 </pre>
 syntax-end -->
 <p>Raw fixed length byte array.</p><p>Mapped to <code>byte[]</code>.</p>

@@ -1,0 +1,18 @@
+/* You can override this file with your own styles */
+body {
+  padding-top: 50px;
+  padding-bottom: 20px;
+}
+
+h1[id]:before,
+h2[id]:before,
+h3[id]:before,
+h4[id]:before,
+h5[id]:before,
+h6[id]:before,
+a[name]:before {
+    display:block; 
+    content:""; 
+    height:55px; 
+    margin:-55px 0 0; 
+}

@@ -30,6 +30,6 @@ Anoop Sam John | anoopsamjohn@apache.org
 Ramkrishna Vasudevan | ramkrishna@apache.org
 Jeffrey Zhong | jzhong@apache.org
 Nick Dimiduk | ndimiduk@apache.org
-Mujtaba Chohan | mchohan@apache.org
+Mujtaba Chohan | mujtaba@apache.org
 
 <hr/>

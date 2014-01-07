@@ -299,15 +299,15 @@ syntax-end -->
 <h3 id="avg" class="notranslate">AVG</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-AVG ( { <a href="index.html#term">numericTerm</a> } )
+AVG ( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">AVG ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">AVG ( <a href="grammar.html#term">numericTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-AVG ( { <a href="index.html#term">numericTerm</a> } )
+AVG ( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 syntax-end -->
 <p>The average (mean) value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
@@ -317,15 +317,15 @@ syntax-end -->
 <h3 id="count" class="notranslate">COUNT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-COUNT( [ DISTINCT ] { * | { <a href="index.html#term">term</a> } } )
+COUNT( [ DISTINCT ] { * | { <a href="grammar.html#term">term</a> } } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COUNT (</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DISTINCT</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="index.html#term">term</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COUNT (</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DISTINCT</code></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">*</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c"><a href="grammar.html#term">term</a></code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-COUNT( [ DISTINCT ] { * | { <a href="index.html#term">term</a> } } )
+COUNT( [ DISTINCT ] { * | { <a href="grammar.html#term">term</a> } } )
 </pre>
 syntax-end -->
 <p>The count of all row, or of the non-null values. This method returns a long. When <code>DISTINCT</code> is used, it counts only distinct values. If no rows are selected, the result is 0. Aggregates are only allowed in select statements.</p>
@@ -335,15 +335,15 @@ syntax-end -->
 <h3 id="max" class="notranslate">MAX</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-MAX(<a href="index.html#term">term</a>)
+MAX(<a href="grammar.html#term">term</a>)
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MAX ( <a href="index.html#term">term</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MAX ( <a href="grammar.html#term">term</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-MAX(<a href="index.html#term">term</a>)
+MAX(<a href="grammar.html#term">term</a>)
 </pre>
 syntax-end -->
 <p>The highest value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
@@ -353,15 +353,15 @@ syntax-end -->
 <h3 id="min" class="notranslate">MIN</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-MIN(<a href="index.html#term">term</a>)
+MIN(<a href="grammar.html#term">term</a>)
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MIN ( <a href="index.html#term">term</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MIN ( <a href="grammar.html#term">term</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-MIN(<a href="index.html#term">term</a>)
+MIN(<a href="grammar.html#term">term</a>)
 </pre>
 syntax-end -->
 <p>The lowest value. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
@@ -371,15 +371,15 @@ syntax-end -->
 <h3 id="sum" class="notranslate">SUM</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-SUM( { <a href="index.html#term">numericTerm</a> } )
+SUM( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUM ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUM ( <a href="grammar.html#term">numericTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-SUM( { <a href="index.html#term">numericTerm</a> } )
+SUM( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 syntax-end -->
 <p>The sum of all values. If no rows are selected, the result is <code>NULL</code>. Aggregates are only allowed in select statements. The returned value is of the same data type as the parameter.</p>
@@ -389,15 +389,15 @@ syntax-end -->
 <h3 id="percentile_cont" class="notranslate">PERCENTILE_CONT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-PERCENTILE_CONT( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENTILE_CONT( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_CONT ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_CONT ( <a href="grammar.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="grammar.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-PERCENTILE_CONT( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENTILE_CONT( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 syntax-end -->
 <p>The nth percentile of values in the column. The percentile value can be between 0 and 1 inclusive. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
@@ -407,15 +407,15 @@ syntax-end -->
 <h3 id="percentile_disc" class="notranslate">PERCENTILE_DISC</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-PERCENTILE_DIST( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENTILE_DIST( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_DIST ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENTILE_DIST ( <a href="grammar.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="grammar.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-PERCENTILE_DIST( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENTILE_DIST( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 syntax-end -->
 <p><code>PERCENTILE_DISC</code> is an inverse distribution function that assumes a discrete distribution model. It takes a percentile value and a sort specification and returns an element from the set. Nulls are ignored in the calculation.</p>
@@ -425,15 +425,15 @@ syntax-end -->
 <h3 id="percent_rank" class="notranslate">PERCENT_RANK</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-PERCENT_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENT_RANK( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENT_RANK ( <a href="index.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="index.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">PERCENT_RANK ( <a href="grammar.html#numeric">numeric</a> ) WITHIN GROUP ( ORDER BY <a href="grammar.html#term">numericTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><code class="c">ASC</code></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><code class="c">DESC</code></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-PERCENT_RANK( { <a href="index.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="index.html#term">numericTerm</a> } { ASC | DESC } )
+PERCENT_RANK( { <a href="grammar.html#numeric">numeric</a> } ) WITHIN GROUP (ORDER BY { <a href="grammar.html#term">numericTerm</a> } { ASC | DESC } )
 </pre>
 syntax-end -->
 <p>The percentile rank for a hypothetical value, if inserted into the column. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
@@ -443,15 +443,15 @@ syntax-end -->
 <h3 id="stddev_pop" class="notranslate">STDDEV_POP</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-STDDEV_POP( { <a href="index.html#term">numericTerm</a> } )
+STDDEV_POP( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_POP ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_POP ( <a href="grammar.html#term">numericTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-STDDEV_POP( { <a href="index.html#term">numericTerm</a> } )
+STDDEV_POP( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 syntax-end -->
 <p>The population standard deviation of all values. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
@@ -461,15 +461,15 @@ syntax-end -->
 <h3 id="stddev_samp" class="notranslate">STDDEV_SAMP</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-STDDEV_SAMP( { <a href="index.html#term">numericTerm</a> } )
+STDDEV_SAMP( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_SAMP ( <a href="index.html#term">numericTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">STDDEV_SAMP ( <a href="grammar.html#term">numericTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-STDDEV_SAMP( { <a href="index.html#term">numericTerm</a> } )
+STDDEV_SAMP( { <a href="grammar.html#term">numericTerm</a> } )
 </pre>
 syntax-end -->
 <p>The sample standard deviation of all values. Aggregates are only allowed in select statements. The returned value is of decimal data type.</p>
@@ -479,15 +479,15 @@ syntax-end -->
 <h3 id="md5" class="notranslate">MD5</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-MD5( <a href="index.html#term">term</a> )
+MD5( <a href="grammar.html#term">term</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MD5 ( <a href="index.html#term">term</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">MD5 ( <a href="grammar.html#term">term</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-MD5( <a href="index.html#term">term</a> )
+MD5( <a href="grammar.html#term">term</a> )
 </pre>
 syntax-end -->
 <p>Computes the <code>MD5</code> hash of the argument, returning the result as a <code>BINARY</code>(16).</p>
@@ -497,15 +497,15 @@ syntax-end -->
 <h3 id="invert" class="notranslate">INVERT</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-INVERT( <a href="index.html#term">term</a> )
+INVERT( <a href="grammar.html#term">term</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">INVERT ( <a href="index.html#term">term</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">INVERT ( <a href="grammar.html#term">term</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-INVERT( <a href="index.html#term">term</a> )
+INVERT( <a href="grammar.html#term">term</a> )
 </pre>
 syntax-end -->
 <p>Inverts the bits of the argument. The return type will be the same as the argument.</p>
@@ -515,15 +515,15 @@ syntax-end -->
 <h3 id="to_number" class="notranslate">TO_NUMBER</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TO_NUMBER( <a href="index.html#term">stringTerm</a> | <a href="index.html#term">timeStampTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_NUMBER( <a href="grammar.html#term">stringTerm</a> | <a href="grammar.html#term">timeStampTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_NUMBER ( <a href="index.html#term">stringTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">timeStampTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_NUMBER ( <a href="grammar.html#term">stringTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="grammar.html#term">timeStampTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TO_NUMBER( <a href="index.html#term">stringTerm</a> | <a href="index.html#term">timeStampTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_NUMBER( <a href="grammar.html#term">stringTerm</a> | <a href="grammar.html#term">timeStampTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 syntax-end -->
 <p>Formats a string or date/time/timeStamp as a number, optionally accepting a format string. For details on the format, see <code>java.text.DecimalFormat</code>. For date, time, and timeStamp terms, the result is the time in milliseconds since the epoch. This method returns a decimal number.</p>
@@ -533,15 +533,15 @@ syntax-end -->
 <h3 id="coalesce" class="notranslate">COALESCE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+COALESCE( <a href="grammar.html#term">firstTerm</a>, <a href="grammar.html#term">secondTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COALESCE ( <a href="index.html#term">firstTerm</a> , <a href="index.html#term">secondTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">COALESCE ( <a href="grammar.html#term">firstTerm</a> , <a href="grammar.html#term">secondTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-COALESCE( <a href="index.html#term">firstTerm</a>, <a href="index.html#term">secondTerm</a> )
+COALESCE( <a href="grammar.html#term">firstTerm</a>, <a href="grammar.html#term">secondTerm</a> )
 </pre>
 syntax-end -->
 <p>Returns the value of the first argument if not null and the second argument otherwise. Useful to guarantee that a column in an <code>UPSERT SELECT</code> command will evaluate to a non null value.</p>
@@ -551,15 +551,15 @@ syntax-end -->
 <h3 id="substr" class="notranslate">SUBSTR</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#int">startInt</a> [, <a href="index.html#int">lengthInt</a> ] )
+SUBSTR( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#int">startInt</a> [, <a href="grammar.html#int">lengthInt</a> ] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUBSTR ( <a href="index.html#term">stringTerm</a> , <a href="index.html#int">startInt</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">lengthInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">SUBSTR ( <a href="grammar.html#term">stringTerm</a> , <a href="grammar.html#int">startInt</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#int">lengthInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#int">startInt</a> [, <a href="index.html#int">lengthInt</a> ] )
+SUBSTR( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#int">startInt</a> [, <a href="grammar.html#int">lengthInt</a> ] )
 </pre>
 syntax-end -->
 <p>Returns a substring of a string starting at the one-based position. If zero is used, the position is zero-based. If the start index is negative, then the start index is relative to the end of the string. The length is optional and if not supplied, the rest of the string will be returned.</p>
@@ -569,15 +569,15 @@ syntax-end -->
 <h3 id="trim" class="notranslate">TRIM</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TRIM( <a href="index.html#term">stringTerm</a> )
+TRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRIM ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TRIM( <a href="index.html#term">stringTerm</a> )
+TRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Removes leading and trailing spaces from the input string.</p>
@@ -587,15 +587,15 @@ syntax-end -->
 <h3 id="ltrim" class="notranslate">LTRIM</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-LTRIM( <a href="index.html#term">stringTerm</a> )
+LTRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LTRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LTRIM ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-LTRIM( <a href="index.html#term">stringTerm</a> )
+LTRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Removes leading spaces from the input string.</p>
@@ -605,15 +605,15 @@ syntax-end -->
 <h3 id="rtrim" class="notranslate">RTRIM</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-RTRIM( <a href="index.html#term">stringTerm</a> )
+RTRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">RTRIM ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">RTRIM ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-RTRIM( <a href="index.html#term">stringTerm</a> )
+RTRIM( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Removes trailing spaces from the input string.</p>
@@ -623,15 +623,15 @@ syntax-end -->
 <h3 id="length" class="notranslate">LENGTH</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-LENGTH( <a href="index.html#term">stringTerm</a> )
+LENGTH( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LENGTH ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LENGTH ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-LENGTH( <a href="index.html#term">stringTerm</a> )
+LENGTH( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Returns the length of the string in characters.</p>
@@ -641,15 +641,15 @@ syntax-end -->
 <h3 id="regexp_substr" class="notranslate">REGEXP_SUBSTR</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-REGEXP_SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#int">startInt</a> ] )
+REGEXP_SUBSTR( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#string">patternString</a> [, <a href="grammar.html#int">startInt</a> ] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_SUBSTR ( <a href="index.html#term">stringTerm</a> , <a href="index.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">startInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_SUBSTR ( <a href="grammar.html#term">stringTerm</a> , <a href="grammar.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#int">startInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-REGEXP_SUBSTR( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#int">startInt</a> ] )
+REGEXP_SUBSTR( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#string">patternString</a> [, <a href="grammar.html#int">startInt</a> ] )
 </pre>
 syntax-end -->
 <p>Returns a substring of a string by applying a regular expression start from the offset of a one-based position. Just like with <code>SUBSTR</code>, if the start index is negative, then it is relative to the end of the string. If not specified, the start index defaults to 1.</p>
@@ -659,15 +659,15 @@ syntax-end -->
 <h3 id="regexp_replace" class="notranslate">REGEXP_REPLACE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-REGEXP_REPLACE( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#string">replacementString</a> ] )
+REGEXP_REPLACE( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#string">patternString</a> [, <a href="grammar.html#string">replacementString</a> ] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_REPLACE ( <a href="index.html#term">stringTerm</a> , <a href="index.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">replacementString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REGEXP_REPLACE ( <a href="grammar.html#term">stringTerm</a> , <a href="grammar.html#string">patternString</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#string">replacementString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-REGEXP_REPLACE( <a href="index.html#term">stringTerm</a>, <a href="index.html#string">patternString</a> [, <a href="index.html#string">replacementString</a> ] )
+REGEXP_REPLACE( <a href="grammar.html#term">stringTerm</a>, <a href="grammar.html#string">patternString</a> [, <a href="grammar.html#string">replacementString</a> ] )
 </pre>
 syntax-end -->
 <p>Returns a string by applying a regular expression and replacing the matches with the replacement string. If the replacement string is not specified, it defaults to an empty string.</p>
@@ -677,15 +677,15 @@ syntax-end -->
 <h3 id="upper" class="notranslate">UPPER</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-UPPER( <a href="index.html#term">stringTerm</a> )
+UPPER( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPPER ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">UPPER ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-UPPER( <a href="index.html#term">stringTerm</a> )
+UPPER( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Returns upper case string of the string argument.</p>
@@ -695,15 +695,15 @@ syntax-end -->
 <h3 id="lower" class="notranslate">LOWER</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-LOWER( <a href="index.html#term">stringTerm</a> )
+LOWER( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LOWER ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">LOWER ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-LOWER( <a href="index.html#term">stringTerm</a> )
+LOWER( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Returns lower case string of the string argument.</p>
@@ -713,15 +713,15 @@ syntax-end -->
 <h3 id="reverse" class="notranslate">REVERSE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-REVERSE( <a href="index.html#term">stringTerm</a> )
+REVERSE( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REVERSE ( <a href="index.html#term">stringTerm</a> )</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">REVERSE ( <a href="grammar.html#term">stringTerm</a> )</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-REVERSE( <a href="index.html#term">stringTerm</a> )
+REVERSE( <a href="grammar.html#term">stringTerm</a> )
 </pre>
 syntax-end -->
 <p>Returns reversed string of the string argument.</p>
@@ -731,15 +731,15 @@ syntax-end -->
 <h3 id="to_char" class="notranslate">TO_CHAR</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TO_CHAR( <a href="index.html#term">timestampTerm</a> | <a href="index.html#term">numberTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_CHAR( <a href="grammar.html#term">timestampTerm</a> | <a href="grammar.html#term">numberTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_CHAR ( <a href="index.html#term">timestampTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="index.html#term">numberTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_CHAR ( <a href="grammar.html#term">timestampTerm</a></code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c"><a href="grammar.html#term">numberTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table></td><td class="le"></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TO_CHAR( <a href="index.html#term">timestampTerm</a> | <a href="index.html#term">numberTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_CHAR( <a href="grammar.html#term">timestampTerm</a> | <a href="grammar.html#term">numberTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 syntax-end -->
 <p>Formats a date, time, timestamp, or number as a string. The default date format is <code>yyyy-MM-dd HH:mm:ss</code> and the default number format is <code>#,##0.###</code>. For details, see <code>java.text.SimpleDateFormat</code> for date/time values and <code>java.text.DecimalFormat</code> for numbers. This method returns a string.</p>
@@ -749,15 +749,15 @@ syntax-end -->
 <h3 id="round" class="notranslate">ROUND</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-ROUND(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#number">multiplierNumber</a>])
+ROUND(<a href="grammar.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="grammar.html#number">multiplierNumber</a>])
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ROUND ( <a href="index.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#number">multiplierNumber</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">ROUND ( <a href="grammar.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#number">multiplierNumber</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-ROUND(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#number">multiplierNumber</a>])
+ROUND(<a href="grammar.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="grammar.html#number">multiplierNumber</a>])
 </pre>
 syntax-end -->
 <p>Rounds the timestamp to the nearest time unit specified. The multiplier is used to round to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified. This method returns a date.</p>
@@ -767,15 +767,15 @@ syntax-end -->
 <h3 id="truncate" class="notranslate">TRUNCATE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TRUNC(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#int">multiplierInt</a>])
+TRUNC(<a href="grammar.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="grammar.html#int">multiplierInt</a>])
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRUNC ( <a href="index.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#int">multiplierInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TRUNC ( <a href="grammar.html#term">timestampTerm</a> ,</code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; DAY &apos;</code></td></tr></table></td><td class="te"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; HOUR &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MINUTE &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ks"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; SECOND &apos;</code></td></tr></table></td><td class="ke"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">&apos; MILLISECOND &apos;</code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#int">multiplierInt</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TRUNC(<a href="index.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="index.html#int">multiplierInt</a>])
+TRUNC(<a href="grammar.html#term">timestampTerm</a>, {&apos;DAY&apos; | &apos;HOUR&apos; | &apos;MINUTE&apos; | &apos;SECOND&apos; | &apos;MILLISECOND&apos;} [, <a href="grammar.html#int">multiplierInt</a>])
 </pre>
 syntax-end -->
 <p>Truncates the timestamp to the next time unit closer to 0. The multiplier is used to truncate to a multiple of a time unit (i.e. 10 minute) and defaults to 1 if not specified. This method returns a date.</p>
@@ -785,15 +785,15 @@ syntax-end -->
 <h3 id="to_date" class="notranslate">TO_DATE</h3>
 <!-- railroad-start -->
 <pre name="bnf" style="display: none">
-TO_DATE( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_DATE( <a href="grammar.html#term">stringTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 <div name="railroad">
-<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_DATE ( <a href="index.html#term">stringTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="index.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
+<table class="railroad"><tr class="railroad"><td class="d"><code class="c">TO_DATE ( <a href="grammar.html#term">stringTerm</a></code></td><td class="d"><table class="railroad"><tr class="railroad"><td class="ts"></td><td class="d">&nbsp;</td><td class="te"></td></tr><tr class="railroad"><td class="ls"></td><td class="d"><table class="railroad"><tr class="railroad"><td class="d"><code class="c">, <a href="grammar.html#string">formatString</a></code></td></tr></table></td><td class="le"></td></tr></table></td><td class="d"><code class="c">)</code></td></tr></table>
 </div>
 <!-- railroad-end -->
 <!-- syntax-start
 <pre>
-TO_DATE( <a href="index.html#term">stringTerm</a> [, <a href="index.html#string">formatString</a>] )
+TO_DATE( <a href="grammar.html#term">stringTerm</a> [, <a href="grammar.html#string">formatString</a>] )
 </pre>
 syntax-end -->
 <p>Parses a string and returns a date. The most important format characters are: y year, M month, d day, H hour, m minute, s second. The default format string is <code>yyyy-MM-dd HH:mm:ss</code>. For details of the format, see <code>java.text.SimpleDateFormat</code>.</p>
