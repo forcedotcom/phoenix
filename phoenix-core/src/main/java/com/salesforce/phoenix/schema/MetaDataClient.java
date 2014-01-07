@@ -957,14 +957,13 @@ public class MetaDataClient {
      * <li>First PK (tenant id) column is not nullible AND 
      * <li>Firsts PK column's data type is either VARCHAR or CHAR AND
      * <li>Second PK (tenant type id) column is not nullible AND
-     * <li>Second PK column data type is either VARCHAR or CHAR AND
-     * <li>Second PK column max length is 3
+     * <li>Second PK column data type is either VARCHAR or CHAR
      * </ol>
      * FOR TENANT-SPECIFIC TABLES WITH NO TENANT_TYPE_ID SPECIFIED:
      * <ol>
      * <li>It has 2 or more PK columns AND
      * <li>First PK (tenant id) column is not nullible AND 
-     * <li>Firsts PK column's data type is either VARCHAR or CHAR AND
+     * <li>Firsts PK column's data type is either VARCHAR or CHAR
      * </ol>
      */
     private static boolean doesTableStructureSupportTenantTables(PTable table, boolean hasTenantTypeId) {
@@ -978,7 +977,7 @@ public class MetaDataClient {
         }
         if (hasTenantTypeId) {
             PColumn tenantTypeIdCol = pkCols.get(1);
-            if (tenantTypeIdCol.isNullable() || (tenantTypeIdCol.getDataType() != VARCHAR && tenantTypeIdCol.getDataType() != CHAR) || tenantTypeIdCol.getMaxLength() != 3) {
+            if (tenantTypeIdCol.isNullable() || (tenantTypeIdCol.getDataType() != VARCHAR && tenantTypeIdCol.getDataType() != CHAR)) {
             	return false;
             }
         }

@@ -920,10 +920,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     
     @Test
     public void testTenantConstraintsAddedToScan() throws SQLException {
-        String tenantTypeId = "567";
+        String tenantTypeId = "5678";
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
-        createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, type_id char(3) not null, " +
+        createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, type_id char(4) not null, " +
         		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id))");
         createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='BASE_TABLE_FOR_TENANT_FILTER_TEST',TENANT_TYPE_ID='" + tenantTypeId + "'");
         
