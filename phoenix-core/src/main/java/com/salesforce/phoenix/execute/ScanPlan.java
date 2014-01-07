@@ -53,6 +53,7 @@ import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.SaltingUtil;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ScanUtil;
 
 
 
@@ -84,6 +85,9 @@ public class ScanPlan extends BasicQueryPlan {
     protected ResultIterator newIterator() throws SQLException {
         // Set any scan attributes before creating the scanner, as it will be too late afterwards
         context.getScan().setAttribute(ScanRegionObserver.NON_AGGREGATE_QUERY, QueryConstants.TRUE);
+        if (OrderBy.REV_ROW_KEY_ORDER_BY.equals(orderBy)) {
+            ScanUtil.setReversed(context.getScan());
+        }
         ResultIterator scanner;
         TableRef tableRef = this.getTableRef();
         PTable table = tableRef.getTable();
@@ -101,8 +105,9 @@ public class ScanPlan extends BasicQueryPlan {
                     (getConnectionQueryServices(context.getConnection().getQueryServices()).getProps().getBoolean(
                             QueryServices.ROW_KEY_ORDER_SALTED_TABLE_ATTRIB, 
                             QueryServicesOptions.DEFAULT_ROW_KEY_ORDER_SALTED_TABLE) ||
-                     orderBy == OrderBy.ROW_KEY_ORDER_BY)) { // ORDER BY was optimized out b/c query is in row key order
-                scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES);
+                     orderBy == OrderBy.FWD_ROW_KEY_ORDER_BY ||
+                     orderBy == OrderBy.REV_ROW_KEY_ORDER_BY)) { // ORDER BY was optimized out b/c query is in row key order
+                scanner = new MergeSortRowKeyResultIterator(iterators, SaltingUtil.NUM_SALTING_BYTES, orderBy == OrderBy.REV_ROW_KEY_ORDER_BY);
             } else {
                 scanner = new ConcatResultIterator(iterators);
             }

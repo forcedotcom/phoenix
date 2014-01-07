@@ -59,7 +59,8 @@ public class OrderByCompiler {
          * Used to indicate that there was an ORDER BY, but it was optimized out because
          * rows are already returned in this order. 
          */
-        public static final OrderBy ROW_KEY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
+        public static final OrderBy FWD_ROW_KEY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
+        public static final OrderBy REV_ROW_KEY_ORDER_BY = new OrderBy(Collections.<OrderByExpression>emptyList());
         
         private final List<OrderByExpression> orderByExpressions;
         
@@ -126,7 +127,7 @@ public class OrderByCompiler {
         }
         // If we're ordering by the order returned by the scan, we don't need an order by
         if (visitor.isOrderPreserving()) {
-            return OrderBy.ROW_KEY_ORDER_BY;
+            return visitor.isReverse() ? OrderBy.REV_ROW_KEY_ORDER_BY : OrderBy.FWD_ROW_KEY_ORDER_BY;
         }
 
         return new OrderBy(Lists.newArrayList(orderByExpressions.iterator()));
