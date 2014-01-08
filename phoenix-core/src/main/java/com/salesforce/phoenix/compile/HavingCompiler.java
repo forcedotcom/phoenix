@@ -71,7 +71,7 @@ public class HavingCompiler {
         ExpressionCompiler expressionBuilder = new ExpressionCompiler(context, groupBy);
         Expression expression = having.accept(expressionBuilder);
         if (expression.getDataType() != PDataType.BOOLEAN) {
-            throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
+            throw TypeMismatchException.newException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
         if (LiteralExpression.FALSE_EXPRESSION == expression) {
             context.setScanRanges(ScanRanges.NOTHING);

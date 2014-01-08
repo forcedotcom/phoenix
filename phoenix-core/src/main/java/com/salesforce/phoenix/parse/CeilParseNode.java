@@ -69,7 +69,7 @@ public class CeilParseNode extends FunctionParseNode {
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new CeilDecimalExpression(children);
         } else {
-            throw new TypeMismatchException(firstChildDataType, "1");
+            throw TypeMismatchException.newException(firstChildDataType, "1");
         }
     }
     

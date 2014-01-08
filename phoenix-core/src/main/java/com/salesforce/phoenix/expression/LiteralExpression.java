@@ -126,7 +126,7 @@ public class LiteralExpression extends BaseTerminalExpression {
         // For array we should check individual element in it?
         // It would be costly though!!!!!
         if (!actualType.isCoercibleTo(type, value)) {
-            throw new TypeMismatchException(type, actualType, value.toString());
+            throw TypeMismatchException.newException(type, actualType, value.toString());
         }
         value = type.toObject(value, actualType);
         try {

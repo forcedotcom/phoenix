@@ -81,7 +81,7 @@ public class CastParseNode extends UnaryParseNode {
 	    } else if((fromDataType == PDataType.TIMESTAMP || fromDataType == PDataType.UNSIGNED_TIMESTAMP) && targetDataType.isCoercibleTo(PDataType.DATE)) {
 	        return RoundTimestampExpression.create(expressions);
 	    } else if(!fromDataType.isCoercibleTo(targetDataType)) {
-	        throw new TypeMismatchException(fromDataType, targetDataType, firstChildExpr.toString());
+	        throw TypeMismatchException.newException(fromDataType, targetDataType, firstChildExpr.toString());
 	    }
 	    return firstChildExpr;
 	}

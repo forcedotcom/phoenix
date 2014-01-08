@@ -53,7 +53,7 @@ public class ColumnNotFoundException extends MetaDataEntityNotFoundException {
     public ColumnNotFoundException(String schemaName, String tableName, String familyName, String columnName) {
         super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName)
                 .setFamilyName(familyName).setColumnName(columnName).build().toString(),
-                code.getSQLState(), code.getErrorCode());
+                code.getSQLState(), code.getErrorCode(), null);
         this.schemaName = schemaName;
         this.tableName = tableName;
         this.columnName = columnName;

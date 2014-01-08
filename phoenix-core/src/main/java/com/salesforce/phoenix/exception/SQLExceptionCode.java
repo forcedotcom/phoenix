@@ -27,9 +27,24 @@
  ******************************************************************************/
 package com.salesforce.phoenix.exception;
 
+import java.sql.SQLException;
+import java.util.Map;
+
+import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.AmbiguousTableException;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
+import com.salesforce.phoenix.schema.ConcurrentTableMutationException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.ReadOnlyTableException;
+import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
+import com.salesforce.phoenix.schema.SequenceNotFoundException;
+import com.salesforce.phoenix.schema.TableAlreadyExistsException;
+import com.salesforce.phoenix.schema.TableNotFoundException;
+import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.MetaDataUtil;
 
 
@@ -53,7 +68,12 @@ public enum SQLExceptionCode {
      */
     ILLEGAL_DATA(201, "22000", "Illegal data."),
     DIVIDE_BY_ZERO(202, "22012", "Divide by zero."),
-    TYPE_MISMATCH(203, "22005", "Type mismatch."),
+    TYPE_MISMATCH(203, "22005", "Type mismatch.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new TypeMismatchException(info.getMessage());
+        }
+    }),
     VALUE_IN_UPSERT_NOT_CONSTANT(204, "22008", "Values in UPSERT must evaluate to a constant."),
     MALFORMED_URL(205, "22009", "Malformed URL."),
     DATA_INCOMPATIBLE_WITH_TYPE(206, "22003", "The value is outside the range for the data type."),
@@ -69,24 +89,48 @@ public enum SQLExceptionCode {
     /**
      * Constraint Violation (errorcode 03, sqlstate 23)
      */
-    CONCURRENT_TABLE_MUTATION(301, "23000", "Concurrent modification to table."),
-    CANNOT_INDEX_COLUMN_ON_TYPE(201, "23100", "The column cannot be index due to its type."),
+    CONCURRENT_TABLE_MUTATION(301, "23000", "Concurrent modification to table.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new ConcurrentTableMutationException(info.getSchemaName(), info.getTableName());
+        }
+    }),
+    CANNOT_INDEX_COLUMN_ON_TYPE(302, "23100", "The column cannot be index due to its type."),
     
     /**
      * Invalid Cursor State (errorcode 04, sqlstate 24)
      */
     CURSOR_BEFORE_FIRST_ROW(401, "24015","Cursor before first row."),
-    CURSOR_PAST_LAST_ROW(401, "24016", "Cursor past last row."),
+    CURSOR_PAST_LAST_ROW(402, "24016", "Cursor past last row."),
     
     /**
      * Syntax Error or Access Rule Violation (errorcode 05, sqlstate 42)
      */
-    AMBIGUOUS_TABLE(501, "42000", "Table name exists in more than one table schema and is used without being qualified."),
-    READ_ONLY_TABLE(505, "42000", "Table is read only."),
-    INDEX_MISSING_PK_COLUMNS(513, "42602", "Index table missing PK Columns."),
-    AMBIGUOUS_COLUMN(502, "42702", "Column reference ambiguous or duplicate names."),
-    COLUMN_NOT_FOUND(504, "42703", "Undefined column."),
-    COLUMN_EXIST_IN_DEF(503, "42711", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
+    AMBIGUOUS_TABLE(501, "42000", "Table name exists in more than one table schema and is used without being qualified.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new AmbiguousTableException(info.getTableName(), info.getRootCause());
+        }
+    }),
+    AMBIGUOUS_COLUMN(502, "42702", "Column reference ambiguous or duplicate names.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new AmbiguousColumnException(info.getColumnName(), info.getRootCause());
+        }
+    }),
+    INDEX_MISSING_PK_COLUMNS(503, "42602", "Index table missing PK Columns."),
+     COLUMN_NOT_FOUND(504, "42703", "Undefined column.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new ColumnNotFoundException(info.getSchemaName(), info.getTableName(), info.getFamilyName(), info.getColumnName());
+        }
+    }),
+    READ_ONLY_TABLE(505, "42000", "Table is read only.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new ReadOnlyTableException(info.getMessage(), info.getRootCause());
+        }
+    }),
     CANNOT_DROP_PK(506, "42817", "Primary key column may not be dropped."),
     CANNOT_CONVERT_TYPE(507, "42846", "Cannot convert type."),
     UNSUPPORTED_ORDER_BY_QUERY(508, "42878", "ORDER BY only allowed for limited or aggregate queries"),
@@ -95,6 +139,7 @@ public enum SQLExceptionCode {
     ORDER_BY_NOT_IN_SELECT_DISTINCT(511, "42890", "All ORDER BY expressions must appear in SELECT DISTINCT:"),
     INVALID_PRIMARY_KEY_CONSTRAINT(512, "42891", "Invalid column reference in primary key constraint"),
     INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT(513, "42892", "Array type not allowed as primary key constraint"),
+    COLUMN_EXIST_IN_DEF(514, "42892", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
     
     /** 
      * HBase and Phoenix specific implementation defined sub-classes.
@@ -102,17 +147,22 @@ public enum SQLExceptionCode {
      * 
      * For the following exceptions, use errorcode 10.
      */
-    COLUMN_FAMILY_NOT_FOUND(1001, "42I01", "Undefined column family."),
+    COLUMN_FAMILY_NOT_FOUND(1001, "42I01", "Undefined column family.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new ColumnFamilyNotFoundException(info.getFamilyName());
+        }
+    }),
     PROPERTIES_FOR_FAMILY(1002, "42I02","Properties may not be defined for an unused family name."),
     // Primary/row key related exceptions.
     PRIMARY_KEY_WITH_FAMILY_NAME(1003, "42J01", "Primary key columns must not have a family name."),
     PRIMARY_KEY_OUT_OF_ORDER(1004, "42J02", "Order of columns in primary key constraint must match the order in which they're declared."),
     VARBINARY_IN_ROW_KEY(1005, "42J03", "The VARBINARY type can only be used as the last part of a multi-part row key."),
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
-    VARBINARY_LAST_PK(1022, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
+    VARBINARY_LAST_PK(1015, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
     NULLABLE_FIXED_WIDTH_LAST_PK(1023, "42J04", "Cannot add column to table when the last PK column is nullable and fixed width."),
-    TENANT_TABLE_PK(1028, "42J04", "Cannot modify PK of a tenant-specific table."),
-    BASE_TABLE_COLUMN(1029, "42J04", "Cannot modify columns of base table used by tenant-specific tables."),
+    TENANT_TABLE_PK(1036, "42J04", "Cannot modify PK of a tenant-specific table."),
+    BASE_TABLE_COLUMN(1037, "42J04", "Cannot modify columns of base table used by tenant-specific tables."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL(1007, "42K01", "A key/value column may not be declared as not null."),
     // View related errors.
@@ -121,22 +171,21 @@ public enum SQLExceptionCode {
     // Table related errors that are not in standard code.
     CANNOT_MUTATE_TABLE(1010, "42M01", "Not allowed to mutate table."),
     UNEXPECTED_MUTATION_CODE(1011, "42M02", "Unexpected mutation code."),
-    TABLE_UNDEFINED(1012, "42M03", "Table undefined."),
-    TABLE_ALREADY_EXIST(1013, "42M04", "Table already exists."),
-    SEQUENCE_ALREADY_EXIST(1014, "42M05", "Sequence already exists."),
-    SEQUENCE_UNDEFINED(1015, "42M06", "Sequence undefined."),
-    STARTS_WITH_MUST_BE_CONSTANT(1016, "42M07", "Sequence STARTS WITH value must be an integer or long constant."),
-    INCREMENT_BY_MUST_BE_CONSTANT(1017, "42M08", "Sequence INCREMENT BY value must be an integer or long constant."),
-    INVALID_USE_OF_NEXT_VALUE_FOR(1018, "42M09", "NEXT VALUE FOR may only be used in the SELECT expressions and WHERE clause."),
-    NEXT_VALUE_FOR_NOT_FOUND(1019, "42M10", "Could not resolve NEXT VALUE FOR sequence."),
-    NEXT_VALUE_FOR_FAILED(1020, "42M11", "Could not retrieve NEXT VALUE FOR sequence."),
+    TABLE_UNDEFINED(1012, "42M03", "Table undefined.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new TableNotFoundException(info.getSchemaName(), info.getTableName());
+        }
+    }),
+    TABLE_ALREADY_EXIST(1013, "42M04", "Table already exists.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new TableAlreadyExistsException(info.getSchemaName(), info.getTableName());
+        }
+    }),
 
-    // Index related errors
-    INDEX_ALREADY_EXIST(1023, "42N01", "Index already exists."),
-    CANNOT_MUTATE_INDEX(1024, "42N02", "Cannot mutate existing index."),
     // Syntax error
     TYPE_NOT_SUPPORTED_FOR_OPERATOR(1014, "42Y01", "The operator does not support the operand type."),
-    SCHEMA_NOT_FOUND(1015, "42Y07", "Schema not found."),
     AGGREGATE_IN_GROUP_BY(1016, "42Y26", "Aggregate expressions may not be used in GROUP BY."),
     AGGREGATE_IN_WHERE(1017, "42Y26", "Aggregate may not be used in WHERE."),
     AGGREGATE_WITH_NOT_GROUP_BY_COLUMN(1018, "42Y27", "Aggregate may not contain columns not in GROUP BY."),
@@ -147,7 +196,7 @@ public enum SQLExceptionCode {
     NO_SPLITS_ON_SALTED_TABLE(1022, "42Y81", "Should not specify split points on salted table with default row key order."),
     SALT_ONLY_ON_CREATE_TABLE(1024, "42Y83", "Salt bucket number may only be specified when creating a table."),
     SET_UNSUPPORTED_PROP_ON_ALTER_TABLE(1025, "42Y84", "Unsupported property set in ALTER TABLE command."),
-    CANNOT_ADD_NOT_NULLABLE_COLUMN(1030, "42Y84", "Only nullable columns may be added for a pre-existing table."),
+    CANNOT_ADD_NOT_NULLABLE_COLUMN(1038, "42Y84", "Only nullable columns may be added for a pre-existing table."),
     NO_MUTABLE_INDEXES(1026, "42Y85", "Mutable secondary indexes are only supported for HBase version " + MetaDataUtil.decodeHBaseVersionAsString(PhoenixDatabaseMetaData.MUTABLE_SI_VERSION_THRESHOLD) + " and above."),
     NO_DELETE_IF_IMMUTABLE_INDEX(1027, "42Y86", "Delete not allowed on a table with IMMUTABLE_ROW with non PK column in index."),
     INVALID_INDEX_STATE_TRANSITION(1028, "42Y87", "Invalid index state transition."),
@@ -161,13 +210,32 @@ public enum SQLExceptionCode {
     DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
     TENANT_TYPE_ID_ONLY_ON_CREATE_TABLE(1035, "42Y94", "Tenant type ID may only be specified when creating a table."),
     
-    
+    /** Sequence related */
+    SEQUENCE_ALREADY_EXIST(1200, "42Z00", "Sequence already exists.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new SequenceAlreadyExistsException(info.getSchemaName(), info.getTableName());
+        }
+    }),
+    SEQUENCE_UNDEFINED(1201, "42Z01", "Sequence undefined.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new SequenceNotFoundException(info.getSchemaName(), info.getTableName());
+        }
+    }),
+    STARTS_WITH_MUST_BE_CONSTANT(1202, "42Z02", "Sequence STARTS WITH value must be an integer or long constant."),
+    INCREMENT_BY_MUST_BE_CONSTANT(1203, "42Z03", "Sequence INCREMENT BY value must be an integer or long constant."),
+    CACHE_MUST_BE_NON_NEGATIVE_CONSTANT(1204, "42Z04", "Sequence CACHE value must be a non negative integer constant."),
+    INVALID_USE_OF_NEXT_VALUE_FOR(1205, "42Z05", "NEXT VALUE FOR may only be used as in a SELECT or an UPSERT VALUES expression."),
+    CANNOT_CALL_CURRENT_BEFORE_NEXT_VALUE(1206, "42Z06", "NEXT VALUE FOR must be called before CURRENT VALUE FOR is called."),
+    EMPTY_SEQUENCE_CACHE(1207, "42Z07", "No more cached sequence values"),
+
     /** Parser error. (errorcode 06, sqlState 42P) */
-    PARSER_ERROR(601, "42P00", "Syntax error."),
-    MISSING_TOKEN(602, "42P00", "Syntax error."),
-    UNWANTED_TOKEN(603, "42P00", "Syntax error."),
-    MISMATCHED_TOKEN(603, "42P00", "Syntax error."),
-    UNKNOWN_FUNCTION(604, "42P00", "Syntax error."),
+    PARSER_ERROR(601, "42P00", "Syntax error.", Factory.SYTAX_ERROR),
+    MISSING_TOKEN(602, "42P00", "Syntax error.", Factory.SYTAX_ERROR),
+    UNWANTED_TOKEN(603, "42P00", "Syntax error.", Factory.SYTAX_ERROR),
+    MISMATCHED_TOKEN(604, "42P00", "Syntax error.", Factory.SYTAX_ERROR),
+    UNKNOWN_FUNCTION(605, "42P00", "Syntax error.", Factory.SYTAX_ERROR),
     
     /**
      * Implementation defined class. Execution exceptions (errorcode 11, sqlstate XCL). 
@@ -189,16 +257,23 @@ public enum SQLExceptionCode {
     INCOMPATIBLE_CLIENT_SERVER_JAR(2006, "INT08", "Incompatible jars detected between client and server."),
     OUTDATED_JARS(2007, "INT09", "Outdated jars."),
     INDEX_METADATA_NOT_FOUND(2008, "INT10", "Unable to find cached index metadata. "),
+    UNKNOWN_ERROR_CODE(2009, "INT11", "Unknown error code"),
     ;
 
     private final int errorCode;
     private final String sqlState;
     private final String message;
+    private final Factory factory;
 
     private SQLExceptionCode(int errorCode, String sqlState, String message) {
+        this(errorCode, sqlState, message, Factory.DEFAULTY);
+    }
+
+    private SQLExceptionCode(int errorCode, String sqlState, String message, Factory factory) {
         this.errorCode = errorCode;
         this.sqlState = sqlState;
         this.message = message;
+        this.factory = factory;
     }
 
     public String getSQLState() {
@@ -218,4 +293,46 @@ public enum SQLExceptionCode {
         return "ERROR " + errorCode + " (" + sqlState + "): " + message;
     }
 
+    public Factory getExceptionFactory() {
+        return factory;
+    }
+
+    public static interface Factory {
+        public static final Factory DEFAULTY = new Factory() {
+
+            @Override
+            public SQLException newException(SQLExceptionInfo info) {
+                return new SQLException(info.toString(), info.getCode().getSQLState(), info.getCode().getErrorCode(), info.getRootCause());
+            }
+            
+        };
+        public static final Factory SYTAX_ERROR = new Factory() {
+
+            @Override
+            public SQLException newException(SQLExceptionInfo info) {
+                return new PhoenixParserException(info.getMessage(), info.getRootCause());
+            }
+            
+        };
+        public SQLException newException(SQLExceptionInfo info);
+    }
+    
+    private static final Map<Integer,SQLExceptionCode> errorCodeMap = Maps.newHashMapWithExpectedSize(SQLExceptionCode.values().length);
+    static {
+        for (SQLExceptionCode code : SQLExceptionCode.values()) {
+            SQLExceptionCode otherCode = errorCodeMap.put(code.getErrorCode(), code);
+            if (otherCode != null) {
+                throw new IllegalStateException("Duplicate error code for " + code + " and " + otherCode);
+            }
+        }
+    }
+    
+    public static SQLExceptionCode fromErrorCode(int errorCode) throws SQLException {
+        SQLExceptionCode code = errorCodeMap.get(errorCode);
+        if (code == null) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UNKNOWN_ERROR_CODE)
+            .setMessage(Integer.toString(errorCode)).build().buildException();
+        }
+        return code;
+    }
 }

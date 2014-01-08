@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -45,13 +44,11 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
-import com.salesforce.phoenix.schema.PSequence;
+import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.SequenceValue;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -182,41 +179,47 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
-            throws SQLException {
-        return getDelegate().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, timestamp);
+    public long createSequence(String tenantId, String schemaName, String sequenceName, long startWith,
+            long incrementBy, int batchSize, long timestamp) throws SQLException {
+        return getDelegate().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, batchSize, timestamp);
     }
 
     @Override
-    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+    public long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp)
+            throws SQLException {
         return getDelegate().dropSequence(tenantId, schemaName, sequenceName, timestamp);
     }
 
     @Override
-    public PMetaData addSequence(TableName name, PSequence sequence) throws SQLException {
-        return getDelegate().addSequence(name, sequence);
+    public void reserveSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values,
+            SQLException[] exceptions) throws SQLException {
+        getDelegate().reserveSequenceValues(sequenceKeys, timestamp, values, exceptions);
     }
 
     @Override
-    public PMetaData removeSequence(TableName name, long timestamp) throws SQLException {
-        return getDelegate().removeSequence(name, timestamp);
+    public void incrementSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values,
+            SQLException[] exceptions) throws SQLException {
+        getDelegate().incrementSequenceValues(sequenceKeys, timestamp, values, exceptions);
     }
 
     @Override
-    public Map<TableName, SequenceValue> initSequences(String tenantId, List<TableName> sequences, long timestamp)
+    public long getSequenceValue(SequenceKey sequenceKey, long timestamp) throws SQLException {
+        return getDelegate().getSequenceValue(sequenceKey, timestamp);
+    }
+
+    @Override
+    public void returnSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, SQLException[] exceptions)
             throws SQLException {
-        return getDelegate().initSequences(tenantId, sequences, timestamp);
+        getDelegate().returnSequenceValues(sequenceKeys, timestamp, exceptions);
     }
 
     @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize, long timestamp)
-            throws SQLException {
-        return getDelegate().reserveSequences(tenantId, sequences, batchSize, timestamp);
+    public void addConnection(PhoenixConnection connection) throws SQLException {
+        getDelegate().addConnection(connection);
     }
 
     @Override
-    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp)
-            throws SQLException {
-        return getDelegate().returnSequences(tenantId, sequences, timestamp);
+    public void removeConnection(PhoenixConnection connection) throws SQLException {
+        getDelegate().removeConnection(connection);
     }
 }

@@ -32,7 +32,7 @@ import java.sql.SQLException;
 public abstract class MetaDataEntityNotFoundException extends SQLException {
     private static final long serialVersionUID = 1L;
 
-    public MetaDataEntityNotFoundException(String reason, String sqlState, int code) {
-        super(reason, sqlState, code);
+    public MetaDataEntityNotFoundException(String reason, String sqlState, int code, Throwable cause) {
+        super(reason, sqlState, code, cause);
     }
 }

@@ -173,7 +173,7 @@ public class PhoenixParameterMetaData implements ParameterMetaData {
     public void addParam(BindParseNode bind, PDatum datum) throws SQLException {
         PDatum bindDatum = params[bind.getIndex()];
         if (bindDatum != null && bindDatum.getDataType() != null && !datum.getDataType().isCoercibleTo(bindDatum.getDataType())) {
-            throw new TypeMismatchException(datum.getDataType(), bindDatum.getDataType());
+            throw TypeMismatchException.newException(datum.getDataType(), bindDatum.getDataType());
         }
         params[bind.getIndex()] = datum;
     }

@@ -43,6 +43,8 @@ import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.CreateSequenceStatement;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PDataType;
@@ -89,7 +91,41 @@ public class CreateSequenceCompiler {
         }
         
     }
+    private static class IntegerDatum implements PDatum {
+
+        @Override
+        public boolean isNullable() {
+            return false;
+        }
+
+        @Override
+        public PDataType getDataType() {
+            return PDataType.INTEGER;
+        }
+
+        @Override
+        public Integer getByteSize() {
+            return PDataType.INTEGER.getByteSize();
+        }
+
+        @Override
+        public Integer getMaxLength() {
+            return null;
+        }
+
+        @Override
+        public Integer getScale() {
+            return null;
+        }
+
+        @Override
+        public ColumnModifier getColumnModifier() {
+            return null;
+        }
+        
+    }
     private static final PDatum LONG_DATUM = new LongDatum();
+    private static final PDatum INTEGER_DATUM = new IntegerDatum();
 
     public MutationPlan compile(final CreateSequenceStatement sequence) throws SQLException {
         ParseNode startsWithNode = sequence.getStartWith();
@@ -104,6 +140,12 @@ public class CreateSequenceCompiler {
             .setSchemaName(sequence.getSequenceName().getSchemaName())
             .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
         }
+        ParseNode cacheNode = sequence.getCacheSize();
+        if (cacheNode != null && !cacheNode.isConstant()) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CACHE_MUST_BE_NON_NEGATIVE_CONSTANT)
+            .setSchemaName(sequence.getSequenceName().getSchemaName())
+            .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+        }
         
         final PhoenixConnection connection = statement.getConnection();
         final ColumnResolver resolver = FromCompiler.EMPTY_TABLE_RESOLVER;
@@ -114,6 +156,9 @@ public class CreateSequenceCompiler {
         }
         if (incrementByNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)incrementByNode, LONG_DATUM);
+        }
+        if (cacheNode instanceof BindParseNode) {
+            context.getBindManager().addParamMetaData((BindParseNode)cacheNode, INTEGER_DATUM);
         }
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
         Expression startsWithExpr = startsWithNode.accept(expressionCompiler);
@@ -135,12 +180,25 @@ public class CreateSequenceCompiler {
         }
         final long incrementBy = (Long)PDataType.LONG.toObject(ptr, incrementByExpr.getDataType());
         
+        int cacheSizeValue = connection.getQueryServices().getProps().getInt(QueryServices.SEQUENCE_CACHE_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_SEQUENCE_CACHE_SIZE);
+        if (cacheNode != null) {
+            Expression cacheSizeExpr = cacheNode.accept(expressionCompiler);
+            cacheSizeExpr.evaluate(null, ptr);
+            if (ptr.getLength() != 0 && (!cacheSizeExpr.getDataType().isCoercibleTo(PDataType.INTEGER) || (cacheSizeValue = (Integer)PDataType.INTEGER.toObject(ptr)) < 0)) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CACHE_MUST_BE_NON_NEGATIVE_CONSTANT)
+                .setSchemaName(sequence.getSequenceName().getSchemaName())
+                .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
+            }
+        }
+        final int cacheSize = Math.max(1, cacheSizeValue);
+        
+
         final MetaDataClient client = new MetaDataClient(connection);        
         return new MutationPlan() {           
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createSequence(sequence, startsWith, incrementBy);
+                return client.createSequence(sequence, startsWith, incrementBy, cacheSize);
             }
 
             @Override

@@ -31,7 +31,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -45,9 +44,8 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.SequenceValue;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
@@ -93,9 +91,12 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
 
     boolean hasInvalidIndexConfiguration();
     
-    Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp) throws SQLException;
-    Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException;
-    Map<TableName, SequenceValue> initSequences(String tenantId, List<TableName> sequences, long timestamp) throws SQLException;
-    List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException;
-    List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp) throws SQLException;
+    long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, int batchSize, long timestamp) throws SQLException;
+    long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException;
+    void reserveSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values, SQLException[] exceptions) throws SQLException;
+    void incrementSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values, SQLException[] exceptions) throws SQLException;
+    long getSequenceValue(SequenceKey sequenceKey, long timestamp) throws SQLException;
+    void returnSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, SQLException[] exceptions) throws SQLException;
+    void addConnection(PhoenixConnection connection) throws SQLException;
+    void removeConnection(PhoenixConnection connection) throws SQLException;
 }

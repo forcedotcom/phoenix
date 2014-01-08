@@ -69,10 +69,10 @@ import com.salesforce.phoenix.parse.ColumnName;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.LiteralParseNode;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
@@ -571,9 +571,8 @@ public class UpsertCompiler {
             constantExpressions.add(valueNode.accept(expressionBuilder));
             nodeIndex++;
         }
-        if (context.getSequenceManager().getSequenceCount() > 0) {
-            context.getSequenceManager().initSequences();
-        }
+        final SequenceManager sequenceManager = context.getSequenceManager();
+        sequenceManager.initSequences();
         // Next evaluate all the expressions
         nodeIndex = 0;
         final byte[][] values = new byte[nValuesToSet][];
@@ -591,7 +590,7 @@ public class UpsertCompiler {
                 }
                 value = constantExpression.getDataType().toObject(byteValue);
                 if (!constantExpression.getDataType().isCoercibleTo(column.getDataType(), value)) { 
-                    throw new TypeMismatchException(
+                    throw TypeMismatchException.newException(
                         constantExpression.getDataType(), column.getDataType(), "expression: "
                                 + constantExpression.toString() + " in column " + column);
                 }
@@ -622,7 +621,12 @@ public class UpsertCompiler {
             }
 
             @Override
-            public MutationState execute() {
+            public MutationState execute() { // TODO: add throws SQLException
+                try {
+                    sequenceManager.incrementSequenceValues();
+                } catch (SQLException e) {
+                    throw new RuntimeException(e); // Will get unwrapped
+                }
                 Map<ImmutableBytesPtr, Map<PColumn, byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
                 setValues(values, pkSlotIndexes, columnIndexes, tableRef.getTable(), mutation);
                 return new MutationState(tableRef, mutation, 0, maxSize, connection);
@@ -671,7 +675,7 @@ public class UpsertCompiler {
         }
         
         @Override
-        public Expression visit(NextSequenceValueParseNode node) throws SQLException {
+        public Expression visit(SequenceOpParseNode node) throws SQLException {
             return context.getSequenceManager().newSequenceReference(node);
         }
     }

@@ -122,7 +122,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         props.put(QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB, Integer.toString(targetQueryConcurrency));
         props.put(IndexWriterUtils.HTABLE_THREAD_KEY, Integer.toString(100));
         // Make a small batch size to test multiple calls to reserve sequences
-        props.put(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB, Long.toString(BATCH_SIZE));
+        props.put(QueryServices.SEQUENCE_CACHE_SIZE_ATTRIB, Long.toString(BATCH_SIZE));
         
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));

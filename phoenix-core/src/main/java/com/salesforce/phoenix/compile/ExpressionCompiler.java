@@ -88,11 +88,11 @@ import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LikeParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.MultiplyParseNode;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.NotParseNode;
 import com.salesforce.phoenix.parse.OrParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.RowValueConstructorParseNode;
+import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
@@ -111,7 +111,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expression> {
     private boolean isAggregate;
-    private ParseNode aggregateFunction;
+    protected ParseNode aggregateFunction;
     protected final StatementContext context;
     protected final GroupBy groupBy;
     private int nodeCount;
@@ -154,7 +154,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     
     private static void checkComparability(ParseNode node, PDataType lhsDataType, PDataType rhsDataType) throws TypeMismatchException {
         if(lhsDataType != null && rhsDataType != null && !lhsDataType.isComparableTo(rhsDataType)) {
-            throw new TypeMismatchException(lhsDataType, rhsDataType, node.toString());
+            throw TypeMismatchException.newException(lhsDataType, rhsDataType, node.toString());
         }
     }
     
@@ -348,7 +348,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         while (iterator.hasNext()) {
             Expression child = iterator.next();
             if (child.getDataType() != PDataType.BOOLEAN) {
-                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+                throw TypeMismatchException.newException(PDataType.BOOLEAN, child.getDataType(), child.toString());
             }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 return child;
@@ -376,7 +376,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         while (iterator.hasNext()) {
             Expression child = iterator.next();
             if (child.getDataType() != PDataType.BOOLEAN) {
-                throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), child.toString());
+                throw TypeMismatchException.newException(PDataType.BOOLEAN, child.getDataType(), child.toString());
             }
             if (child == LiteralExpression.FALSE_EXPRESSION) {
                 iterator.remove();
@@ -567,7 +567,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if ( rhs.getDataType() != null && lhs.getDataType() != null && 
                 !lhs.getDataType().isCoercibleTo(rhs.getDataType())  && 
                 !rhs.getDataType().isCoercibleTo(lhs.getDataType())) {
-            throw new TypeMismatchException(lhs.getDataType(), rhs.getDataType(), node.toString());
+            throw TypeMismatchException.newException(lhs.getDataType(), rhs.getDataType(), node.toString());
         }
         if (lhsNode instanceof BindParseNode) {
             context.getBindManager().addParamMetaData((BindParseNode)lhsNode, rhs);
@@ -629,7 +629,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         ParseNode childNode = node.getChildren().get(0);
         Expression child = children.get(0);
         if (!PDataType.BOOLEAN.isCoercibleTo(child.getDataType())) {
-            throw new TypeMismatchException(PDataType.BOOLEAN, child.getDataType(), node.toString());
+            throw TypeMismatchException.newException(PDataType.BOOLEAN, child.getDataType(), node.toString());
         }
         if (childNode instanceof BindParseNode) { // TODO: valid/possibe?
             context.getBindManager().addParamMetaData((BindParseNode)childNode, child);
@@ -1001,7 +1001,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.DOUBLE;
                         }
                     } else {
-                        throw new TypeMismatchException(type, node.toString());
+                        throw TypeMismatchException.newException(type, node.toString());
                     }
                 }
                 if (theType == PDataType.DECIMAL) {
@@ -1017,7 +1017,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateSubtractExpression(children);
                 } else {
-                    throw new TypeMismatchException(theType, node.toString());
+                    throw TypeMismatchException.newException(theType, node.toString());
                 }
             }
         });
@@ -1077,7 +1077,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                         continue; 
                     } else if (type.isCoercibleTo(PDataType.TIMESTAMP)) {
                         if (foundDate) {
-                            throw new TypeMismatchException(type, node.toString());
+                            throw TypeMismatchException.newException(type, node.toString());
                         }
                         if (theType == null || (theType != PDataType.TIMESTAMP && theType != PDataType.UNSIGNED_TIMESTAMP)) {
                             theType = type;
@@ -1096,7 +1096,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.DOUBLE;
                         }
                     } else {
-                        throw new TypeMismatchException(type, node.toString());
+                        throw TypeMismatchException.newException(type, node.toString());
                     }
                 }
                 if (theType == PDataType.DECIMAL) {
@@ -1112,7 +1112,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                 } else if (theType.isCoercibleTo(PDataType.DATE)) {
                     return new DateAddExpression(children);
                 } else {
-                    throw new TypeMismatchException(theType, node.toString());
+                    throw TypeMismatchException.newException(theType, node.toString());
                 }
             }
         });
@@ -1144,7 +1144,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.DOUBLE;
                         }
                     } else {
-                        throw new TypeMismatchException(type, node.toString());
+                        throw TypeMismatchException.newException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -1202,7 +1202,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
                             theType = PDataType.DOUBLE;
                         }
                     } else {
-                        throw new TypeMismatchException(type, node.toString());
+                        throw TypeMismatchException.newException(type, node.toString());
                     }
                 }
                 switch (theType) {
@@ -1268,7 +1268,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     }
 
 	@Override
-	public Expression visit(NextSequenceValueParseNode node)
+	public Expression visit(SequenceOpParseNode node)
 			throws SQLException {
 	    // NEXT VALUE FOR is only supported in SELECT expressions and UPSERT VALUES
         throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR)

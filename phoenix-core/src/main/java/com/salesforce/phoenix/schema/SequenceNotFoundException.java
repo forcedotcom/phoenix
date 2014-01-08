@@ -43,7 +43,7 @@ public class SequenceNotFoundException extends MetaDataEntityNotFoundException {
 
 	public SequenceNotFoundException(String schemaName, String tableName) {
 		super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
-				code.getSQLState(), code.getErrorCode());
+				code.getSQLState(), code.getErrorCode(), null);
 		this.tableName = tableName;
 		this.schemaName = schemaName;
 	}

@@ -32,7 +32,6 @@ import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_MET
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -42,6 +41,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -49,11 +49,9 @@ import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.HTableDescriptor;
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableExistsException;
 import org.apache.hadoop.hbase.ZooKeeperConnectionException;
 import org.apache.hadoop.hbase.client.Append;
-import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HConnection;
 import org.apache.hadoop.hbase.client.HConnectionManager;
@@ -93,27 +91,23 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
-import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.schema.EmptySequenceCacheException;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
-import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PMetaDataImpl;
-import com.salesforce.phoenix.schema.PSequence;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
-import com.salesforce.phoenix.schema.SequenceNotFoundException;
-import com.salesforce.phoenix.schema.SequenceValue;
+import com.salesforce.phoenix.schema.Sequence;
+import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
-import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
-import com.salesforce.phoenix.util.ResultUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.ServerUtil;
 
@@ -134,6 +128,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     // Lowest HBase version on the cluster.
     private int lowestClusterHBaseVersion = Integer.MAX_VALUE;
     private boolean hasInvalidIndexConfiguration = false;
+    private int connectionCount = 0;
+    
+    private final ConcurrentMap<SequenceKey,Sequence> sequenceMap = Maps.newConcurrentMap();
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -398,36 +395,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
 
-    @Override
-    public PMetaData addSequence(final TableName name, PSequence sequence) throws SQLException {
-        synchronized(latestMetaDataLock) {
-            PSequence existingSequence = latestMetaData.getSequence(name);
-            if (existingSequence == null || existingSequence.getTimeStamp() <= sequence.getTimeStamp()) {
-                latestMetaData = latestMetaData.addSequence(name, sequence);
-            }
-            return latestMetaData;
-        }
-    }
-    
-    @Override
-    public PMetaData removeSequence(final TableName name, long timestamp) throws SQLException {
-        synchronized(latestMetaDataLock) {
-            PSequence existingSequence = latestMetaData.getSequence(name);
-            if (existingSequence != null && existingSequence.getTimeStamp() <= timestamp) {
-                latestMetaData = latestMetaData.removeSequence(name, timestamp);
-            }
-            return latestMetaData;
-        }
-    }
-        
     private static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
         for (PTable table : metaData.getTables().values()) {
             if (table.getTimeStamp() >= scn) {
-                return true;
-            }
-        }
-        for (PSequence sequence : metaData.getSequences().values()) {
-            if (sequence.getTimeStamp() >= scn) {
                 return true;
             }
         }
@@ -447,17 +417,9 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 wasModified = true;
             }
         }
-        Map<TableName,PSequence> newSequences = Maps.newHashMap(metaData.getSequences());
-        Iterator<Map.Entry<TableName,PSequence>> sequenceIterator = newSequences.entrySet().iterator();
-        while (sequenceIterator.hasNext()) {
-            if (sequenceIterator.next().getValue().getTimeStamp() >= scn) {
-                sequenceIterator.remove();
-                wasModified = true;
-            }
-        }
 
         if (wasModified) {
-            return new PMetaDataImpl(newTables, newSequences);
+            return new PMetaDataImpl(newTables);
         }
         return metaData;
     }
@@ -1137,196 +1099,307 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp) 
+    public long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, int cacheSize, long timestamp) 
             throws SQLException {
-        HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-        byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
-        Append append = new Append(key);
-        append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, new byte[] {(byte)SequenceRegionObserver.SequenceOp.CREATE.ordinal()});
-        append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, PDataType.LONG.toBytes(timestamp));
-        Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
-        byte[] startWithBuf = PDataType.LONG.toBytes(startWith);
-        familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
-                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, timestamp, ByteUtil.EMPTY_BYTE_ARRAY),
-                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, timestamp, startWithBuf),
-                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.START_WITH_BYTES, timestamp, startWithBuf),
-                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES, timestamp, PDataType.LONG.toBytes(incrementBy))
-                ));
-        try {
-            Result result = htable.append(append);
-            if (result.isEmpty()) {
-                return null;
-            }
-            return result.raw()[0].getTimestamp();
-        } catch (IOException e) {
-            throw ServerUtil.parseServerException(e);
-        }
-    }
-
-    @Override
-    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
-        HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-        byte[] key = SchemaUtil.getSequenceKey(tenantId, schemaName, sequenceName);
-        Append append = new Append(key);
-        append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, new byte[] {(byte)SequenceRegionObserver.SequenceOp.DROP.ordinal()});
-        append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, PDataType.LONG.toBytes(timestamp));
-        Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
-        familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
-                KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, QueryConstants.EMPTY_COLUMN_BYTES, timestamp, ByteUtil.EMPTY_BYTE_ARRAY)));
-        try {
-            Result result = htable.append(append);
-            if (result.isEmpty()) {
-                return null;
-            }
-            return result.raw()[0].getTimestamp();
-        } catch (IOException e) {
-            throw ServerUtil.parseServerException(e);
-        }
-    }
-
-    @Override
-    public Map<TableName, SequenceValue> initSequences(String tenantId, List<TableName> sequences, long timestamp) throws SQLException {
-        if (sequences.isEmpty()) {
-            return Collections.emptyMap();
+        SequenceKey sequenceKey = new SequenceKey(tenantId, schemaName, sequenceName);
+        Sequence newSequences = new Sequence(sequenceKey);
+        Sequence sequence = sequenceMap.putIfAbsent(sequenceKey, newSequences);
+        if (sequence == null) {
+            sequence = newSequences;
         }
         try {
-            HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-
-            // Get the current value            
-            List<Get> getBatch = Lists.newArrayListWithExpectedSize(sequences.size());
-            for (TableName t : sequences){
-                byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
-                Get get = new Get(key);
-                get.setTimeRange(MetaDataProtocol.MIN_TABLE_TIMESTAMP, timestamp);
-                get.addColumn(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-                get.addColumn(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.START_WITH_BYTES);
-                get.addColumn(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
-                // TODO: use skip scan instead as it's 2x faster
-                getBatch.add(get);
-            }
-            Object[] resultObjects = hTable.batch(getBatch);
-            Map<TableName,SequenceValue> sequenceMap = Maps.newHashMapWithExpectedSize(sequences.size());
-            for (int i=0;i<resultObjects.length;i++){
-                TableName t = sequences.get(i);
-                Result result = (Result)resultObjects[i];
-                if (result.isEmpty()){
-                    throw new SequenceNotFoundException(t.getSchemaName(), t.getTableName());
-                }
-                KeyValue incrementKV = ResultUtil.getColumnLatest(result, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.INCREMENT_BY_BYTES);
-                KeyValue startWithKV = ResultUtil.getColumnLatest(result, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.START_WITH_BYTES);
-                KeyValue currentKV = ResultUtil.getColumnLatest(result, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES);
-                long incrementBy = PDataType.LONG.getCodec().decodeLong(incrementKV.getBuffer(), incrementKV.getValueOffset(), null);
-                long startWith = PDataType.LONG.getCodec().decodeLong(startWithKV.getBuffer(), startWithKV.getValueOffset(), null);
-                long currentValue = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-                SequenceValue value = new SequenceValue(incrementBy, startWith, currentKV.getTimestamp());
-                value.currentValue = currentValue;
-                value.nextValue = currentValue;
-                sequenceMap.put(t, value);
-            }
-            return sequenceMap;
-        }
-        catch (IOException e){
-            throw ServerUtil.parseServerException(e);
-        }
-        catch (InterruptedException e){
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
-            .setRootCause(e).build().buildException(); // FIXME?
-        }
-    }
-
-    @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName, SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException {
-        try {
-            HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-            List<Increment> cacheBatch = Lists.newArrayListWithExpectedSize(sequences.size());
-            List<Map.Entry<TableName, SequenceValue>> reserveEntries = Lists.newArrayListWithExpectedSize(sequences.size());
-
-            for (Map.Entry<TableName, SequenceValue> entry : sequences){
-                SequenceValue value = entry.getValue();
-                if (value.currentValue == value.nextValue) {
-                    TableName t = entry.getKey();
-                    byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
-                    Increment inc = new Increment(key);
-                    inc.setTimeRange(MetaDataProtocol.MIN_TABLE_TIMESTAMP, timestamp);
-                    inc.addColumn(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, value.incrementBy * batchSize);
-                    cacheBatch.add(inc);
-                    reserveEntries.add(entry);
-                }
-            }
-            if (reserveEntries.isEmpty()) {
-                return Collections.emptyList();
-            }
-            List<TableName> deletedSequences = Lists.newArrayListWithExpectedSize(reserveEntries.size());
-            Object[] resultObjects = hTable.batch(cacheBatch);
-            for (int i=0;i<resultObjects.length;i++){
-                Map.Entry<TableName, SequenceValue> entry = reserveEntries.get(i);
-                TableName t = entry.getKey();
-                Result result = (Result)resultObjects[i];
-                if (result.isEmpty()){
-                    deletedSequences.add(t);
-                    continue;
-                }
-                SequenceValue sequence = entry.getValue();
-                KeyValue currentKV = result.raw()[0];
-                long current = PDataType.LONG.getCodec().decodeLong(currentKV.getBuffer(), currentKV.getValueOffset(), null);
-                sequence.currentValue = current - sequence.incrementBy * batchSize;
-                sequence.nextValue = current;
-            }
-            return deletedSequences;
-        }
-        catch (IOException e){
-            throw ServerUtil.parseServerException(e);
-        }
-        catch (InterruptedException e){
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
-            .setRootCause(e).build().buildException(); // FIXME ?
-        }
-    }
-
-    @Override
-    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp)
-            throws SQLException {
-        try {
-            if (sequences.isEmpty()) {
-                return Collections.emptyList();
-            }
-            List<Append> mutations = Lists.newArrayListWithExpectedSize(sequences.size());
-            List<TableName> sequenceList = Lists.newArrayListWithExpectedSize(sequences.size());
-            List<TableName> deletedSequences = Lists.newArrayListWithExpectedSize(sequences.size());
-            // Reset sequence value back to what we've actually used if no other client has incremented
-            // it in the meantime.
-            byte[] timestampBuf = PDataType.LONG.toBytes(timestamp);
-            byte[] opBuf = new byte[] {(byte)SequenceRegionObserver.SequenceOp.RESET.ordinal()};
+            sequence.getLock().lock();
+            // Now that we have the lock we need, create the sequence
+            Append append = sequence.createSequence(startWith, incrementBy, cacheSize, timestamp);
             HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
-            for (Map.Entry<TableName, SequenceValue> entry : sequences){
-                TableName t = entry.getKey();
-                sequenceList.add(t);
-                SequenceValue sequence = entry.getValue();
-                byte[] key = SchemaUtil.getSequenceKey(tenantId, t.getSchemaName(), t.getTableName());
-                Append append = new Append(key);
-                append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, opBuf);
-                append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, timestampBuf);
-                append.setAttribute(SequenceRegionObserver.CURRENT_VALUE_ATTRIB, PDataType.LONG.toBytes(sequence.nextValue));
-                Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
-                familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
-                        KeyValueUtil.newKeyValue(key, PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, PhoenixDatabaseMetaData.CURRENT_VALUE_BYTES, sequence.timestamp, PDataType.LONG.toBytes(sequence.currentValue))
-                        ));
-                mutations.add(append);
+            try {
+                Result result = htable.append(append);
+                return sequence.createSequence(result);
+            } catch (IOException e) {
+                throw ServerUtil.parseServerException(e);
             }
-            Object[] results = htable.batch(mutations);
-            for (int i = 0; i < results.length; i++) {
-                Result result = (Result) results[i];
-                if (result.isEmpty()) {
-                    deletedSequences.add(sequenceList.get(i));
+        } finally {
+            sequence.getLock().unlock();
+        }
+    }
+
+    @Override
+    public long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+        SequenceKey sequenceKey = new SequenceKey(tenantId, schemaName, sequenceName);
+        Sequence newSequences = new Sequence(sequenceKey);
+        Sequence sequence = sequenceMap.putIfAbsent(sequenceKey, newSequences);
+        if (sequence == null) {
+            sequence = newSequences;
+        }
+        try {
+            sequence.getLock().lock();
+            // Now that we have the lock we need, create the sequence
+            Append append = sequence.dropSequence(timestamp);
+            HTableInterface htable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+            try {
+                Result result = htable.append(append);
+                return sequence.dropSequence(result);
+            } catch (IOException e) {
+                throw ServerUtil.parseServerException(e);
+            }
+        } finally {
+            sequence.getLock().unlock();
+        }
+    }
+
+    /**
+     * Gets the current sequence value
+     * @param tenantId
+     * @param sequence
+     * @return
+     * @throws SQLException if cached sequence cannot be found 
+     */
+    @Override
+    public long getSequenceValue(SequenceKey sequenceKey, long timestamp) throws SQLException {
+        Sequence sequence = sequenceMap.get(sequenceKey);
+        if (sequence == null) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CALL_CURRENT_BEFORE_NEXT_VALUE)
+            .setSchemaName(sequenceKey.getSchemaName()).setTableName(sequenceKey.getSequenceName())
+            .build().buildException();
+        }
+        sequence.getLock().lock();
+        try {
+            return sequence.currentValue(timestamp);
+        } catch (EmptySequenceCacheException e) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CALL_CURRENT_BEFORE_NEXT_VALUE)
+            .setSchemaName(sequenceKey.getSchemaName()).setTableName(sequenceKey.getSequenceName())
+            .build().buildException();
+        } finally {
+            sequence.getLock().unlock();
+        }
+    }
+    
+    /**
+     * Verifies that sequences exist and reserves values for them.
+     * @param tenantId
+     * @param sequences
+     * @param timestamp
+     * @throws SQLException if any sequence does not exist
+     */
+    @Override
+    public void reserveSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values, SQLException[] exceptions) throws SQLException {
+        incrementSequenceValues(sequenceKeys, timestamp, values, exceptions, 0);
+    }
+    
+    /**
+     * Increment any of the set of sequences that need more values. These are the sequences
+     * that are asking for the next value within a given statement. The returned sequences
+     * are the ones that were not found because they were deleted by another client. 
+     * @param tenantId
+     * @param sequenceKeys sorted list of sequence kyes
+     * @param batchSize
+     * @param timestamp
+     * @return
+     * @throws SQLException if any of the sequences cannot be found
+     * 
+     * PSequences -> Sequence
+     * PSequenceKey -> SequenceKey
+     */
+    @Override
+    public void incrementSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values, SQLException[] exceptions) throws SQLException {
+        incrementSequenceValues(sequenceKeys, timestamp, values, exceptions, 1);
+    }
+
+    private void incrementSequenceValues(List<SequenceKey> keys, long timestamp, long[] values, SQLException[] exceptions, int factor) throws SQLException {
+        List<Sequence> sequences = Lists.newArrayListWithExpectedSize(keys.size());
+        for (SequenceKey key : keys) {
+            Sequence newSequences = new Sequence(key);
+            Sequence sequence = sequenceMap.putIfAbsent(key, newSequences);
+            if (sequence == null) {
+                sequence = newSequences;
+            }
+            sequences.add(sequence);
+        }
+        try {
+            for (Sequence sequence : sequences) {
+                sequence.getLock().lock();
+            }
+            // Now that we have all the locks we need, increment the sequences
+            List<Increment> incrementBatch = Lists.newArrayListWithExpectedSize(sequences.size());
+            List<Sequence> toIncrementList = Lists.newArrayListWithExpectedSize(sequences.size());
+            int[] indexes = new int[sequences.size()];
+            for (int i = 0; i < sequences.size(); i++) {
+                Sequence sequence = sequences.get(i);
+                try {
+                    values[i] = sequence.incrementValue(timestamp, factor);
+                } catch (EmptySequenceCacheException e) {
+                    indexes[toIncrementList.size()] = i;
+                    toIncrementList.add(sequence);
+                    Increment inc = sequence.newIncrement(timestamp);
+                    incrementBatch.add(inc);
                 }
             }
-            return deletedSequences;
+            if (toIncrementList.isEmpty()) {
+                return;
+            }
+            HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+            Object[] resultObjects = null;
+            SQLException sqlE = null;
+            try {
+                resultObjects= hTable.batch(incrementBatch);
+            } catch (IOException e){
+                sqlE = ServerUtil.parseServerException(e);
+            } catch (InterruptedException e){
+                sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+                .setRootCause(e).build().buildException(); // FIXME ?
+            } finally {
+                try {
+                    hTable.close();
+                } catch (IOException e) {
+                    if (sqlE == null) {
+                        sqlE = ServerUtil.parseServerException(e);
+                    } else {
+                        sqlE.setNextException(ServerUtil.parseServerException(e));
+                    }
+                }
+                if (sqlE != null) {
+                    throw sqlE;
+                }
+            }
+            for (int i=0;i<resultObjects.length;i++){
+                Sequence sequence = toIncrementList.get(i);
+                Result result = (Result)resultObjects[i];
+                try {
+                    values[indexes[i]] = sequence.incrementValue(result, factor);
+                } catch (SQLException e) {
+                    exceptions[indexes[i]] = e;
+                }
+            }
+        } finally {
+            for (Sequence sequence : sequences) {
+                sequence.getLock().unlock();
+            }
         }
-        catch (IOException e){
-            throw ServerUtil.parseServerException(e);
-        } catch (InterruptedException e) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+    }
+
+    @Override
+    public void returnSequenceValues(List<SequenceKey> keys, long timestamp, SQLException[] exceptions) throws SQLException {
+        List<Sequence> sequences = Lists.newArrayListWithExpectedSize(keys.size());
+        for (SequenceKey key : keys) {
+            Sequence newSequences = new Sequence(key);
+            Sequence sequence = sequenceMap.putIfAbsent(key, newSequences);
+            if (sequence == null) {
+                sequence = newSequences;
+            }
+            sequences.add(sequence);
+        }
+        try {
+            for (Sequence sequence : sequences) {
+                sequence.getLock().lock();
+            }
+            // Now that we have all the locks we need, attempt to return the unused sequence values
+            List<Append> mutations = Lists.newArrayListWithExpectedSize(sequences.size());
+            List<Sequence> toReturnList = Lists.newArrayListWithExpectedSize(sequences.size());
+            int[] indexes = new int[sequences.size()];
+            for (int i = 0; i < sequences.size(); i++) {
+                Sequence sequence = sequences.get(i);
+                try {
+                    Append append = sequence.newReturn(timestamp);
+                    toReturnList.add(sequence);
+                    mutations.add(append);
+                } catch (EmptySequenceCacheException ignore) { // Nothing to return, so ignore
+                }
+            }
+            if (toReturnList.isEmpty()) {
+                return;
+            }
+            HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+            Object[] resultObjects = null;
+            SQLException sqlE = null;
+            try {
+                resultObjects= hTable.batch(mutations);
+            } catch (IOException e){
+                sqlE = ServerUtil.parseServerException(e);
+            } catch (InterruptedException e){
+                sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
+                .setRootCause(e).build().buildException(); // FIXME ?
+            } finally {
+                try {
+                    hTable.close();
+                } catch (IOException e) {
+                    if (sqlE == null) {
+                        sqlE = ServerUtil.parseServerException(e);
+                    } else {
+                        sqlE.setNextException(ServerUtil.parseServerException(e));
+                    }
+                }
+                if (sqlE != null) {
+                    throw sqlE;
+                }
+            }
+            for (int i=0;i<resultObjects.length;i++){
+                Sequence sequence = toReturnList.get(i);
+                Result result = (Result)resultObjects[i];
+                try {
+                    sequence.returnValue(result);
+                } catch (SQLException e) {
+                    exceptions[indexes[i]] = e;
+                }
+            }
+        } finally {
+            for (Sequence sequence : sequences) {
+                sequence.getLock().unlock();
+            }
+        }
+    }
+
+    // Take no locks, as we're clearing the sequenceMap regardless here
+    private void returnAllSequenceValues() throws SQLException {
+        List<Append> mutations = Lists.newArrayListWithExpectedSize(sequenceMap.size());
+        try {
+            for (Sequence sequence : sequenceMap.values()) {
+                try {
+                    Append append = sequence.newReturn(HConstants.LATEST_TIMESTAMP);
+                    mutations.add(append);
+                } catch (EmptySequenceCacheException ignore) { // Nothing to return, so ignore
+                }
+            }
+        } finally {
+            sequenceMap.clear();
+        }
+        if (mutations.isEmpty()) {
+            return;
+        }
+        HTableInterface hTable = this.getTable(PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES);
+        SQLException sqlE = null;
+        try {
+            hTable.batch(mutations);
+        } catch (IOException e){
+            sqlE = ServerUtil.parseServerException(e);
+        } catch (InterruptedException e){
+            sqlE = new SQLExceptionInfo.Builder(SQLExceptionCode.INTERRUPTED_EXCEPTION)
             .setRootCause(e).build().buildException(); // FIXME ?
+        } finally {
+            try {
+                hTable.close();
+            } catch (IOException e) {
+                if (sqlE == null) {
+                    sqlE = ServerUtil.parseServerException(e);
+                } else {
+                    sqlE.setNextException(ServerUtil.parseServerException(e));
+                }
+            }
+            if (sqlE != null) {
+                throw sqlE;
+            }
+        }
+    }
+    
+    @Override
+    public synchronized void addConnection(PhoenixConnection connection) throws SQLException {
+        connectionCount++;
+    }
+
+    @Override
+    public synchronized void removeConnection(PhoenixConnection connection) throws SQLException {
+        if (--connectionCount == 0) {
+            // When there are no more connections, attempt to return any sequences
+            returnAllSequenceValues();
         }
     }
 }

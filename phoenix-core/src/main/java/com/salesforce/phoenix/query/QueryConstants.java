@@ -29,6 +29,7 @@ package com.salesforce.phoenix.query;
 
 
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BUFFER_LENGTH;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CACHE_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CHAR_OCTET_LENGTH;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_DEF;
@@ -202,7 +203,8 @@ public interface QueryConstants {
             SEQUENCE_NAME +  " VARCHAR NOT NULL, \n" +
             START_WITH + " BIGINT NOT NULL, \n" + 
     		CURRENT_VALUE + " BIGINT NOT NULL, \n" + 
-            INCREMENT_BY  + " BIGINT NOT NULL \n" + 
+            INCREMENT_BY  + " BIGINT NOT NULL, \n" + 
+            CACHE_SIZE  + " INTEGER NOT NULL \n" + 
     		" CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + "," + SEQUENCE_SCHEMA + "," + SEQUENCE_NAME + "))\n" + 
     		HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + "\n";
 	

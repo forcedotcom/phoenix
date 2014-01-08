@@ -29,18 +29,24 @@ package com.salesforce.phoenix.exception;
 
 import java.sql.SQLSyntaxErrorException;
 
-import org.antlr.runtime.*;
-
-import com.salesforce.phoenix.parse.PhoenixSQLParser;
+import org.antlr.runtime.MismatchedTokenException;
+import org.antlr.runtime.MissingTokenException;
+import org.antlr.runtime.RecognitionException;
+import org.antlr.runtime.Token;
+import org.antlr.runtime.UnwantedTokenException;
 
 
 public class PhoenixParserException extends SQLSyntaxErrorException {
     private static final long serialVersionUID = 1L;
 
-    public PhoenixParserException(Exception e, PhoenixSQLParser parser) {
-        super(new SQLExceptionInfo.Builder(getErrorCode(e)).setRootCause(e)
-                .setMessage(getErrorMessage(e, parser)).build().toString(),
-                getErrorCode(e).getSQLState(), getErrorCode(e).getErrorCode(), e);
+    public static final PhoenixParserException newException(Throwable cause, String[] tokens) {
+        return new PhoenixParserException(getErrorMessage(cause, tokens), cause);
+    }
+    
+    public PhoenixParserException(String msg, Throwable throwable) {
+        super(new SQLExceptionInfo.Builder(getErrorCode(throwable)).setRootCause(throwable)
+                .setMessage(msg).build().toString(),
+                getErrorCode(throwable).getSQLState(), getErrorCode(throwable).getErrorCode(), throwable);
     }
 
     public static String getLine(RecognitionException e) {
@@ -55,8 +61,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
         return "line " + getLine(e) + ", column " + getColumn(e) + ".";
     }
 
-    public static String getErrorMessage(Exception e, PhoenixSQLParser parser) {
-        String[] tokenNames = parser.getTokenNames();
+    public static String getErrorMessage(Throwable e, String[] tokenNames) {
         String msg;
         if (e instanceof MissingTokenException) {
             MissingTokenException mte = (MissingTokenException)e;
@@ -99,7 +104,7 @@ public class PhoenixParserException extends SQLSyntaxErrorException {
         return msg;
     }
 
-    public static SQLExceptionCode getErrorCode(Exception e) {
+    public static SQLExceptionCode getErrorCode(Throwable e) {
         if (e instanceof MissingTokenException) {
             return SQLExceptionCode.MISSING_TOKEN;
         } else if (e instanceof UnwantedTokenException) {

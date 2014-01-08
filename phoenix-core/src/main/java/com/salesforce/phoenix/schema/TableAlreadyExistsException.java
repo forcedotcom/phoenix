@@ -45,18 +45,12 @@ public class TableAlreadyExistsException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.TABLE_ALREADY_EXIST;
     private final String schemaName;
     private final String tableName;
-    private final PTable table;
 
-    public TableAlreadyExistsException(String schemaName, String tableName, PTable table) {
+    public TableAlreadyExistsException(String schemaName, String tableName) {
         super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
                 code.getSQLState());
-        this.table = table;
         this.schemaName = schemaName;
         this.tableName = tableName;
-    }
-
-    public PTable getTable() {
-        return table;
     }
 
     public String getTableName() {

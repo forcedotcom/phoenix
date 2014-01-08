@@ -2,7 +2,6 @@ package com.salesforce.phoenix.end2end;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -18,11 +17,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.QueryServices;
-import com.salesforce.phoenix.schema.PSequence;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.util.ReadOnlyProps;
@@ -36,7 +32,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         
         Map<String,String> props = Maps.newHashMapWithExpectedSize(1);
         // Make a small batch size to test multiple calls to reserve sequences
-        props.put(QueryServices.SEQUENCE_BATCH_SIZE_ATTRIB, Long.toString(BATCH_SIZE));
+        props.put(QueryServices.SEQUENCE_CACHE_SIZE_ATTRIB, Long.toString(BATCH_SIZE));
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
@@ -149,20 +145,27 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	}
 
 	@Test
-	public void testSequenceCaching() throws Exception {		
+	public void testSequenceCreation() throws Exception {		
 		Connection conn = getConnection();
-		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 1");
-		TableName tableName = TableName.createNormalized("ALPHA", "GAMMA");
-		PSequence sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
-		assertNotNull(sequence);
-        assertEquals(1L, sequence.getIncrementBy());
-        assertEquals(2L, sequence.getStartWith());
-		final String query = "SELECT NEXT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"";
-		conn.prepareStatement(query).executeQuery();
-        sequence = conn.unwrap(PhoenixConnection.class).getPMetaData().getSequence(tableName);
-        assertNotNull(sequence);
-        assertEquals(1L, sequence.getIncrementBy());
-        assertEquals(2L, sequence.getStartWith());
+		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 3 CACHE 5");
+        ResultSet rs = conn.createStatement().executeQuery("SELECT start_with, increment_by, cache_size, sequence_schema, sequence_name FROM SYSTEM.\"SEQUENCE\"");
+        assertTrue(rs.next());
+        assertEquals(2, rs.getLong(1));
+        assertEquals(3, rs.getLong(2));
+        assertEquals(5, rs.getLong(3));
+        assertEquals("ALPHA", rs.getString(4));
+        assertEquals("GAMMA", rs.getString(5));
+        assertFalse(rs.next());
+		rs = conn.createStatement().executeQuery("SELECT NEXT VALUE FOR alpha.gamma, CURRENT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"");
+        assertTrue(rs.next());
+        assertEquals(2, rs.getLong(1));
+        assertEquals(2, rs.getLong(2));
+        assertFalse(rs.next());
+        rs = conn.createStatement().executeQuery("SELECT CURRENT VALUE FOR alpha.gamma, NEXT VALUE FOR alpha.gamma FROM SYSTEM.\"SEQUENCE\"");
+        assertTrue(rs.next());
+        assertEquals(5, rs.getLong(1));
+        assertEquals(5, rs.getLong(2));
+        assertFalse(rs.next());
 	}
 
     @Test
@@ -297,7 +300,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         Connection conn2 = getConnection();
         PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         stmt2.execute();
-        stmt1.close(); // Won't succeed in returning sequences, since we've already incremented
+        stmt1.close(); // Should still continue with next value, even on separate connection
         for (int i = 0; i < BATCH_SIZE; i++) {
             stmt2.execute();
         }
@@ -311,7 +314,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         // Gaps exist b/c sequences were generated from different connections
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
             assertTrue(rs.next());
-            assertEquals(2*BATCH_SIZE+i+1, rs.getInt(1));
+            assertEquals(BATCH_SIZE+1+i+1, rs.getInt(1));
         }
         assertFalse(rs.next());
     }

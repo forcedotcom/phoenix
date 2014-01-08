@@ -535,49 +535,30 @@ public class MetaDataClient {
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
         String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        Long serverTimestamp = connection.getQueryServices().dropSequence(tenantId, schemaName, sequenceName, timestamp);
-        if (serverTimestamp == null) {
-            if (!statement.ifExists()) {
-                throw new SequenceNotFoundException(schemaName, sequenceName);
+        try {
+            connection.getQueryServices().dropSequence(tenantId, schemaName, sequenceName, timestamp);
+        } catch (SequenceNotFoundException e) {
+            if (statement.ifExists()) {
+                return new MutationState(0, connection);
             }
-            return new MutationState(0, connection);
-        }
-        // If there's an SCN, then we're dropping this sequence for *later* timestamps.
-        // It's still available at this timestamp.
-        if (scn == null) {
-            connection.removeSequence(statement.getSequenceName(), serverTimestamp);
-        } else {
-            connection.getQueryServices().removeSequence(statement.getSequenceName(), serverTimestamp);            
+            throw e;
         }
         return new MutationState(1, connection);
     }
     
-    public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy) throws SQLException {
+    public MutationState createSequence(CreateSequenceStatement statement, long startWith, long incrementBy, int cacheSize) throws SQLException {
         Long scn = connection.getSCN();
         long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
         String schemaName = statement.getSequenceName().getSchemaName();
         String sequenceName = statement.getSequenceName().getTableName();
         String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        Long serverTimestamp = connection.getQueryServices().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, timestamp);
-        if (serverTimestamp == null) {
-            if (!statement.ifNotExists()) {
-                throw new SequenceAlreadyExistsException(schemaName, sequenceName);
+        try {
+            connection.getQueryServices().createSequence(tenantId, schemaName, sequenceName, startWith, incrementBy, cacheSize, timestamp);
+        } catch (SequenceAlreadyExistsException e) {
+            if (statement.ifNotExists()) {
+                return new MutationState(0, connection);
             }
-            return new MutationState(0, connection);
-        }
-        
-        /*
-         * When an SCN is specified, we can't cache the sequence on our connection, as it
-         * only exists *after* this timestamp. We can, however, propagate the new sequence
-         * to the per cluster cache so it'll be picked up by new connections.
-         * 
-         * If an SCN is not specified, we can cache the sequence, as we know the timestamp
-         * at which it was created.
-         */
-        if (scn == null) {
-            connection.addSequence(statement.getSequenceName(), new PSequenceImpl(incrementBy, startWith, serverTimestamp));
-        } else {
-            connection.getQueryServices().addSequence(statement.getSequenceName(), new PSequenceImpl(incrementBy, startWith, serverTimestamp));
+            throw e;
         }
         return new MutationState(1, connection);
     }
@@ -903,13 +884,13 @@ public class MetaDataClient {
             case TABLE_ALREADY_EXISTS:
                 connection.addTable(result.getTable());
                 if (!statement.ifNotExists()) {
-                    throw new TableAlreadyExistsException(schemaName, tableName, result.getTable());
+                    throw new TableAlreadyExistsException(schemaName, tableName);
                 }
                 return null;
             case PARENT_TABLE_NOT_FOUND:
                 throw new TableNotFoundException(schemaName, parent.getName().getString());
             case NEWER_TABLE_FOUND:
-                throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+                throw new NewerTableAlreadyExistsException(schemaName, tableName);
             case UNALLOWED_TABLE_MUTATION:
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                     .setSchemaName(schemaName).setTableName(tableName).build().buildException();
@@ -999,7 +980,7 @@ public class MetaDataClient {
                     }
                     break;
                 case NEWER_TABLE_FOUND:
-                    throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+                    throw new NewerTableAlreadyExistsException(schemaName, tableName);
                 case UNALLOWED_TABLE_MUTATION:
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
                         .setSchemaName(schemaName).setTableName(tableName).build().buildException();
@@ -1056,7 +1037,7 @@ public class MetaDataClient {
             if (result.getTable() != null) {
                 connection.addTable(result.getTable());
             }
-            throw new NewerTableAlreadyExistsException(schemaName, tableName, result.getTable());
+            throw new NewerTableAlreadyExistsException(schemaName, tableName);
         case NO_PK_COLUMNS:
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.PRIMARY_KEY_MISSING)
                 .setSchemaName(schemaName).setTableName(tableName).build().buildException();

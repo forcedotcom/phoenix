@@ -538,7 +538,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
 
 	@Override
-	public ParseNode visit(NextSequenceValueParseNode node) throws SQLException {		
+	public ParseNode visit(SequenceOpParseNode node) throws SQLException {		
 		return node;
 	}
 }

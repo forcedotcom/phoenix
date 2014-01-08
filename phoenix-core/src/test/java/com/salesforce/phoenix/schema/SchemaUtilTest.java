@@ -31,10 +31,17 @@ import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class SchemaUtilTest {
 
+    @Test
+    public void testExceptionCode() throws Exception {
+        SQLExceptionCode code = SQLExceptionCode.fromErrorCode(SQLExceptionCode.AGGREGATE_IN_GROUP_BY.getErrorCode());
+        assertEquals(SQLExceptionCode.AGGREGATE_IN_GROUP_BY, code);
+    }
+    
     @Test
     public void testGetTableName() {
         String tableDisplayName = SchemaUtil.getTableName("schemaName", "tableName");

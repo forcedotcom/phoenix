@@ -102,8 +102,10 @@ tokens
     WITH='with';
     INCREMENT='increment';
     NEXT='next';
+    CURRENT='current';
     VALUE='value';
-    FOR='for';    
+    FOR='for';
+    CACHE='cache';
 }
 
 
@@ -398,9 +400,10 @@ create_index_node returns [CreateIndexStatement ret]
 // Parse a create sequence statement.
 create_sequence_node returns [CreateSequenceStatement ret]
     :   CREATE SEQUENCE  (IF NOT ex=EXISTS)? t=from_table_name
-        (START WITH s=int_literal_or_bind)?
-        (INCREMENT BY i=int_literal_or_bind)?
-    { $ret = factory.createSequence(t, s, i, ex!=null, getBindCount()); }
+        (START WITH? s=int_literal_or_bind)?
+        (INCREMENT BY? i=int_literal_or_bind)?
+        (CACHE c=int_literal_or_bind)?
+    { $ret = factory.createSequence(t, s, i, c, ex!=null, getBindCount()); }
     ;
 
 int_literal_or_bind returns [ParseNode ret]
@@ -785,7 +788,7 @@ arrayable_expression_term returns [ParseNode ret]
     		}	 
     	}
     |   CAST e=expression AS dt=identifier { $ret = factory.cast(e, dt); }
-    |   NEXT VALUE FOR s=from_table_name { $ret = factory.nextValueFor(s);}    
+    |   (n=NEXT | CURRENT) VALUE FOR s=from_table_name { $ret = n==null ? factory.currentValueFor(s) : factory.nextValueFor(s);}    
     ;
 
 expression_terms returns [List<ParseNode> ret]

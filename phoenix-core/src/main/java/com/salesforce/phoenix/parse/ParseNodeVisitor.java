@@ -110,5 +110,5 @@ public interface ParseNodeVisitor<E> {
     public boolean visitEnter(RowValueConstructorParseNode node) throws SQLException;
     public E visitLeave(RowValueConstructorParseNode node, List<E> l) throws SQLException;
     
-    public E visit(NextSequenceValueParseNode node) throws SQLException;
+    public E visit(SequenceOpParseNode node) throws SQLException;
 }

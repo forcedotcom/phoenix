@@ -33,6 +33,7 @@ import static com.salesforce.phoenix.expression.LiteralExpression.newConstant;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -60,6 +61,7 @@ import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -112,7 +114,7 @@ public class WhereCompiler {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
         if (expression.getDataType() != PDataType.BOOLEAN) {
-            throw new TypeMismatchException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
+            throw TypeMismatchException.newException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
         
         // add tenant data isolation for tenant-specific tables

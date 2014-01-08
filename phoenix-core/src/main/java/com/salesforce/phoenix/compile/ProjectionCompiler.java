@@ -44,6 +44,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.aggregator.ClientAggregators;
@@ -54,9 +56,9 @@ import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.WildcardParseNode;
 import com.salesforce.phoenix.schema.ArgumentTypeMismatchException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -364,7 +366,12 @@ public class ProjectionCompiler {
         }
         
         @Override
-        public Expression visit(NextSequenceValueParseNode node) throws SQLException {
+        public Expression visit(SequenceOpParseNode node) throws SQLException {
+            if (aggregateFunction != null) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR)
+                .setSchemaName(node.getTableName().getSchemaName())
+                .setTableName(node.getTableName().getTableName()).build().buildException();
+            }
             return context.getSequenceManager().newSequenceReference(node);
         }
     }

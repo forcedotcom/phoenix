@@ -28,21 +28,36 @@
 package com.salesforce.phoenix.compile;
 
 import java.sql.SQLException;
+import java.util.BitSet;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.NextSequenceValueParseNode;
+import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.TableName;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 public class SequenceManager {
     private final PhoenixStatement statement;
-    private Map<TableName,NextSequenceValueExpression> sequenceMap;
+    private int[] sequencePosition;
+    private long[] srcSequenceValues;
+    private long[] dstSequenceValues;
+    private SQLException[] sqlExceptions;
+    private List<SequenceKey> nextSequences;
+    private List<SequenceKey> currentSequences;
+    private Map<SequenceKey,SequenceValueExpression> sequenceMap;
+    private BitSet isNextSequence;
     
     public SequenceManager(PhoenixStatement statement) {
         this.statement = statement;
@@ -52,56 +67,113 @@ public class SequenceManager {
         return sequenceMap == null ? 0 : sequenceMap.size();
     }
     
-    /**
-     * Called before getting next row to clear any sequence values that
-     * were already allocated, as new sequence values must be generated
-     * for the next row.
-     */
-    public void clearCachedSequenceValues() {
+    private void setSequenceValues() throws SQLException {
+        SQLException eTop = null;
+        for (int i = 0; i < sqlExceptions.length; i++) {
+            SQLException e = sqlExceptions[i];
+            if (e != null) {
+                if (eTop == null) {
+                    eTop = e;
+                } else {
+                    e.setNextException(eTop.getNextException());
+                    eTop.setNextException(e);
+                }
+            } else {
+                dstSequenceValues[sequencePosition[i]] = srcSequenceValues[i];
+            }
+        }
+        if (eTop != null) {
+            throw eTop;
+        }
+    }
+    
+    public void incrementSequenceValues() throws SQLException {
         if (sequenceMap == null) {
             return;
         }
-        for (NextSequenceValueExpression expression : sequenceMap.values()) {
-            expression.valueBuffer = null;
+        Long scn = statement.getConnection().getSCN();
+        long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+        ConnectionQueryServices services = this.statement.getConnection().getQueryServices();
+        services.incrementSequenceValues(nextSequences, timestamp, srcSequenceValues, sqlExceptions);
+        setSequenceValues();
+        int offset = nextSequences.size();
+        for (int i = 0; i < currentSequences.size(); i++) {
+            dstSequenceValues[sequencePosition[offset+i]] = services.getSequenceValue(currentSequences.get(i), timestamp);
         }
     }
 
-    public NextSequenceValueExpression newSequenceReference(NextSequenceValueParseNode node) {
+    public SequenceValueExpression newSequenceReference(SequenceOpParseNode node) {
         if (sequenceMap == null) {
             sequenceMap = Maps.newHashMap();
+            isNextSequence = new BitSet();
         }
-        NextSequenceValueExpression expression = sequenceMap.get(node.getTableName());
+        PName tenantName = statement.getConnection().getTenantId();
+        String tenantId = tenantName == null ? null : tenantName.getString();
+        TableName tableName = node.getTableName();
+        SequenceKey key = new SequenceKey(tenantId, tableName.getSchemaName(), tableName.getTableName());
+        SequenceValueExpression expression = sequenceMap.get(key);
         if (expression == null) {
-            expression = new NextSequenceValueExpression(node);
-            sequenceMap.put(node.getTableName(), expression);
+            int index = sequenceMap.size();
+            expression = new SequenceValueExpression(index);
+            sequenceMap.put(key, expression);
         }
+        // If we see a NEXT and a CURRENT, treat the CURRENT just like a NEXT
+        if (node.getOp() == SequenceOpParseNode.Op.NEXT_VALUE) {
+            isNextSequence.set(expression.getIndex());
+        }
+           
         return expression;
     }
     
     public void initSequences() throws SQLException {
-        statement.initSequences(sequenceMap.keySet());
+        if (sequenceMap == null) {
+            return;
+        }
+        int maxSize = sequenceMap.size();
+        dstSequenceValues = new long[maxSize];
+        sequencePosition = new int[maxSize];
+        nextSequences = Lists.newArrayListWithExpectedSize(maxSize);
+        currentSequences = Lists.newArrayListWithExpectedSize(maxSize);
+        for (Map.Entry<SequenceKey, SequenceValueExpression> entry : sequenceMap.entrySet()) {
+            if (isNextSequence.get(entry.getValue().getIndex())) {
+                nextSequences.add(entry.getKey());
+            } else {
+                currentSequences.add(entry.getKey());
+            }
+        }
+        srcSequenceValues = new long[nextSequences.size()];
+        sqlExceptions = new SQLException[nextSequences.size()];
+        Collections.sort(nextSequences);
+        // Create reverse indexes
+        for (int i = 0; i < nextSequences.size(); i++) {
+            sequencePosition[i] = sequenceMap.get(nextSequences.get(i)).getIndex();
+        }
+        int offset = nextSequences.size();
+        for (int i = 0; i < currentSequences.size(); i++) {
+            sequencePosition[i+offset] = sequenceMap.get(currentSequences.get(i)).getIndex();
+        }
+        ConnectionQueryServices services = this.statement.getConnection().getQueryServices();
+        Long scn = statement.getConnection().getSCN();
+        long timestamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+        services.reserveSequenceValues(nextSequences, timestamp, srcSequenceValues, sqlExceptions);
+        setSequenceValues();
     }
     
-    private class NextSequenceValueExpression extends BaseTerminalExpression {
-        private final NextSequenceValueParseNode node;
-        private byte[] valueBuffer;
+    private class SequenceValueExpression extends BaseTerminalExpression {
+        private final int index;
+        private final byte[] valueBuffer = new byte[PDataType.LONG.getByteSize()];
 
-        private NextSequenceValueExpression(NextSequenceValueParseNode node) {
-            this.node = node;
+        private SequenceValueExpression(int index) {
+            this.index = index;
+        }
+
+        public int getIndex() {
+            return index;
         }
         
         @Override
         public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-            if (valueBuffer == null) {
-                long value;
-                try {
-                    value = statement.nextSequenceValue(node.getTableName());
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-                valueBuffer = new byte[PDataType.LONG.getByteSize()];
-                PDataType.LONG.getCodec().encodeLong(value, valueBuffer, 0);
-            }
+            PDataType.LONG.getCodec().encodeLong(dstSequenceValues[index], valueBuffer, 0);
             ptr.set(valueBuffer);
             return true;
         }
@@ -109,6 +181,11 @@ public class SequenceManager {
         @Override
         public PDataType getDataType() {
             return PDataType.LONG;
+        }
+        
+        @Override
+        public boolean isNullable() {
+            return false;
         }
         
         @Override

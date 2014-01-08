@@ -55,7 +55,7 @@ public class SequenceResultIterator extends DelegateResultIterator {
         if (next == null) {
             return null;
         }
-        sequenceManager.clearCachedSequenceValues();
+        sequenceManager.incrementSequenceValues();
         return next;
     }
 

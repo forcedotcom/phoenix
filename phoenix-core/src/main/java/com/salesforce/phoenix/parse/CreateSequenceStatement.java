@@ -32,13 +32,15 @@ public class CreateSequenceStatement implements BindableStatement {
 	private final TableName sequenceName;
 	private final ParseNode startWith;
 	private final ParseNode incrementBy;
+    private final ParseNode cacheSize;
     private final boolean ifNotExists;
 	private final int bindCount;
 
-	protected CreateSequenceStatement(TableName sequenceName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExists, int bindCount) {
+	protected CreateSequenceStatement(TableName sequenceName, ParseNode startsWith, ParseNode incrementBy, ParseNode cacheSize, boolean ifNotExists, int bindCount) {
 		this.sequenceName = sequenceName;
 		this.startWith = startsWith == null ? LiteralParseNode.ONE : startsWith;
 		this.incrementBy = incrementBy == null ? LiteralParseNode.ONE : incrementBy;
+        this.cacheSize = cacheSize == null ? null : cacheSize;
 		this.ifNotExists = ifNotExists;
 		this.bindCount = bindCount;
 	}
@@ -55,6 +57,10 @@ public class CreateSequenceStatement implements BindableStatement {
 	public TableName getSequenceName() {
 		return sequenceName;
 	}
+
+    public ParseNode getCacheSize() {
+        return cacheSize;
+    }
 
 	public ParseNode getStartWith() {
 		return startWith;

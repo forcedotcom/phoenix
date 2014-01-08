@@ -140,11 +140,35 @@ public class SQLExceptionInfo {
     }
 
     public SQLException buildException() {
-        if (rootCause != null) {
-            return new SQLException(toString(), code.getSQLState(), code.getErrorCode(), rootCause);
-        } else {
-            return new SQLException(toString(), code.getSQLState(), code.getErrorCode(), null);
-        }
+        return code.getExceptionFactory().newException(this);
+    }
+
+    public Throwable getRootCause() {
+        return rootCause;
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public String getTableName() {
+        return tableName;
+    }
+
+    public String getFamilyName() {
+        return familyName;
+    }
+
+    public String getColumnName() {
+        return columnName;
+    }
+
+    public SQLExceptionCode getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
     }
 
 }

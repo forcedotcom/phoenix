@@ -274,17 +274,21 @@ public class ParseNodeFactory {
         return new CreateIndexStatement(indexName, dataTable, pkConstraint, includeColumns, splits, props, ifNotExists, bindCount);
     }
     
-    public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExits, int bindCount){
-    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, ifNotExits, bindCount);
+    public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, ParseNode cacheSize, boolean ifNotExits, int bindCount){
+    	return new CreateSequenceStatement(tableName, startsWith, incrementBy, cacheSize, ifNotExits, bindCount);
     } 
     
     public DropSequenceStatement dropSequence(TableName tableName, boolean ifExits, int bindCount){
         return new DropSequenceStatement(tableName, ifExits, bindCount);
-    } 
+    }
     
-	public NextSequenceValueParseNode nextValueFor(TableName tableName) {
-		return new NextSequenceValueParseNode(tableName);
+	public SequenceOpParseNode currentValueFor(TableName tableName) {
+		return new SequenceOpParseNode(tableName, SequenceOpParseNode.Op.CURRENT_VALUE);
 	}
+    
+    public SequenceOpParseNode nextValueFor(TableName tableName) {
+        return new SequenceOpParseNode(tableName, SequenceOpParseNode.Op.NEXT_VALUE);
+    }
     
     public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
         return new AddColumnStatement(table, columnDefs, ifNotExists, props);
@@ -430,7 +434,7 @@ public class ParseNodeFactory {
     
     private void checkTypeMatch (PDataType expectedType, PDataType actualType) throws SQLException {
         if (!expectedType.isCoercibleTo(actualType)) {
-            throw new TypeMismatchException(expectedType, actualType);
+            throw TypeMismatchException.newException(expectedType, actualType);
         }
     }
 

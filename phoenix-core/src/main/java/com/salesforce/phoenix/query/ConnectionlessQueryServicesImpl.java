@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
@@ -48,28 +47,27 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MutationCode;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
+import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.schema.NewerTableAlreadyExistsException;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PIndexState;
 import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PMetaDataImpl;
-import com.salesforce.phoenix.schema.PSequence;
-import com.salesforce.phoenix.schema.PSequenceImpl;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
+import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
-import com.salesforce.phoenix.schema.SequenceValue;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -85,7 +83,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  */
 public class ConnectionlessQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices  {
     private PMetaData metaData;
-    private final Map<TableName, SequenceValue> sequenceMap = Maps.newHashMap();
+    private final Map<SequenceKey, Long> sequenceMap = Maps.newHashMap();
     
     public ConnectionlessQueryServicesImpl(QueryServices queryServices) {
         super(queryServices);
@@ -264,78 +262,83 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     }
 
     @Override
-    public Map<TableName, SequenceValue> initSequences(String tenantId, List<TableName> sequences, long timestamp) throws SQLException {
-        Map<TableName, SequenceValue> sequenceMap = Maps.newHashMapWithExpectedSize(sequences.size());
-        for (TableName name : sequences) {
-            PSequence sequence = metaData.getSequence(name);
-            if (sequence == null) {
-                throw new SequenceNotFoundException(name.getSchemaName(), name.getTableName());
-            }
-            SequenceValue existingValue = sequenceMap.get(name);
-            SequenceValue value = new SequenceValue(sequence);
-            if (existingValue != null) {
-                value.currentValue = existingValue.currentValue;
-                value.nextValue = existingValue.nextValue;
-            }
-            sequenceMap.put(name, value);
-        }
-        return sequenceMap;
-    }
-    
-    @Override
-    public List<TableName> reserveSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, int batchSize, long timestamp) throws SQLException {
-        List<TableName> droppedSequences = Lists.newArrayListWithExpectedSize(sequences.size());
-        for (Map.Entry<TableName, SequenceValue> entry : sequences) {
-            SequenceValue value = entry.getValue();
-            if (value.currentValue == value.nextValue) {
-                if (metaData.getSequence(entry.getKey()) == null) {
-                    droppedSequences.add(entry.getKey());
-                    continue;
-                }
-                value.nextValue += value.incrementBy * batchSize;
-            }
-        }
-        return droppedSequences;
-    }
-
-    @Override
-    public List<TableName> returnSequences(String tenantId, Set<Map.Entry<TableName,SequenceValue>> sequences, long timestamp) throws SQLException {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public Long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, long timestamp)
+    public long createSequence(String tenantId, String schemaName, String sequenceName, long startWith, long incrementBy, int cacheSize, long timestamp)
             throws SQLException {
-        TableName tableName = TableName.create(schemaName, sequenceName);
-        if (metaData.getSequence(tableName) != null) {
-            return null;
+        SequenceKey key = new SequenceKey(tenantId, schemaName, sequenceName);
+        if (sequenceMap.get(key) != null) {
+            throw new SequenceAlreadyExistsException(schemaName, sequenceName);
         }
-        addSequence(tableName, new PSequenceImpl(incrementBy, startWith, timestamp));
-        SequenceValue value = new SequenceValue(incrementBy, startWith, timestamp);
-        value.currentValue = startWith;
-        value.nextValue = startWith;
-        sequenceMap.put(tableName, value);
-        return HConstants.LATEST_TIMESTAMP;
+        sequenceMap.put(key, startWith);
+        return timestamp;
     }
 
     @Override
-    public Long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
-        TableName tableName = TableName.create(schemaName, sequenceName);
-        if (metaData.getSequence(tableName) == null) {
-            return null;
+    public long dropSequence(String tenantId, String schemaName, String sequenceName, long timestamp) throws SQLException {
+        SequenceKey key = new SequenceKey(tenantId, schemaName, sequenceName);
+        if (sequenceMap.remove(key) == null) {
+            throw new SequenceNotFoundException(schemaName, sequenceName);
         }
-        sequenceMap.remove(tableName);
-        removeSequence(tableName, HConstants.LATEST_TIMESTAMP);
-        return HConstants.LATEST_TIMESTAMP;
+        return timestamp;
     }
 
     @Override
-    public PMetaData addSequence(TableName name, PSequence sequence) throws SQLException {
-        return metaData = metaData.addSequence(name, sequence);
+    public void reserveSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values,
+            SQLException[] exceptions) throws SQLException {
+        int i = 0;
+        for (SequenceKey key : sequenceKeys) {
+            Long value = sequenceMap.get(key);
+            if (value == null) {
+                exceptions[i] = new SequenceNotFoundException(key.getSchemaName(), key.getSequenceName());
+            } else {
+                values[i] = value;          
+            }
+            i++;
+        }
     }
 
     @Override
-    public PMetaData removeSequence(TableName name, long timestamp) throws SQLException {
-        return metaData = metaData.removeSequence(name, timestamp);
+    public void incrementSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, long[] values,
+            SQLException[] exceptions) throws SQLException {
+        int i = 0;
+        for (SequenceKey key : sequenceKeys) {
+            Long value = sequenceMap.get(key);
+            if (value == null) {
+                exceptions[i] = new SequenceNotFoundException(key.getSchemaName(), key.getSequenceName());
+            } else {
+                values[i] = value++;
+            }
+            i++;
+        }
+        i = 0;
+        for (SQLException e : exceptions) {
+            if (e != null) {
+                sequenceMap.remove(sequenceKeys.get(i));
+            }
+            i++;
+        }
+    }
+
+    @Override
+    public long getSequenceValue(SequenceKey sequenceKey, long timestamp) throws SQLException {
+        Long value = sequenceMap.get(sequenceKey);
+        if (value == null) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CALL_CURRENT_BEFORE_NEXT_VALUE)
+            .setSchemaName(sequenceKey.getSchemaName()).setTableName(sequenceKey.getSequenceName())
+            .build().buildException();
+        }
+        return value;
+    }
+
+    @Override
+    public void returnSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, SQLException[] exceptions)
+            throws SQLException {
+    }
+
+    @Override
+    public void addConnection(PhoenixConnection connection) throws SQLException {
+    }
+
+    @Override
+    public void removeConnection(PhoenixConnection connection) throws SQLException {
     }
 }

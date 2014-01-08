@@ -192,6 +192,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] START_WITH_BYTES = Bytes.toBytes(START_WITH);
     public static final String INCREMENT_BY = "INCREMENT_BY";
     public static final byte[] INCREMENT_BY_BYTES = Bytes.toBytes(INCREMENT_BY);
+    public static final String CACHE_SIZE = "CACHE_SIZE";
+    public static final byte[] CACHE_SIZE_BYTES = Bytes.toBytes(CACHE_SIZE);
     
     private final PhoenixConnection connection;
     private final ResultSet emptyResultSet;

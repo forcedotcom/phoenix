@@ -42,7 +42,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.util.Pair;
 
@@ -107,7 +106,6 @@ import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PIndexState;
-import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
@@ -428,8 +426,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     
     private class ExecutableCreateSequenceStatement extends	CreateSequenceStatement implements ExecutableStatement {
 
-		public ExecutableCreateSequenceStatement(TableName sequenceName, ParseNode startWith, ParseNode incrementBy, boolean ifNotExists, int bindCount) {
-			super(sequenceName, startWith, incrementBy, ifNotExists, bindCount);
+		public ExecutableCreateSequenceStatement(TableName sequenceName, ParseNode startWith, ParseNode incrementBy, ParseNode cacheSize, boolean ifNotExists, int bindCount) {
+			super(sequenceName, startWith, incrementBy, cacheSize, ifNotExists, bindCount);
 		}
 
 		@Override
@@ -910,8 +908,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, boolean ifNotExists, int bindCount){
-        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, ifNotExists, bindCount);
+        public CreateSequenceStatement createSequence(TableName tableName, ParseNode startsWith, ParseNode incrementBy, ParseNode cacheSize, boolean ifNotExists, int bindCount){
+        	return new ExecutableCreateSequenceStatement(tableName, startsWith, incrementBy, cacheSize, ifNotExists, bindCount);
         }
         
         @Override
@@ -1011,7 +1009,6 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
             try {
                 connection.removeStatement(this);
             } finally {
-                sequences = Collections.emptySet();
                 isClosed = true;
             }
         }
@@ -1262,43 +1259,5 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
     @Override
     public boolean isCloseOnCompletion() throws SQLException {
         throw new SQLFeatureNotSupportedException();
-    }
-
-    private Set<TableName> sequences = Collections.emptySet();
-    
-    public Set<TableName> getSequences() {
-        return sequences;
-    }
-    
-    private boolean initSequencesRequired(Set<TableName> sequences) {
-        // If we haven't set any sequences yet on the Statement,
-        // then we need to initialize them to confirm they exist.
-        if (this.sequences.isEmpty()) {
-            return true;
-        }
-        // If any existing sequences are no longer cached, we need
-        // to reinitialize them as the cache entry is cleared when
-        // it's detected that a sequence no longer exists.
-        PMetaData metaData = connection.getPMetaData();
-        for (TableName sequence : sequences) {
-            if (metaData.getSequence(sequence) == null) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
-    public void initSequences(Set<TableName> sequences) throws SQLException {
-        // Since each execute causes another compile, this will get called again and again.
-        // We only want to pass this through to the connection the first time so that we
-        // don't mess up our reference counting.
-        if (initSequencesRequired(sequences)) {
-            this.sequences = sequences;
-            connection.initSequences(sequences, true);
-        }
-    }
-
-    public long nextSequenceValue(TableName sequence) throws SQLException {
-        return connection.nextSequenceValue(sequence);
     }
 }

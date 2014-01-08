@@ -93,14 +93,14 @@ public class SQLParser {
             BindableStatement statement = parser.nextStatement();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         }
     }
 
@@ -113,14 +113,14 @@ public class SQLParser {
             BindableStatement statement = parser.statement();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         } catch (UnsupportedOperationException e) {
             throw new SQLFeatureNotSupportedException(e);
         } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         }
     }
 
@@ -134,12 +134,12 @@ public class SQLParser {
             SelectStatement statement = parser.query();
             return statement;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         }
     }
 
@@ -152,12 +152,12 @@ public class SQLParser {
             LiteralParseNode literalNode = parser.literal();
             return literalNode;
         } catch (RecognitionException e) {
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
-            throw new PhoenixParserException(e, parser);
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
         }
     }
 

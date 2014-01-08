@@ -71,7 +71,7 @@ public class RoundParseNode extends FunctionParseNode {
         } else if(firstChildDataType.isCoercibleTo(PDataType.DECIMAL)) {
             return new RoundDecimalExpression(children);
         } else {
-            throw new TypeMismatchException(firstChildDataType, "1");
+            throw TypeMismatchException.newException(firstChildDataType, "1");
         }
     }
     

@@ -27,24 +27,58 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-public final class SequenceValue {
-    public final long incrementBy;
-    public final long startWith;
-    public final long timestamp;
-    
-    public long currentValue;
-    public long nextValue;
-    public int referenceCount = 1;
-    
-    public SequenceValue(long incrementBy, long startWith, long timestamp) {
-        this.incrementBy = incrementBy;
-        this.startWith = startWith;
-        this.timestamp = timestamp;
+
+public class SequenceKey implements Comparable<SequenceKey> {
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((tenantId == null) ? 0 : tenantId.hashCode());
+        result = prime * result + ((schemaName == null) ? 0 : schemaName.hashCode());
+        result = prime * result + sequenceName.hashCode();
+        return result;
     }
 
-    public SequenceValue(PSequence sequence) {
-        this.incrementBy = sequence.getIncrementBy();
-        this.startWith = sequence.getStartWith();
-        this.timestamp = sequence.getTimeStamp();
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        SequenceKey other = (SequenceKey)obj;
+        return this.compareTo(other) == 0;
+    }
+
+    private final String tenantId;
+    private final String schemaName;
+    private final String sequenceName;
+    
+    public SequenceKey(String tenantId, String schemaName, String sequenceName) {
+        this.tenantId = tenantId;
+        this.schemaName = schemaName;
+        this.sequenceName = sequenceName;
+    }
+
+    public String getTenantId() {
+        return tenantId;
+    }
+
+    public String getSchemaName() {
+        return schemaName;
+    }
+
+    public String getSequenceName() {
+        return sequenceName;
+    }
+
+    @Override
+    public int compareTo(SequenceKey that) {
+        int c = this.tenantId == that.getTenantId() ? 0 : this.tenantId == null ? -1 : that.getTenantId() == null ? 1 : this.tenantId.compareTo(that.getTenantId());
+        if (c == 0) {
+            c = this.schemaName == that.getSchemaName() ? 0 : this.schemaName == null ? -1 : that.getSchemaName() == null ? 1 : this.schemaName.compareTo(that.getSchemaName());
+            if (c == 0) {
+                return sequenceName.compareTo(that.getSequenceName());
+            }
+        }
+        return c;
     }
 }

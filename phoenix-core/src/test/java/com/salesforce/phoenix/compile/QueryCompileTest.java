@@ -1231,6 +1231,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
                 "SELECT * FROM aTable GROUP BY a_integer HAVING a_integer < next value for alpha.zeta",
                 "SELECT * FROM aTable WHERE a_integer < 3 GROUP BY a_integer HAVING a_integer < next value for alpha.zeta",
                 "SELECT * FROM aTable ORDER BY next value for alpha.zeta",
+                "SELECT max(next value for alpha.zeta) FROM aTable",
         };
         for (String query : queries) {
             List<Object> binds = Collections.emptyList();
