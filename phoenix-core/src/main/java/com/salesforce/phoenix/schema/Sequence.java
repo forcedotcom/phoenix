@@ -32,6 +32,8 @@ import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 
 public class Sequence {
+    public static final int SUCCESS = 0;
+    
     private static final Long AMOUNT = Long.valueOf(0L);
     // Pre-compute index of sequence key values to prevent binary search
     private static final KeyValue CURRENT_VALUE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, SEQUENCE_FAMILY_BYTES, CURRENT_VALUE_BYTES);
@@ -116,10 +118,10 @@ public class Sequence {
     
     public long currentValue(long timestamp) throws EmptySequenceCacheException {
         SequenceValue value = getSequenceValue(timestamp);
-        if (value == null) {
+        if (value == null || value.cacheSize == 0) {
             throw EMPTY_SEQUENCE_CACHE_EXCEPTION;
         }
-        return value.currentValue;
+        return value.currentValue - value.incrementBy;
     }
 
     public ReentrantLock getLock() {
@@ -265,7 +267,7 @@ public class Sequence {
         }
         long timestamp = statusKV.getTimestamp();
         int statusCode = PDataType.INTEGER.getCodec().decodeInt(statusKV.getBuffer(), statusKV.getValueOffset(), null);
-        if (statusCode == 0) {  // Success - update nextValue down to currentValue
+        if (statusCode == SUCCESS) {  // Success - update nextValue down to currentValue
             SequenceValue value = getSequenceValue(timestamp);
             if (value == null) {
                 throw new EmptySequenceCacheException(key.getSchemaName(),key.getSequenceName());

@@ -152,7 +152,8 @@ public class HashJoinPlan implements QueryPlan {
         int count = hashPlans.length;
         planSteps.add("    PARALLEL EQUI-JOIN " + count + " HASH TABLES:");
         for (int i = 0; i < count; i++) {
-        	planSteps.add("    BUILD HASH TABLE " + i);
+            boolean skipMerge = joinInfo.getSchemas()[i].getFieldCount() == 0;
+        	planSteps.add("    BUILD HASH TABLE " + i + (skipMerge ? " (SKIP MERGE)" : ""));
         	List<String> steps = hashPlans[i].getExplainPlan().getPlanSteps();
         	for (String step : steps) {
         		planSteps.add("        " + step);

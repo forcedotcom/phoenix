@@ -129,6 +129,12 @@ public class RowKeyComparisonFilter extends BooleanExpressionFilter {
         public KeyValue getValue(int index) {
             throw new IndexOutOfBoundsException(Integer.toString(index));
         }
+
+        @Override
+        public boolean getValue(byte[] family, byte[] qualifier,
+                ImmutableBytesWritable ptr) {
+            return false;
+        }
     }
 
     @Override

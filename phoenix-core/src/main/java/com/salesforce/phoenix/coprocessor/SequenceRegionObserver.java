@@ -53,7 +53,7 @@ public class SequenceRegionObserver extends BaseRegionObserver {
     public static final String OPERATION_ATTRIB = "SEQUENCE_OPERATION";
     public static final String MAX_TIMERANGE_ATTRIB = "MAX_TIMERANGE";
     public static final String CURRENT_VALUE_ATTRIB = "CURRENT_VALUE";
-    private static final byte[] SUCCESS_VALUE = PDataType.INTEGER.toBytes(Integer.valueOf(0));
+    private static final byte[] SUCCESS_VALUE = PDataType.INTEGER.toBytes(Integer.valueOf(Sequence.SUCCESS));
     
     private static Result getErrorResult(byte[] row, long timestamp, int errorCode) {
         byte[] errorCodeBuf = new byte[PDataType.INTEGER.getByteSize()];

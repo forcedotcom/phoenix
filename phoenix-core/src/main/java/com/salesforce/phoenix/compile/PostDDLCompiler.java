@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
+import static java.util.Collections.singletonList;
+
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -47,6 +49,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
@@ -55,7 +58,6 @@ import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 
 
@@ -186,8 +188,15 @@ public class PostDDLCompiler {
                             QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                             PName tenantId = connection.getTenantId();
                             if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
-                                scan.setStartRow(tenantId.getBytes());
-                                scan.setStopRow(ByteUtil.nextKey(tenantId.getBytes()));
+                                KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
+                                List<List<KeyRange>> slots = Lists.newArrayListWithCapacity(2);
+                                slots.add(singletonList(tenantIdKeyRange));
+                                if (tableRef.getTable().getTenantTypeId() != null) {
+                                    KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTenantTypeId().getBytes());
+                                    slots.add(singletonList(tenantTypeIdKeyRange));
+                                }
+                                scan.setStartRow(ScanUtil.getMinKey(tableRef.getTable().getRowKeySchema(), slots));
+                                scan.setStopRow(ScanUtil.getMaxKey(tableRef.getTable().getRowKeySchema(), slots));
                             }
                             ResultIterator iterator = plan.iterator();
                             try {

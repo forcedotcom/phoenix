@@ -46,6 +46,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 public class ProjectedColumnExpression extends ColumnExpression {
 	private KeyValueSchema schema;
+	ValueBitSet bitSet;
 	private int position;
 	private byte[] name; // for display purpose only
 	
@@ -55,6 +56,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
 	public ProjectedColumnExpression(PColumn column, PTable table) {
 		super(column);
 		this.schema = buildSchema(table);
+		this.bitSet = ValueBitSet.newInstance(schema);
 		this.position = column.getPosition() - table.getPKColumns().size();
 		this.name = column.getName().getBytes();
 	}
@@ -108,17 +110,18 @@ public class ProjectedColumnExpression extends ColumnExpression {
 	
 	@Override
 	public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-		try {
-			ImmutableBytesWritable value = ScanProjector.decodeProjectedValue(tuple);
-			ValueBitSet bitSet = ValueBitSet.newInstance(schema);
-			bitSet.or(value);
-			schema.iterator(value, ptr, position, bitSet);
-			Boolean hasValue = schema.next(ptr, position, value.getOffset() + value.getLength(), bitSet);
-			if (hasValue == null || !hasValue.booleanValue())
-				return false;
-		} catch (IOException e) {
-			return false;
-		}
+        try {
+            ScanProjector.decodeProjectedValue(tuple, ptr);
+            int maxOffset = ptr.getOffset() + ptr.getLength();
+            bitSet.clear();
+            bitSet.or(ptr);
+            schema.iterator(ptr, position, bitSet);
+            Boolean hasValue = schema.next(ptr, position, maxOffset, bitSet);
+            if (hasValue == null || !hasValue.booleanValue())
+                return false;
+        } catch (IOException e) {
+            return false;
+        }
 		
 		return true;
 	}
@@ -128,6 +131,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
         super.readFields(input);
         schema = new KeyValueSchema();
         schema.readFields(input);
+        bitSet = ValueBitSet.newInstance(schema);
         position = input.readInt();
         name = Bytes.readByteArray(input);
     }

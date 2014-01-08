@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
+import static com.salesforce.phoenix.util.PhoenixRuntime.TENANT_ID_ATTRIB;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.A_VALUE;
 import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
@@ -113,29 +114,54 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
     }
     
     protected static void deletePriorTables(long ts) throws Exception {
+        deletePriorTables(ts, (String)null);
+    }
+    
+    protected static void deletePriorTables(long ts, String tenantId) throws Exception {
         Properties props = new Properties();
         if (ts != HConstants.LATEST_TIMESTAMP) {
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
         }
-        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        Connection conn = null;
+        if (tenantId != null) {
+            props.setProperty(TENANT_ID_ATTRIB, tenantId);
+            try {
+                conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+                deletePriorTables(ts, conn);
+            }
+            finally {
+                conn.close();
+            }
+            props.remove(TENANT_ID_ATTRIB);
+        }
+        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
-            DatabaseMetaData dbmd = conn.getMetaData();
-            ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
-            while (rs.next()) {
-                String fullTableName = SchemaUtil.getTableName(
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
-            }
-            rs = conn.createStatement().executeQuery("SELECT " 
-                    + PhoenixDatabaseMetaData.SEQUENCE_SCHEMA + "," 
-                    + PhoenixDatabaseMetaData.SEQUENCE_NAME 
-                    + " FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
-            while (rs.next()) {
-                conn.createStatement().execute("DROP SEQUENCE " + SchemaUtil.getTableName(rs.getString(1), rs.getString(2)));
-            }
-        } finally {
+            deletePriorTables(ts, conn);
+            deletePriorSequences(ts, conn);
+        }
+        finally {
             conn.close();
+        }
+    }
+    
+    private static void deletePriorTables(long ts, Connection conn) throws Exception {
+        DatabaseMetaData dbmd = conn.getMetaData();
+        ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
+        while (rs.next()) {
+            String fullTableName = SchemaUtil.getTableName(
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+            conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+        }
+    }
+    
+    private static void deletePriorSequences(long ts, Connection conn) throws Exception {
+        ResultSet rs = conn.createStatement().executeQuery("SELECT " 
+                + PhoenixDatabaseMetaData.SEQUENCE_SCHEMA + "," 
+                + PhoenixDatabaseMetaData.SEQUENCE_NAME 
+                + " FROM " + PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME);
+        while (rs.next()) {
+            conn.createStatement().execute("DROP SEQUENCE " + SchemaUtil.getTableName(rs.getString(1), rs.getString(2)));
         }
     }
     

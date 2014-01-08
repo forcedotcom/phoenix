@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
 
@@ -17,6 +18,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
@@ -83,6 +85,27 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		assertEquals(2, rs.getInt("current_value"));
 		assertEquals(4, rs.getInt("increment_by"));
 		assertFalse(rs.next());
+	}
+		
+    @Test
+    public void testCurrentValueFor() throws Exception {
+        ResultSet rs;
+        Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE used.nowhere START WITH 2 INCREMENT BY 4");
+        try {
+            rs = conn.createStatement().executeQuery("SELECT CURRENT VALUE FOR used.nowhere FROM SYSTEM.\"SEQUENCE\"");
+            rs.next();
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.CANNOT_CALL_CURRENT_BEFORE_NEXT_VALUE.getErrorCode(), e.getErrorCode());
+        }
+        
+        rs = conn.createStatement().executeQuery("SELECT NEXT VALUE FOR used.nowhere FROM SYSTEM.\"SEQUENCE\"");
+        assertTrue(rs.next());
+        assertEquals(2, rs.getInt(1));
+        rs = conn.createStatement().executeQuery("SELECT CURRENT VALUE FOR used.nowhere FROM SYSTEM.\"SEQUENCE\"");
+        assertTrue(rs.next());
+        assertEquals(2, rs.getInt(1));
 	}
 
     @Test

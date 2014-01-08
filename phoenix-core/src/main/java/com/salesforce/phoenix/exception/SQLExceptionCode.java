@@ -206,10 +206,12 @@ public enum SQLExceptionCode {
     CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
     CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
     BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
-    BASE_TABLE_NO_TENANT_ID_PK(1033, "42Y92", "Base table for a tenant table-specific table must have 2 or more PK columns.  Leading PK column must be non-nullable VARCHAR or CHAR."),
     DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
     TENANT_TYPE_ID_ONLY_ON_CREATE_TABLE(1035, "42Y94", "Tenant type ID may only be specified when creating a table."),
-    
+    TYPE_ID_USED(1039, "42Y95", "Type id is already used by this tenant for this base table."),
+    BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID(1040, "42Y96", "Base table for a tenant table-specific table must have 2 or more PK columns when creating tenant-specific tables with an empty TENANT_TYPE_ID.  First PK column must be non-nullable VARCHAR or CHAR."),
+    BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID(1041, "42Y97", "Base table for a tenant table-specific table must have 3 or more PK columns when creating tenant-specific tables with a non-empty TENANT_TYPE_ID.  First two PK columns must be non-nullable VARCHAR or CHAR."),
+        
     /** Sequence related */
     SEQUENCE_ALREADY_EXIST(1200, "42Z00", "Sequence already exists.", new Factory() {
         @Override

@@ -175,6 +175,16 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
             }
             throw new IndexOutOfBoundsException(Integer.toString(index));
         }
+
+        @Override
+        public boolean getValue(byte[] family, byte[] qualifier,
+                ImmutableBytesWritable ptr) {
+            KeyValue kv = getValue(family, qualifier);
+            if (kv == null)
+                return false;
+            ptr.set(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength());
+            return true;
+        }
     }
     
     protected void init() {

@@ -786,6 +786,11 @@ public class PTableImpl implements PTable {
     }
     
     @Override
+    public PColumn getTenantTypeIdColumn() {
+        return isTenantSpecificTable() ? getPKColumns().get(1) : null;
+    }
+    
+    @Override
     public PName getBaseTableName() {
         return baseTableName;
     }

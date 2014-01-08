@@ -27,10 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.google.common.collect.Lists.newArrayList;
 import static com.salesforce.phoenix.expression.LiteralExpression.TRUE_EXPRESSION;
-import static com.salesforce.phoenix.expression.LiteralExpression.newConstant;
-import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -44,8 +41,6 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
-import com.salesforce.phoenix.expression.AndExpression;
-import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
 import com.salesforce.phoenix.expression.LiteralExpression;
@@ -63,11 +58,9 @@ import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
-import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
-import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -117,23 +110,10 @@ public class WhereCompiler {
             throw TypeMismatchException.newException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
         
-        // add tenant data isolation for tenant-specific tables
-        TableRef tableRef = context.getResolver().getTables().get(0);
-        String tenantId = context.getConnection().getTenantId() == null ? null : context.getConnection().getTenantId().getString();
-        if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
-           expression = new AndExpression(newArrayList(getTenantIdConstraint(tableRef, tenantId), expression));
-        }
-        
         expression = WhereOptimizer.pushKeyExpressionsToScan(context, statement, expression, extractedNodes);
         setScanFilter(context, statement, expression, whereCompiler.disambiguateWithFamily);
 
         return expression;
-    }
-    
-    private static Expression getTenantIdConstraint(TableRef tableRef, String tenantId) throws SQLException {
-        PColumn tenantIdColumn = tableRef.getTable().getTenantIdColumn();
-        ColumnRef tenantIdColumnRef = new ColumnRef(tableRef, tenantIdColumn.getPosition());
-        return new ComparisonExpression(EQUAL, newArrayList(tenantIdColumnRef.newColumnExpression(), newConstant(tenantId, PDataType.VARCHAR)));
     }
     
     private static class WhereExpressionCompiler extends ExpressionCompiler {
