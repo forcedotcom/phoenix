@@ -203,7 +203,7 @@ public class QueryParserTest {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \".\" at line 1, column 41."));
+            assertEquals(SQLExceptionCode.MISMATCHED_TOKEN.getErrorCode(), e.getErrorCode());
         }
     }
 
@@ -293,7 +293,7 @@ public class QueryParserTest {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 604 (42P00): Syntax error. Unknown function: \"BOGUS_FUNCTION\"."));
+            assertEquals(SQLExceptionCode.UNKNOWN_FUNCTION.getErrorCode(), e.getErrorCode());
         }
     }
 
@@ -392,7 +392,7 @@ public class QueryParserTest {
             parser.parseStatement();
             fail("Should have caught exception.");
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 603 (42P00): Syntax error. Mismatched input. Expecting \"FROM\", got \"where\" at line 2, column 1."));
+            assertEquals(SQLExceptionCode.MISMATCHED_TOKEN.getErrorCode(), e.getErrorCode());
         }
     }
 
@@ -456,7 +456,7 @@ public class QueryParserTest {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
-            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
+            assertEquals(SQLExceptionCode.MISMATCHED_TOKEN.getErrorCode(), e.getErrorCode());
         }
     }
 
@@ -621,7 +621,7 @@ public class QueryParserTest {
             parser.parseStatement();
             fail();
         } catch (SQLException e) {
-            assertEquals(SQLExceptionCode.UNWANTED_TOKEN.getErrorCode(), e.getErrorCode());
+            assertEquals(SQLExceptionCode.MISMATCHED_TOKEN.getErrorCode(), e.getErrorCode());
         }
     }
 
