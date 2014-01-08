@@ -60,10 +60,14 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
             if (tableRef == null)
                 return node;
             
-            String schemaName = tableRef.getTable().getSchemaName().getString();
-            schemaName = schemaName.length() == 0 ? null : '"' + schemaName + '"';
-            String tableName = '"' + tableRef.getTable().getTableName().getString() + '"';
-            tName = FACTORY.table(schemaName, tableName);
+            if (tableRef.getTableAlias() != null) {
+                tName = FACTORY.table(null, tableRef.getTableAlias());
+            } else {
+                String schemaName = tableRef.getTable().getSchemaName().getString();
+                schemaName = schemaName.length() == 0 ? null : '"' + schemaName + '"';
+                String tableName = '"' + tableRef.getTable().getTableName().getString() + '"';
+                tName = FACTORY.table(schemaName, tableName);
+            }
         }
         String indexColName = IndexUtil.getIndexColumnName(dataColRef.getColumn());
         // Same alias as before, but use the index column name instead of the data column name

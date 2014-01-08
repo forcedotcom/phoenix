@@ -312,10 +312,13 @@ public class JoinCompiler {
         	int position = projectedColumns.size() + (hasSaltingColumn ? 1 : 0);
         	PTable table = sourceTable.getTable();
         	PName colName = sourceColumn.getName();
-        	PName name = getProjectedColumnName(table.getSchemaName(), table.getTableName(), colName);
+        	PName name = sourceTable.getTableAlias() == null ? null : PNameFactory.newName(getProjectedColumnName(null, sourceTable.getTableAlias(), colName.getString()));
+        	PName fullName = getProjectedColumnName(table.getSchemaName(), table.getTableName(), colName);
         	columnNameMap.put(colName.getString(), name.getString());
-        	if (sourceTable.getTableAlias() != null) {
-        		columnNameMap.put(getProjectedColumnName(null, sourceTable.getTableAlias(), colName.getString()), name.getString());
+        	if (name == null) {
+        	    name = fullName;
+        	} else {
+        		columnNameMap.put(fullName.getString(), name.getString());
         	}
     		PColumnImpl column = new PColumnImpl(name, familyName, sourceColumn.getDataType(), 
     				sourceColumn.getMaxLength(), sourceColumn.getScale(), sourceColumn.isNullable(), 
