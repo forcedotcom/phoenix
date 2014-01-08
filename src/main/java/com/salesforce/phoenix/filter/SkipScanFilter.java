@@ -33,12 +33,16 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Writables;
+import org.apache.hadoop.io.Writable;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
@@ -63,7 +67,7 @@ import com.salesforce.phoenix.util.ScanUtil;
  * @author ryang, jtaylor
  * @since 0.1
  */
-public class SkipScanFilter extends FilterBase {
+public class SkipScanFilter extends FilterBase implements Writable {
     private enum Terminate {AT, AFTER};
     // Conjunctive normal form of or-ed ranges or point lookups
     private List<List<KeyRange>> slots;
@@ -129,8 +133,8 @@ public class SkipScanFilter extends FilterBase {
     }
 
     @Override
-    public ReturnCode filterKeyValue(KeyValue kv) {
-        return navigate(kv.getBuffer(), kv.getRowOffset(),kv.getRowLength(),Terminate.AFTER);
+    public ReturnCode filterKeyValue(Cell kv) {
+        return navigate(kv.getRowArray(), kv.getRowOffset(),kv.getRowLength(),Terminate.AFTER);
     }
 
     @Override
@@ -462,7 +466,6 @@ public class SkipScanFilter extends FilterBase {
         return nTerminators;
     }
 
-    @Override
     public void readFields(DataInput in) throws IOException {
         RowKeySchema schema = new RowKeySchema();
         schema.readFields(in);
@@ -490,7 +493,6 @@ public class SkipScanFilter extends FilterBase {
         this.init(slots, schema, maxLength);
     }
 
-    @Override
     public void write(DataOutput out) throws IOException {
         schema.write(out);
         out.writeInt(slots.size());
@@ -499,6 +501,19 @@ public class SkipScanFilter extends FilterBase {
             for (KeyRange range : orclause) {
                 range.write(out);
             }
+        }
+    }
+    
+    @Override
+    public byte[] toByteArray() throws IOException {
+        return Writables.getBytes(this);
+    }
+    
+    public static SkipScanFilter parseFrom(final byte [] pbBytes) throws DeserializationException {
+        try {
+            return (SkipScanFilter)Writables.getWritable(pbBytes, new SkipScanFilter());
+        } catch (IOException e) {
+            throw new DeserializationException(e);
         }
     }
 

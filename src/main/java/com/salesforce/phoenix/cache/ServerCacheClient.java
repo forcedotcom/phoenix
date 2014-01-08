@@ -48,13 +48,25 @@ import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.ipc.BlockingRpcCallback;
+import org.apache.hadoop.hbase.ipc.ServerRpcController;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.ByteString;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheRequest;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheResponse;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MetaDataService;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.AddServerCacheRequest;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.AddServerCacheResponse;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.RemoveServerCacheRequest;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.RemoveServerCacheResponse;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ServerCachingService;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.job.JobManager.JobCallable;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
@@ -173,8 +185,36 @@ public class ServerCacheClient {
                         
                         @Override
                         public Boolean call() throws Exception {
-                            ServerCachingProtocol protocol = htable.coprocessorProxy(ServerCachingProtocol.class, key);
-                            return protocol.addServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId, cachePtr, cacheFactory);
+                            final Map<byte[], AddServerCacheResponse> results;
+                            try {
+                                results = htable.coprocessorService(ServerCachingService.class, key, key, 
+                                            new Batch.Call<ServerCachingService, AddServerCacheResponse>() {
+                                                @Override
+                                                public AddServerCacheResponse call(ServerCachingService instance) throws IOException {
+                                                    ServerRpcController controller = new ServerRpcController();
+                                                    BlockingRpcCallback<AddServerCacheResponse> rpcCallback =
+                                                            new BlockingRpcCallback<AddServerCacheResponse>();
+                                                    AddServerCacheRequest.Builder builder = AddServerCacheRequest.newBuilder();
+                                                    if(connection.getTenantId() != null){
+                                                        builder.setTenantId(ByteString.copyFrom(connection.getTenantId().getBytes()));
+                                                    }
+                                                    builder.setCacheId(ByteString.copyFrom(cacheId));
+                                                    builder.setCachePtr(ByteString.copyFrom(cachePtr.get()));
+                                                    builder.setServerCacheFactory(cacheFactory.toString());
+                                                    instance.addServerCache(controller, builder.build(), rpcCallback);
+                                                    if(controller.getFailedOn() != null) {
+                                                        throw controller.getFailedOn();
+                                                    }
+                                                    return rpcCallback.get(); 
+                                                }
+                                              });
+                            } catch (Throwable t) {
+                                throw new Exception(t);
+                            }
+                            if(results != null && results.size() == 1){
+                                return results.values().iterator().next().getReturn();
+                            }
+                            return false;
                         }
 
                         /**
@@ -237,7 +277,7 @@ public class ServerCacheClient {
      * @throws SQLException
      * @throws IllegalStateException if hashed table cannot be removed on any region server on which it was added
      */
-    private void removeServerCache(byte[] cacheId, Set<HRegionLocation> servers) throws SQLException {
+    private void removeServerCache(final byte[] cacheId, Set<HRegionLocation> servers) throws SQLException {
         ConnectionQueryServices services = connection.getQueryServices();
         Throwable lastThrowable = null;
         TableRef cacheUsingTableRef = cacheUsingTableRefMap.get(Bytes.mapKey(cacheId));
@@ -255,8 +295,25 @@ public class ServerCacheClient {
             if (remainingOnServers.contains(entry)) {  // Call once per server
                 try {
                     byte[] key = entry.getRegionInfo().getStartKey();
-                    ServerCachingProtocol protocol = iterateOverTable.coprocessorProxy(ServerCachingProtocol.class, key);
-                    protocol.removeServerCache(connection.getTenantId() == null ? null : connection.getTenantId().getBytes(), cacheId);
+                    iterateOverTable.coprocessorService(ServerCachingService.class, key, key, 
+                        new Batch.Call<ServerCachingService, RemoveServerCacheResponse>() {
+                            @Override
+                            public RemoveServerCacheResponse call(ServerCachingService instance) throws IOException {
+                                ServerRpcController controller = new ServerRpcController();
+                                BlockingRpcCallback<RemoveServerCacheResponse> rpcCallback =
+                                        new BlockingRpcCallback<RemoveServerCacheResponse>();
+                                RemoveServerCacheRequest.Builder builder = RemoveServerCacheRequest.newBuilder();
+                                if(connection.getTenantId() != null){
+                                    builder.setTenantId(ByteString.copyFrom(connection.getTenantId().getBytes()));
+                                }
+                                builder.setCacheId(ByteString.copyFrom(cacheId));
+                                instance.removeServerCache(controller, builder.build(), rpcCallback);
+                                if(controller.getFailedOn() != null) {
+                                    throw controller.getFailedOn();
+                                }
+                                return rpcCallback.get(); 
+                            }
+                          });
                     remainingOnServers.remove(entry);
                 } catch (Throwable t) {
                     lastThrowable = t;

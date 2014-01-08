@@ -34,7 +34,7 @@ import java.util.SortedSet;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.KeyValue.KeyComparator;
+import org.apache.hadoop.hbase.KeyValue.KVComparator;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.regionserver.IndexKeyValueSkipListSet;
 import org.apache.hadoop.hbase.regionserver.KeyValueScanner;
@@ -95,11 +95,11 @@ public class IndexMemStore implements KeyValueStore {
    */
   public static final Comparator<KeyValue> COMPARATOR = new Comparator<KeyValue>() {
 
-    private final KeyComparator rawcomparator = new KeyComparator();
+    private final KVComparator rawcomparator = new KVComparator();
 
     @Override
     public int compare(final KeyValue left, final KeyValue right) {
-      return rawcomparator.compare(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
+      return rawcomparator.compareRows(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
         left.getKeyLength(), right.getBuffer(), right.getOffset() + KeyValue.ROW_OFFSET,
         right.getKeyLength());
     }

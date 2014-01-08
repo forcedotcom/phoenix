@@ -82,7 +82,6 @@ public class ThreadPoolManager {
 
   /**
    * @param conf
-   * @return
    */
   private static ShutdownOnUnusedThreadPoolExecutor getDefaultExecutor(ThreadPoolBuilder builder) {
     int maxThreads = builder.getMaxThreads();

@@ -421,7 +421,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         byte[] indexRowKey = this.buildRowKey(oldState, dataRowKeyPtr);
         // Delete the entire row if any of the indexed columns changed
         if (oldState == null || isRowDeleted(pendingUpdates) || hasIndexedColumnChanged(oldState, pendingUpdates)) { // Deleting the entire row
-            Delete delete = new Delete(indexRowKey, ts, null);
+            Delete delete = new Delete(indexRowKey, ts);
             return delete;
         }
         Delete delete = null;

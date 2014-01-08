@@ -11,8 +11,10 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValueUtil;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
@@ -37,7 +39,7 @@ public class TestReadWriteKeyValuesWithCodec {
   public static void setupCodec() {
     Configuration conf = UTIL.getConfiguration();
     IndexTestingUtils.setupConfig(conf);
-    conf.set(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
+    conf.set(WALCellCodec.WAL_CELL_CODEC_CLASS_KEY, IndexedWALEditCodec.class.getName());
   }
 
   @Test
@@ -48,9 +50,7 @@ public class TestReadWriteKeyValuesWithCodec {
     FileSystem fs = UTIL.getTestFileSystem();
 
     List<WALEdit> edits = getEdits();
-    WALEditCodec codec = WALEditCodec.create(UTIL.getConfiguration(), null);
-    writeReadAndVerify(codec, fs, edits, testFile);
-
+    writeReadAndVerify(null, fs, edits, testFile);
   }
 
   @Test
@@ -61,9 +61,8 @@ public class TestReadWriteKeyValuesWithCodec {
     FileSystem fs = UTIL.getTestFileSystem();
 
     List<WALEdit> edits = getEdits();
-    CompressionContext compression = new CompressionContext(LRUDictionary.class);
-    WALEditCodec codec = WALEditCodec.create(UTIL.getConfiguration(), compression);
-    writeReadAndVerify(codec, fs, edits, testFile);
+    CompressionContext compression = new CompressionContext(LRUDictionary.class, false);
+    writeReadAndVerify(compression, fs, edits, testFile);
   }
 
   /**
@@ -110,9 +109,9 @@ public class TestReadWriteKeyValuesWithCodec {
    * {@link WALEdit}.
    */
   private void addMutation(WALEdit edit, Mutation m, byte[] family) {
-    List<KeyValue> kvs = m.getFamilyMap().get(FAMILY);
-    for (KeyValue kv : kvs) {
-      edit.add(kv);
+    List<Cell> kvs = m.getFamilyCellMap().get(FAMILY);
+    for (Cell kv : kvs) {
+      edit.add(KeyValueUtil.ensureKeyValue(kv));
     }
   }
 
@@ -120,12 +119,12 @@ public class TestReadWriteKeyValuesWithCodec {
    * Write the edits to the specified path on the {@link FileSystem} using the given codec and then
    * read them back in and ensure that we read the same thing we wrote.
    */
-  private void writeReadAndVerify(WALEditCodec codec, FileSystem fs, List<WALEdit> edits,
+  private void writeReadAndVerify(final CompressionContext compressionContext, FileSystem fs, List<WALEdit> edits,
       Path testFile) throws IOException {
     // write the edits out
     FSDataOutputStream out = fs.create(testFile);
     for (WALEdit edit : edits) {
-      edit.setCodec(codec);
+      edit.setCompressionContext(compressionContext);
       edit.write(out);
     }
     out.close();
@@ -135,7 +134,7 @@ public class TestReadWriteKeyValuesWithCodec {
     List<WALEdit> read = new ArrayList<WALEdit>();
     for (int i = 0; i < edits.size(); i++) {
       WALEdit edit = new WALEdit();
-      edit.setCodec(codec);
+      edit.setCompressionContext(compressionContext);
       edit.readFields(in);
       read.add(edit);
     }

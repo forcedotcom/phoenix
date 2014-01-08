@@ -32,9 +32,13 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValueUtil;
+import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Writables;
 
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
@@ -191,7 +195,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
     }
     
     @Override
-    public ReturnCode filterKeyValue(KeyValue keyValue) {
+    public ReturnCode filterKeyValue(Cell keyValue) {
         if (Boolean.TRUE.equals(this.matchedColumn)) {
           // We already found and matched the single column, all keys now pass
           return ReturnCode.INCLUDE;
@@ -201,7 +205,7 @@ public abstract class MultiKeyValueComparisonFilter extends BooleanExpressionFil
           return ReturnCode.NEXT_ROW;
         }
         // This is a key value we're not interested in (TODO: why INCLUDE here instead of NEXT_COL?)
-        ReturnCode code = inputTuple.resolveColumn(keyValue);
+        ReturnCode code = inputTuple.resolveColumn(KeyValueUtil.ensureKeyValue(keyValue));
         if (code != null) {
             return code;
         }

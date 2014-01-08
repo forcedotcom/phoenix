@@ -35,9 +35,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.KeyValueUtil;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.filter.FilterBase;
 
@@ -113,13 +116,14 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
   }
 
   @Override
-  public ReturnCode filterKeyValue(KeyValue next) {
+  public ReturnCode filterKeyValue(Cell next) {
     // we marked ourselves done, but the END_ROW_KEY didn't manage to seek to the very last key
     if (this.done) {
       return ReturnCode.SKIP;
     }
 
-    switch (KeyValue.Type.codeToType(next.getType())) {
+    KeyValue nextKV = KeyValueUtil.ensureKeyValue(next);
+    switch (KeyValue.Type.codeToType(next.getTypeByte())) {
     /*
      * DeleteFamily will always sort first because those KVs (we assume) don't have qualifiers (or
      * rather are null). Therefore, we have to keep a hold of all the delete families until we get
@@ -131,20 +135,20 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       // one. In fact, it means that all the previous deletes can be ignored because the family must
       // not match anymore.
       this.coveringDelete.reset();
-      this.coveringDelete.deleteFamily = next;
+      this.coveringDelete.deleteFamily = nextKV;
       return ReturnCode.SKIP;
     case DeleteColumn:
       // similar to deleteFamily, all the newer deletes/puts would have been seen at this point, so
       // we can safely replace the more recent delete column with the more recent one
       this.coveringDelete.pointDelete = null;
-      this.coveringDelete.deleteColumn = next;
+      this.coveringDelete.deleteColumn = nextKV;
       return ReturnCode.SKIP;
     case Delete:
       // we are just deleting the single column value at this point.
       // therefore we just skip this entry and go onto the next one. The only caveat is that
       // we should still cover the next entry if this delete applies to the next entry, so we
       // have to keep around a reference to the KV to compare against the next valid entry
-      this.coveringDelete.pointDelete = next;
+      this.coveringDelete.pointDelete = nextKV;
       return ReturnCode.SKIP;
     default:
       // no covering deletes
@@ -152,18 +156,18 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
         return ReturnCode.INCLUDE;
       }
 
-      if (coveringDelete.matchesFamily(next)) {
+      if (coveringDelete.matchesFamily(nextKV)) {
         this.currentHint = familyHint;
         return ReturnCode.SEEK_NEXT_USING_HINT;
       }
 
-      if (coveringDelete.matchesColumn(next)) {
+      if (coveringDelete.matchesColumn(nextKV)) {
         // hint to the next column
         this.currentHint = columnHint;
         return ReturnCode.SEEK_NEXT_USING_HINT;
       }
 
-      if (coveringDelete.matchesPoint(next)) {
+      if (coveringDelete.matchesPoint(nextKV)) {
         return ReturnCode.SKIP;
       }
 
@@ -171,16 +175,6 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
 
     // none of the deletes matches, we are done
     return ReturnCode.INCLUDE;
-  }
-
-  @Override
-  public void write(DataOutput out) throws IOException {
-    throw new UnsupportedOperationException("Server-side only filter, cannot be serialized!");
-  }
-
-  @Override
-  public void readFields(DataInput in) throws IOException {
-    throw new UnsupportedOperationException("Server-side only filter, cannot be deserialized!");
   }
 
   /**
@@ -255,7 +249,7 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       if (deleteFamily == null) {
         return false;
       }
-      if (deleteFamily.matchingFamily(next)) {
+      if (CellUtil.matchingFamily(deleteFamily, next)) {
         // falls within the timestamp range
         if (deleteFamily.getTimestamp() >= next.getTimestamp()) {
           return true;
@@ -277,7 +271,7 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       if (deleteColumn == null) {
         return false;
       }
-      if (deleteColumn.matchingFamily(next) && deleteColumn.matchingQualifier(next)) {
+      if (CellUtil.matchingFamily(deleteColumn, next) && deleteColumn.matchingQualifier(next)) {
         // falls within the timestamp range
         if (deleteColumn.getTimestamp() >= next.getTimestamp()) {
           return true;
@@ -297,7 +291,7 @@ public class ApplyAndFilterDeletesFilter extends FilterBase {
       // that the timestamp matches exactly. Because we sort by timestamp first, either the next
       // keyvalue has the exact timestamp or is an older (smaller) timestamp, and we can allow that
       // one.
-      if (pointDelete != null && pointDelete.matchingFamily(next)
+      if (pointDelete != null && CellUtil.matchingFamily(pointDelete, next)
           && pointDelete.matchingQualifier(next)) {
         if (pointDelete.getTimestamp() == next.getTimestamp()) {
           return true;

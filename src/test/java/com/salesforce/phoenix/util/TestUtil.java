@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.HTableInterface;
@@ -49,11 +50,16 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.ipc.BlockingRpcCallback;
+import org.apache.hadoop.hbase.ipc.ServerRpcController;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheRequest;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheResponse;
+import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MetaDataService;
 import com.salesforce.phoenix.expression.AndExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
@@ -295,10 +301,9 @@ public class TestUtil {
             + res1.toString() + " compared to " + res2.toString());
       }
       for (int i = 0; i < res1.size(); i++) {
-          KeyValue ourKV = res1.getValue(i);
-          KeyValue replicatedKV = res2.getValue(i);
-          if (!ourKV.equals(replicatedKV) ||
-              !Bytes.equals(ourKV.getValue(), replicatedKV.getValue())) {
+          Cell ourKV = res1.getValue(i);
+          Cell replicatedKV = res2.getValue(i);
+          if (!ourKV.equals(replicatedKV)) {
               throw new Exception("This result was different: "
                   + res1.toString() + " compared to " + res2.toString());
         }
@@ -308,14 +313,21 @@ public class TestUtil {
     public static void clearMetaDataCache(Connection conn) throws Throwable {
         PhoenixConnection pconn = conn.unwrap(PhoenixConnection.class);
         HTableInterface htable = pconn.getQueryServices().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
-        htable.coprocessorExec(MetaDataProtocol.class, HConstants.EMPTY_START_ROW,
-                HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataProtocol, Void>() {
-            @Override
-            public Void call(MetaDataProtocol instance) throws IOException {
-              instance.clearCache();
-              return null;
-            }
-          });
+        htable.coprocessorService(MetaDataService.class, HConstants.EMPTY_START_ROW,
+            HConstants.EMPTY_END_ROW, new Batch.Call<MetaDataService, ClearCacheResponse>() {
+                @Override
+                public ClearCacheResponse call(MetaDataService instance) throws IOException {
+                    ServerRpcController controller = new ServerRpcController();
+                    BlockingRpcCallback<ClearCacheResponse> rpcCallback =
+                            new BlockingRpcCallback<ClearCacheResponse>();
+                    ClearCacheRequest.Builder builder = ClearCacheRequest.newBuilder();
+                    instance.clearCache(controller, builder.build(), rpcCallback);
+                    if(controller.getFailedOn() != null) {
+                        throw controller.getFailedOn();
+                    }
+                    return rpcCallback.get(); 
+                }
+              });
     }
 
 

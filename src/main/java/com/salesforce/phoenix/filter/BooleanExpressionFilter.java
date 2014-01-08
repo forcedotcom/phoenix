@@ -31,8 +31,11 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 
+import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Writables;
+import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.expression.Expression;
@@ -48,7 +51,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @author jtaylor
  * @since 0.1
  */
-abstract public class BooleanExpressionFilter extends FilterBase {
+abstract public class BooleanExpressionFilter extends FilterBase implements Writable {
 
     protected Expression expression;
     protected boolean evaluateOnCompletion;
@@ -106,16 +109,19 @@ abstract public class BooleanExpressionFilter extends FilterBase {
         return (Boolean)expression.getDataType().toObject(tempPtr);
     }
 
-    @Override
     public void readFields(DataInput input) throws IOException {
         expression = ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
         expression.readFields(input);
     }
 
-    @Override
     public void write(DataOutput output) throws IOException {
         WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
         expression.write(output);
+    }
+    
+    @Override
+    public byte[] toByteArray() throws IOException {
+        return Writables.getBytes(this);
     }
     
     @Override

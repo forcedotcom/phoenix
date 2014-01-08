@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.KeyValue;
@@ -549,35 +550,37 @@ public class SchemaUtil {
         MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
         region.startRegionOperation();
         try {
-            List<KeyValue> result;
+            List<Cell> result;
             do {
                 result = Lists.newArrayList();
-                scanner.nextRaw(result, null);
-                for (KeyValue keyValue : result) {
-                    KeyValue newKeyValue = SchemaUtil.upgradeTo2IfNecessary(nColumns, keyValue);
+                scanner.nextRaw(result);
+                for (Cell keyValue : result) {
+                    Cell newKeyValue = SchemaUtil.upgradeTo2IfNecessary(nColumns, keyValue);
                     if (newKeyValue != null) {
-                        sizeBytes += newKeyValue.getLength();
-                        if (Type.codeToType(newKeyValue.getType()) == Type.Put) {
+                        sizeBytes += org.apache.hadoop.hbase.KeyValueUtil.ensureKeyValue(newKeyValue).getLength();
+                        if (Type.codeToType(newKeyValue.getTypeByte()) == Type.Put) {
                             // Delete old value
-                            byte[] buf = keyValue.getBuffer();
-                            Delete delete = new Delete(keyValue.getRow());
-                            KeyValue deleteKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
-                                    buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                                    buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
+                            Delete delete = new Delete(keyValue.getRowArray(), keyValue.getRowOffset(), 
+                                keyValue.getRowLength());
+                            KeyValue deleteKeyValue = new KeyValue(keyValue.getRowArray(), keyValue.getRowOffset(), keyValue.getRowLength(),
+                                    keyValue.getFamilyArray(), keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
+                                    keyValue.getQualifierArray(), keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
                                     keyValue.getTimestamp(), Type.Delete,
                                     ByteUtil.EMPTY_BYTE_ARRAY,0,0);
                             delete.addDeleteMarker(deleteKeyValue);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
                             sizeBytes += deleteKeyValue.getLength();
                             // Put new value
-                            Put put = new Put(newKeyValue.getRow());
+                            Put put = new Put(newKeyValue.getRowArray(), newKeyValue.getRowOffset(), 
+                                newKeyValue.getRowLength());
                             put.add(newKeyValue);
                             mutations.add(new Pair<Mutation,Integer>(put,null));
-                        } else if (Type.codeToType(newKeyValue.getType()) == Type.Delete){
+                        } else if (Type.codeToType(newKeyValue.getTypeByte()) == Type.Delete){
                             // Copy delete marker using new key so that it continues
                             // to delete the key value preceding it that will be updated
                             // as well.
-                            Delete delete = new Delete(newKeyValue.getRow());
+                            Delete delete = new Delete(newKeyValue.getRowArray(), newKeyValue.getRowOffset(), 
+                                newKeyValue.getRowLength());
                             delete.addDeleteMarker(newKeyValue);
                             mutations.add(new Pair<Mutation,Integer>(delete,null));
                         }
@@ -601,27 +604,27 @@ public class SchemaUtil {
             return;
         }
         @SuppressWarnings("unchecked")
-        Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
+        Mutation[] mutationArray = new Mutation[mutations.size()];
         // TODO: should we use the one that is all or none?
         region.batchMutate(mutations.toArray(mutationArray));
     }
     
-    private static KeyValue upgradeTo2IfNecessary(int maxSeparators, KeyValue keyValue) {
+    private static Cell upgradeTo2IfNecessary(int maxSeparators, Cell keyValue) {
         int originalLength = keyValue.getRowLength();
         int length = originalLength;
         int offset = keyValue.getRowOffset();
-        byte[] buf = keyValue.getBuffer();
-        while (originalLength - length < maxSeparators && buf[offset+length-1] == QueryConstants.SEPARATOR_BYTE) {
+        byte[] rowBuf = keyValue.getRowArray();
+        while (originalLength - length < maxSeparators && rowBuf[offset+length-1] == QueryConstants.SEPARATOR_BYTE) {
             length--;
         }
         if (originalLength == length) {
             return null;
         }
-        return new KeyValue(buf, offset, length,
-                buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                keyValue.getTimestamp(), Type.codeToType(keyValue.getType()),
-                buf, keyValue.getValueOffset(), keyValue.getValueLength());
+        return new KeyValue(keyValue.getRowArray(), offset, length,
+            keyValue.getFamilyArray(), keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
+            keyValue.getQualifierArray(), keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
+            keyValue.getTimestamp(), Type.codeToType(keyValue.getTypeByte()),
+            keyValue.getValueArray(), keyValue.getValueOffset(), keyValue.getValueLength());
     }
 
     public static int upgradeColumnCount(String url, Properties info) throws SQLException {

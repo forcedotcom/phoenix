@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
@@ -220,11 +221,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             region.startRegionOperation();
             try {
                 do {
-                    List<KeyValue> results = new ArrayList<KeyValue>();
+                    List<Cell> results = new ArrayList<Cell>();
                     // Results are potentially returned even when the return value of s.next is false
                     // since this is an indication of whether or not there are more values after the
                     // ones returned
-                    hasMore = s.nextRaw(results, null) && !s.isFilterDone();
+                    hasMore = s.nextRaw(results) && !s.isFilterDone();
                     if (!results.isEmpty()) {
                         result.setKeyValues(results);
                         ImmutableBytesWritable key = TupleUtil.getConcatenatedValue(result, expressions);
@@ -296,11 +297,17 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
     
                 @Override
-                public boolean next(List<KeyValue> results) throws IOException {
+                public boolean next(List<Cell> results) throws IOException {
                     if (index >= aggResults.size()) return false;
                     results.add(aggResults.get(index));
                     index++;
                     return index < aggResults.size();
+                }
+
+                @Override
+                public long getMaxResultSize() {
+                    throw new UnsupportedOperationException(this.getClass().getName()
+                        + " doesn't support getMaxResultSize!");
                 }
             };
             success = true;
@@ -334,7 +341,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             }
 
             @Override
-            public boolean next(List<KeyValue> results) throws IOException {
+            public boolean next(List<Cell> results) throws IOException {
                 boolean hasMore;
                 boolean aggBoundary = false;
                 MultiKeyValueTuple result = new MultiKeyValueTuple();
@@ -345,11 +352,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 region.startRegionOperation();
                 try {
                     do {
-                        List<KeyValue> kvs = new ArrayList<KeyValue>();
+                        List<Cell> kvs = new ArrayList<Cell>();
                         // Results are potentially returned even when the return value of s.next is false
                         // since this is an indication of whether or not there are more values after the
                         // ones returned
-                        hasMore = s.nextRaw(kvs, null) && !s.isFilterDone();
+                        hasMore = s.nextRaw(kvs) && !s.isFilterDone();
                         if (!kvs.isEmpty()) {
                             result.setKeyValues(kvs);
                             key = TupleUtil.getConcatenatedValue(result, expressions);
@@ -388,6 +395,12 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                 }
                 currentKey = null;
                 return false;
+            }
+            
+            @Override
+            public long getMaxResultSize() {
+                throw new UnsupportedOperationException(this.getClass().getName()
+                    + " doesn't support getMaxResultSize!");
             }
         };
     }
