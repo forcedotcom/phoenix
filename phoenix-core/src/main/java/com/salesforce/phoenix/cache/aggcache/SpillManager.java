@@ -44,9 +44,6 @@ public class SpillManager implements Closeable {
         protected T key;
         protected Aggregator[] aggs;
 
-        public CacheEntry() {
-        }
-
         public CacheEntry(T key, Aggregator[] aggs) {
             this.key = key;
             this.aggs = aggs;
