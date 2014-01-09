@@ -53,10 +53,11 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
 
     private static final int NUM_ROWS_INSERTED = 1000;
     
-    // TODO add testcases for other aggregates
+    // covers: COUNT, COUNT(DISTINCT) SUM, AVG, MIN, MAX 
     private static String GROUPBY1 = "select "
-            + "count(*), sum(appcpu), avg(appcpu) from "
+            + "count(*), count(distinct uri), sum(appcpu), avg(appcpu), uri, min(id), max(id) from "
             + GROUPBYTEST_NAME + " group by uri";
+    
     private int id;
 
     @BeforeClass
@@ -64,8 +65,11 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
         Map<String, String> props = Maps.newHashMapWithExpectedSize(1);
         // Set a very small cache size to force plenty of spilling
         props.put(QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB,
-                Integer.toString(300));
+                Integer.toString(1));
         props.put(QueryServices.SPGBY_ENABLED_ATTRIB, String.valueOf(true));
+        props.put(QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB,
+                Integer.toString(1));
+
         // Must update config before starting server
         startServer(getUrl(), new ReadOnlyProps(props.entrySet().iterator()));
     }
@@ -96,7 +100,7 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
             throws SQLException {
         PreparedStatement statement = conn.prepareStatement("UPSERT INTO "
                 + GROUPBYTEST_NAME + "(id, uri, appcpu) values (?,?,?)");
-        statement.setString(1, "id" + id);
+        statement.setString(1, String.valueOf(id));
         statement.setString(2, uri);
         statement.setInt(3, appcpu);
         statement.executeUpdate();
@@ -119,9 +123,15 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
 
             int count = 0;
             while (rs.next()) {
-                assertEquals(rs.getInt(1), 2);
-                assertEquals(rs.getInt(2), 20);
-                assertEquals(rs.getInt(3), 10);
+                String uri = rs.getString(5);
+                assertEquals(2, rs.getInt(1));
+                assertEquals(1, rs.getInt(2));
+                assertEquals(20, rs.getInt(3));
+                assertEquals(10, rs.getInt(4));
+                int a = Integer.valueOf(rs.getString(6)).intValue();
+                int b = Integer.valueOf(rs.getString(7)).intValue();
+                assertEquals(Integer.valueOf(uri).intValue(), Math.min(a, b));
+                assertEquals(NUM_ROWS_INSERTED / 2 + Integer.valueOf(uri), Math.max(a, b));
                 count++;
             }
             assertEquals(NUM_ROWS_INSERTED / 2, count);

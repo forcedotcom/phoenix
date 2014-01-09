@@ -8,11 +8,14 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.io.Closeables;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
@@ -28,25 +31,25 @@ import com.salesforce.phoenix.util.KeyValueUtil;
 import com.salesforce.phoenix.util.TupleUtil;
 
 /**
- * Class servers as an adapter between the in-memory LRU cache and the Spill
- * data structures. It takes care of serializing / deserializing the key/value
- * groupby tuples, and spilling them to the correct spill partition
+ * Class servers as an adapter between the in-memory LRU cache and the Spill data structures. It
+ * takes care of serializing / deserializing the key/value groupby tuples, and spilling them to the
+ * correct spill partition
  */
 public class SpillManager implements Closeable {
 
     // Wrapper class for DESERIALIZED groupby key/value tuples
-    public static class CacheEntry {
+    public static class CacheEntry<T extends ImmutableBytesWritable> implements
+            Map.Entry<T, Aggregator[]> {
 
-        protected final ImmutableBytesPtr key;
-        protected final Aggregator[] aggs;
+        protected T key;
+        protected Aggregator[] aggs;
 
-        public CacheEntry(ImmutableBytesPtr key, Aggregator[] aggs) {
-            this.key = key;
-            this.aggs = aggs;
+        public CacheEntry() {
         }
 
-        public ImmutableBytesPtr getKey() {
-            return key;
+        public CacheEntry(T key, Aggregator[] aggs) {
+            this.key = key;
+            this.aggs = aggs;
         }
 
         public Aggregator[] getValue(Configuration conf) {
@@ -56,6 +59,23 @@ public class SpillManager implements Closeable {
         public int getKeyLength() {
             return key.getLength();
         }
+
+        @Override
+        public Aggregator[] getValue() {
+            return aggs;
+        }
+
+        @Override
+        public Aggregator[] setValue(Aggregator[] arg0) {
+            this.aggs = arg0;
+            return aggs;
+        }
+
+        @Override
+        public T getKey() {
+            return key;
+        }
+
     }
 
     private final ArrayList<SpillMap> spillMaps;
@@ -65,9 +85,7 @@ public class SpillManager implements Closeable {
     private final Configuration conf;
 
     /**
-     * SpillManager takes care of spilling and loading tuples from spilled data
-     * structs
-     * 
+     * SpillManager takes care of spilling and loading tuples from spilled data structs
      * @param numSpillFiles
      * @param serverAggregators
      */
@@ -78,6 +96,9 @@ public class SpillManager implements Closeable {
             this.numSpillFiles = numSpillFiles;
             this.aggregators = serverAggregators;
             this.conf = conf;
+            
+            // Ensure that a single element fits onto a page!!!
+            Preconditions.checkArgument(SpillFile.DEFAULT_PAGE_SIZE > estValueSize);
 
             // Create a list of spillFiles
             // Each Spillfile only handles up to 2GB data
@@ -92,7 +113,7 @@ public class SpillManager implements Closeable {
 
     // serialize a key/value tuple into a byte array
     // WARNING: expensive
-    private byte[] serialize(ImmutableBytesPtr key, Aggregator[] aggs,
+    private byte[] serialize(ImmutableBytesWritable key, Aggregator[] aggs,
             ServerAggregators serverAggs) throws IOException {
 
         DataOutputStream output = null;
@@ -127,7 +148,6 @@ public class SpillManager implements Closeable {
 
     /**
      * Helper method to deserialize the key part from a serialized byte array
-     * 
      * @param data
      * @return
      * @throws IOException
@@ -159,19 +179,17 @@ public class SpillManager implements Closeable {
             byte[] keyBytes = new byte[keyLength];
             // key
             input.readFully(keyBytes, 0, keyLength);
-            ImmutableBytesPtr ptr = new ImmutableBytesPtr(keyBytes, 0,
-                    keyLength);
+            ImmutableBytesPtr ptr = new ImmutableBytesPtr(keyBytes, 0, keyLength);
 
             // value length
             int valueLength = WritableUtils.readVInt(input);
             byte[] valueBytes = new byte[valueLength];
             // value bytes
             input.readFully(valueBytes, 0, valueLength);
-            KeyValue keyValue = KeyValueUtil.newKeyValue(ptr.get(),
-                    ptr.getOffset(), ptr.getLength(),
-                    QueryConstants.SINGLE_COLUMN_FAMILY,
-                    QueryConstants.SINGLE_COLUMN, QueryConstants.AGG_TIMESTAMP,
-                    valueBytes, 0, valueBytes.length);
+            KeyValue keyValue =
+                    KeyValueUtil.newKeyValue(ptr.get(), ptr.getOffset(), ptr.getLength(),
+                        QueryConstants.SINGLE_COLUMN_FAMILY, QueryConstants.SINGLE_COLUMN,
+                        QueryConstants.AGG_TIMESTAMP, valueBytes, 0, valueBytes.length);
             Tuple result = new SingleKeyValueTuple(keyValue);
             TupleUtil.getAggregateValue(result, ptr);
             KeyValueSchema schema = aggregators.getValueSchema();
@@ -186,8 +204,9 @@ public class SpillManager implements Closeable {
             schema.iterator(ptr);
             while ((hasValue = schema.next(ptr, i, maxOffset, tempValueSet)) != null) {
                 SingleAggregateFunction func = funcArray[i];
-                sAggs[i++] = hasValue ? func.newServerAggregator(conf, ptr)
-                        : func.newServerAggregator(conf);
+                sAggs[i++] =
+                        hasValue ? func.newServerAggregator(conf, ptr) : func
+                                .newServerAggregator(conf);
             }
             return sAggs;
 
@@ -198,46 +217,43 @@ public class SpillManager implements Closeable {
 
     /**
      * Helper function to deserialize a byte array into a CacheEntry
-     * 
+     * @param <K>
      * @param bytes
      * @throws IOException
      */
-    public CacheEntry toCacheEntry(byte[] bytes) throws IOException {
+    public <K extends ImmutableBytesWritable> CacheEntry<K> toCacheEntry(byte[] bytes)
+            throws IOException {
         ImmutableBytesPtr key = SpillManager.getKey(bytes);
         Aggregator[] aggs = getAggregators(bytes);
 
-        return new CacheEntry(key, aggs);
+        return new CacheEntry<K>((K) key, aggs);
     }
 
     // Determines the partition, i.e. spillFile the tuple should get spilled to.
-    private int getPartition(ImmutableBytesPtr key) {
+    private int getPartition(ImmutableBytesWritable key) {
         // Simple implementation hash mod numFiles
         return Math.abs(key.hashCode()) % numSpillFiles;
     }
 
     /**
-     * Function that spills a key/value groupby tuple into a partition Spilling
-     * always triggers a serialize call
-     * 
+     * Function that spills a key/value groupby tuple into a partition Spilling always triggers a
+     * serialize call
      * @param key
      * @param value
      * @throws IOException
      */
-    public void spill(ImmutableBytesPtr key, Aggregator[] value)
-            throws IOException {
+    public void spill(ImmutableBytesWritable key, Aggregator[] value) throws IOException {
         SpillMap spillMap = spillMaps.get(getPartition(key));
         byte[] data = serialize(key, value, aggregators);
-        spillMap.put(key, data);
+        spillMap.put(new ImmutableBytesPtr(key), data);
     }
 
     /**
-     * Function that loads a spilled key/value groupby tuple from one of the
-     * spill partitions into the LRU cache. Loading always involves
-     * deserialization
-     * 
+     * Function that loads a spilled key/value groupby tuple from one of the spill partitions into
+     * the LRU cache. Loading always involves deserialization
      * @throws IOException
      */
-    public Aggregator[] loadEntry(ImmutableBytesPtr key) throws IOException {
+    public Aggregator[] loadEntry(ImmutableBytesWritable key) throws IOException {
         SpillMap spillMap = spillMaps.get(getPartition(key));
         byte[] data = spillMap.get(key);
         if (data != null) {
@@ -286,8 +302,7 @@ public class SpillManager implements Closeable {
 
         @Override
         public void remove() {
-            throw new IllegalAccessError(
-                    "Remove is not supported for this type of iterator");
+            throw new IllegalAccessError("Remove is not supported for this type of iterator");
         }
     }
 }

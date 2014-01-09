@@ -8,6 +8,7 @@ import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_NU
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.AbstractMap;
+import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +17,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.coprocessor.ObserverContext;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,28 +45,29 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
  * the map, but I thought the LRU would at least cover the cases where some keys have a slight skew
  * and they should stay memory resident. Once a key gets evicted, the spillManager is instantiated.
  * It basically takes care of spilling an element to disk and does all the SERDE work. It creates a
- * bunch of SpillFiles (spill partition) which are MemoryMappedFiles. Each MMFile only works with up
- * to 2GB of spilled data, therefore the SpillManager keeps a list of these and hash distributes the
- * keys within this list. Once an element gets spilled, it is serialized and will only get
- * deserialized again, when it is requested from the client, i.e. loaded back into the LRU cache.
- * The SpillManager holds a SpillMap for every spill partition (SpillFile). Each SpillMap has access
- * to all the pages of its SpillFile, it also contains a list of bloomFilters, one for every page of
- * the spillFile. Only a single page, the currently active page stays in memory. The in memory data
- * structure of the page is a HashMap for easy key access purposes. An element evicted form the LRU
- * cache is hashed into the correct SpillMap. the spillMap then determines via the list of
- * BloomFilters on which page in the SpillFile the key resides and loads this page into a HashMap in
- * memory. If the key was never spilled before, the SpillMap tries to fill up the current, in memory
- * residing page with this new key. In case it doesn't fit, the current memory page is flushed to
- * disk and a new page is requested. The key is then written to the new in-memory page. Lastly, the
- * bloomFilter is updated so that this key can be discovered again. Loading a key works similarly,
- * if not present in the LRU cache, the CacheLoader sets in. The key gets hashed into the correct
- * SpillMap, the list of bloomFilters is walked to determined the SpillFile page, the key resides on
- * and this page is loaded first into memory and eventually, into the LRU cache. Only for the last
- * step the deserialization is triggered. The aggregators are returned from the LRU cache and the
- * next value is computed. In case the key is not found on any page, the Loader create new
- * aggregators for it.
+ * configured number of SpillFiles (spill partition) which are memory mapped files. Each MMFile only
+ * works with up to 2GB of spilled data, therefore the SpillManager keeps a list of these and hash
+ * distributes the keys within this list. Once an element gets spilled, it is serialized and will
+ * only get deserialized again, when it is requested from the client, i.e. loaded back into the LRU
+ * cache. The SpillManager holds a single SpillMap object in memory for every spill partition
+ * (SpillFile). The SpillMap is an in memory Map representation of a single page of spilled still
+ * serialized key/value pairs. To achieve fast key lookup the key is hash partitioned into random
+ * pages of the current spill file. The code implements an extendible hashing approach which
+ * dynamicall adjusts the hash function, in order to adapt to growing data files and avoiding long
+ * chains of overflow buckets. For an excellent discussion of the algorithm please refer to the
+ * following online resource:
+ * http://db.inf.uni-tuebingen.de/files/teaching/ws1011/db2/db2-hash-indexes.pdf The implementation
+ * starts with a global depth of 1 and therefore a directory size of 2 buckets. Only during bucket
+ * split and directory doubling more than one page is temporarily kept in memory, until all elements
+ * have been redistributed. The current implementation conducts bucket splits as long as an element
+ * does not fit onto a page. No overflow chain is created, which might be an alternative. For get
+ * requests, each directory entry maintains a bloomFilter to prevent page-in operations in case an
+ * element has never been spilled before. The deserialization is only triggered when a key a loaded
+ * back into the LRU cache. The aggregators are returned from the LRU cache and the next value is
+ * computed. In case the key is not found on any page, the Loader create new aggregators for it.
  */
-public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> implements Closeable {
+public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<K, Aggregator[]>
+        implements Closeable {
 
     private static final Logger logger = LoggerFactory.getLogger(GroupByCache.class);
 
@@ -73,7 +76,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
 
     // TODO Generally better to use Collection API with generics instead of
     // array types
-    public final LoadingCache<ImmutableBytesPtr, Aggregator[]> cache;
+    public final LoadingCache<K, Aggregator[]> cache;
     private SpillManager spillManager = null;
     private final ObserverContext<RegionCoprocessorEnvironment> context;
     private int curNumCacheElements;
@@ -115,15 +118,13 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
         // the est MapSize
         cache =
                 CacheBuilder.newBuilder().maximumSize(maxCacheSize)
-                        .removalListener(new RemovalListener<ImmutableBytesPtr, Aggregator[]>() {
+                        .removalListener(new RemovalListener<K, Aggregator[]>() {
                             /*
                              * CacheRemoval listener implementation
                              */
                             @Override
-                            public
-                                    void
-                                    onRemoval(
-                                            RemovalNotification<ImmutableBytesPtr, Aggregator[]> notification) {
+                            public void
+                                    onRemoval(RemovalNotification<K, Aggregator[]> notification) {
                                 try {
                                     if (spillManager == null) {
                                         // Lazy instantiation of spillable data
@@ -138,19 +139,30 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
                                     }
                                     spillManager.spill(notification.getKey(),
                                         notification.getValue());
+
                                     // keep track of elements in cache
                                     curNumCacheElements--;
                                 } catch (IOException ioe) {
-                                    // TODO rework error handling
-                                    throw new RuntimeException(ioe);
+                                    // Ensure that we always close and delete the temp files
+                                    try {
+                                        throw new RuntimeException(ioe);
+                                    }
+                                    finally {
+                                        try {
+                                            close();
+                                        }
+                                        catch(IOException ie) {
+                                            // Noop
+                                        }                                        
+                                    }
                                 }
                             }
-                        }).build(new CacheLoader<ImmutableBytesPtr, Aggregator[]>() {
+                        }).build(new CacheLoader<K, Aggregator[]>() {
                             /*
                              * CacheLoader implementation
                              */
                             @Override
-                            public Aggregator[] load(ImmutableBytesPtr key) throws Exception {
+                            public Aggregator[] load(K key) throws Exception {
 
                                 Aggregator[] aggs = null;
                                 if (spillManager == null) {
@@ -161,7 +173,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
                                 } else {
                                     // Spill manager present, check if key has been
                                     // spilled before
-                                    aggs = spillManager.loadEntry(key);
+                                    aggs = spillManager.loadEntry(new ImmutableBytesPtr(key));
                                     if (aggs == null) {
                                         // No, key never spilled before, create a new tuple
                                         aggs =
@@ -189,7 +201,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
      * non-existing elements
      */
     @Override
-    public Aggregator[] put(ImmutableBytesPtr key, Aggregator[] value) {
+    public Aggregator[] put(ImmutableBytesWritable key, Aggregator[] value) {
         // Loading cache implicitly implements a put when a cache hit has
         // occurred
         // Disable the map interface
@@ -204,7 +216,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
     public Aggregator[] get(Object key) {
         try {
             // delegate to the cache implementation
-            return cache.get((ImmutableBytesPtr) key);
+            return cache.get((K) key);
         } catch (ExecutionException e) {
             // TODO What's the proper way to surface errors?
             // FIXME using a non-checked exception for now...
@@ -215,7 +227,7 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
     /**
      * Return a map view of the cache, READ ONLY
      */
-    public Map<ImmutableBytesPtr, Aggregator[]> getAsMap() {
+    public Map<? extends ImmutableBytesWritable, Aggregator[]> getAsMap() {
         // Useful for iterators
         return cache.asMap();
     }
@@ -230,12 +242,10 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
 
     // Iterator that returns CacheEntries.
     // CacheEntries are either extracted from the LRU cache or from the
-    // spillable data
-    // structures.
-    private final class EntryIterator implements Iterator<CacheEntry> {
-
-        final Map<ImmutableBytesPtr, Aggregator[]> cacheMap;
-        final Iterator<Map.Entry<ImmutableBytesPtr, Aggregator[]>> cacheIter;
+    // spillable data structures.
+    private final class EntryIterator implements Iterator<Map.Entry<K, Aggregator[]>> {
+        final Map<K, Aggregator[]> cacheMap;
+        final Iterator<Entry<K, Aggregator[]>> cacheIter;
         final Iterator<byte[]> spilledCacheIter;
 
         private EntryIterator() {
@@ -254,12 +264,12 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
         }
 
         @Override
-        public CacheEntry next() {
+        public Map.Entry<K, Aggregator[]> next() {
             if (spilledCacheIter != null && spilledCacheIter.hasNext()) {
                 try {
                     byte[] value = spilledCacheIter.next();
                     // Deserialize into a CacheEntry
-                    CacheEntry spilledEntry = spillManager.toCacheEntry(value);
+                    Map.Entry<K, Aggregator[]> spilledEntry = spillManager.toCacheEntry(value);
 
                     boolean notFound = false;
                     // check against map and return only if not present
@@ -287,9 +297,8 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
             }
             // Spilled elements exhausted
             // Finally return all elements from LRU cache
-            Map.Entry<ImmutableBytesPtr, Aggregator[]> entry = cacheIter.next();
-            CacheEntry ce = new SpillManager.CacheEntry(entry.getKey(), entry.getValue());
-            return ce;
+            Map.Entry<K, Aggregator[]> entry = cacheIter.next();
+            return new CacheEntry<K>(entry.getKey(), entry.getValue());
         }
 
         /**
@@ -302,11 +311,24 @@ public class GroupByCache extends AbstractMap<ImmutableBytesPtr, Aggregator[]> i
     }
 
     /**
-     * DO NOT USE, instead use the EntryIterator
+     * Get an entrySet for all elements loaded into the Spillable GroupBy
      */
     @Override
-    public Set<java.util.Map.Entry<ImmutableBytesPtr, Aggregator[]>> entrySet() {
-        throw new IllegalAccessError("entrySet is not supported for this type of cache");
+    public Set<java.util.Map.Entry<K, Aggregator[]>> entrySet() {
+        return new EntrySet();
+    }
+
+    private final class EntrySet extends AbstractSet<Map.Entry<K, Aggregator[]>> {
+
+        @Override
+        public int size() {
+            return curNumCacheElements;
+        }
+
+        @Override
+        public Iterator<Map.Entry<K, Aggregator[]>> iterator() {
+            return new EntryIterator();
+        }
     }
 
     /**

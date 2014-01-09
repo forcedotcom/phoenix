@@ -16,16 +16,15 @@ import com.google.common.base.Preconditions;
 import com.google.common.io.Closeables;
 
 /**
- * This class abstracts a SpillFile It is a accessible on a page basis
+ * This class abstracts a SpillFile It is a accessible on a per page basis
  */
 public class SpillFile implements Closeable {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(SpillFile.class);
+    private static final Logger logger = LoggerFactory.getLogger(SpillFile.class);
     // Default size for a single spillFile 2GB
     private static final int SPILL_FILE_SIZE = Integer.MAX_VALUE;
     // Page size for a spill file 4K
-    static final int DEFAULT_PAGE_SIZE = 4 * 1024;
+    static final int DEFAULT_PAGE_SIZE = 4096;
 
     private File tempFile;
     private FileChannel fc;
@@ -33,23 +32,22 @@ public class SpillFile implements Closeable {
     private int maxPageId;
 
     /**
-     * Create a new SpillFile using the Java TempFile creation function.
-     * SpillFile is access in pages.
+     * Create a new SpillFile using the Java TempFile creation function. SpillFile is access in
+     * pages.
      */
     public static SpillFile createSpillFile() {
         File tempFile = null;
         try {
             tempFile = File.createTempFile(UUID.randomUUID().toString(), null);
             if (logger.isDebugEnabled()) {
-                logger.debug("Creating new SpillFile: "
-                        + tempFile.getAbsolutePath());
+                logger.debug("Creating new SpillFile: " + tempFile.getAbsolutePath());
             }
             RandomAccessFile file = new RandomAccessFile(tempFile, "rw");
             file.setLength(SPILL_FILE_SIZE);
             return new SpillFile(tempFile, file);
 
         } catch (IOException ioe) {
-            throw new RuntimeException("Could not create Spillfile");
+            throw new RuntimeException("Could not create Spillfile " + ioe);
         }
     }
 
@@ -69,23 +67,19 @@ public class SpillFile implements Closeable {
 
     /**
      * Random access to a page of the current spill file
-     * 
      * @param index
      */
     public MappedByteBuffer getPage(int index) {
         try {
-            Preconditions.checkArgument(index <= maxPageId);
-            
-            long offset = (long)index * (long)DEFAULT_PAGE_SIZE;
+            long offset = (long) index * (long) DEFAULT_PAGE_SIZE;
             Preconditions.checkArgument(offset <= Integer.MAX_VALUE);
-            
+
             return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
         } catch (IOException ioe) {
             // Close resource
             close();
             throw new RuntimeException("Could not get page at index: " + index);
-        }
-        catch(IllegalArgumentException iae) {
+        } catch (IllegalArgumentException iae) {
             // Close resource
             close();
             throw iae;
@@ -104,7 +98,7 @@ public class SpillFile implements Closeable {
         // Swallow IOException
         Closeables.closeQuietly(fc);
         Closeables.closeQuietly(file);
-        
+
         if (tempFile != null) {
             if (logger.isDebugEnabled()) {
                 logger.debug("Deleting tempFIle: " + tempFile.getAbsolutePath());
@@ -112,7 +106,7 @@ public class SpillFile implements Closeable {
             try {
                 tempFile.delete();
             } catch (SecurityException e) {
-                    logger.warn("IOException thrown while closing Closeable." + e);
+                logger.warn("IOException thrown while closing Closeable." + e);
             }
             tempFile = null;
         }
