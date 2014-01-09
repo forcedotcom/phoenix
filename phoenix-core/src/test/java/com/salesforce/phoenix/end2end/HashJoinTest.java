@@ -490,49 +490,56 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
             
     @Test
     public void testLeftJoin() throws Exception {
-        String query = "SELECT item.item_id, item.name, supp.supplier_id, supp.name FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
+        String query[] = new String[3];
+        query[0] = "SELECT item.item_id, item.name, supp.supplier_id, supp.name, next value for my.seq FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
+        query[1] = "SELECT " + JOIN_ITEM_TABLE + ".item_id, " + JOIN_ITEM_TABLE + ".name, " + JOIN_SUPPLIER_TABLE + ".supplier_id, " + JOIN_SUPPLIER_TABLE + ".name, next value for my.seq FROM " + JOIN_ITEM_TABLE + " LEFT JOIN " + JOIN_SUPPLIER_TABLE + " ON " + JOIN_ITEM_TABLE + ".supplier_id = " + JOIN_SUPPLIER_TABLE + ".supplier_id";
+        query[2] = "SELECT item.item_id, " + JOIN_ITEM_TABLE + ".name, supp.supplier_id, " + JOIN_SUPPLIER_TABLE + ".name, next value for my.seq FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON " + JOIN_ITEM_TABLE + ".supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
-            PreparedStatement statement = conn.prepareStatement(query);
-            ResultSet rs = statement.executeQuery();
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000001");
-            assertEquals(rs.getString(2), "T1");
-            assertEquals(rs.getString(3), "0000000001");
-            assertEquals(rs.getString(4), "S1");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000002");
-            assertEquals(rs.getString(2), "T2");
-            assertEquals(rs.getString(3), "0000000001");
-            assertEquals(rs.getString(4), "S1");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000003");
-            assertEquals(rs.getString(2), "T3");
-            assertEquals(rs.getString(3), "0000000002");
-            assertEquals(rs.getString(4), "S2");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000004");
-            assertEquals(rs.getString(2), "T4");
-            assertEquals(rs.getString(3), "0000000002");
-            assertEquals(rs.getString(4), "S2");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000005");
-            assertEquals(rs.getString(2), "T5");
-            assertEquals(rs.getString(3), "0000000005");
-            assertEquals(rs.getString(4), "S5");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "0000000006");
-            assertEquals(rs.getString(2), "T6");
-            assertEquals(rs.getString(3), "0000000006");
-            assertEquals(rs.getString(4), "S6");
-            assertTrue (rs.next());
-            assertEquals(rs.getString(1), "invalid001");
-            assertEquals(rs.getString(2), "INVALID-1");
-            assertNull(rs.getString(3));
-            assertNull(rs.getString(4));
+            for (int i = 0; i < query.length; i++) {
+                PreparedStatement statement = conn.prepareStatement(query[i]);
+                ResultSet rs = statement.executeQuery();
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000001");
+                assertEquals(rs.getString(2), "T1");
+                assertEquals(rs.getString(3), "0000000001");
+                assertEquals(rs.getString(4), "S1");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000002");
+                assertEquals(rs.getString(2), "T2");
+                assertEquals(rs.getString(3), "0000000001");
+                assertEquals(rs.getString(4), "S1");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000003");
+                assertEquals(rs.getString(2), "T3");
+                assertEquals(rs.getString(3), "0000000002");
+                assertEquals(rs.getString(4), "S2");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000004");
+                assertEquals(rs.getString(2), "T4");
+                assertEquals(rs.getString(3), "0000000002");
+                assertEquals(rs.getString(4), "S2");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000005");
+                assertEquals(rs.getString(2), "T5");
+                assertEquals(rs.getString(3), "0000000005");
+                assertEquals(rs.getString(4), "S5");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "0000000006");
+                assertEquals(rs.getString(2), "T6");
+                assertEquals(rs.getString(3), "0000000006");
+                assertEquals(rs.getString(4), "S6");
+                assertTrue (rs.next());
+                assertEquals(rs.getString(1), "invalid001");
+                assertEquals(rs.getString(2), "INVALID-1");
+                assertNull(rs.getString(3));
+                assertNull(rs.getString(4));
 
-            assertFalse(rs.next());
+                assertFalse(rs.next());
+                rs.close();
+                statement.close();
+            }
         } finally {
             conn.close();
         }

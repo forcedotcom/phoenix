@@ -56,12 +56,13 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
         ColumnRef dataColRef = getResolver().resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
         TableName tName = null;
         if (multiTableRewriteMap != null) {
-            TableRef tableRef = multiTableRewriteMap.get(dataColRef.getTableRef());
+            TableRef origRef = dataColRef.getTableRef();
+            TableRef tableRef = multiTableRewriteMap.get(origRef);
             if (tableRef == null)
                 return node;
             
-            if (tableRef.getTableAlias() != null) {
-                tName = FACTORY.table(null, tableRef.getTableAlias());
+            if (origRef.getTableAlias() != null) {
+                tName = FACTORY.table(null, origRef.getTableAlias());
             } else {
                 String schemaName = tableRef.getTable().getSchemaName().getString();
                 schemaName = schemaName.length() == 0 ? null : '"' + schemaName + '"';
