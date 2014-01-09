@@ -158,7 +158,7 @@ public class FromCompiler {
                     if (!table.getDynamicColumns().isEmpty()) {
                         theTable = this.addDynamicColumns(table.getDynamicColumns(), theTable);
                     }
-                    tableRef = new TableRef(null, theTable, timeStamp, !table.getDynamicColumns().isEmpty());
+                    tableRef = new TableRef(alias, theTable, timeStamp, !table.getDynamicColumns().isEmpty());
                     if (!retry && logger.isDebugEnabled()) {
                         logger.debug("Re-resolved stale table " + fullTableName + " with seqNum " + tableRef.getTable().getSequenceNumber() + " at timestamp " + tableRef.getTable().getTimeStamp() + " with " + tableRef.getTable().getColumns().size() + " columns: " + tableRef.getTable().getColumns());
                     }

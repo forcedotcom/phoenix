@@ -1334,8 +1334,8 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testJoinWithSkipMergeOptimization() throws Exception {
         String query = "SELECT s.name FROM " + JOIN_ITEM_TABLE + " i JOIN " 
-        + JOIN_ORDER_TABLE + " o ON o.item_id = i.item_id AND quantity < 5000 JOIN "
-        + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
+            + JOIN_ORDER_TABLE + " o ON o.item_id = i.item_id AND quantity < 5000 JOIN "
+            + JOIN_SUPPLIER_TABLE + " s ON i.supplier_id = s.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -1354,6 +1354,68 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
             
             rs = conn.createStatement().executeQuery("EXPLAIN " + query);
             assertEquals(plans[2], QueryUtil.getExplainPlan(rs));
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testSelfJoin() throws Exception {
+        String query1 = "SELECT i2.item_id, i1.name FROM " + JOIN_ITEM_TABLE + " i1 JOIN " 
+            + JOIN_ITEM_TABLE + " i2 ON i1.item_id = i2.item_id ORDER BY i1.item_id";
+        String query2 = "SELECT i1.name, i2.name FROM " + JOIN_ITEM_TABLE + " i1 JOIN " 
+        + JOIN_ITEM_TABLE + " i2 ON i1.item_id = i2.supplier_id ORDER BY i1.name, i2.name";
+        Properties props = new Properties(TEST_PROPERTIES);
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query1);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000001");
+            assertEquals(rs.getString(2), "T1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000002");
+            assertEquals(rs.getString(2), "T2");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000003");
+            assertEquals(rs.getString(2), "T3");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000004");
+            assertEquals(rs.getString(2), "T4");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000005");
+            assertEquals(rs.getString(2), "T5");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "0000000006");
+            assertEquals(rs.getString(2), "T6");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "invalid001");
+            assertEquals(rs.getString(2), "INVALID-1");
+            
+            assertFalse(rs.next());
+            
+            statement = conn.prepareStatement(query2);
+            rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T1");
+            assertEquals(rs.getString(2), "T1");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T1");
+            assertEquals(rs.getString(2), "T2");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T2");
+            assertEquals(rs.getString(2), "T3");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T2");
+            assertEquals(rs.getString(2), "T4");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T5");
+            assertEquals(rs.getString(2), "T5");
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), "T6");
+            assertEquals(rs.getString(2), "T6");
+            
+            assertFalse(rs.next());
         } finally {
             conn.close();
         }

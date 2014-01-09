@@ -68,7 +68,7 @@ public class StatsManagerImpl implements StatsManager {
     private final int statsUpdateFrequencyMs;
     private final int maxStatsAgeMs;
     private final TimeKeeper timeKeeper;
-    private final ConcurrentMap<TableRef,PTableStats> tableStatsMap = new ConcurrentHashMap<TableRef,PTableStats>();
+    private final ConcurrentMap<String,PTableStats> tableStatsMap = new ConcurrentHashMap<String,PTableStats>();
 
     public StatsManagerImpl(ConnectionQueryServices services, int statsUpdateFrequencyMs, int maxStatsAgeMs) {
         this(services, statsUpdateFrequencyMs, maxStatsAgeMs, TimeKeeper.SYSTEM);
@@ -123,7 +123,7 @@ public class StatsManagerImpl implements StatsManager {
             if (r != null) {
                 maxKey = r.getRow();
             }
-            tableStatsMap.put(tableRef, new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
+            tableStatsMap.put(tableRef.getTable().getName().getString(), new PTableStats(timeKeeper.currentTimeMillis(),minKey,maxKey));
         } catch (IOException e) {
             sqlE = ServerUtil.parseServerException(e);
         } finally {
@@ -147,7 +147,7 @@ public class StatsManagerImpl implements StatsManager {
         PTableStats stats = tableStatsMap.get(table);
         if (stats == null) {
             PTableStats newStats = new PTableStats();
-            stats = tableStatsMap.putIfAbsent(table, newStats);
+            stats = tableStatsMap.putIfAbsent(table.getTable().getName().getString(), newStats);
             stats = stats == null ? newStats : stats;
         }
         // Synchronize on the current stats for a table to prevent
