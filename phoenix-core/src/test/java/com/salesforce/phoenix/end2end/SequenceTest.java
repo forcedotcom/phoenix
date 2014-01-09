@@ -52,6 +52,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	public void testDuplicateSequences() throws Exception {
 		Connection conn = getConnection();		
 		conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
+		Thread.sleep(1); // Seems that in mini cluster, this executes too quickly and flaps
 
 		try {
 			conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
@@ -245,8 +246,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	@Test
 	public void testSelectRowAndSequence() throws Exception {
 		Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE alpha.epsilon START WITH 1 INCREMENT BY 4");
 		conn.createStatement().execute("CREATE TABLE test.foo ( id INTEGER NOT NULL PRIMARY KEY)");
-		conn.createStatement().execute("CREATE SEQUENCE alpha.epsilon START WITH 1 INCREMENT BY 4");
 		conn.createStatement().execute("UPSERT INTO test.foo (id) VALUES (NEXT VALUE FOR alpha.epsilon)");
 		conn.commit();
 		String query = "SELECT NEXT VALUE FOR alpha.epsilon, id FROM test.foo";
@@ -345,8 +346,10 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testSelectNextValueForMultipleConnWithStmtClose() throws Exception {
         Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+        // Create sequence before table, as with mini-cluster using a sequence right after
+        // it's created seems to cause the sequence not to be found.
         conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {

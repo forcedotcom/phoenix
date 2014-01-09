@@ -54,6 +54,7 @@ import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.sql.Connection;
@@ -390,13 +391,14 @@ public abstract class BaseTest {
     // we register the new one with the new Configuration instance.
     // Otherwise, we get connection errors because the prior one
     // is no longer associated with the miniCluster.
-    protected static synchronized void destroyDriver() {
+    protected static synchronized boolean destroyDriver() {
         if (driver != null) {
             driverRefCount--;
             if (driverRefCount == 0) {
                 try {
                     try {
                         driver.close();
+                        return true;
                     } finally {
                         try {
                             DriverManager.deregisterDriver(driver);
@@ -408,13 +410,11 @@ public abstract class BaseTest {
                 }
             }
         }
+        return false;
     }
 
     protected static void startServer(String url, ReadOnlyProps props) throws Exception {
-//        Pass config through initDriver for testing purposes
-//        Don't create Config or surface getConfig or getProps in QueryServices
-//        Create Config in ConnectionQueryServices, but don't surface it
-//        Add getAdmin in ConnectionQueryServices
+        assertNull(BaseTest.driver);
         PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl(props));
         assertTrue(DriverManager.getDriver(url) == driver);
     }
@@ -423,13 +423,9 @@ public abstract class BaseTest {
         startServer(url, ReadOnlyProps.EMPTY_PROPS);
     }
 
-    protected static void stopServer() throws Exception {
-        destroyDriver();
-    }
-
     @AfterClass
-    public static void doTeardown() throws Exception {
-        stopServer();
+    public static void stopServer() throws Exception {
+        assertTrue(destroyDriver());
     }
 
     protected static void ensureTableCreated(String url, String tableName) throws SQLException {
