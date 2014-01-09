@@ -371,6 +371,34 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     }
 
     @Test
+    public void testSelectNextValueForMultipleConnWithConnClose() throws Exception {
+        Connection conn1 = getConnection();
+        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+        conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        
+        PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
+        for (int i = 0; i < BATCH_SIZE+ 1; i++) {
+            stmt1.execute();
+        }
+        conn1.commit();
+        conn1.close(); // will return unused sequences, so no gaps now
+        
+        Connection conn2 = getConnection();
+        PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
+        for (int i = 0; i < BATCH_SIZE + 1; i++) {
+            stmt2.execute();
+        }
+        conn2.commit();
+        
+        ResultSet rs = conn2.createStatement().executeQuery("SELECT k FROM foo");
+        for (int i = 0; i < 2*(BATCH_SIZE + 1); i++) {
+            assertTrue(rs.next());
+            assertEquals(i+1, rs.getInt(1));
+        }
+        assertFalse(rs.next());
+    }
+
+    @Test
     public void testDropCachedSeq1() throws Exception {
         testDropCachedSeq(false);
     }

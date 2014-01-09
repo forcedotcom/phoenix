@@ -77,7 +77,6 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -879,7 +878,6 @@ public class QueryTest extends BaseClientMangedTimeTest {
         conn.close();
     }
 
-    @Ignore // TODO: fix this
     @Test
     public void testPointInTimeSequence() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);
@@ -916,7 +914,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         conn.createStatement().execute("DROP SEQUENCE s");
         rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
         assertTrue(rs.next());
-        assertEquals(4, rs.getInt(1));
+        assertEquals(3, rs.getInt(1));
         conn.close();
 
         props.put(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts+20));
@@ -941,7 +939,7 @@ public class QueryTest extends BaseClientMangedTimeTest {
         conn = DriverManager.getConnection(getUrl(), props);
         rs = conn.createStatement().executeQuery("SELECT next value for s FROM ATABLE LIMIT 1");
         assertTrue(rs.next());
-        assertEquals(5, rs.getInt(1));
+        assertEquals(4, rs.getInt(1));
         conn.close();
     }
     

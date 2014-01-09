@@ -64,7 +64,28 @@ public class Sequence {
         this.lock = new ReentrantLock();
     }
 
-    private SequenceValue getSequenceValue(long timestamp) {
+    private void insertSequenceValue(SequenceValue value) {
+        if (values == null) {
+            values = Lists.newArrayListWithExpectedSize(1);
+            values.add(value);
+        } else {
+            int i = values.size()-1;
+            while (i >= 0 && values.get(i).timestamp > value.timestamp) {
+                i--;
+            }
+            // Don't insert another value if there's one at the same timestamp that is a delete
+            if (i >= 0 && values.get(i).timestamp == value.timestamp) {
+                if (values.get(i).isDeleted()) {
+                    throw new IllegalStateException("Unexpected delete marker at timestamp " + value.timestamp + " for "+ key);
+                }
+                values.set(i, value);
+            } else {
+                values.add(i+1, value);
+            }
+        }
+    }
+    
+    private SequenceValue findSequenceValue(long timestamp) {
         if (values == null) {
             return null;
         }
@@ -76,11 +97,11 @@ public class Sequence {
             return null;
         }
         SequenceValue value = values.get(i);
-        return value;
+        return value.isDeleted() ? null : value;
     }
     
     public long incrementValue(long timestamp, int factor) throws EmptySequenceCacheException {
-        SequenceValue value = getSequenceValue(timestamp);
+        SequenceValue value = findSequenceValue(timestamp);
         if (value == null) {
             throw EMPTY_SEQUENCE_CACHE_EXCEPTION;
         }
@@ -92,22 +113,35 @@ public class Sequence {
         return returnValue;
     }
 
+    public List<Append> newReturns() {
+        if (values == null) {
+            return Collections.emptyList();
+        }
+        List<Append> appends = Lists.newArrayListWithExpectedSize(values.size());
+        for (SequenceValue value : values) {
+            if (value.isInitialized() && value.currentValue != value.nextValue) {
+                appends.add(newReturn(value));
+            }
+        }
+        return appends;
+    }
+    
     public Append newReturn(long timestamp) throws EmptySequenceCacheException {
-        SequenceValue value = getSequenceValue(timestamp);
+        SequenceValue value = findSequenceValue(timestamp);
         if (value == null) {
             throw EMPTY_SEQUENCE_CACHE_EXCEPTION;
         }
         if (value.currentValue == value.nextValue) {
             throw EMPTY_SEQUENCE_CACHE_EXCEPTION;
         }
+        return newReturn(value);
+    }
 
+    private Append newReturn(SequenceValue value) {
         byte[] key = SchemaUtil.getSequenceKey(this.key.getTenantId(), this.key.getSchemaName(), this.key.getSequenceName());
         Append append = new Append(key);
-        byte[] opBuf = new byte[] {(byte)SequenceRegionObserver.Op.RESET_SEQUENCE.ordinal()};
+        byte[] opBuf = new byte[] {(byte)SequenceRegionObserver.Op.RETURN_SEQUENCE.ordinal()};
         append.setAttribute(SequenceRegionObserver.OPERATION_ATTRIB, opBuf);
-        if (timestamp != HConstants.LATEST_TIMESTAMP) {
-            append.setAttribute(SequenceRegionObserver.MAX_TIMERANGE_ATTRIB, Bytes.toBytes(timestamp));
-        }
         append.setAttribute(SequenceRegionObserver.CURRENT_VALUE_ATTRIB, PDataType.LONG.toBytes(value.nextValue));
         Map<byte[], List<KeyValue>> familyMap = append.getFamilyMap();
         familyMap.put(PhoenixDatabaseMetaData.SEQUENCE_FAMILY_BYTES, Arrays.<KeyValue>asList(
@@ -117,8 +151,8 @@ public class Sequence {
     }
     
     public long currentValue(long timestamp) throws EmptySequenceCacheException {
-        SequenceValue value = getSequenceValue(timestamp);
-        if (value == null || value.cacheSize == 0) {
+        SequenceValue value = findSequenceValue(timestamp);
+        if (value == null || value.isUnitialized()) {
             throw EMPTY_SEQUENCE_CACHE_EXCEPTION;
         }
         return value.currentValue - value.incrementBy;
@@ -142,39 +176,22 @@ public class Sequence {
             KeyValue errorKV = result.raw()[0];
             int errorCode = PDataType.INTEGER.getCodec().decodeInt(errorKV.getBuffer(), errorKV.getValueOffset(), null);
             SQLExceptionCode code = SQLExceptionCode.fromErrorCode(errorCode);
-            if (code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
-                if (values != null) {
-                    long timestamp = errorKV.getTimestamp();
-                    // Remove any sequence values older than timestamp as we didn't find any
-                    while (!values.isEmpty() && values.get(0).timestamp < timestamp) {
-                        values.remove(0);
-                    }
-                }
-            }
+            // TODO: We could have the server return the timestamps of the
+            // delete markers and we could insert them here, but this seems
+            // like overkill.
+            // if (code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
+            // }
             throw new SQLExceptionInfo.Builder(code)
                 .setSchemaName(key.getSchemaName())
                 .setTableName(key.getSequenceName())
                 .build().buildException();
         }
         // If we found the sequence, we update our cache with the new value
-        SequenceValue sequence = new SequenceValue(result);
-        if (values == null) {
-            values = Lists.newArrayListWithExpectedSize(1);
-            values.add(sequence);
-        } else {
-            int i = values.size()-1;
-            while (i >= 0 && values.get(i).timestamp > sequence.timestamp) {
-                i--;
-            }
-            if (i >= 0 && values.get(i).timestamp == sequence.timestamp) {
-                values.set(i, sequence);
-            } else {
-                values.add(i+1, sequence);
-            }
-        }
-        long value = sequence.currentValue;
-        sequence.currentValue += factor * sequence.incrementBy;
-        return value;
+        SequenceValue value = new SequenceValue(result);
+        insertSequenceValue(value);
+        long currentValue = value.currentValue;
+        value.currentValue += factor * value.incrementBy;
+        return currentValue;
     }
 
     public Increment newIncrement(long timestamp) {
@@ -243,9 +260,25 @@ public class Sequence {
         public long nextValue;
         
         public SequenceValue(long timestamp) {
+            this(timestamp, false);
+        }
+        
+        public SequenceValue(long timestamp, boolean isDeleted) {
             this.timestamp = timestamp;
-            this.incrementBy = 0;
+            this.incrementBy = isDeleted ? -1 : 0;
             this.cacheSize = 0;
+        }
+        
+        public boolean isInitialized() {
+            return this.incrementBy > 0;
+        }
+        
+        public boolean isUnitialized() {
+            return this.incrementBy == 0;
+        }
+        
+        public boolean isDeleted() {
+            return this.incrementBy < 0;
         }
         
         public SequenceValue(Result r) {
@@ -268,7 +301,7 @@ public class Sequence {
         long timestamp = statusKV.getTimestamp();
         int statusCode = PDataType.INTEGER.getCodec().decodeInt(statusKV.getBuffer(), statusKV.getValueOffset(), null);
         if (statusCode == SUCCESS) {  // Success - update nextValue down to currentValue
-            SequenceValue value = getSequenceValue(timestamp);
+            SequenceValue value = findSequenceValue(timestamp);
             if (value == null) {
                 throw new EmptySequenceCacheException(key.getSchemaName(),key.getSequenceName());
             }
@@ -276,14 +309,11 @@ public class Sequence {
             return true;
         }
         SQLExceptionCode code = SQLExceptionCode.fromErrorCode(statusCode);
-        if (code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
-            if (values != null) {
-                // Remove any sequence values older than timestamp as we didn't find any
-                while (!values.isEmpty() && values.get(0).timestamp < timestamp) {
-                    values.remove(0);
-                }
-            }
-        }
+        // TODO: We could have the server return the timestamps of the
+        // delete markers and we could insert them here, but this seems
+        // like overkill.
+        // if (code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
+        // }
         throw new SQLExceptionInfo.Builder(code)
             .setSchemaName(key.getSchemaName())
             .setTableName(key.getSequenceName())
@@ -315,16 +345,7 @@ public class Sequence {
         int statusCode = PDataType.INTEGER.getCodec().decodeInt(statusKV.getBuffer(), statusKV.getValueOffset(), null);
         if (statusCode == 0) {  // Success - add sequence value and return timestamp
             SequenceValue value = new SequenceValue(timestamp);
-            if (values == null) {
-                values = Lists.newArrayListWithExpectedSize(1);
-                values.add(value);
-                return timestamp;
-            }
-            int i = values.size()-1;
-            while (i >= 0 && values.get(i).timestamp > timestamp) {
-                i--;
-            }
-            values.add(i+1, value);
+            insertSequenceValue(value);
             return timestamp;
         }
         SQLExceptionCode code = SQLExceptionCode.fromErrorCode(statusCode);
@@ -352,17 +373,16 @@ public class Sequence {
         long timestamp = statusKV.getTimestamp();
         int statusCode = PDataType.INTEGER.getCodec().decodeInt(statusKV.getBuffer(), statusKV.getValueOffset(), null);
         SQLExceptionCode code = statusCode == 0 ? null : SQLExceptionCode.fromErrorCode(statusCode);
-        if (code == null || code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
-            if (values != null) {
-                // Remove any sequence values older than timestamp as we didn't find any
-                while (!values.isEmpty() && values.get(0).timestamp < timestamp) {
-                    values.remove(0);
-                }
-            }
-        }
         if (code == null) {
+            // Insert delete marker so that point-in-time sequences work
+            insertSequenceValue(new SequenceValue(timestamp, true));
             return timestamp;
         }
+        // TODO: We could have the server return the timestamps of the
+        // delete markers and we could insert them here, but this seems
+        // like overkill.
+        // if (code == SQLExceptionCode.SEQUENCE_UNDEFINED) {
+        // }
         throw new SQLExceptionInfo.Builder(code)
             .setSchemaName(key.getSchemaName())
             .setTableName(key.getSequenceName())

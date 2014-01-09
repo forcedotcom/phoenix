@@ -130,7 +130,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private boolean hasInvalidIndexConfiguration = false;
     private int connectionCount = 0;
     
-    private final ConcurrentMap<SequenceKey,Sequence> sequenceMap = Maps.newConcurrentMap();
+    private ConcurrentMap<SequenceKey,Sequence> sequenceMap = Maps.newConcurrentMap();
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -1349,19 +1349,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         }
     }
 
-    // Take no locks, as we're clearing the sequenceMap regardless here
-    private void returnAllSequenceValues() throws SQLException {
+    // Take no locks, as this only gets run when there are no open connections
+    // so there's no danger of contention.
+    private void returnAllSequenceValues(ConcurrentMap<SequenceKey,Sequence> sequenceMap) throws SQLException {
         List<Append> mutations = Lists.newArrayListWithExpectedSize(sequenceMap.size());
-        try {
-            for (Sequence sequence : sequenceMap.values()) {
-                try {
-                    Append append = sequence.newReturn(HConstants.LATEST_TIMESTAMP);
-                    mutations.add(append);
-                } catch (EmptySequenceCacheException ignore) { // Nothing to return, so ignore
-                }
-            }
-        } finally {
-            sequenceMap.clear();
+        for (Sequence sequence : sequenceMap.values()) {
+            mutations.addAll(sequence.newReturns());
         }
         if (mutations.isEmpty()) {
             return;
@@ -1397,10 +1390,21 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
     @Override
-    public synchronized void removeConnection(PhoenixConnection connection) throws SQLException {
-        if (--connectionCount == 0) {
+    public void removeConnection(PhoenixConnection connection) throws SQLException {
+        ConcurrentMap<SequenceKey,Sequence> formerSequenceMap = null;
+        synchronized(this) {
+            if (--connectionCount == 0) {
+                if (!this.sequenceMap.isEmpty()) {
+                    formerSequenceMap = this.sequenceMap;
+                    this.sequenceMap = Maps.newConcurrentMap();
+                }
+            }
+        }
+        // Since we're using the former sequenceMap, we can do this outside
+        // the lock.
+        if (formerSequenceMap != null) {
             // When there are no more connections, attempt to return any sequences
-            returnAllSequenceValues();
+            returnAllSequenceValues(formerSequenceMap);
         }
     }
 }

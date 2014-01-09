@@ -45,16 +45,16 @@ public class AmbiguousTableException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.AMBIGUOUS_TABLE;
 
     public AmbiguousTableException() {
-        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState(), code.getErrorCode(), null);
     }
 
     public AmbiguousTableException(String tableName) {
         super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
-                code.getSQLState());
+                code.getSQLState(), code.getErrorCode(), null);
     }
 
     public AmbiguousTableException(String tableName, Throwable cause) {
         super(new SQLExceptionInfo.Builder(code).setTableName(tableName).toString(),
-                code.getSQLState(), cause);
+                code.getSQLState(), code.getErrorCode(), cause);
     }
 }

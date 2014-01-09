@@ -43,6 +43,6 @@ public class ValueRangeExcpetion extends SQLException{
     private static SQLExceptionCode code = SQLExceptionCode.VALUE_OUTSIDE_RANGE;
     
     public ValueRangeExcpetion(Object minValue, Object maxValue, Object actualValue, String location){
-        super(new SQLExceptionInfo.Builder(code).setMessage("expected: [" + minValue + " , " + maxValue + "] but was: " + actualValue + " at " + location).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage("expected: [" + minValue + " , " + maxValue + "] but was: " + actualValue + " at " + location).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 }

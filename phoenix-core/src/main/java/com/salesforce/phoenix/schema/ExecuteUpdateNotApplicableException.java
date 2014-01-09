@@ -37,10 +37,10 @@ public class ExecuteUpdateNotApplicableException extends SQLException {
     private static SQLExceptionCode code = SQLExceptionCode.EXECUTE_QUERY_NOT_APPLICABLE;
 
     public ExecuteUpdateNotApplicableException(String query) {
-        super(new SQLExceptionInfo.Builder(code).setMessage("Query: " + query).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage("Query: " + query).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 
     public ExecuteUpdateNotApplicableException(String command, String statement) {
-        super(new SQLExceptionInfo.Builder(code).setMessage("Command: " + command + ". Statement: " + statement).build().toString(), code.getSQLState());
+        super(new SQLExceptionInfo.Builder(code).setMessage("Command: " + command + ". Statement: " + statement).build().toString(), code.getSQLState(), code.getErrorCode());
     }
 }

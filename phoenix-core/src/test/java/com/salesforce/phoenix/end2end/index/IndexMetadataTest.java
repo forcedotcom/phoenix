@@ -353,7 +353,7 @@ public class IndexMetadataTest extends BaseHBaseManagedTimeTest{
             stmt.execute();
             fail("Should have caught exception.");
         } catch (SQLException e) {
-        	assertTrue(e.getMessage(), e.getMessage().contains("ERROR 503 (42711): A duplicate column name was detected in the object definition or ALTER TABLE statement."));
+            assertEquals(SQLExceptionCode.COLUMN_EXIST_IN_DEF.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }

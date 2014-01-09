@@ -41,7 +41,7 @@ public class SequenceAlreadyExistsException extends SQLException {
 
 	public SequenceAlreadyExistsException(String schemaName, String sequenceName) {
 		super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(sequenceName).build().toString(),
-				code.getSQLState());        
+				code.getSQLState(), code.getErrorCode());        
 		this.schemaName = schemaName;
 		this.sequenceName = sequenceName;
 	}

@@ -81,8 +81,8 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
             PreparedStatement stmt = conn.prepareStatement(ddl);
             stmt.execute();
             fail("Should have caught bad alter.");
-        } catch (Exception e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 1022 (42J04): Cannot add column to table when the last PK column is of type VARBINARY."));
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.VARBINARY_LAST_PK.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }
@@ -493,7 +493,7 @@ public class AlterTableTest extends BaseHBaseManagedTimeTest {
                 conn.createStatement().execute(ddl);
                 fail();
             } catch (SQLException e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 503 (42711): A duplicate column name was detected in the object definition or ALTER TABLE statement."));
+                assertEquals(SQLExceptionCode.COLUMN_EXIST_IN_DEF.getErrorCode(), e.getErrorCode());
             }
             
             query = "SELECT col5 FROM test_table";

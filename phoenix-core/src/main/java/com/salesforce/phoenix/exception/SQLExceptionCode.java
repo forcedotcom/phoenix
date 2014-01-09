@@ -35,6 +35,7 @@ import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.AmbiguousTableException;
+import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ConcurrentTableMutationException;
@@ -139,7 +140,12 @@ public enum SQLExceptionCode {
     ORDER_BY_NOT_IN_SELECT_DISTINCT(511, "42890", "All ORDER BY expressions must appear in SELECT DISTINCT:"),
     INVALID_PRIMARY_KEY_CONSTRAINT(512, "42891", "Invalid column reference in primary key constraint"),
     INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT(513, "42892", "Array type not allowed as primary key constraint"),
-    COLUMN_EXIST_IN_DEF(514, "42892", "A duplicate column name was detected in the object definition or ALTER TABLE statement."),
+    COLUMN_EXIST_IN_DEF(514, "42892", "A duplicate column name was detected in the object definition or ALTER TABLE statement.", new Factory() {
+        @Override
+        public SQLException newException(SQLExceptionInfo info) {
+            return new ColumnAlreadyExistsException(info.getSchemaName(), info.getTableName(), info.getColumnName());
+        }
+    }),
     
     /** 
      * HBase and Phoenix specific implementation defined sub-classes.

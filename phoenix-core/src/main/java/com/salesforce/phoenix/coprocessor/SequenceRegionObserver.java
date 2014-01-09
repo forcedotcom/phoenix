@@ -49,7 +49,7 @@ import com.salesforce.phoenix.util.ServerUtil;
  * @since 3.0.0
  */
 public class SequenceRegionObserver extends BaseRegionObserver {
-    public enum Op {CREATE_SEQUENCE, DROP_SEQUENCE, RESET_SEQUENCE};
+    public enum Op {CREATE_SEQUENCE, DROP_SEQUENCE, RETURN_SEQUENCE};
     public static final String OPERATION_ATTRIB = "SEQUENCE_OPERATION";
     public static final String MAX_TIMERANGE_ATTRIB = "MAX_TIMERANGE";
     public static final String CURRENT_VALUE_ATTRIB = "CURRENT_VALUE";
@@ -149,23 +149,36 @@ public class SequenceRegionObserver extends BaseRegionObserver {
             return null;
         }
         Op op = Op.values()[opBuf[0]];
+        KeyValue keyValue = append.getFamilyMap().values().iterator().next().iterator().next();
 
         long clientTimestamp = HConstants.LATEST_TIMESTAMP;
-        byte[] clientTimestampBuf = append.getAttribute(MAX_TIMERANGE_ATTRIB);
-        if (clientTimestampBuf != null) {
-            clientTimestamp = Bytes.toLong(clientTimestampBuf);
-        }
-        boolean hadClientTimestamp = (clientTimestamp != HConstants.LATEST_TIMESTAMP);
-        if (hadClientTimestamp) {
-            // Prevent race condition of creating two sequences at the same timestamp
-            // by looking for a sequence at or after the timestamp at which it'll be
-            // created.
-            if (op == Op.CREATE_SEQUENCE) {
-                clientTimestamp++;
-            }
+        long minGetTimestamp = MetaDataProtocol.MIN_TABLE_TIMESTAMP;
+        long maxGetTimestamp = HConstants.LATEST_TIMESTAMP;
+        boolean hadClientTimestamp;
+        byte[] clientTimestampBuf = null;
+        if (op == Op.RETURN_SEQUENCE) {
+            // When returning sequences, this allows us to send the expected timestamp
+            // of the sequence to make sure we don't reset any other sequence
+            hadClientTimestamp = true;
+            clientTimestamp = minGetTimestamp = keyValue.getTimestamp();
+            maxGetTimestamp = minGetTimestamp + 1;
         } else {
-            clientTimestamp = EnvironmentEdgeManager.currentTimeMillis();
-            clientTimestampBuf = Bytes.toBytes(clientTimestamp);
+            clientTimestampBuf = append.getAttribute(MAX_TIMERANGE_ATTRIB);
+            if (clientTimestampBuf != null) {
+                clientTimestamp = maxGetTimestamp = Bytes.toLong(clientTimestampBuf);
+            }
+            hadClientTimestamp = (clientTimestamp != HConstants.LATEST_TIMESTAMP);
+            if (hadClientTimestamp) {
+                // Prevent race condition of creating two sequences at the same timestamp
+                // by looking for a sequence at or after the timestamp at which it'll be
+                // created.
+                if (op == Op.CREATE_SEQUENCE) {
+                    maxGetTimestamp = clientTimestamp + 1;
+                }            
+            } else {
+                clientTimestamp = maxGetTimestamp = EnvironmentEdgeManager.currentTimeMillis();
+                clientTimestampBuf = Bytes.toBytes(clientTimestamp);
+            }
         }
 
         RegionCoprocessorEnvironment env = e.getEnvironment();
@@ -178,16 +191,15 @@ public class SequenceRegionObserver extends BaseRegionObserver {
         try {
             Integer lid = region.getLock(null, row, true);
             try {
-                KeyValue keyValue = append.getFamilyMap().values().iterator().next().iterator().next();
                 byte[] family = keyValue.getFamily();
                 byte[] qualifier = keyValue.getQualifier();
 
                 Get get = new Get(row);
-                get.setTimeRange(MetaDataProtocol.MIN_TABLE_TIMESTAMP, clientTimestamp);
+                get.setTimeRange(minGetTimestamp, maxGetTimestamp);
                 get.addColumn(family, qualifier);
                 Result result = region.get(get);
                 if (result.isEmpty()) {
-                    if (op == Op.DROP_SEQUENCE || op == Op.RESET_SEQUENCE) {
+                    if (op == Op.DROP_SEQUENCE || op == Op.RETURN_SEQUENCE) {
                         return getErrorResult(row, clientTimestamp, SQLExceptionCode.SEQUENCE_UNDEFINED.getErrorCode());
                     }
                 } else {
@@ -197,7 +209,7 @@ public class SequenceRegionObserver extends BaseRegionObserver {
                 }
                 Mutation m = null;
                 switch (op) {
-                case RESET_SEQUENCE:
+                case RETURN_SEQUENCE:
                     KeyValue currentValueKV = result.raw()[0];
                     long expectedValue = PDataType.LONG.getCodec().decodeLong(append.getAttribute(CURRENT_VALUE_ATTRIB), 0, null);
                     long value = PDataType.LONG.getCodec().decodeLong(currentValueKV.getBuffer(), currentValueKV.getValueOffset(), null);

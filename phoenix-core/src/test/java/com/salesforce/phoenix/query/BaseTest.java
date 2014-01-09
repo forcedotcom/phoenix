@@ -53,7 +53,6 @@ import static com.salesforce.phoenix.util.TestUtil.PTSDB_NAME;
 import static com.salesforce.phoenix.util.TestUtil.STABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_SALTING;
-import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -418,7 +417,6 @@ public abstract class BaseTest {
 //        Add getAdmin in ConnectionQueryServices
         PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl(props));
         assertTrue(DriverManager.getDriver(url) == driver);
-        driver.connect(url, TEST_PROPERTIES);
     }
     
     protected static void startServer(String url) throws Exception {
