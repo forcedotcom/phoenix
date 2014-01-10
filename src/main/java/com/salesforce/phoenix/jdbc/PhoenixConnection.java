@@ -27,12 +27,36 @@
  ******************************************************************************/
 package com.salesforce.phoenix.jdbc;
 
-import java.io.*;
-import java.sql.*;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.NClob;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.sql.Struct;
 import java.text.Format;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.Map.Entry;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
@@ -41,9 +65,21 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
-import com.salesforce.phoenix.query.*;
-import com.salesforce.phoenix.schema.*;
-import com.salesforce.phoenix.util.*;
+import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.DelegateConnectionQueryServices;
+import com.salesforce.phoenix.query.MetaDataMutated;
+import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.query.QueryServices;
+import com.salesforce.phoenix.query.QueryServicesOptions;
+import com.salesforce.phoenix.schema.PColumn;
+import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.util.DateUtil;
+import com.salesforce.phoenix.util.JDBCUtil;
+import com.salesforce.phoenix.util.ReadOnlyProps;
+import com.salesforce.phoenix.util.SQLCloseable;
+import com.salesforce.phoenix.util.SQLCloseables;
 
 
 /**
@@ -85,18 +121,22 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         this.url = url;
         // Copy so client cannot change
         this.info = info == null ? new Properties() : new Properties(info);
-        Map<String, String> existingProps = services.getProps().asMap();
-        Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
-        tmpAugmentedProps.putAll(existingProps);
-        tmpAugmentedProps.putAll((Map)info);
-        final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
-        this.services = new DelegateConnectionQueryServices(services) {
-
-            @Override
-            public ReadOnlyProps getProps() {
-                return augmentedProps;
-            }
-        };
+        if (this.info.isEmpty()) {
+            this.services = services;
+        } else {
+            Map<String, String> existingProps = services.getProps().asMap();
+            Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
+            tmpAugmentedProps.putAll(existingProps);
+            tmpAugmentedProps.putAll((Map)this.info);
+            final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
+            this.services = new DelegateConnectionQueryServices(services) {
+    
+                @Override
+                public ReadOnlyProps getProps() {
+                    return augmentedProps;
+                }
+            };
+        }
         this.scn = JDBCUtil.getCurrentSCN(url, this.info);
         this.tenantId = JDBCUtil.getTenantId(url, this.info);
         this.mutateBatchSize = JDBCUtil.getMutateBatchSize(url, this.info, services.getProps());
