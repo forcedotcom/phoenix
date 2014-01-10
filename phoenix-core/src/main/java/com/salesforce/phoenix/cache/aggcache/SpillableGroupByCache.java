@@ -1,23 +1,27 @@
 package com.salesforce.phoenix.cache.aggcache;
 
+import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
+import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
 import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_CACHE_MAX_SIZE;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_NUM_SPILLFILES;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.util.AbstractMap;
-import java.util.AbstractSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.coprocessor.ObserverContext;
+import org.apache.hadoop.hbase.HRegionInfo;
+import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.regionserver.RegionScanner;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,8 +33,11 @@ import com.google.common.cache.RemovalNotification;
 import com.google.common.io.Closeables;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.aggcache.SpillManager.CacheEntry;
+import com.salesforce.phoenix.coprocessor.BaseRegionScanner;
+import com.salesforce.phoenix.coprocessor.GroupByCache;
 import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
+import com.salesforce.phoenix.util.KeyValueUtil;
 
 /**
  * The main entry point is in GroupedAggregateRegionObserver. It instantiates a GroupByCache and
@@ -66,21 +73,18 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
  * back into the LRU cache. The aggregators are returned from the LRU cache and the next value is
  * computed. In case the key is not found on any page, the Loader create new aggregators for it.
  */
-public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<K, Aggregator[]>
-        implements Closeable {
+public class SpillableGroupByCache implements GroupByCache {
 
-    private static final Logger logger = LoggerFactory.getLogger(GroupByCache.class);
+    private static final Logger logger = LoggerFactory.getLogger(SpillableGroupByCache.class);
 
     // Min size of 1st level main memory cache in bytes --> lower bound
     private static final int SPGBY_CACHE_MIN_SIZE = 4096; // 4K
 
     // TODO Generally better to use Collection API with generics instead of
     // array types
-    public final LoadingCache<K, Aggregator[]> cache;
+    public final LoadingCache<ImmutableBytesWritable, Aggregator[]> cache;
     private SpillManager spillManager = null;
-    private final ObserverContext<RegionCoprocessorEnvironment> context;
     private int curNumCacheElements;
-    private final int estValueSize;
     private final ServerAggregators aggregators;
 
     /**
@@ -91,20 +95,18 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
      * @param aggs
      * @param ctxt
      */
-    public GroupByCache(final long estSize, final int estValueSize, ServerAggregators aggs,
-            final ObserverContext<RegionCoprocessorEnvironment> ctxt) {
-        context = ctxt;
-        this.estValueSize = estValueSize;
+    public SpillableGroupByCache(final int estSizeNum, ServerAggregators aggs,
+            final RegionCoprocessorEnvironment env) {
         curNumCacheElements = 0;
         this.aggregators = aggs;
 
-        Configuration conf = ctxt.getEnvironment().getConfiguration();
+        Configuration conf = env.getConfiguration();
         final long maxCacheSizeConf =
                 conf.getLong(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE);
         final int numSpillFilesConf =
                 conf.getInt(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES);
 
-        final int estSizeNum = (int) (estSize / estValueSize);
+        int estValueSize = aggregators.getEstimatedByteSize();
         final int maxSizeNum = (int) (maxCacheSizeConf / estValueSize);
         final int minSizeNum = (SPGBY_CACHE_MIN_SIZE / estValueSize);
 
@@ -118,13 +120,13 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
         // the est MapSize
         cache =
                 CacheBuilder.newBuilder().maximumSize(maxCacheSize)
-                        .removalListener(new RemovalListener<K, Aggregator[]>() {
+                        .removalListener(new RemovalListener<ImmutableBytesWritable, Aggregator[]>() {
                             /*
                              * CacheRemoval listener implementation
                              */
                             @Override
                             public void
-                                    onRemoval(RemovalNotification<K, Aggregator[]> notification) {
+                                    onRemoval(RemovalNotification<ImmutableBytesWritable, Aggregator[]> notification) {
                                 try {
                                     if (spillManager == null) {
                                         // Lazy instantiation of spillable data
@@ -133,9 +135,8 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
                                         // Only create spill data structs if LRU
                                         // cache is too small
                                         spillManager =
-                                                new SpillManager(numSpillFilesConf, estValueSize,
-                                                        aggregators, context.getEnvironment()
-                                                                .getConfiguration());
+                                                new SpillManager(numSpillFilesConf,
+                                                        aggregators, env.getConfiguration());
                                     }
                                     spillManager.spill(notification.getKey(),
                                         notification.getValue());
@@ -157,19 +158,18 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
                                     }
                                 }
                             }
-                        }).build(new CacheLoader<K, Aggregator[]>() {
+                        }).build(new CacheLoader<ImmutableBytesWritable, Aggregator[]>() {
                             /*
                              * CacheLoader implementation
                              */
                             @Override
-                            public Aggregator[] load(K key) throws Exception {
+                            public Aggregator[] load(ImmutableBytesWritable key) throws Exception {
 
                                 Aggregator[] aggs = null;
                                 if (spillManager == null) {
                                     // No spill Manager, always assume this key is new!
                                     aggs =
-                                            aggregators.newAggregators(context.getEnvironment()
-                                                    .getConfiguration());
+                                            aggregators.newAggregators(env.getConfiguration());
                                 } else {
                                     // Spill manager present, check if key has been
                                     // spilled before
@@ -177,8 +177,7 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
                                     if (aggs == null) {
                                         // No, key never spilled before, create a new tuple
                                         aggs =
-                                                aggregators.newAggregators(context.getEnvironment()
-                                                        .getConfiguration());
+                                                aggregators.newAggregators(env.getConfiguration());
                                     }
                                 }
                                 // keep track of elements in cache
@@ -193,31 +192,18 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
      */
     @Override
     public int size() {
-        return curNumCacheElements * estValueSize;
-    }
-
-    /**
-     * put function of Map interface DO NOT USE Cache takes automatically care of loading
-     * non-existing elements
-     */
-    @Override
-    public Aggregator[] put(ImmutableBytesWritable key, Aggregator[] value) {
-        // Loading cache implicitly implements a put when a cache hit has
-        // occurred
-        // Disable the map interface
-        throw new IllegalAccessError("put is not supported for a loading cache");
+        return curNumCacheElements * aggregators.getEstimatedByteSize();
     }
 
     /**
      * Extract an element from the Cache If element is not present in in-memory cache / or in spill
      * files cache implements an implicit put() of a new key/value tuple and loads it into the cache
      */
-    @SuppressWarnings("unchecked")
     @Override
-    public Aggregator[] get(Object key) {
+    public Aggregator[] cache(ImmutableBytesWritable key) {
         try {
             // delegate to the cache implementation
-            return cache.get((K) key);
+            return cache.get(key);
         } catch (ExecutionException e) {
             // TODO What's the proper way to surface errors?
             // FIXME using a non-checked exception for now...
@@ -226,27 +212,14 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
     }
 
     /**
-     * Return a map view of the cache, READ ONLY
+     * Iterator over the cache and the spilled data structures by returning
+     * CacheEntries. CacheEntries are either extracted from the LRU cache or
+     * from the spillable data structures.The key/value tuples are returned
+     * in non-deterministic order.
      */
-    public Map<? extends ImmutableBytesWritable, Aggregator[]> getAsMap() {
-        // Useful for iterators
-        return cache.asMap();
-    }
-
-    /**
-     * This function creates a iterator over the cache and the spilled data structures. The
-     * key/value tuples are returned in non-deterministic order.
-     */
-    public EntryIterator newEntryIterator() {
-        return new EntryIterator();
-    }
-
-    // Iterator that returns CacheEntries.
-    // CacheEntries are either extracted from the LRU cache or from the
-    // spillable data structures.
-    private final class EntryIterator implements Iterator<Map.Entry<K, Aggregator[]>> {
-        final Map<K, Aggregator[]> cacheMap;
-        final Iterator<Entry<K, Aggregator[]>> cacheIter;
+    private final class EntryIterator implements Iterator<Map.Entry<ImmutableBytesWritable, Aggregator[]>> {
+        final Map<ImmutableBytesWritable, Aggregator[]> cacheMap;
+        final Iterator<Map.Entry<ImmutableBytesWritable, Aggregator[]>> cacheIter;
         final Iterator<byte[]> spilledCacheIter;
 
         private EntryIterator() {
@@ -265,12 +238,12 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
         }
 
         @Override
-        public Map.Entry<K, Aggregator[]> next() {
+        public Map.Entry<ImmutableBytesWritable, Aggregator[]> next() {
             if (spilledCacheIter != null && spilledCacheIter.hasNext()) {
                 try {
                     byte[] value = spilledCacheIter.next();
                     // Deserialize into a CacheEntry
-                    Map.Entry<K, Aggregator[]> spilledEntry = spillManager.toCacheEntry(value);
+                    Map.Entry<ImmutableBytesWritable, Aggregator[]> spilledEntry = spillManager.toCacheEntry(value);
 
                     boolean notFound = false;
                     // check against map and return only if not present
@@ -298,8 +271,8 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
             }
             // Spilled elements exhausted
             // Finally return all elements from LRU cache
-            Map.Entry<K, Aggregator[]> entry = cacheIter.next();
-            return new CacheEntry<K>(entry.getKey(), entry.getValue());
+            Map.Entry<ImmutableBytesWritable, Aggregator[]> entry = cacheIter.next();
+            return new CacheEntry<ImmutableBytesWritable>(entry.getKey(), entry.getValue());
         }
 
         /**
@@ -312,27 +285,6 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
     }
 
     /**
-     * Get an entrySet for all elements loaded into the Spillable GroupBy
-     */
-    @Override
-    public Set<java.util.Map.Entry<K, Aggregator[]>> entrySet() {
-        return new EntrySet();
-    }
-
-    private final class EntrySet extends AbstractSet<Map.Entry<K, Aggregator[]>> {
-
-        @Override
-        public int size() {
-            return curNumCacheElements;
-        }
-
-        @Override
-        public Iterator<Map.Entry<K, Aggregator[]>> iterator() {
-            return new EntryIterator();
-        }
-    }
-
-    /**
      * Closes cache and releases spill resources
      * @throws IOException
      */
@@ -340,5 +292,49 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
     public void close() throws IOException {
         // Close spillable resources
         Closeables.closeQuietly(spillManager);
+    }
+
+    @Override
+    public RegionScanner getScanner(final RegionScanner s) {
+        final Iterator<Entry<ImmutableBytesWritable, Aggregator[]>>cacheIter = new EntryIterator();
+
+        // scanner using the spillable implementation
+        return new BaseRegionScanner() {
+            @Override
+            public HRegionInfo getRegionInfo() {
+                return s.getRegionInfo();
+            }
+
+            @Override
+            public void close() throws IOException {
+                try {
+                    s.close();
+                } finally {
+                    // Always close gbCache and swallow possible Exceptions
+                    Closeables.closeQuietly(SpillableGroupByCache.this);
+                }
+            }
+
+            @Override
+            public boolean next(List<KeyValue> results) throws IOException {
+                if (!cacheIter.hasNext()) {
+                    return false;
+                }
+                Map.Entry<ImmutableBytesWritable, Aggregator[]> ce = cacheIter.next();
+                ImmutableBytesWritable key = ce.getKey();
+                Aggregator[] aggs = ce.getValue();
+                byte[] value = aggregators.toBytes(aggs);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Adding new distinct group: "
+                            + Bytes.toStringBinary(key.get(), key.getOffset(), key.getLength())
+                            + " with aggregators " + aggs.toString() + " value = "
+                            + Bytes.toStringBinary(value));
+                }
+                results.add(KeyValueUtil.newKeyValue(key.get(), key.getOffset(),
+                    key.getLength(), SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value,
+                    0, value.length));
+                return cacheIter.hasNext();
+            }
+        };
     }
 }

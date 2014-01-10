@@ -45,21 +45,21 @@ import com.salesforce.phoenix.util.SizedUtil;
  * @since 0.1
  */
 abstract public class Aggregators {
-    protected final int size;
+    protected final int estimatedByteSize;
     protected final KeyValueSchema schema;
     protected final ImmutableBytesWritable ptr = new ImmutableBytesWritable();
     protected final ValueBitSet valueSet;
     protected final Aggregator[] aggregators;
     protected final SingleAggregateFunction[] functions;
     
-    public int getSize() {
-        return size;
+    public int getEstimatedByteSize() {
+        return estimatedByteSize;
     }
     
     public Aggregators(SingleAggregateFunction[] functions, Aggregator[] aggregators, int minNullableIndex) {
         this.functions = functions;
         this.aggregators = aggregators;
-        this.size = calculateSize(aggregators);
+        this.estimatedByteSize = calculateSize(aggregators);
         this.schema = newValueSchema(aggregators, minNullableIndex);
         this.valueSet = ValueBitSet.newInstance(schema);
     }
