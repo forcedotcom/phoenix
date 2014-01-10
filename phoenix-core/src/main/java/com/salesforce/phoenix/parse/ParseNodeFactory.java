@@ -501,6 +501,9 @@ public class ParseNodeFactory {
         return new EqualParseNode(lhs, rhs);
     }
 
+    public UpsertStmtArrayNode upsertStmtArrayNode(List<ParseNode> upsertStmtArray) {
+    	return new UpsertStmtArrayNode(upsertStmtArray);
+    }
 
     public MultiplyParseNode negate(ParseNode child) {
         return new MultiplyParseNode(Arrays.asList(child,this.literal(-1)));
