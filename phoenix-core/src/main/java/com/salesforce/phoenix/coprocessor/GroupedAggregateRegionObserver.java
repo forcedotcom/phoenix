@@ -53,6 +53,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Maps;
 import com.google.common.io.Closeables;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
 import com.salesforce.phoenix.cache.aggcache.SpillableGroupByCache;
@@ -186,9 +187,19 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         return expressions;
     }
 
+    /**
+     * 
+     * Cache for distinct values and their aggregations which is completely
+     * in-memory (as opposed to spilling to disk). Used when GROUPBY_SPILLABLE_ATTRIB
+     * is set to false. The memory usage is tracked at a coursed grain and will
+     * throw and abort if too much is used.
+     *
+     * @author jtaylor
+     * @since 3.0.0
+     */
     private static final class InMemoryGroupByCache implements GroupByCache {
         private final MemoryChunk chunk;
-        private final Map<ImmutableBytesWritable, Aggregator[]> aggregateMap;
+        private final Map<ImmutableBytesPtr, Aggregator[]> aggregateMap;
         private final ServerAggregators aggregators;
         private final RegionCoprocessorEnvironment env;
         
@@ -211,7 +222,8 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         }
 
         @Override
-        public Aggregator[] cache(ImmutableBytesWritable key) {
+        public Aggregator[] cache(ImmutableBytesWritable cacheKey) {
+            ImmutableBytesPtr key = new ImmutableBytesPtr(cacheKey);
             Aggregator[] rowAggregators = aggregateMap.get(key);
             if (rowAggregators == null) {
                 // If Aggregators not found for this distinct
@@ -243,11 +255,11 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
 
             final List<KeyValue> aggResults = new ArrayList<KeyValue>(aggregateMap.size());
             
-            final Iterator<Map.Entry<ImmutableBytesWritable, Aggregator[]>> cacheIter =
+            final Iterator<Map.Entry<ImmutableBytesPtr, Aggregator[]>> cacheIter =
                     aggregateMap.entrySet().iterator();
             while (cacheIter.hasNext()) {
-                Map.Entry<ImmutableBytesWritable, Aggregator[]> entry = cacheIter.next();
-                ImmutableBytesWritable key = entry.getKey();
+                Map.Entry<ImmutableBytesPtr, Aggregator[]> entry = cacheIter.next();
+                ImmutableBytesPtr key = entry.getKey();
                 Aggregator[] rowAggregators = entry.getValue();
                 // Generate byte array of Aggregators and set as value of row
                 byte[] value = aggregators.toBytes(rowAggregators);
