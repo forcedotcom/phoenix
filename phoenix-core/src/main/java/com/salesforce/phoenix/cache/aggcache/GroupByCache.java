@@ -212,6 +212,7 @@ public class GroupByCache<K extends ImmutableBytesWritable> extends AbstractMap<
      * Extract an element from the Cache If element is not present in in-memory cache / or in spill
      * files cache implements an implicit put() of a new key/value tuple and loads it into the cache
      */
+    @SuppressWarnings("unchecked")
     @Override
     public Aggregator[] get(Object key) {
         try {

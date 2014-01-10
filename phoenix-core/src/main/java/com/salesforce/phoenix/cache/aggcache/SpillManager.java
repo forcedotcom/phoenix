@@ -218,6 +218,7 @@ public class SpillManager implements Closeable {
      * @param bytes
      * @throws IOException
      */
+    @SuppressWarnings("unchecked")
     public <K extends ImmutableBytesWritable> CacheEntry<K> toCacheEntry(byte[] bytes)
             throws IOException {
         ImmutableBytesPtr key = SpillManager.getKey(bytes);

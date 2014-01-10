@@ -26,13 +26,13 @@ import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_EN
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +52,7 @@ import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.Maps;
 import com.google.common.io.Closeables;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.TenantCache;
@@ -207,25 +208,45 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                                                                                                  // estimation
         }
 
-        TenantCache tenantCache =
-                GlobalCache.getTenantCache(c.getEnvironment(), ScanUtil.getTenantId(scan));
-        int estSize = sizeOfUnorderedGroupByMap(estDistVals, aggregators.getSize());
-        final MemoryChunk chunk = tenantCache.getMemoryManager().allocate(estSize);
-        boolean success = false;
+        // TODO: if we plan to keep both spillable and non-spillable implementations
+        // create interface that abstracts this:
+        // interface RegionServerCache extends Closeable {
+        //     Aggregator[] cache(ImmutableBytesWritable key);
+        //     RegionScanner getScanner();
+        // }
+        // class RegionServerCacheFactory {
+        //     RegionServerCache newCache(RegionCoprocessorEnv env, int estSize, int estDistVals);
+        // }
+        // 
+        MemoryChunk chunk = null; // Only used by non spillable implementation
+        Closeable toBeCloseable;
+        int estValueSize = aggregators.getSize();
+        int estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
 
         Configuration conf = c.getEnvironment().getConfiguration();
         final boolean spillableEnabled =
                 conf.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
 
-        int estValueSize = aggregators.getSize();
+        Map<ImmutableBytesWritable, Aggregator[]> toBeAggregateMap;
+        if (spillableEnabled) {
+            @SuppressWarnings("resource") // groupByCache is closed through the toBeCloseable
+            GroupByCache<ImmutableBytesWritable> groupByCache = 
+                    new GroupByCache<ImmutableBytesWritable>(
+                            estSize, estValueSize, aggregators, c);
+            toBeCloseable = groupByCache;
+            toBeAggregateMap = groupByCache;
+        } else {
+            TenantCache tenantCache =
+                    GlobalCache.getTenantCache(c.getEnvironment(), ScanUtil.getTenantId(scan));
+            toBeAggregateMap = Maps.newHashMapWithExpectedSize(estDistVals);
+            chunk = tenantCache.getMemoryManager().allocate(estSize);
+            toBeCloseable = chunk;
+        }
 
-        // TODO Use a more elegant factory method
-        final Map<ImmutableBytesWritable, Aggregator[]> aggregateMap =
-                spillableEnabled ? new GroupByCache<ImmutableBytesWritable>(chunk.getSize(),
-                        estValueSize, aggregators, c)
-                        : new HashMap<ImmutableBytesWritable, Aggregator[]>(estDistVals);
+        boolean success = false;
+        final Closeable closeable = toBeCloseable;
+        final Map<ImmutableBytesWritable, Aggregator[]> aggregateMap = toBeAggregateMap;
         try {
-            // TODO: spool map to disk if map becomes too big
             boolean hasMore;
 
             MultiKeyValueTuple result = new MultiKeyValueTuple();
@@ -265,33 +286,73 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                                         aggregators.newAggregators(c.getEnvironment()
                                                 .getConfiguration());
                                 aggregateMap.put(key, rowAggregators);
+
+                                if (aggregateMap.size() > estDistVals) { // increase
+                                                                         // allocation
+                                    estDistVals *= 1.5f;
+                                    estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
+                                    chunk.resize(estSize);
+                                }
                             }
                         }
                         // Aggregate values here
                         aggregators.aggregate(rowAggregators, result);
-
-                        if (aggregateMap.size() > estDistVals) { // increase
-                                                                 // allocation
-                            estDistVals *= 1.5f;
-                            estSize = sizeOfUnorderedGroupByMap(estDistVals, estValueSize);
-                            chunk.resize(estSize);
-                        }
                     }
                 } while (hasMore);
-
             } finally {
                 region.closeRegionOperation();
             }
 
-            // Compute final allocation
-            estSize = sizeOfUnorderedGroupByMap(aggregateMap.size(), estValueSize);
-            chunk.resize(estSize);
-
-            final List<KeyValue> aggResults = new ArrayList<KeyValue>(aggregateMap.size());
             final Iterator<Map.Entry<ImmutableBytesWritable, Aggregator[]>> cacheIter =
                     aggregateMap.entrySet().iterator();
 
-            if (!spillableEnabled) {
+            RegionScanner regionScanner;
+            if (spillableEnabled) {
+                // scanner using the spillable implementation
+                regionScanner = new BaseRegionScanner() {
+                    @Override
+                    public HRegionInfo getRegionInfo() {
+                        return s.getRegionInfo();
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        try {
+                            s.close();
+                        } finally {
+                            // Always close gbCache and swallow possible Exceptions
+                            Closeables.closeQuietly(closeable);
+                        }
+                    }
+
+                    @Override
+                    public boolean next(List<KeyValue> results) throws IOException {
+                        if (!cacheIter.hasNext()) {
+                            return false;
+                        }
+                        Map.Entry<ImmutableBytesWritable, Aggregator[]> ce = cacheIter.next();
+                        ImmutableBytesWritable key = ce.getKey();
+                        Aggregator[] aggs = ce.getValue();
+                        byte[] value = aggregators.toBytes(aggs);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("Adding new distinct group: "
+                                    + Bytes.toStringBinary(key.get(), key.getOffset(), key.getLength())
+                                    + " with aggregators " + aggs.toString() + " value = "
+                                    + Bytes.toStringBinary(value));
+                        }
+                        results.add(KeyValueUtil.newKeyValue(key.get(), key.getOffset(),
+                            key.getLength(), SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value,
+                            0, value.length));
+                        return cacheIter.hasNext();
+                    }
+                };
+            } else {
+                // Compute final allocation
+                estSize = sizeOfUnorderedGroupByMap(aggregateMap.size(), estValueSize);
+                chunk.resize(estSize);
+
+                final List<KeyValue> aggResults = new ArrayList<KeyValue>(aggregateMap.size());
+                
                 while (cacheIter.hasNext()) {
                     Map.Entry<ImmutableBytesWritable, Aggregator[]> entry = cacheIter.next();
                     ImmutableBytesWritable key = entry.getKey();
@@ -311,91 +372,43 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
                                 value.length);
                     aggResults.add(keyValue);
                 }
+                // scanner using the non spillable, memory-only implementation
+                regionScanner = new BaseRegionScanner() {
+                    private int index = 0;
+    
+                    @Override
+                    public HRegionInfo getRegionInfo() {
+                        return s.getRegionInfo();
+                    }
+    
+                    @Override
+                    public void close() throws IOException {
+                        try {
+                            s.close();
+                        } finally {
+                            closeable.close();
+                        }
+                    }
+    
+                    @Override
+                    public boolean next(List<KeyValue> results) throws IOException {
+                        if (index >= aggResults.size()) return false;
+                        results.add(aggResults.get(index));
+                        index++;
+                        return index < aggResults.size();
+                    }
+                };
             }
 
             // Do not sort here, but sort back on the client instead
             // The reason is that if the scan ever extends beyond a region
             // (which can happen if we're basing our parallelization split
             // points on old metadata), we'll get incorrect query results.
-
-            // scanner using the spillable implementation
-            RegionScanner scannerSpillable = new BaseRegionScanner() {
-                @Override
-                public HRegionInfo getRegionInfo() {
-                    return s.getRegionInfo();
-                }
-
-                @Override
-                public void close() throws IOException {
-                    try {
-                        s.close();
-                    } finally {
-                        // Always close gbCache and swallow possible Exceptions
-                        Closeables
-                                .closeQuietly((GroupByCache<ImmutableBytesWritable>) aggregateMap);
-                        chunk.close();
-                    }
-                }
-
-                @Override
-                public boolean next(List<KeyValue> results) throws IOException {
-                    if (!cacheIter.hasNext()) {
-                        return false;
-                    }
-                    Map.Entry<ImmutableBytesWritable, Aggregator[]> ce = cacheIter.next();
-                    ImmutableBytesWritable key = ce.getKey();
-                    Aggregator[] aggs = ce.getValue();
-                    byte[] value = aggregators.toBytes(aggs);
-                    if (logger.isDebugEnabled()) {
-                        logger.debug("Adding new distinct group: "
-                                + Bytes.toStringBinary(key.get(), key.getOffset(), key.getLength())
-                                + " with aggregators " + aggs.toString() + " value = "
-                                + Bytes.toStringBinary(value));
-                    }
-                    results.add(KeyValueUtil.newKeyValue(key.get(), key.getOffset(),
-                        key.getLength(), SINGLE_COLUMN_FAMILY, SINGLE_COLUMN, AGG_TIMESTAMP, value,
-                        0, value.length));
-                    return cacheIter.hasNext();
-                }
-            };
-
-            // scanner using the non spillable, memory-only implementation
-            RegionScanner scanner = new BaseRegionScanner() {
-                private int index = 0;
-
-                @Override
-                public HRegionInfo getRegionInfo() {
-                    return s.getRegionInfo();
-                }
-
-                @Override
-                public void close() throws IOException {
-                    try {
-                        s.close();
-                    } finally {
-                        chunk.close();
-                    }
-                }
-
-                @Override
-                public boolean next(List<KeyValue> results) throws IOException {
-                    if (index >= aggResults.size()) return false;
-                    results.add(aggResults.get(index));
-                    index++;
-                    return index < aggResults.size();
-                }
-            };
             success = true;
-
-            if (!spillableEnabled) {
-                return scanner;
-            }
-            return scannerSpillable;
+            return regionScanner;
         } finally {
             if (!success) {
-                // Always close gbCache and swallow possible Exceptions
-                Closeables.closeQuietly((GroupByCache<ImmutableBytesWritable>) aggregateMap);
-                chunk.close();
+                Closeables.closeQuietly(closeable);
             }
         }
     }
