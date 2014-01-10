@@ -19,21 +19,60 @@
  */
 package org.apache.phoenix.jdbc;
 
-import java.io.*;
-import java.sql.*;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.io.Reader;
+import java.sql.Array;
+import java.sql.Blob;
+import java.sql.CallableStatement;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.NClob;
+import java.sql.ParameterMetaData;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLClientInfoException;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.SQLWarning;
+import java.sql.SQLXML;
+import java.sql.Savepoint;
+import java.sql.Statement;
+import java.sql.Struct;
 import java.text.Format;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 
-import com.google.common.base.Strings;
-import com.google.common.collect.Lists;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.exception.SQLExceptionInfo;
 import org.apache.phoenix.execute.MutationState;
 import org.apache.phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
-import org.apache.phoenix.query.*;
-import org.apache.phoenix.schema.*;
-import org.apache.phoenix.util.*;
+import org.apache.phoenix.query.ConnectionQueryServices;
+import org.apache.phoenix.query.DelegateConnectionQueryServices;
+import org.apache.phoenix.query.MetaDataMutated;
+import org.apache.phoenix.query.QueryConstants;
+import org.apache.phoenix.query.QueryServices;
+import org.apache.phoenix.query.QueryServicesOptions;
+import org.apache.phoenix.schema.PColumn;
+import org.apache.phoenix.schema.PDataType;
+import org.apache.phoenix.schema.PMetaData;
+import org.apache.phoenix.schema.PTable;
+import org.apache.phoenix.util.DateUtil;
+import org.apache.phoenix.util.JDBCUtil;
+import org.apache.phoenix.util.ReadOnlyProps;
+import org.apache.phoenix.util.SQLCloseable;
+import org.apache.phoenix.util.SQLCloseables;
+
+import com.google.common.base.Strings;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 
 /**
@@ -70,11 +109,23 @@ public class PhoenixConnection implements Connection, org.apache.phoenix.jdbc.Jd
         this.isAutoCommit = connection.isAutoCommit;
     }
     
+    @SuppressWarnings("unchecked")
     public PhoenixConnection(ConnectionQueryServices services, String url, Properties info, PMetaData metaData) throws SQLException {
         this.url = url;
         // Copy so client cannot change
         this.info = info == null ? new Properties() : new Properties(info);
-        this.services = services;
+        Map<String, String> existingProps = services.getProps().asMap();
+        Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
+        tmpAugmentedProps.putAll(existingProps);
+        tmpAugmentedProps.putAll((Map)info);
+        final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
+        this.services = new DelegateConnectionQueryServices(services) {
+
+            @Override
+            public ReadOnlyProps getProps() {
+                return augmentedProps;
+            }
+        };
         this.scn = JDBCUtil.getCurrentSCN(url, this.info);
         this.tenantId = JDBCUtil.getTenantId(url, this.info);
         this.mutateBatchSize = JDBCUtil.getMutateBatchSize(url, this.info, services.getProps());

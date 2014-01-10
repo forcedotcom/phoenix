@@ -28,6 +28,10 @@ public class ReadOnlyProps implements Iterable<Entry<String, String>> {
         this.props = ImmutableMap.copyOf(map);
     }
 
+    public ReadOnlyProps(Map<String, String> props) {
+        this.props = ImmutableMap.copyOf(props);
+    }
+
     private static Pattern varPat = Pattern.compile("\\$\\{[^\\}\\$\u0020]+\\}");
     private static int MAX_SUBST = 20;
 
@@ -217,6 +221,15 @@ public class ReadOnlyProps implements Iterable<Entry<String, String>> {
       } catch (NumberFormatException e) {
         return defaultValue;
       }
+    }
+
+    /**
+     * Get the properties as a <code>Map<String,String></code>
+     * 
+     * @return Map<String,String> 
+     */
+    public Map<String,String> asMap() {
+        return props;
     }
     
     @Override
