@@ -21,8 +21,8 @@ package com.salesforce.phoenix.coprocessor;
 import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
 import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
 import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_ENABLED_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_ENABLED;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_SPILLABLE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_GROUPBY_SPILLABLE;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -307,7 +307,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         GroupByCache newCache(RegionCoprocessorEnvironment env, ImmutableBytesWritable tenantId, ServerAggregators aggregators, int estDistVals) {
             Configuration conf = env.getConfiguration();
             boolean spillableEnabled =
-                    conf.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
+                    conf.getBoolean(GROUPBY_SPILLABLE_ATTRIB, DEFAULT_GROUPBY_SPILLABLE);
             if (spillableEnabled) {
                 return new SpillableGroupByCache(estDistVals, aggregators, env);
             } 
@@ -338,7 +338,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         RegionCoprocessorEnvironment env = c.getEnvironment();
         Configuration conf = env.getConfiguration();
         final boolean spillableEnabled =
-                conf.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
+                conf.getBoolean(GROUPBY_SPILLABLE_ATTRIB, DEFAULT_GROUPBY_SPILLABLE);
 
         GroupByCache groupByCache = 
                 GroupByCacheFactory.INSTANCE.newCache(

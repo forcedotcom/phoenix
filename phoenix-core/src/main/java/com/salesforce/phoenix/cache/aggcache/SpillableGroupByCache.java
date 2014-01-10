@@ -3,10 +3,10 @@ package com.salesforce.phoenix.cache.aggcache;
 import static com.salesforce.phoenix.query.QueryConstants.AGG_TIMESTAMP;
 import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN;
 import static com.salesforce.phoenix.query.QueryConstants.SINGLE_COLUMN_FAMILY;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_CACHE_MAX_SIZE;
-import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_SPGBY_NUM_SPILLFILES;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_MAX_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_SPILL_FILES_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_GROUPBY_MAX_CACHE_MAX;
+import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_GROUPBY_SPILL_FILES;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -102,9 +102,9 @@ public class SpillableGroupByCache implements GroupByCache {
 
         Configuration conf = env.getConfiguration();
         final long maxCacheSizeConf =
-                conf.getLong(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE);
+                conf.getLong(GROUPBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_GROUPBY_MAX_CACHE_MAX);
         final int numSpillFilesConf =
-                conf.getInt(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES);
+                conf.getInt(GROUPBY_SPILL_FILES_ATTRIB, DEFAULT_GROUPBY_SPILL_FILES);
 
         int estValueSize = aggregators.getEstimatedByteSize();
         final int maxSizeNum = (int) (maxCacheSizeConf / estValueSize);

@@ -64,10 +64,10 @@ public class SpillableGroupByTest extends BaseConnectedQueryTest {
     public static void doSetup() throws Exception {
         Map<String, String> props = Maps.newHashMapWithExpectedSize(1);
         // Set a very small cache size to force plenty of spilling
-        props.put(QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB,
+        props.put(QueryServices.GROUPBY_MAX_CACHE_SIZE_ATTRIB,
                 Integer.toString(1));
-        props.put(QueryServices.SPGBY_ENABLED_ATTRIB, String.valueOf(true));
-        props.put(QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB,
+        props.put(QueryServices.GROUPBY_SPILLABLE_ATTRIB, String.valueOf(true));
+        props.put(QueryServices.GROUPBY_SPILL_FILES_ATTRIB,
                 Integer.toString(1));
 
         // Must update config before starting server
