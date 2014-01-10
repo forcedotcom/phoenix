@@ -74,7 +74,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
-
 /**
  * 
  * JDBC Connection implementation of Phoenix.
@@ -114,18 +113,22 @@ public class PhoenixConnection implements Connection, org.apache.phoenix.jdbc.Jd
         this.url = url;
         // Copy so client cannot change
         this.info = info == null ? new Properties() : new Properties(info);
-        Map<String, String> existingProps = services.getProps().asMap();
-        Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
-        tmpAugmentedProps.putAll(existingProps);
-        tmpAugmentedProps.putAll((Map)info);
-        final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
-        this.services = new DelegateConnectionQueryServices(services) {
-
-            @Override
-            public ReadOnlyProps getProps() {
-                return augmentedProps;
-            }
-        };
+        if (this.info.isEmpty()) {
+            this.services = services;
+        } else {
+            Map<String, String> existingProps = services.getProps().asMap();
+            Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
+            tmpAugmentedProps.putAll(existingProps);
+            tmpAugmentedProps.putAll((Map)this.info);
+            final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
+            this.services = new DelegateConnectionQueryServices(services) {
+    
+                @Override
+                public ReadOnlyProps getProps() {
+                    return augmentedProps;
+                }
+            };
+        }
         this.scn = JDBCUtil.getCurrentSCN(url, this.info);
         this.tenantId = JDBCUtil.getTenantId(url, this.info);
         this.mutateBatchSize = JDBCUtil.getMutateBatchSize(url, this.info, services.getProps());
