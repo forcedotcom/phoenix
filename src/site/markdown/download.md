@@ -1,8 +1,6 @@
 ## Available Phoenix Downloads
 
-### [phoenix-0.2.2-install.tar](http://phoenix-bin.github.com/client/phoenix-0.2.2-install.tar)
-Release Date: 12/31/2013<br/>
-Requires HBase 0.94.4 or above, 0.94.10 or above required for mutable index, 0.94.12 recommended<br/>
+### Download link will be available soon.
 
 <br/>
 

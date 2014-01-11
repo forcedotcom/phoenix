@@ -45,7 +45,7 @@
     <skinAttribution>false</skinAttribution>
     <breadcrumbs>true</breadcrumbs>
       <bottomDescription quote="false">
-        <![CDATA[<form action="https://www.google.com/search" method="get"><input value="phoenix.incubator.apache.org" name="sitesearch" type="hidden"><input placeholder="Search the site&hellip;" required="required" size="18" name="q" id="query" type="search"></form>]]>
+        <![CDATA[<form action="https://www.google.com/search" method="get"><input value="phoenix.incubator.apache.org" name="sitesearch" type="hidden"><input placeholder="Search the site&hellip;" required="required" style="width:170px;" size="18" name="q" id="query" type="search"></form>]]>
       </bottomDescription>
     </reflowSkin>
   </custom>
@@ -75,6 +75,7 @@
             <item href="phoenix_on_emr.html" name="Phoenix on EMR"/>
             <item href="mr_dataload.html" name="Bulk CSV via M/R"/>
             <item href="flume.html" name="Apache Flume Plugin"/>
+            <item href="sequences.html" name="Sequences"/>
         </menu>
         <menu name="Reference">
             <item href="grammar.html" name="Grammar"/>

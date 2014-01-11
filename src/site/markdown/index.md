@@ -13,7 +13,6 @@ To see what's supported, go to our [language reference](grammar.html). It includ
 
 <a id="connStr"></a>Use JDBC to get a connection to an HBase cluster like this:
 
-        Class.forName("com.salesforce.phoenix.jdbc.PhoenixDriver");
         Connection conn = DriverManager.getConnection("jdbc:phoenix:server1,server2:3333");
 where the connection string is composed of:
 <code><small>jdbc:phoenix</small></code> [ <code><small>:&lt;zookeeper quorum&gt;</small></code> [ <code><small>:&lt;port number&gt;</small></code> ] [ <code><small>:&lt;root node&gt;</small></code> ] ]

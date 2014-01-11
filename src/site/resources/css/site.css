@@ -1,9 +1,6 @@
 /* You can override this file with your own styles */
-body {
-  padding-top: 50px;
-  padding-bottom: 20px;
-}
 
+@media (min-width: 980px) {
 h1[id]:before,
 h2[id]:before,
 h3[id]:before,
@@ -15,4 +12,37 @@ a[name]:before {
     content:""; 
     height:55px; 
     margin:-55px 0 0; 
+}
+}
+
+@media (max-width: 979px) {
+h1[id]:before,
+h2[id]:before,
+h3[id]:before,
+h4[id]:before,
+h5[id]:before,
+h6[id]:before,
+a[name]:before {
+    display:block; 
+    content:""; 
+    height:0px; 
+    margin:0px 0 0; 
+}
+}
+
+.navbar-fixed-top {
+margin-bottom: 0px;
+}
+
+@media (min-width: 980px) {
+body {
+  padding-top: 40px;
+  padding-bottom: 20px;
+}
+}
+
+.page-header {
+padding-bottom: 0px;
+margin-top: 20px;
+margin-bottom: 10px;
 }

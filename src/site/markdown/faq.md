@@ -2,7 +2,7 @@
 
 * [I want to get started. Is there a Phoenix Hello World?](#I_want_to_get_started_Is_there_a_Phoenix_Hello_World)
 * [Is there a way to bulk load in Phoenix?](#Is_there_a_way_to_bulk_load_in_Phoenix)
-* [How I create Views in Phoenix? What's the difference between Views/Tables?](#How_I_create_Views_in_Phoenix_Whatnulls_the_difference_between_ViewsTables)
+* [How do I create a VIEW in Phoenix? What's the difference between a VIEW and a TABLE?](#How_I_create_Views_in_Phoenix_Whatnulls_the_difference_between_ViewsTables)
 * [Are there any tips for optimizing Phoenix?](#Are_there_any_tips_for_optimizing_Phoenix)
 * [How do I create Secondary Index on a table?](#How_do_I_create_Secondary_Index_on_a_table)
 * [Why isn't my secondary index being used?](#Why_isnnullt_my_secondary_index_being_used)
@@ -248,7 +248,20 @@ Hadoop-2 profile exists in Phoenix pom.xml.
 
 
 ### Can phoenix work on tables with arbitrary timestamp as flexible as HBase API?
-Yes, Phoenix works with arbitrary timestamps - you don't need to connect at an earlier timestamp to delete data at an earlier timestamp. The CurrentSCN connection property is mainly to restrict what data a query will see. You can do "flashback" queries by connecting at an earlier timestamp and you won't see data that was committed after this timestamp. If you don't need this "flashback" capability, then you never need to specify a CurrentSCN. You'll just see the latest state of everything.
+By default, Phoenix let's HBase manage the timestamps and just shows you the latest values for everything. However, Phoenix also allows arbitrary timestamps to be supplied by the user. To do that you'd specify a "CurrentSCN" (or PhoenixRuntime.CURRENT_SCN_ATTRIB if you want to use our constant) at connection time, like this:
+
+    Properties props = new Properties();
+    props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+    Connection conn = DriverManager.connect(myUrl, props);
+
+    conn.createStatement().execute("UPSERT INTO myTable VALUES ('a')");
+    conn.commit();
+The above is equivalent to doing this with the HBase API:
+
+    myTable.put(Bytes.toBytes('a'),ts);
+By specifying a CurrentSCN, you're telling Phoenix that you want everything for that connection to be done at that timestamp. Note that this applies to queries done on the connection as well - for example, a query over myTable above would not see the data it just upserted, since it only sees data that was created before its CurrentSCN property. This provides a way of doing snapshot, flashback, or point-in-time queries.
+
+Keep in mind that creating a new connection is *not* an expensive operation. The same underlying HConnection is used for all connections to the same cluster, so it's more or less like instantiating a few objects.
 
 
 ### Why isn't my query doing a RANGE SCAN?

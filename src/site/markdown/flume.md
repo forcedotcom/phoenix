@@ -18,7 +18,7 @@ The plugin enables us to reliably and efficiently stream large amounts of data/l
   
 Property Name             |Default| Description
 --------------------------|-------|---
-type                      |       |com.salesforce.phoenix.flume.sink.PhoenixSink
+type                      |       |org.apache.phoenix.flume.sink.PhoenixSink
 batchSize                 |100    |Default number of events per transaction 
 zookeeperQuorum           |       |Zookeeper quorum of the HBase cluster
 table                     |       |The name of the table in HBase to write to.
