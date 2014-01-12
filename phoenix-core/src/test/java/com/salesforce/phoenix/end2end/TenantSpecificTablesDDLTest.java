@@ -188,7 +188,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     public void testBaseTableWrongFormatWithTenantTypeId() throws Exception {
         // only two PK columns
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID VARCHAR(3) NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID VARCHAR(3) NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
@@ -198,7 +198,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         
         // nullable tenantTypeId column
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID VARCHAR(3) NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID, ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID VARCHAR(3) NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
@@ -208,7 +208,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         
         // tenantTypeId column of wrong type
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE2 (B VARCHAR) BASE_TABLE='BASE_TABLE2',TENANT_TYPE_ID='aaa'");
             fail();
         }
@@ -221,7 +221,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     public void testBaseTableWrongFormatWithNoTenantTypeId() throws Exception {
         // only one PK column
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE3 (B VARCHAR) BASE_TABLE='BASE_TABLE3'");
             fail();
         }
@@ -231,7 +231,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         
         // nullable tenantId column
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE3 (B VARCHAR) BASE_TABLE='BASE_TABLE3'");
             fail();
         }
@@ -241,7 +241,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         
         // tenantId column of wrong type
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID))");
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true");
             createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE TENANT_TABLE3 (B VARCHAR) BASE_TABLE='BASE_TABLE3'");
             fail();
         }

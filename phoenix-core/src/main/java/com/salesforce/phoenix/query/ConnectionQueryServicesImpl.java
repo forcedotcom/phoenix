@@ -27,6 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 
@@ -1026,7 +1030,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } catch (TableAlreadyExistsException e) {
                 PTable table = metaConnection.getPMetaData().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
                 if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP) {
-                    metaConnection = addColumnsIfNotExists(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP, PhoenixDatabaseMetaData.MULTI_TENANT + " BOOLEAN, " + PhoenixDatabaseMetaData.MULTI_TYPE + " BOOLEAN");
+                    metaConnection = addColumnsIfNotExists(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP,
+                            MULTI_TENANT + " BOOLEAN, " + MULTI_TYPE + " BOOLEAN," + BASE_SCHEMA_NAME + " VARCHAR," + BASE_TABLE_NAME + " VARCHAR");
                 }
             }
             try {

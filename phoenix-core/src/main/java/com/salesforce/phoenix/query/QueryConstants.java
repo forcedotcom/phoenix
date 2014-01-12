@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.query;
 
 
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BUFFER_LENGTH;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CACHE_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CHAR_OCTET_LENGTH;
@@ -187,7 +189,7 @@ public interface QueryConstants {
             COLUMN_MODIFIER + " INTEGER," +
             SALT_BUCKETS + " INTEGER," +
             // Columns added in 2.0.0
-            DATA_TABLE_NAME + " VARCHAR NULL," +
+            DATA_TABLE_NAME + " VARCHAR," +
             INDEX_STATE + " CHAR(1),\n" +
             IMMUTABLE_ROWS + " BOOLEAN,\n" +
             // Columns added in 3.0.0
@@ -195,7 +197,9 @@ public interface QueryConstants {
             DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR,\n" +
             DISABLE_WAL + " BOOLEAN,\n" +
             MULTI_TENANT + " BOOLEAN,\n" +
-            MULTI_TYPE + " BOOLEAN\n" +
+            MULTI_TYPE + " BOOLEAN,\n" +
+            BASE_SCHEMA_NAME + " VARCHAR,\n" +
+            BASE_TABLE_NAME + " VARCHAR,\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
             + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +

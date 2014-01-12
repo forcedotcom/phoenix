@@ -33,6 +33,8 @@ import static com.google.common.collect.Sets.newLinkedHashSetWithExpectedSize;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -63,6 +65,7 @@ import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 import static com.salesforce.phoenix.schema.PDataType.CHAR;
 import static com.salesforce.phoenix.schema.PDataType.VARCHAR;
+import static com.salesforce.phoenix.schema.PTable.BASE_SCHEMA_PROP_NAME;
 import static com.salesforce.phoenix.schema.PTable.BASE_TABLE_PROP_NAME;
 
 import java.sql.DriverManager;
@@ -155,8 +158,10 @@ public class MetaDataClient {
             TENANT_TYPE_ID + "," +
             DISABLE_WAL + "," +
             MULTI_TENANT + "," +
-            MULTI_TYPE +
-            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            MULTI_TYPE + "," +
+            BASE_SCHEMA_NAME + "," +
+            BASE_TABLE_NAME +
+            ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String CREATE_INDEX_LINK =
             "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"( " +
             TENANT_ID + "," +
@@ -700,6 +705,7 @@ public class MetaDataClient {
             
             String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
             String baseTableName = (String)tableProps.remove(BASE_TABLE_PROP_NAME);
+            String baseSchemaName = (String)tableProps.remove(BASE_SCHEMA_PROP_NAME);
             
             if ((tenantId == null && baseTableName != null) || (tenantId != null && baseTableName == null)) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_MUTATE_TABLE)
@@ -837,8 +843,10 @@ public class MetaDataClient {
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
             if (tableType == PTableType.SYSTEM) {
-                PTable table = PTableImpl.makePTable(PNameFactory.newName(schemaName),PNameFactory.newName(tableName), tableType, null, MetaDataProtocol.MIN_TABLE_TIMESTAMP, PTable.INITIAL_SEQ_NUM, PNameFactory.newName(QueryConstants.SYSTEM_TABLE_PK_NAME), null, columns, null, Collections.<PTable>emptyList(), isImmutableRows, null,
-                        defaultFamilyName == null ? null : PNameFactory.newName(defaultFamilyName),
+                PTable table = PTableImpl.makePTable(PNameFactory.newName(schemaName),PNameFactory.newName(tableName), tableType, null,
+                        MetaDataProtocol.MIN_TABLE_TIMESTAMP, PTable.INITIAL_SEQ_NUM, PNameFactory.newName(QueryConstants.SYSTEM_TABLE_PK_NAME),
+                        null, columns, null, Collections.<PTable>emptyList(), isImmutableRows, 
+                        null, null, defaultFamilyName == null ? null : PNameFactory.newName(defaultFamilyName),
                         tenantTypeId == null ? null : PNameFactory.newName(tenantTypeId), Boolean.TRUE.equals(disableWAL), false, false);
                 connection.addTable(table);
             } else if (tableType == PTableType.INDEX) {
@@ -895,6 +903,8 @@ public class MetaDataClient {
             tableUpsert.setBoolean(14, disableWAL);
             tableUpsert.setBoolean(15, multiTenant);
             tableUpsert.setBoolean(16, multiType);
+            tableUpsert.setString(17, baseSchemaName);
+            tableUpsert.setString(18, baseTableName);
             tableUpsert.execute();
             
             tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
@@ -936,9 +946,9 @@ public class MetaDataClient {
                 PTable table =  PTableImpl.makePTable(
                         PNameFactory.newName(schemaName), PNameFactory.newName(tableName), tableType, indexState, result.getMutationTime(), PTable.INITIAL_SEQ_NUM, 
                         pkName == null ? null : PNameFactory.newName(pkName), saltBucketNum, columns, dataTableName == null ? null : PNameFactory.newName(dataTableName), 
-                        Collections.<PTable>emptyList(), isImmutableRows, baseTableName == null ? null : PNameFactory.newName(baseTableName),
-                        defaultFamilyName == null ? null : PNameFactory.newName(defaultFamilyName), tenantTypeId == null ? null : PNameFactory.newName(tenantTypeId),
-                        Boolean.TRUE.equals(disableWAL), multiTenant, multiType);
+                        Collections.<PTable>emptyList(), isImmutableRows, baseSchemaName == null ? null : PNameFactory.newName(baseSchemaName),
+                        baseTableName == null ? null : PNameFactory.newName(baseTableName), defaultFamilyName == null ? null : PNameFactory.newName(defaultFamilyName),
+                        tenantTypeId == null ? null : PNameFactory.newName(tenantTypeId), Boolean.TRUE.equals(disableWAL), multiTenant, multiType);
                 connection.addTable(table);
                 return table;
             }

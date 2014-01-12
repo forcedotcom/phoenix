@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.coprocessor;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME_INDEX;
@@ -54,7 +56,6 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYT
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES;
 import static com.salesforce.phoenix.schema.PTableType.INDEX;
-import static com.salesforce.phoenix.schema.PTableType.USER;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
@@ -78,6 +79,7 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
+import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
@@ -149,6 +151,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
     private static final KeyValue MULTI_TENANT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TENANT_BYTES);
     private static final KeyValue MULTI_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TYPE_BYTES);
+    private static final KeyValue BASE_SCHEMA_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES);
+    private static final KeyValue BASE_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -162,7 +166,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             DEFAULT_COLUMN_FAMILY_KV,
             DISABLE_WAL_KV,
             MULTI_TENANT_KV,
-            MULTI_TYPE_KV
+            MULTI_TYPE_KV,
+            BASE_SCHEMA_NAME_KV,
+            BASE_TABLE_NAME_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -180,6 +186,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int DISABLE_WAL_INDEX = TABLE_KV_COLUMNS.indexOf(DISABLE_WAL_KV);
     private static final int MULTI_TENANT_INDEX = TABLE_KV_COLUMNS.indexOf(MULTI_TENANT_KV);
     private static final int MULTI_TYPE_INDEX = TABLE_KV_COLUMNS.indexOf(MULTI_TYPE_KV);
+    private static final int BASE_SCHEMA_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(BASE_SCHEMA_NAME_KV);
+    private static final int BASE_TABLE_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(BASE_TABLE_NAME_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -398,6 +406,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         boolean multiTenant = multiTenantKv == null ? false : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(multiTenantKv.getBuffer(), multiTenantKv.getValueOffset(), multiTenantKv.getValueLength()));
         KeyValue multiTypeKv = tableKeyValues[MULTI_TYPE_INDEX];
         boolean multiType = multiTypeKv == null ? false : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(multiTypeKv.getBuffer(), multiTypeKv.getValueOffset(), multiTypeKv.getValueLength()));
+        KeyValue baseSchemaNameKv = tableKeyValues[BASE_SCHEMA_NAME_INDEX];
+        PName baseSchemaName = baseSchemaNameKv != null ? newPName(baseSchemaNameKv.getBuffer(), baseSchemaNameKv.getValueOffset(), baseSchemaNameKv.getValueLength()) : null;
+        KeyValue baseTableNameKv = tableKeyValues[BASE_TABLE_NAME_INDEX];
+        PName baseTableName = baseTableNameKv != null ? newPName(baseTableNameKv.getBuffer(), baseTableNameKv.getValueOffset(), baseTableNameKv.getValueLength()) : null;
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -420,7 +432,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         
         return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
-                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId, disableWAL, multiTenant, multiType);
+                indexes, isImmutableRows, baseSchemaName, baseTableName, defaultFamilyName, tenantTypeId, disableWAL, multiTenant, multiType);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -585,11 +597,14 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
      * @param tableName parent table's name
      * @return true if there exist tenant-specific tables that use this table as their parent.
      */
-    private boolean hasTenantSpecificTables(HRegion region, byte[] tableName) throws IOException {
+    private boolean hasDerivedTables(HRegion region, byte[] schemaName, byte[] tableName) throws IOException {
         Scan scan = new Scan();
         scan.setStartRow(KeyRange.IS_NOT_NULL_RANGE.getLowerRange());
-        SingleColumnValueFilter filter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, tableName);
-        filter.setFilterIfMissing(true);
+        SingleColumnValueFilter filter1 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES, EQUAL, schemaName);
+        filter1.setFilterIfMissing(schemaName.length > 0);
+        SingleColumnValueFilter filter2 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES, EQUAL, tableName);
+        filter2.setFilterIfMissing(true);
+        Filter filter = new FilterList(filter1,filter2);
         scan.setFilter(filter);
         RegionScanner scanner = region.getScanner(scan);
         try {
@@ -652,7 +667,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (key != lockKey) {
                     acquireLock(region, key, lids);
                 }
-                if (hasTenantSpecificTables(region, tableName)) {
+                // TODO: delay this check and only do it if table isMultiTenant() or table.isMultiType()
+                // TODO: pass in timestamp here
+                if (hasDerivedTables(region, schemaName, tableName)) {
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
@@ -829,11 +846,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (type == PTableType.INDEX) { 
                     // Disallow mutation of an index table
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
-                } else if (type == PTableType.USER && !table.isTenantSpecificTable()) {
+                } else if ((table.isMultiTenant() || table.isMultiType()) && hasDerivedTables(region, schemaName, tableName)) {
                     // Disallow any column mutations for parents of tenant tables
-                    if (hasTenantSpecificTables(region, tableName)) {
-                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
-                    }
+                    return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 result = mutator.updateMutation(table, rowKeyMetaData, tableMetadata, region, invalidateList, lids);
                 if (result != null) {

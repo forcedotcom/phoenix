@@ -173,6 +173,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	public void testSequenceCreation() throws Exception {		
 		Connection conn = getConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 3 CACHE 5");
+		Thread.sleep(1); // TODO: make these tests derive from BaseClientManagedTimeTest
         ResultSet rs = conn.createStatement().executeQuery("SELECT start_with, increment_by, cache_size, sequence_schema, sequence_name FROM SYSTEM.\"SEQUENCE\"");
         assertTrue(rs.next());
         assertEquals(2, rs.getLong(1));
