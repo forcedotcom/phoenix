@@ -68,6 +68,7 @@ import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
+import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -190,7 +191,7 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
         try {
             try {
                 metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_TABLE_METADATA);
-            } catch (NewerTableAlreadyExistsException ignore) {
+            } catch (TableAlreadyExistsException ignore) {
                 // Ignore, as this will happen if the SYSTEM.TABLE already exists at this fixed timestamp.
                 // A TableAlreadyExistsException is not thrown, since the table only exists *after* this fixed timestamp.
             }

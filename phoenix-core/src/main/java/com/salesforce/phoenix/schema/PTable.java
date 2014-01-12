@@ -210,4 +210,6 @@ public interface PTable extends Writable {
     PName getTenantTypeId();
     
     boolean isWALDisabled();
+    boolean isMultiTenant();
+    boolean isMultiType();
 }

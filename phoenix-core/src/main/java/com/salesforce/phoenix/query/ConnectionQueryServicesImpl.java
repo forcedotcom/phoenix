@@ -102,6 +102,7 @@ import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.Sequence;
 import com.salesforce.phoenix.schema.SequenceKey;
+import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
@@ -983,6 +984,33 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
        
     }
 
+    private PhoenixConnection addColumnsIfNotExists(PhoenixConnection oldMetaConnection, long timestamp, String columns) throws SQLException {
+        Properties props = new Properties(oldMetaConnection.getClientInfo());
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(timestamp));
+        // Cannot go through DriverManager or you end up in an infinite loop because it'll call init again
+        PhoenixConnection metaConnection = new PhoenixConnection(this, oldMetaConnection.getURL(), props, oldMetaConnection.getPMetaData());
+        SQLException sqlE = null;
+        try {
+            metaConnection.createStatement().executeUpdate("ALTER TABLE " + PhoenixDatabaseMetaData.TYPE_SCHEMA_AND_TABLE + " ADD IF NOT EXISTS " + columns );
+        } catch (SQLException e) {
+            sqlE = e;
+        } finally {
+            try {
+                oldMetaConnection.close();
+            } catch (SQLException e) {
+                if (sqlE != null) {
+                    sqlE.setNextException(e);
+                } else {
+                    sqlE = e;
+                }
+            }
+            if (sqlE != null) {
+                throw sqlE;
+            }
+        }
+        return metaConnection;
+    }
+    
     @Override
     public void init(String url, Properties props) throws SQLException {
         props = new Properties(props);
@@ -995,6 +1023,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } catch (NewerTableAlreadyExistsException ignore) {
                 // Ignore, as this will happen if the SYSTEM.TABLE already exists at this fixed timestamp.
                 // A TableAlreadyExistsException is not thrown, since the table only exists *after* this fixed timestamp.
+            } catch (TableAlreadyExistsException e) {
+                PTable table = metaConnection.getPMetaData().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
+                if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP) {
+                    metaConnection = addColumnsIfNotExists(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP, PhoenixDatabaseMetaData.MULTI_TENANT + " BOOLEAN, " + PhoenixDatabaseMetaData.MULTI_TYPE + " BOOLEAN");
+                }
             }
             try {
                 metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);

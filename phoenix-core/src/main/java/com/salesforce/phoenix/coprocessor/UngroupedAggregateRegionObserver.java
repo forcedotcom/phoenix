@@ -128,30 +128,6 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
         if (isUngroupedAgg == null) {
             return s;
         }
-        byte[] upgradeTo20 = scan.getAttribute(SchemaUtil.UPGRADE_TO_2_0);
-        /* Hack to upgrade data to new 2.0 format */
-        if (upgradeTo20 != null) {
-            int nColumns = Bytes.toInt(upgradeTo20);
-            SchemaUtil.upgradeTo2IfNecessary(c.getEnvironment().getRegion(), nColumns);
-            return new BaseRegionScanner() {
-                @Override
-                public HRegionInfo getRegionInfo() {
-                    return s.getRegionInfo();
-                }
-                @Override
-                public boolean isFilterDone() {
-                    return true;
-                }
-                @Override
-                public void close() throws IOException {
-                    s.close();
-                }
-                @Override
-                public boolean next(List<KeyValue> results) throws IOException {
-                    return false;
-                }
-            };
-        }
         
         final ScanProjector p = ScanProjector.deserializeProjectorFromScan(scan);
         final HashJoinInfo j = HashJoinInfo.deserializeHashJoinFromScan(scan);

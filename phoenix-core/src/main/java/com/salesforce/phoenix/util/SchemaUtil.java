@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,18 +42,16 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
@@ -62,7 +59,6 @@ import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
@@ -90,6 +86,7 @@ import com.salesforce.phoenix.schema.SaltingUtil;
  */
 public class SchemaUtil {
     private static final int VAR_LENGTH_ESTIMATE = 10;
+    private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     public static final RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
@@ -132,70 +129,6 @@ public class SchemaUtil {
     private SchemaUtil() {
     }
 
-    /**
-     * Join srcRow KeyValues to dstRow KeyValues.  For single-column mode, in the case of multiple
-     * column families (which can happen for our conceptual PK to PK joins), we always use the
-     * column family from the first dstRow.  TODO: we'll likely need a different coprocessor to
-     * handle the PK join case.
-     * @param srcRow the source list of KeyValues to join with dstRow KeyValues.  The key will be
-     * changed upon joining to match the dstRow key.  The list may not be empty and is left unchanged.
-     * @param dstRow the list of KeyValues to which the srcRows are joined.  The list is modified in
-     * place and may not be empty.
-     */
-    public static void joinColumns(List<KeyValue> srcRow, List<KeyValue> dstRow) {
-        assert(!dstRow.isEmpty());
-        KeyValue dst = dstRow.get(0);
-        byte[] dstBuf = dst.getBuffer();
-        int dstKeyOffset = dst.getRowOffset();
-        int dstKeyLength = dst.getRowLength();
-        // Combine columns from both rows
-        // The key for the cached KeyValues are modified to match the other key.
-        for (KeyValue srcValue : srcRow) {
-            byte[] srcBuf = srcValue.getBuffer();
-            byte type = srcValue.getType();
-            KeyValue dstValue = new KeyValue(dstBuf, dstKeyOffset, dstKeyLength,
-                srcBuf, srcValue.getFamilyOffset(), srcValue.getFamilyLength(),
-                srcBuf, srcValue.getQualifierOffset(), srcValue.getQualifierLength(),
-                HConstants.LATEST_TIMESTAMP, KeyValue.Type.codeToType(type),
-                srcBuf, srcValue.getValueOffset(), srcValue.getValueLength());
-            dstRow.add(dstValue);
-        }
-        // Put KeyValues in proper sort order
-        // TODO: our tests need this, but otherwise would this be required?
-        Collections.sort(dstRow, KeyValue.COMPARATOR);
-   }
-    
-    /**
-     * Get the column value of a row.
-     * @param result the Result return from iterating through scanner results.
-     * @param fam the column family 
-     * @param col the column qualifier
-     * @param pos the column position
-     * @param value updated in place to the bytes representing the column value
-     * @return true if the column exists and value was set and false otherwise.
-     */
-    public static boolean getValue(Result result, byte[] fam, byte[] col, int pos, ImmutableBytesWritable value) {
-        KeyValue keyValue = ResultUtil.getColumnLatest(result, fam, col);
-        if (keyValue != null) {
-            value.set(keyValue.getBuffer(),keyValue.getValueOffset(),keyValue.getValueLength());
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Concatenate two PColumn arrays
-     * @param first first array
-     * @param second second array
-     * @return new combined array
-     */
-    public static PColumn[] concat(PColumn[] first, PColumn[] second) {
-        PColumn[] result = new PColumn[first.length + second.length];
-        System.arraycopy(first, 0, result, 0, first.length);
-        System.arraycopy(second, 0, result, first.length, second.length);
-        return result;
-    }
-    
     public static boolean isPKColumn(PColumn column) {
         return column.getFamilyName() == null;
     }
@@ -431,6 +364,10 @@ public class SchemaUtil {
         return Bytes.compareTo(tableName, PhoenixDatabaseMetaData.SEQUENCE_TABLE_NAME_BYTES) == 0;
     }
 
+    public static boolean isMetaTable(PTable table) {
+        return PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(table.getSchemaName().getString()) && PhoenixDatabaseMetaData.TYPE_TABLE.equals(table.getTableName().getString());
+    }
+    
     public static boolean isMetaTable(byte[] schemaName, byte[] tableName) {
         return Bytes.compareTo(schemaName, PhoenixDatabaseMetaData.TYPE_SCHEMA_BYTES) == 0 && Bytes.compareTo(tableName, PhoenixDatabaseMetaData.TYPE_TABLE_BYTES) == 0;
     }
@@ -519,73 +456,6 @@ public class SchemaUtil {
     public static final String UPGRADE_TO_2_1 = "UpgradeTo21";
     public static final String UPGRADE_TO_3_0 = "UpgradeTo30";
 
-    public static boolean isUpgradeTo2Necessary(ConnectionQueryServices connServices) throws SQLException {
-        HTableInterface htable = connServices.getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES);
-        try {
-            return (htable.getTableDescriptor().getValue(SchemaUtil.UPGRADE_TO_2_0) == null);
-        } catch (IOException e) {
-            throw new SQLException(e);
-        }
-    }
-    
-    public static void upgradeTo2IfNecessary(HRegion region, int nColumns) throws IOException {
-        Scan scan = new Scan();
-        scan.setRaw(true);
-        scan.setMaxVersions(MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS);
-        RegionScanner scanner = region.getScanner(scan);
-        int batchSizeBytes = 100 * 1024; // 100K chunks
-        int sizeBytes = 0;
-        List<Pair<Mutation,Integer>> mutations =  Lists.newArrayListWithExpectedSize(10000);
-        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
-        region.startRegionOperation();
-        try {
-            List<KeyValue> result;
-            do {
-                result = Lists.newArrayList();
-                scanner.nextRaw(result, null);
-                for (KeyValue keyValue : result) {
-                    KeyValue newKeyValue = SchemaUtil.upgradeTo2IfNecessary(nColumns, keyValue);
-                    if (newKeyValue != null) {
-                        sizeBytes += newKeyValue.getLength();
-                        if (Type.codeToType(newKeyValue.getType()) == Type.Put) {
-                            // Delete old value
-                            byte[] buf = keyValue.getBuffer();
-                            Delete delete = new Delete(keyValue.getRow());
-                            KeyValue deleteKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
-                                    buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                                    buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                                    keyValue.getTimestamp(), Type.Delete,
-                                    ByteUtil.EMPTY_BYTE_ARRAY,0,0);
-                            delete.addDeleteMarker(deleteKeyValue);
-                            mutations.add(new Pair<Mutation,Integer>(delete,null));
-                            sizeBytes += deleteKeyValue.getLength();
-                            // Put new value
-                            Put put = new Put(newKeyValue.getRow());
-                            put.add(newKeyValue);
-                            mutations.add(new Pair<Mutation,Integer>(put,null));
-                        } else if (Type.codeToType(newKeyValue.getType()) == Type.Delete){
-                            // Copy delete marker using new key so that it continues
-                            // to delete the key value preceding it that will be updated
-                            // as well.
-                            Delete delete = new Delete(newKeyValue.getRow());
-                            delete.addDeleteMarker(newKeyValue);
-                            mutations.add(new Pair<Mutation,Integer>(delete,null));
-                        }
-                        if (sizeBytes >= batchSizeBytes) {
-                            commitBatch(region, mutations);
-                            mutations.clear();
-                            sizeBytes = 0;
-                        }
-                        
-                    }
-                }
-            } while (!result.isEmpty());
-            commitBatch(region, mutations);
-        } finally {
-            region.closeRegionOperation();
-        }
-    }
-    
     private static final byte[] ORIG_DEF_CF_NAME = Bytes.toBytes("_0");
 
     public static void upgradeTo3(HRegion region, List<Mutation> mutations) throws IOException {
@@ -662,32 +532,62 @@ public class SchemaUtil {
         }
     }
     
-    private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations) throws IOException {
-        if (mutations.isEmpty()) {
-            return;
-        }
-        @SuppressWarnings("unchecked")
-        Pair<Mutation,Integer>[] mutationArray = new Pair[mutations.size()];
-        // TODO: should we use the one that is all or none?
-        region.batchMutate(mutations.toArray(mutationArray));
+    private static final long OLD_MIN_SYSTEM_TABLE_TIMESTAMP = 8;
+    
+    public static boolean isUpgradeTo3FromSnapshot(byte[] schemaName, byte[] tableName, long timestamp) {
+        boolean executeUpgrade = SchemaUtil.isMetaTable(schemaName, tableName) && timestamp == OLD_MIN_SYSTEM_TABLE_TIMESTAMP;
+        logger.info("isUpgradeTo3FromSnapshot: executeUpgrade=" + executeUpgrade + ",timestamp = " + timestamp);
+        return executeUpgrade;
     }
     
-    private static KeyValue upgradeTo2IfNecessary(int maxSeparators, KeyValue keyValue) {
-        int originalLength = keyValue.getRowLength();
-        int length = originalLength;
-        int offset = keyValue.getRowOffset();
-        byte[] buf = keyValue.getBuffer();
-        while (originalLength - length < maxSeparators && buf[offset+length-1] == QueryConstants.SEPARATOR_BYTE) {
-            length--;
+    // Small upgrade code that ensures that every table header row has a DEFAULT_COLUMN_FAMILY_NAME
+    // defined using the old default, so that when we change it we don't break folks.
+    public static void upgradeTo3FromSnapshot(HRegion region, List<Mutation> mutations) throws IOException {
+        logger.info("Called upgradeTo3FromSnapshot");
+        Scan scan = new Scan();
+        scan.setTimeRange(MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP+1, HConstants.LATEST_TIMESTAMP);
+        scan.setRaw(true);
+        scan.setMaxVersions(MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS);
+        RegionScanner scanner = region.getScanner(scan);
+        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
+        List<KeyValue> result;
+        region.startRegionOperation();
+        try {
+            do {
+                result = Lists.newArrayList();
+                scanner.nextRaw(result, null);
+                for (KeyValue keyValue : result) {
+                    byte[] buf = keyValue.getBuffer();
+                    if (Type.codeToType(keyValue.getType()) == Type.Put) {
+                        // Add a new DEFAULT_COLUMN_FAMILY_NAME key value as a table header column.
+                        // We can match here on any table column header we know will occur for any
+                        // table row.
+                        if (Bytes.compareTo(
+                                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
+                                PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES, 0, PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES.length) == 0) {
+                            // Add one to the timestamp because we have a Delete marker at the same timestamp because we set
+                            // the same column to null before
+                            KeyValue defCFNameKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
+                                    buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
+                                    PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES, 0, PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES.length,
+                                    keyValue.getTimestamp()+1, Type.Put,
+                                    ORIG_DEF_CF_NAME,0,ORIG_DEF_CF_NAME.length);
+                            byte[] row = defCFNameKeyValue.getRow();
+                            logger.info("Setting " + PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME + " for " + Bytes.toStringBinary(row));
+                            Put defCFNamePut = new Put(row);
+                            defCFNamePut.add(defCFNameKeyValue);
+                            mutations.add(defCFNamePut);
+                        }
+                    }
+                }
+            } while (!result.isEmpty());
+        } finally {
+            try {
+                scanner.close();
+            } finally {
+                region.closeRegionOperation();
+            }
         }
-        if (originalLength == length) {
-            return null;
-        }
-        return new KeyValue(buf, offset, length,
-                buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                keyValue.getTimestamp(), Type.codeToType(keyValue.getType()),
-                buf, keyValue.getValueOffset(), keyValue.getValueLength());
     }
 
     private static final byte[][] OLD_TO_NEW_DATA_TYPE_3_0 = new byte[PDataType.TIMESTAMP.getSqlType() + 1][];
@@ -731,25 +631,6 @@ public class SchemaUtil {
                 buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
                 keyValue.getTimestamp(), Type.codeToType(keyValue.getType()),
                 valueBuf, valueOffset, valueLength);
-    }
-
-    public static int upgradeColumnCount(String url, Properties info) throws SQLException {
-        String upgradeStr = JDBCUtil.findProperty(url, info, UPGRADE_TO_2_0);
-        return (upgradeStr == null ? 0 : Integer.parseInt(upgradeStr));
-    }
-
-    public static boolean checkIfUpgradeTo2Necessary(ConnectionQueryServices connectionQueryServices, String url,
-            Properties info) throws SQLException {
-        boolean isUpgrade = upgradeColumnCount(url, info) > 0;
-        boolean isUpgradeNecessary = isUpgradeTo2Necessary(connectionQueryServices);
-        if (!isUpgrade && isUpgradeNecessary) {
-            throw new SQLException("Please run the upgrade script in bin/updateTo2.sh to ensure your data is converted correctly to the 2.0 format");
-        }
-        if (isUpgrade && !isUpgradeNecessary) {
-            info.remove(SchemaUtil.UPGRADE_TO_2_0); // Remove this property and ignore, since upgrade has already been done
-            return false;
-        }
-        return isUpgradeNecessary;
     }
 
     public static String getEscapedTableName(String schemaName, String tableName) {

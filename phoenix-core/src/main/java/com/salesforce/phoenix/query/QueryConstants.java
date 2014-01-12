@@ -47,6 +47,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INCREMENT_BY;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NUM_PREC_RADIX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
@@ -145,7 +147,9 @@ public interface QueryConstants {
     
 
     public static final String CREATE_TABLE_METADATA =
-            "CREATE TABLE IF NOT EXISTS " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
+            // Do not use IF NOT EXISTS as we sometimes catch the TableAlreadyExists exception
+            // and add columns to the SYSTEM.TABLE dynamically.
+            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -189,7 +193,9 @@ public interface QueryConstants {
             // Columns added in 3.0.0
             TENANT_TYPE_ID + " VARBINARY,\n" +
             DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR,\n" +
-            DISABLE_WAL + " BOOLEAN\n" +
+            DISABLE_WAL + " BOOLEAN,\n" +
+            MULTI_TENANT + " BOOLEAN,\n" +
+            MULTI_TYPE + " BOOLEAN\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
             + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +

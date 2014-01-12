@@ -138,6 +138,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	public void testSelectNextValueFor() throws Exception {
 		Connection conn = getConnection();
 		conn.createStatement().execute("CREATE SEQUENCE foo.bar START WITH 3 INCREMENT BY 2");
+		Thread.sleep(1);
 		String query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -155,8 +156,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	@Test
 	public void testInsertNextValueFor() throws Exception {
 		Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE alpha.tau START WITH 2 INCREMENT BY 1");
 		conn.createStatement().execute("CREATE TABLE test.sequence_number ( id INTEGER NOT NULL PRIMARY KEY)");
-		conn.createStatement().execute("CREATE SEQUENCE alpha.tau START WITH 2 INCREMENT BY 1");
 		conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
         conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
 		conn.commit();
@@ -196,6 +197,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     public void testSameMultipleSequenceValues() throws Exception {
         Connection conn = getConnection();
         conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
+        Thread.sleep(1);
         String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.zeta FROM SYSTEM.\"SEQUENCE\"";
         ResultSet rs = conn.prepareStatement(query).executeQuery();
         assertTrue(rs.next());
@@ -210,6 +212,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 		Connection conn = getConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
 		conn.createStatement().execute("CREATE SEQUENCE alpha.kappa START WITH 9 INCREMENT BY 2");
+        Thread.sleep(1);
 		String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.kappa FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -236,9 +239,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	@Test
 	public void testCompilerOptimization() throws Exception {
 		Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE seq.perf START WITH 3 INCREMENT BY 2");        
 		conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
         conn.createStatement().execute("CREATE INDEX idx ON t(v1) INCLUDE (v2)");
-        conn.createStatement().execute("CREATE SEQUENCE seq.perf START WITH 3 INCREMENT BY 2");        
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         stmt.optimizeQuery("SELECT k, NEXT VALUE FOR seq.perf FROM t WHERE v1 = 'bar'");
 	}
@@ -261,8 +264,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testSelectNextValueForOverMultipleBatches() throws Exception {
         Connection conn = getConnection();
-        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE  * 2 + 1; i++) {
@@ -278,9 +281,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testSelectNextValueForGroupBy() throws Exception {
         Connection conn = getConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
         conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY, v VARCHAR)");
         conn.createStatement().execute("CREATE TABLE bar (k BIGINT NOT NULL PRIMARY KEY, v VARCHAR)");
-        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
         
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar, ?)");
         stmt.setString(1, "a");
@@ -313,8 +316,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testSelectNextValueForMultipleConn() throws Exception {
         Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
@@ -376,8 +379,8 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testSelectNextValueForMultipleConnWithConnClose() throws Exception {
         Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
@@ -413,9 +416,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     
     private void testDropCachedSeq(boolean detectDeleteSeqInEval) throws Exception {
         Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
         conn1.createStatement().execute("CREATE SEQUENCE bar.bas START WITH 101");
+        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
         PreparedStatement stmt1a = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         stmt1a.execute();

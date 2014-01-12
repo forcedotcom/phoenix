@@ -40,6 +40,8 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL_BY
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.PK_NAME_BYTES;
@@ -145,6 +147,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES);
     private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
     private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
+    private static final KeyValue MULTI_TENANT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TENANT_BYTES);
+    private static final KeyValue MULTI_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TYPE_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -156,7 +160,9 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             IMMUTABLE_ROWS_KV,
             TENANT_TYPE_ID_KV,
             DEFAULT_COLUMN_FAMILY_KV,
-            DISABLE_WAL_KV
+            DISABLE_WAL_KV,
+            MULTI_TENANT_KV,
+            MULTI_TYPE_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -172,6 +178,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int TENANT_TYPE_ID_INDEX = TABLE_KV_COLUMNS.indexOf(TENANT_TYPE_ID_KV);
     private static final int DEFAULT_COLUMN_FAMILY_INDEX = TABLE_KV_COLUMNS.indexOf(DEFAULT_COLUMN_FAMILY_KV);
     private static final int DISABLE_WAL_INDEX = TABLE_KV_COLUMNS.indexOf(DISABLE_WAL_KV);
+    private static final int MULTI_TENANT_INDEX = TABLE_KV_COLUMNS.indexOf(MULTI_TENANT_KV);
+    private static final int MULTI_TYPE_INDEX = TABLE_KV_COLUMNS.indexOf(MULTI_TYPE_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -386,6 +394,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         PName tenantTypeId = tenantTypeIdKv != null ? newPName(tenantTypeIdKv.getBuffer(), tenantTypeIdKv.getValueOffset(), tenantTypeIdKv.getValueLength()) : null;
         KeyValue disableWALKv = tableKeyValues[DISABLE_WAL_INDEX];
         boolean disableWAL = disableWALKv == null ? PTable.DEFAULT_DISABLE_WAL : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(disableWALKv.getBuffer(), disableWALKv.getValueOffset(), disableWALKv.getValueLength()));
+        KeyValue multiTenantKv = tableKeyValues[MULTI_TENANT_INDEX];
+        boolean multiTenant = multiTenantKv == null ? false : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(multiTenantKv.getBuffer(), multiTenantKv.getValueOffset(), multiTenantKv.getValueLength()));
+        KeyValue multiTypeKv = tableKeyValues[MULTI_TYPE_INDEX];
+        boolean multiType = multiTypeKv == null ? false : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(multiTypeKv.getBuffer(), multiTypeKv.getValueOffset(), multiTypeKv.getValueLength()));
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
@@ -408,7 +420,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         
         return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
-                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId, disableWAL);
+                indexes, isImmutableRows, tableType == USER ? dataTableName : null, defaultFamilyName, tenantTypeId, disableWAL, multiTenant, multiType);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -828,6 +840,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     return result;
                 }
                 
+                // Detect if we're attempting to mutate the SYSTEM.TABLE in which 
+                // case we need to do some upgrade that we didn't do with our original
+                // upgrade script. This is for folks who started using the 3.0.0-SNAPSHOT
+                // prior to release as as not to hose them.
+                if (SchemaUtil.isUpgradeTo3FromSnapshot(schemaName, tableName, table.getTimeStamp())) {
+                    SchemaUtil.upgradeTo3FromSnapshot(region, tableMetadata);
+                }
                 region.mutateRowsWithLocks(tableMetadata, Collections.<byte[]>emptySet());
                 // Invalidate from cache
                 for (ImmutableBytesPtr invalidateKey : invalidateList) {

@@ -174,7 +174,10 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] TENANT_TYPE_ID_BYTES = Bytes.toBytes(TENANT_TYPE_ID);
     public static final String DISABLE_WAL = "DISABLE_WAL";
     public static final byte[] DISABLE_WAL_BYTES = Bytes.toBytes(DISABLE_WAL);
-    
+    public static final String MULTI_TENANT = "MULTI_TENANT";
+    public static final byte[] MULTI_TENANT_BYTES = Bytes.toBytes(MULTI_TENANT);
+    public static final String MULTI_TYPE = "MULTI_TYPE";
+    public static final byte[] MULTI_TYPE_BYTES = Bytes.toBytes(MULTI_TYPE);
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
