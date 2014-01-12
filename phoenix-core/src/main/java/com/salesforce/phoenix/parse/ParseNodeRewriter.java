@@ -465,6 +465,11 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     public ParseNode visit(LiteralParseNode node) throws SQLException {
         return node;
     }
+    
+    @Override
+    public ParseNode visit(UpsertStmtArrayNode node) throws SQLException {
+        return node;
+    }
 
     @Override
     public ParseNode visit(BindParseNode node) throws SQLException {

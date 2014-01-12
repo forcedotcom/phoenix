@@ -32,6 +32,7 @@ import static com.google.common.collect.Lists.newArrayListWithCapacity;
 import java.sql.ParameterMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
@@ -76,12 +77,14 @@ import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
+import com.salesforce.phoenix.parse.UpsertStmtArrayNode;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.ConstraintViolationException;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnImpl;
 import com.salesforce.phoenix.schema.PDataType;
@@ -678,6 +681,21 @@ public class UpsertCompiler {
                 return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
             }
             return super.visit(node);
+        }
+        
+        @Override
+        public Expression visit(UpsertStmtArrayNode node) throws SQLException {
+        	List<ParseNode> arrayValues = node.getArrayValues();
+        	Object[] elements = new Object[arrayValues.size()];
+        	int i = 0;
+        	// TODO :  a better way to do this??
+        	for(ParseNode nodeElem : arrayValues) {
+        		elements[i] = ((LiteralParseNode)nodeElem).getValue();
+        		i++;
+        	}
+        	PDataType baseType = PDataType.fromTypeId(column.getDataType().getSqlType() - Types.ARRAY);
+        	Object value = PArrayDataType.instantiatePhoenixArray(baseType, elements);
+        	return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier());
         }
         
         @Override

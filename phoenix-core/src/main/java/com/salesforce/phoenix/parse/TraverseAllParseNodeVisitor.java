@@ -128,6 +128,11 @@ public abstract class TraverseAllParseNodeVisitor<T> extends BaseParseNodeVisito
     public T visit(LiteralParseNode node) throws SQLException {
         return null;
     }
+    
+    @Override
+    public T visit(UpsertStmtArrayNode node) throws SQLException {
+        return null;
+    }
 
     @Override
     public T visit(BindParseNode node) throws SQLException {
