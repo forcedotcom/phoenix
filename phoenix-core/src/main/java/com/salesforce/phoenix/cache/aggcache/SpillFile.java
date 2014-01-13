@@ -7,16 +7,20 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.Map;
 import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import com.google.common.io.Closeables;
 
 /**
  * This class abstracts a SpillFile It is a accessible on a per page basis
+ * For every SpillFile object a single spill file is always created. 
+ * Additional overflow files are dynamically created in case the page index requested is not covered by
+ * the spillFiles allocated so far
  */
 public class SpillFile implements Closeable {
 
@@ -25,44 +29,70 @@ public class SpillFile implements Closeable {
     private static final int SPILL_FILE_SIZE = Integer.MAX_VALUE;
     // Page size for a spill file 4K
     static final int DEFAULT_PAGE_SIZE = 4096;
+    // Map of initial SpillFile at index 0, and overflow spillFiles
+    private Map<Integer, TempFile> tempFiles;
+    
+    // Wrapper class for a TempFile: File + RandomAccessFile
+    private static class TempFile implements Closeable{
+    	private RandomAccessFile rndFile;
+    	private File file;
+    	
+    	public TempFile(File file, RandomAccessFile rndFile) {
+    		this.file = file;
+    		this.rndFile = rndFile;
+    	}    	
+    	    	
+    	public FileChannel getChannel() {
+    		return rndFile.getChannel();
+    	}
 
-    private File tempFile;
-    private FileChannel fc;
-    private RandomAccessFile file;
-    private int maxPageId;
-
+		@Override
+		public void close() throws IOException {
+			Closeables.closeQuietly(rndFile.getChannel());
+			Closeables.closeQuietly(rndFile);
+			
+			if (file != null) {
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Deleting tempFIle: " + file.getAbsolutePath());
+                }
+                try {
+                    file.delete();
+                } catch (SecurityException e) {
+                    logger.warn("IOException thrown while closing Closeable." + e);
+            	}
+            }
+		}
+    }
+    
     /**
      * Create a new SpillFile using the Java TempFile creation function. SpillFile is access in
      * pages.
      */
     public static SpillFile createSpillFile() {
-        File tempFile = null;
-        try {
-            tempFile = File.createTempFile(UUID.randomUUID().toString(), null);
-            if (logger.isDebugEnabled()) {
-                logger.debug("Creating new SpillFile: " + tempFile.getAbsolutePath());
-            }
-            RandomAccessFile file = new RandomAccessFile(tempFile, "rw");
-            file.setLength(SPILL_FILE_SIZE);
-            return new SpillFile(tempFile, file);
-
-        } catch (IOException ioe) {
-            throw new RuntimeException("Could not create Spillfile " + ioe);
+    	try {    		
+    		return new SpillFile(createTempFile());    		
+    	} catch (IOException ioe) {
+        	throw new RuntimeException("Could not create Spillfile " + ioe);
         }
     }
-
-    private SpillFile(File tempFile, RandomAccessFile file) throws IOException {
-        this.tempFile = tempFile;
-        this.file = file;
-        this.fc = file.getChannel();
-        maxPageId = -1;
+    
+    
+    private static TempFile createTempFile() throws IOException {
+        File tempFile = File.createTempFile(UUID.randomUUID().toString(), null);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Creating new SpillFile: " + tempFile.getAbsolutePath());
+        }
+        RandomAccessFile file = new RandomAccessFile(tempFile, "rw");
+        file.setLength(SPILL_FILE_SIZE);
+        
+        return new TempFile(tempFile, file);
     }
 
-    /**
-     * Returns the next free page within the current spill file
-     */
-    public MappedByteBuffer getNextFreePage() {
-        return getPage(++maxPageId);
+    
+    private SpillFile(TempFile spFile) throws IOException {
+        this.tempFiles = Maps.newHashMap();
+        // Init the first pre-allocated spillFile
+        tempFiles.put(0, spFile);
     }
 
     /**
@@ -71,10 +101,26 @@ public class SpillFile implements Closeable {
      */
     public MappedByteBuffer getPage(int index) {
         try {
-            long offset = (long) index * (long) DEFAULT_PAGE_SIZE;
-            Preconditions.checkArgument(offset <= Integer.MAX_VALUE);
+        	TempFile tempFile = null;
+        	int fileIndex = 0;
+        	
+            long offset = (long) index * (long) DEFAULT_PAGE_SIZE;            
+            if(offset >= SPILL_FILE_SIZE) {
+            	// Offset exceeds the first SpillFile size
+            	// Get the index of the file that should contain the pageID
+            	fileIndex = (int)(offset / SPILL_FILE_SIZE);
+            	if(!tempFiles.containsKey(fileIndex)) {
+            		// Dynamically add new spillFiles if directory grows beyond 
+            		// max page ID.
+            		tempFile = createTempFile();
+            		tempFiles.put(fileIndex, tempFile);
+            	}
+            }
+        	tempFile = tempFiles.get(fileIndex);
+        	// Channel gets buffered in file object
+        	FileChannel fc = tempFile.getChannel();
 
-            return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
+        	return fc.map(MapMode.READ_WRITE, offset, DEFAULT_PAGE_SIZE);
         } catch (IOException ioe) {
             // Close resource
             close();
@@ -86,29 +132,11 @@ public class SpillFile implements Closeable {
         }
     }
 
-    /**
-     * Return the current highest allocaled page in spill file
-     */
-    public int getMaxPageId() {
-        return maxPageId;
-    }
-
     @Override
     public void close() {
-        // Swallow IOException
-        Closeables.closeQuietly(fc);
-        Closeables.closeQuietly(file);
-
-        if (tempFile != null) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Deleting tempFIle: " + tempFile.getAbsolutePath());
-            }
-            try {
-                tempFile.delete();
-            } catch (SecurityException e) {
-                logger.warn("IOException thrown while closing Closeable." + e);
-            }
-            tempFile = null;
-        }
+    	for(TempFile file : tempFiles.values()) {
+            // Swallow IOExceptions
+            Closeables.closeQuietly(file);
+    	}
     }
 }
