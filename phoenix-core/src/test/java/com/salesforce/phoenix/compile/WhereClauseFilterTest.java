@@ -924,8 +924,8 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, type_id char(4) not null, " +
-        		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id))");
-        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='BASE_TABLE_FOR_TENANT_FILTER_TEST',TENANT_TYPE_ID='" + tenantTypeId + "'");
+        		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id)) multi_tenant=true,multi_type=true");
+        createTestTable(url, "derive table tenant_filter_test (tenant_col integer) FROM BASE_TABLE_FOR_TENANT_FILTER_TEST AS '" + tenantTypeId + "'");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
         SQLParser parser = new SQLParser(query);
@@ -961,8 +961,8 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, " +
-                "id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, id))");
-        createTestTable(url, "create table tenant_filter_test (tenant_col integer) BASE_TABLE='BASE_TABLE_FOR_TENANT_FILTER_TEST'");
+                "id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, id)) multi_tenant=true");
+        createTestTable(url, "derive table tenant_filter_test (tenant_col integer) FROM BASE_TABLE_FOR_TENANT_FILTER_TEST");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
         SQLParser parser = new SQLParser(query);
