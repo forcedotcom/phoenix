@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.hash.BloomFilter;
@@ -88,11 +89,10 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
 
         // Assuming no directory doubling for now
         // compute the two new bucket Ids for splitting
-
-        // TODO We never reuse any of the pageIDs when splitting.
-        // Since they are used to compute offsets into the SPillFile
-        // we might run out of spill file space although not all pages are currently in use
-        // Some sort of defragmentation would be nice!
+        // SpillFile adds new files dynamically in case the directory points to pageIDs
+        // that exceed the size limit of a single file.
+        
+        // TODO verify if some sort of de-fragmentation might be helpful
         int tmpIndex = index ^ ((1 << localDepth));
         int b1Index = Math.min(index, tmpIndex);
         int b2Index = Math.max(index, tmpIndex);
@@ -128,20 +128,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         if (globalDepth < (localDepth + 1)) {
             // Double directory structure and re-adjust pointers
             doubleDir = true;
-            // Double the directory in size, second half points to original first half
-            MappedByteBufferMap[] newDirectory = new MappedByteBufferMap[(1 << (globalDepth + 1))];
-            for (int i = 0; i < directory.length; i++) {
-                newDirectory[i] = directory[i];
-                newDirectory[i + directory.length] = directory[i];
-            }            
-            directory = newDirectory;
-            newDirectory = null;
-
-            // Adjust the index for new split bucket, according to the directory double
-            b2Index = (keyNew.hashCode() & ((1 << globalDepth) - 1)) | (1 << globalDepth);
-
-            // Increment global depth
-            globalDepth++;
+            
+            b2Index = doubleDirectory(b2Index, keyNew);
         }
 
         if (!doubleDir) {
@@ -161,6 +149,32 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             directory[b1Index] = b1;
             directory[b2Index] = b2;
         }
+    }
+    
+    // Doubles the directory and readjusts pointers.
+    private int doubleDirectory(int b2Index, ImmutableBytesPtr keyNew) {
+        // Double the directory in size, second half points to original first half
+        int newDirSize = 1 << (globalDepth + 1);
+        
+        // Ensure that the new directory size does not exceed size limits
+        Preconditions.checkArgument(newDirSize < Integer.MAX_VALUE);
+        
+        //Double it!
+        MappedByteBufferMap[] newDirectory = new MappedByteBufferMap[newDirSize];
+        for (int i = 0; i < directory.length; i++) {
+            newDirectory[i] = directory[i];
+            newDirectory[i + directory.length] = directory[i];
+        }            
+        directory = newDirectory;
+        newDirectory = null;
+
+        // Adjust the index for new split bucket, according to the directory double
+        b2Index = (keyNew.hashCode() & ((1 << globalDepth) - 1)) | (1 << globalDepth);
+
+        // Increment global depth
+        globalDepth++;
+        
+        return b2Index;
     }
 
     /**
