@@ -149,10 +149,21 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         DatabaseMetaData dbmd = conn.getMetaData();
         ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
         while (rs.next()) {
-            String fullTableName = SchemaUtil.getTableName(
-                    rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
-                    rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-            conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+            if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) != null) {
+                String fullTableName = SchemaUtil.getTableName(
+                        rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
+                        rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+            }
+        }
+        rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
+        while (rs.next()) {
+            if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) == null) {
+                String fullTableName = SchemaUtil.getTableName(
+                        rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
+                        rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+            }
         }
     }
     

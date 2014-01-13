@@ -54,9 +54,9 @@ public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeT
             "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true,MULTI_TYPE=true";
     
     protected static final String TENANT_TABLE_NAME = "TENANT_TABLE";
-    protected static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
+    protected static final String TENANT_TABLE_DDL = "DERIVE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
             "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='" + PARENT_TABLE_NAME + "', TENANT_TYPE_ID='" + TENANT_TYPE_ID + '\'';
+            "                FROM " + PARENT_TABLE_NAME + " AS '" + TENANT_TYPE_ID + "'";
     
     protected static final String PARENT_TABLE_NAME_NO_TENANT_TYPE_ID = "PARENT_TABLE_NO_TENANT_TYPE_ID";
     protected static final String PARENT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
@@ -66,9 +66,9 @@ public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeT
             "                CONSTRAINT pk PRIMARY KEY (tenant_id, id)) MULTI_TENANT=true";
     
     protected static final String TENANT_TABLE_NAME_NO_TENANT_TYPE_ID = "TENANT_TABLE_NO_TENANT_TYPE_ID";
-    protected static final String TENANT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
+    protected static final String TENANT_TABLE_DDL_NO_TENANT_TYPE_ID = "DERIVE TABLE " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
             "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='" + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + "'";
+            "                FROM " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID;
     
     @Before
     public void createTables() throws SQLException {

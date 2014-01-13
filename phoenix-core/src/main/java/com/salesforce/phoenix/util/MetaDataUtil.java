@@ -166,12 +166,16 @@ public class MetaDataUtil {
         throw new IllegalStateException();
     }
 
-    public static byte[] getTenantTypeId(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES);
+    public static byte[] getTypeId(List<Mutation> tableMutations) {
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.TYPE_ID_BYTES);
     }
     
     public static byte[] getBaseTableName(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES);
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES);
+    }
+    
+    public static byte[] getBaseSchemaName(List<Mutation> tableMutations) {
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_SCHEMA_NAME_BYTES);
     }
     
     public static long getSequenceNumber(List<Mutation> tableMetaData) {

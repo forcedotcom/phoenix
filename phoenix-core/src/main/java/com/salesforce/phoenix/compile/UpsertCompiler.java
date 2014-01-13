@@ -39,8 +39,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nullable;
-
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -222,26 +220,19 @@ public class UpsertCompiler {
         if (table.getType() == PTableType.VIEW) {
             throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
         }
+        boolean isSalted = table.getBucketNum() != null;
+        int posOffset = isSalted ? 1 : 0;
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
         final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
-        if (tenantId != null && table.isTenantSpecificTable()) {
-            PColumn tenantIdColumn = table.getTenantIdColumn();
-            columnNodes.add(0, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
-            PColumn tenantTypeIdColumn = table.getTenantTypeIdColumn();
-            columnNodes.add(1, ColumnName.caseSensitiveColumnName(null, tenantTypeIdColumn.getName().getString()));
-        }
         List<PColumn> allColumns = table.getColumns();
 
         int[] columnIndexesToBe;
         int[] pkSlotIndexesToBe;
         List<PColumn> targetColumns;
-        boolean isSalted = table.getBucketNum() != null;
-        int posOffset = isSalted ? 1 : 0;
         // Allow full row upsert if no columns or only dynamic one are specified and values count match
-        int numColsInUpsert = columnNodes.size();
         int numColsInTable = table.getColumns().size();
-        if (columnNodes.isEmpty() || numColsInUpsert == upsert.getTable().getDynamicColumns().size()) {
+        if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
             columnIndexesToBe = new int[allColumns.size() - posOffset];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
@@ -255,6 +246,18 @@ public class UpsertCompiler {
                 }
             }
         } else {
+            if (table.isDerivedTable()) {
+                int pos = 0;
+                if (tenantId != null) {
+                    PColumn tenantIdColumn = table.getPKColumns().get(pos);
+                    columnNodes.add(pos++, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
+                }
+                if (table.getTypeId() != null) {
+                    PColumn typeIdColumn = table.getPKColumns().get(pos);
+                    columnNodes.add(pos++, ColumnName.caseSensitiveColumnName(null, typeIdColumn.getName().getString()));
+                }
+            }
+            int numColsInUpsert = columnNodes.size();
             columnIndexesToBe = new int[numColsInUpsert];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
@@ -292,8 +295,8 @@ public class UpsertCompiler {
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
-            if (tenantId != null && table.isTenantSpecificTable()) {
-                select = cloneAndPrependTenantConstraintsToSelect(select, tenantId, table.getTenantTypeId().getString());
+            if (table.isDerivedTable()) {
+                select = cloneAndPrependTenantConstraintsToSelect(select, tenantId, table.getTypeId().getString());
             }
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
@@ -336,9 +339,14 @@ public class UpsertCompiler {
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
         } else {
-            if (tenantId != null && table.isTenantSpecificTable()) {
-                valueNodes.add(0, new LiteralParseNode(tenantId));
-                valueNodes.add(1, new LiteralParseNode(table.getTenantTypeId().getString()));
+            if (table.isDerivedTable()) {
+                int pos = 0;
+                if (tenantId != null) {
+                    valueNodes.add(pos++, new LiteralParseNode(tenantId));
+                }
+                if (table.getTypeId() != null) {
+                    valueNodes.add(pos, new LiteralParseNode(table.getTypeId().getString()));
+                }
             }
             nValuesToSet = valueNodes.size();
         }
@@ -704,11 +712,13 @@ public class UpsertCompiler {
         }
     }
     
-    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, @NotNull String tenantId, @Nullable String tenantTypeId) {
-        List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 1);
-        select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
-        if (tenantTypeId != null) {
-            select.add(new AliasedNode(null, new LiteralParseNode(tenantTypeId)));
+    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, String tenantId, String typeId) {
+        List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 2);
+        if (tenantId != null) {
+            select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+        }
+        if (typeId != null) {
+            select.add(new AliasedNode(null, new LiteralParseNode(typeId)));
         }
         select.addAll(statement.getSelect());
         return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());

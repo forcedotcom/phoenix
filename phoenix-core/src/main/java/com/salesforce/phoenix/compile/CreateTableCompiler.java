@@ -33,16 +33,19 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 public class CreateTableCompiler {
@@ -58,6 +61,20 @@ public class CreateTableCompiler {
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
+        ParseNode typeIdNode = create.getTypeIdNode();
+        byte[] typeIdToBe = null;
+        ImmutableBytesWritable ptr = context.getTempPtr();
+        if (typeIdNode != null) {
+            if (!typeIdNode.isConstant()) {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.TYPE_ID_NOT_CONSTANT)
+                    .build().buildException();
+            }
+            Expression expression = typeIdNode.accept(expressionCompiler);
+            if (expression.evaluate(null, ptr) && ptr.getLength() > 0) {
+                typeIdToBe = ByteUtil.copyKeyBytesIfNecessary(ptr);
+            }
+        }
+        final byte[] typeId = typeIdToBe;
         List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
         for (int i = 0; i < splits.length; i++) {
@@ -80,7 +97,7 @@ public class CreateTableCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createTable(create, splits);
+                return client.createTable(create, splits, typeId);
             }
 
             @Override

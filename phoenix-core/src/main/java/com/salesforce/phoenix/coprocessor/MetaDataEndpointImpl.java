@@ -54,12 +54,11 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_IND
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_ID_BYTES;
 import static com.salesforce.phoenix.schema.PTableType.INDEX;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarCharLength;
 import static com.salesforce.phoenix.util.SchemaUtil.getVarChars;
 import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
-import static org.apache.hadoop.hbase.filter.FilterList.Operator.MUST_PASS_ALL;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
@@ -95,7 +94,6 @@ import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.hbase.index.util.IndexManagementUtil;
 import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
-import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
 import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
@@ -146,7 +144,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue DATA_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
     private static final KeyValue INDEX_STATE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
     private static final KeyValue IMMUTABLE_ROWS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, IMMUTABLE_ROWS_BYTES);
-    private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES);
+    private static final KeyValue TENANT_TYPE_ID_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, TYPE_ID_BYTES);
     private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
     private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
     private static final KeyValue MULTI_TENANT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TENANT_BYTES);
@@ -549,7 +547,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                     }
                 }
                 
-                if (tenantIdBytes.length > 0 && typeIdExistsForTenantOnBaseTable(region, tenantIdBytes, MetaDataUtil.getBaseTableName(tableMetadata), MetaDataUtil.getTenantTypeId(tableMetadata))) {
+                if (typeIdExistsOnBaseTable(region, tenantIdBytes, MetaDataUtil.getBaseSchemaName(tableMetadata), MetaDataUtil.getBaseTableName(tableMetadata), MetaDataUtil.getTypeId(tableMetadata))) {
                     return new MetaDataMutationResult(MutationCode.TYPE_ID_USED, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 // TODO: Switch this to HRegion#batchMutate when we want to support indexes on the system
@@ -595,11 +593,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     
     /**
      * @param tableName parent table's name
-     * @return true if there exist tenant-specific tables that use this table as their parent.
+     * @return true if there exist a table that use this table as their base table.
+     * TODO: should we pass a timestamp here?
      */
     private boolean hasDerivedTables(HRegion region, byte[] schemaName, byte[] tableName) throws IOException {
         Scan scan = new Scan();
-        scan.setStartRow(KeyRange.IS_NOT_NULL_RANGE.getLowerRange());
         SingleColumnValueFilter filter1 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES, EQUAL, schemaName);
         filter1.setFilterIfMissing(schemaName.length > 0);
         SingleColumnValueFilter filter2 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES, EQUAL, tableName);
@@ -617,15 +615,24 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
     
-    private boolean typeIdExistsForTenantOnBaseTable(HRegion region, byte[] tenantId, byte[] baseTableName, byte[] tenantTypeId) throws IOException {
+    private boolean typeIdExistsOnBaseTable(HRegion region, byte[] tenantId, byte[] baseSchemaName, byte[] baseTableName, byte[] typeId) throws IOException {
+        if (typeId == null || typeId.length == 0 || baseTableName == null || baseTableName.length == 0) {
+            return false;
+        }
         Scan scan = new Scan();
-        scan.setStartRow(tenantId);
-        scan.setStopRow(ByteUtil.nextKey(tenantId));
-        SingleColumnValueFilter tenantTypeIdFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TENANT_TYPE_ID_BYTES, EQUAL, tenantTypeId);
+        if (tenantId == null || tenantId.length == 0) {
+            scan.setStartRow(QueryConstants.SEPARATOR_BYTE_ARRAY);
+        } else {
+            scan.setStartRow(tenantId);
+        }
+        scan.setStopRow(ByteUtil.nextKey(scan.getStartRow()));
+        SingleColumnValueFilter tenantTypeIdFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, TYPE_ID_BYTES, EQUAL, typeId);
         tenantTypeIdFilter.setFilterIfMissing(true);
-        SingleColumnValueFilter baseTableFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES, EQUAL, baseTableName);
-        baseTableFilter.setFilterIfMissing(true);
-        scan.setFilter(new FilterList(MUST_PASS_ALL, tenantTypeIdFilter, baseTableFilter));
+        SingleColumnValueFilter filter1 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES, EQUAL, baseSchemaName);
+        filter1.setFilterIfMissing(baseSchemaName.length > 0);
+        SingleColumnValueFilter filter2 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES, EQUAL, baseTableName);
+        filter2.setFilterIfMissing(true);
+        scan.setFilter(new FilterList(tenantTypeIdFilter, filter1, filter2));
         RegionScanner scanner = region.getScanner(scan);
         try {
             List<KeyValue> results = newArrayList();
@@ -666,11 +673,6 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 acquireLock(region, lockKey, lids);
                 if (key != lockKey) {
                     acquireLock(region, key, lids);
-                }
-                // TODO: delay this check and only do it if table isMultiTenant() or table.isMultiType()
-                // TODO: pass in timestamp here
-                if (hasDerivedTables(region, schemaName, tableName)) {
-                    return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
                 }
                 List<ImmutableBytesPtr> invalidateList = new ArrayList<ImmutableBytesPtr>();
                 result = doDropTable(key, tenantIdBytes, schemaName, tableName, PTableType.fromSerializedValue(tableType), tableMetadata, invalidateList, lids, tableNamesToDelete);
@@ -740,6 +742,10 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         if ( tableType != PTableType.fromSerializedValue(typeKeyValue.getBuffer()[typeKeyValue.getValueOffset()]))  {
             // We said to drop a table, but found a view or visa versa
             return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
+        }
+        // Don't allow a table with derived tables to be deleted
+        if ((table.isMultiTenant() || table.isMultiType()) && hasDerivedTables(region, schemaName, tableName)) {
+            return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
         if (table.getType() != PTableType.VIEW) { // Add to list of HTables to delete, unless it's a view
             tableNamesToDelete.add(table.getName().getBytes());

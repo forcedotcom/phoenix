@@ -153,26 +153,26 @@ public class PTableImpl implements PTable {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
                 table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), indexes, table.isImmutableRows(),
-                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTenantTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
+                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
     }
 
     public static PTableImpl makePTable(PTable table, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTenantTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
-                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTenantTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns, boolean isImmutableRows) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
                 table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), isImmutableRows,
-                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTenantTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
+                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
     }
 
     public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
@@ -180,7 +180,7 @@ public class PTableImpl implements PTable {
                 table.getSchemaName(), table.getTableName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
                 table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), 
                 table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(),
-                table.getDefaultFamilyName(), table.getTenantTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
+                table.getDefaultFamilyName(), table.getTypeId(), table.isWALDisabled(), table.isMultiTenant(), table.isMultiType());
     }
 
     public static PTableImpl makePTable(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
@@ -800,22 +800,12 @@ public class PTableImpl implements PTable {
     
     @Override
     public PName getPhysicalName() {
-        return isTenantSpecificTable() ? getBaseName() : getName();
+        return isDerivedTable() ? getBaseName() : getName();
     }
     
     @Override
-    public boolean isTenantSpecificTable() {
+    public boolean isDerivedTable() {
         return getBaseName() != null;
-    }
-    
-    @Override
-    public PColumn getTenantIdColumn() {
-        return isTenantSpecificTable() ? getPKColumns().get(0) : null;
-    }
-    
-    @Override
-    public PColumn getTenantTypeIdColumn() {
-        return isTenantSpecificTable() ? getPKColumns().get(1) : null;
     }
     
     @Override
@@ -839,7 +829,7 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public PName getTenantTypeId() {
+    public PName getTypeId() {
         return tenantTypeId;
     }
 

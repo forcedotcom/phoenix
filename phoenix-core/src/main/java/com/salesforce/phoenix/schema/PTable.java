@@ -47,8 +47,6 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 public interface PTable extends Writable {
     public static final long INITIAL_SEQ_NUM = 0;
     public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
-    public static final String BASE_SCHEMA_PROP_NAME = "BASE_SCHEMA"; // specifies the base table when creating tenant-specific tables
-    public static final String BASE_TABLE_PROP_NAME = "BASE_TABLE"; // specifies the base table when creating tenant-specific tables
     public static final boolean DEFAULT_DISABLE_WAL = false;
 
     long getTimeStamp();
@@ -195,7 +193,7 @@ public interface PTable extends Writable {
     /**
      * For a tenant-specific table, return the name of table in Phoenix that physically stores data.
      * @return the name of the data table that tenant-specific table points to or null if this table is not tenant-specifidc.
-     * @see #isTenantSpecificTable()
+     * @see #isDerivedTable()
      */
     @Nullable PName getBaseName();
     @Nullable PName getBaseSchemaName();
@@ -205,19 +203,9 @@ public interface PTable extends Writable {
     boolean isImmutableRows();
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
-    boolean isTenantSpecificTable();
-    /**
-     * Return the column that identifies tenants.  If non-null, this column is always the leading PK column.   
-     * @see #isTenantSpecificTable()
-     */
-    @Nullable PColumn getTenantIdColumn();
-    /**
-     * Return the column that identifies tenant's type id.  If non-null, this column is always the second PK column.   
-     * @see #isTenantSpecificTable()
-     */
-    @Nullable PColumn getTenantTypeIdColumn();
+    boolean isDerivedTable();
     PName getDefaultFamilyName();
-    PName getTenantTypeId();
+    PName getTypeId();
     
     boolean isWALDisabled();
     boolean isMultiTenant();

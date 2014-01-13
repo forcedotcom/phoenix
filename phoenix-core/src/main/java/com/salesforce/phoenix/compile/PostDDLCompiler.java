@@ -187,13 +187,15 @@ public class PostDDLCompiler {
                             }
                             QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                             PName tenantId = connection.getTenantId();
-                            if (tenantId != null && tableRef.getTable().isTenantSpecificTable()) {
-                                KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
+                            if (tableRef.getTable().isDerivedTable()) {
                                 List<List<KeyRange>> slots = Lists.newArrayListWithCapacity(2);
-                                slots.add(singletonList(tenantIdKeyRange));
-                                if (tableRef.getTable().getTenantTypeId() != null) {
-                                    KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTenantTypeId().getBytes());
-                                    slots.add(singletonList(tenantTypeIdKeyRange));
+                                if (tenantId != null) {
+                                    KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
+                                    slots.add(singletonList(tenantIdKeyRange));
+                                }
+                                if (tableRef.getTable().getTypeId() != null) {
+                                    KeyRange typeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTypeId().getBytes());
+                                    slots.add(singletonList(typeIdKeyRange));
                                 }
                                 scan.setStartRow(ScanUtil.getMinKey(tableRef.getTable().getRowKeySchema(), slots));
                                 scan.setStopRow(ScanUtil.getMaxKey(tableRef.getTable().getRowKeySchema(), slots));

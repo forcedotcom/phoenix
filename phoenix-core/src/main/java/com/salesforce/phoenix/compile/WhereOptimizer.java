@@ -106,7 +106,7 @@ public class WhereOptimizer {
             Expression whereClause, Set<Expression> extractNodes) {
         // TODO: Single table for now
         PTable table = context.getResolver().getTables().get(0).getTable();
-        if (whereClause == null && ! table.isTenantSpecificTable()) {
+        if (whereClause == null && ! table.isDerivedTable()) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
@@ -122,7 +122,7 @@ public class WhereOptimizer {
             // becomes consistent.
             keySlots = whereClause.accept(visitor);
     
-            if (keySlots == null && ! table.isTenantSpecificTable()) {
+            if (keySlots == null && ! table.isDerivedTable()) {
                 context.setScanRanges(ScanRanges.EVERYTHING);
                 return whereClause;
             }
@@ -153,13 +153,15 @@ public class WhereOptimizer {
         boolean hasAnyRange = false;
         
         // add tenant data isolation for tenant-specific tables
-        if (table.isTenantSpecificTable()) {
+        if (table.isDerivedTable()) {
             // tenant id and tenant type id are always first parts of a pk
             PName tenantId = context.getConnection().getTenantId();
-            KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
-            cnf.add(singletonList(tenantIdKeyRange));
-            if (table.getTenantTypeId() != null) {
-                KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTenantTypeId().getBytes());
+            if (tenantId != null) {
+                KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
+                cnf.add(singletonList(tenantIdKeyRange));
+            }
+            if (table.getTypeId() != null) {
+                KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTypeId().getBytes());
                 cnf.add(singletonList(tenantTypeIdKeyRange));
             }
         }

@@ -143,7 +143,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     public static final String TENANT_ID = "TENANT_ID";
     public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
-    public static final String BASE_TABLE = "BASE_TABLE";
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
@@ -170,8 +169,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
     public static final String DEFAULT_COLUMN_FAMILY_NAME = "DEFAULT_COLUMN_FAMILY";
     public static final byte[] DEFAULT_COLUMN_FAMILY_NAME_BYTES = Bytes.toBytes(DEFAULT_COLUMN_FAMILY_NAME);
-    public static final String TENANT_TYPE_ID = "TENANT_TYPE_ID";
-    public static final byte[] TENANT_TYPE_ID_BYTES = Bytes.toBytes(TENANT_TYPE_ID);
+    public static final String TYPE_ID = "TYPE_ID";
+    public static final byte[] TYPE_ID_BYTES = Bytes.toBytes(TYPE_ID);
     public static final String DISABLE_WAL = "DISABLE_WAL";
     public static final byte[] DISABLE_WAL_BYTES = Bytes.toBytes(DISABLE_WAL);
     public static final String MULTI_TENANT = "MULTI_TENANT";
@@ -786,7 +785,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SALT_BUCKETS + "," +
                 BASE_SCHEMA_NAME + "," +
                 BASE_TABLE_NAME + "," +
-                TENANT_TYPE_ID + "," +
+                TYPE_ID + "," +
                 TENANT_ID +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
@@ -903,7 +902,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SALT_BUCKETS + "," +
                 BASE_SCHEMA_NAME + "," +
                 BASE_TABLE_NAME + "," +
-                TENANT_TYPE_ID + "," +
+                TYPE_ID + "," +
                 MULTI_TENANT + "," +
                 MULTI_TYPE +
                 " from " + TYPE_SCHEMA_AND_TABLE + 

@@ -167,7 +167,7 @@ public enum SQLExceptionCode {
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
     VARBINARY_LAST_PK(1015, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
     NULLABLE_FIXED_WIDTH_LAST_PK(1023, "42J04", "Cannot add column to table when the last PK column is nullable and fixed width."),
-    TENANT_TABLE_PK(1036, "42J04", "Cannot modify PK of a tenant-specific table."),
+    CANNOT_MODIFY_PK_OF_DERIVED_TABLE(1036, "42J04", "Cannot modify PK of a derived table."),
     BASE_TABLE_COLUMN(1037, "42J04", "Cannot modify columns of base table used by tenant-specific tables."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL(1007, "42K01", "A key/value column may not be declared as not null."),
@@ -209,14 +209,20 @@ public enum SQLExceptionCode {
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
             + IndexManagementUtil.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
             +  IndexManagementUtil.INDEX_WAL_EDIT_CODEC_CLASS_NAME + " in the hbase-sites.xml of every region server"),
-    CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
+            
+            
+    CANNOT_CREATE_TENANT_SPECIFIC_BASE_TABLE(1030, "42Y89", "Cannot create base table for tenant-specific connection"),
     CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
     BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
     DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
-    TENANT_TYPE_ID_ONLY_ON_CREATE_TABLE(1035, "42Y94", "Tenant type ID may only be specified when creating a table."),
     TYPE_ID_USED(1039, "42Y95", "Type id is already used by this tenant for this base table."),
-    BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID(1040, "42Y96", "Base table for a tenant table-specific table must have 2 or more PK columns when creating tenant-specific tables with an empty TENANT_TYPE_ID.  First PK column must be non-nullable VARCHAR or CHAR."),
-    BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID(1041, "42Y97", "Base table for a tenant table-specific table must have 3 or more PK columns when creating tenant-specific tables with a non-empty TENANT_TYPE_ID.  First two PK columns must be non-nullable VARCHAR or CHAR."),
+    INSUFFICIENT_MULTI_TENANT_COLUMNS(1040, "42Y96", "A MULTI_TENANT table must have 2 or more PK columns with the first column being VARCHAR or CHAR."),
+    INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS(1041, "42Y97", "A MULTI_TENANT, MULTI_TYPE table must have 3 or more PK columns with the first column being VARCHAR or CHAR."),
+    CANNOT_CREATE_TYPELESS_BASE_TABLE(1042, "42Y98", "Cannot derive top level table without specifying AS type ID clause"),
+    NO_TENANT_ID_FOR_MULTI_TENANT(1043, "42Y99", "Must use tenant-specific connection to derive from multi-tenant table"),
+    NO_TYPE_ID_FOR_MULTI_TYPE(1044, "43A01", "Must specify AS type ID clause to derive from multi-type table"),
+    TYPE_ID_NOT_CONSTANT(1045, "43A02", "AS type ID clause must evaluate to a constant."),
+    INSUFFICIENT_MULTI_TYPE_COLUMNS(1046, "43A03", "A MULTI_TYPE table must have 2 or more PK columns."),
         
     /** Sequence related */
     SEQUENCE_ALREADY_EXIST(1200, "42Z00", "Sequence already exists.", new Factory() {

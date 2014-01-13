@@ -106,6 +106,7 @@ tokens
     VALUE='value';
     FOR='for';
     CACHE='cache';
+    DERIVE='derive';
 }
 
 
@@ -364,6 +365,7 @@ non_select_node returns [BindableStatement ret]
     :  (s=upsert_node
     |   s=delete_node
     |   s=create_table_node
+    |   s=derive_table_node
     |   s=create_index_node
     |   s=drop_table_node
     |   s=drop_index_node
@@ -384,7 +386,17 @@ create_table_node returns [CreateTableStatement ret]
         (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
         (SPLIT ON v=list_expressions)?
-        {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
+        {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, null, null, getBindCount()); }
+    ;
+
+// Parse a derive table statement.
+derive_table_node returns [CreateTableStatement ret]
+    :   DERIVE (tt=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
+        (LPAREN cdefs=column_defs RPAREN)
+        FROM b=from_table_name
+        (AS tid=literal_or_bind_value)?
+        (p=fam_properties)?
+        {ret = factory.createTable(t, p, cdefs, null, null, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, b, tid, getBindCount()); }
     ;
 
 // Parse a create index statement.

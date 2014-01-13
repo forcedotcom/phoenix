@@ -245,8 +245,8 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
     
     @Test
     public void testUpsertSelectOnlyUpsertsTenantDataWithDifferentTenantTable() throws Exception {
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE ANOTHER_TENANT_TABLE ( " + 
-            "tenant_col VARCHAR) BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='def'", null, nextTimestamp(), false);
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE ANOTHER_TENANT_TABLE ( " + 
+            "tenant_col VARCHAR) FROM PARENT_TABLE AS 'def'", null, nextTimestamp(), false);
         
         Connection conn = DriverManager.getConnection(getUrl());
         try {
