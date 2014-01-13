@@ -119,6 +119,7 @@ import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver.ConnectionInfo;
+import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
@@ -140,14 +141,15 @@ import com.salesforce.phoenix.util.ServerUtil;
 import com.salesforce.phoenix.protobuf.ProtobufUtil;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
-    private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
+	private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
+
     private static final int INITIAL_CHILD_SERVICES_CAPACITY = 100;
     private static final int DEFAULT_OUT_OF_ORDER_MUTATIONS_WAIT_TIME_MS = 1000;
     protected final Configuration config;
     // Copy of config.getProps(), but read-only to prevent synchronization that we
     // don't need.
     private final ReadOnlyProps props;
-    private final HConnection connection;
+    private HConnection connection;
     private final StatsManager statsManager;
     private final ConcurrentHashMap<ImmutableBytesWritable,ConnectionQueryServices> childServices;
     // Cache the latest meta data here for future connections
@@ -176,16 +178,15 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         // Without making a copy of the configuration we cons up, we lose some of our properties
         // on the server side during testing.
         this.config = HBaseConfiguration.create(config);
+        // set default value for hbase.master.logcleaner.plugin if not set yet
+        if(this.config.get(HConstants.HBASE_MASTER_LOGCLEANER_PLUGINS) == null){
+        	this.config.set(HConstants.HBASE_MASTER_LOGCLEANER_PLUGINS, 
+        	    "org.apache.hadoop.hbase.master.cleaner.TimeToLiveLogCleaner");
+        }
+
+        this.config.setBoolean(HConstants.REPLICATION_ENABLE_KEY, false);
         this.props = new ReadOnlyProps(this.config.iterator());
-        try {
-            this.connection = HConnectionManager.createConnection(this.config);
-        } catch (IOException ioe) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
-                    .setRootCause(ioe).build().buildException();
-        }
-        if (this.connection.isClosed()) { // TODO: why the heck doesn't this throw above?
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION).build().buildException();
-        }
+
         // TODO: should we track connection wide memory usage or just org-wide usage?
         // If connection-wide, create a MemoryManager here, otherwise just use the one from the delegate
         this.childServices = new ConcurrentHashMap<ImmutableBytesWritable,ConnectionQueryServices>(INITIAL_CHILD_SERVICES_CAPACITY);
@@ -1281,6 +1282,16 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
     @Override
     public void init(String url, Properties props) throws SQLException {
+        try {
+            this.connection = HConnectionManager.createConnection(this.config);
+        } catch (IOException ioe) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION)
+                    .setRootCause(ioe).build().buildException();
+        }
+        if (this.connection.isClosed()) { // TODO: why the heck doesn't this throw above?
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_ESTABLISH_CONNECTION).build().buildException();
+        }
+    	
         props = new Properties(props);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP));
         PhoenixConnection metaConnection = new PhoenixConnection(this, url, props, PMetaDataImpl.EMPTY_META_DATA);

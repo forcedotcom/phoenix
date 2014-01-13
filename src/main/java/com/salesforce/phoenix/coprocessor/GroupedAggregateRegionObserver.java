@@ -66,6 +66,7 @@ import com.salesforce.phoenix.expression.aggregator.Aggregator;
 import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
+import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
@@ -322,7 +323,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
      * Used for an aggregate query in which the key order match the group by key order. In this case, we can do the
      * aggregation as we scan, by detecting when the group by key changes.
      */
-    private RegionScanner scanOrdered(final ObserverContext<RegionCoprocessorEnvironment> c, Scan scan, final RegionScanner s, final List<Expression> expressions, final ServerAggregators aggregators) {
+    private RegionScanner scanOrdered(final ObserverContext<RegionCoprocessorEnvironment> c, final Scan scan, final RegionScanner s, final List<Expression> expressions, final ServerAggregators aggregators) {
         
         if (logger.isDebugEnabled()) {
             logger.debug("Grouped aggregation over ordered rows with scan " + scan + ", group by " + expressions + ", aggregators " + aggregators);
@@ -399,8 +400,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             
             @Override
             public long getMaxResultSize() {
-                throw new UnsupportedOperationException(this.getClass().getName()
-                    + " doesn't support getMaxResultSize!");
+                return scan.getMaxResultSize();
             }
         };
     }

@@ -268,8 +268,7 @@ public class HashJoinRegionScanner implements RegionScanner {
 
     @Override
     public long getMaxResultSize() {
-        throw new UnsupportedOperationException(this.getClass().getName()
-            + " doesn't support getMaxResultSize!");
+        return this.scanner.getMaxResultSize();
     }
 
 }

@@ -761,7 +761,12 @@ public class PTableImpl implements PTable {
     if (tmp != null) {
       builder.setPkNameBytes(ByteString.copyFrom(tmp.getBytes()));
     }
-    builder.setBucketNum(table.getBucketNum());
+    Integer bucketNum = table.getBucketNum();
+    if(bucketNum == null){
+    	builder.setBucketNum(NO_SALTING);
+    } else {
+    	builder.setBucketNum(bucketNum);
+    }
     List<PColumn> columns = table.getColumns();
     for (PColumn curColumn : columns) {
       builder.addColumns(PColumnImpl.toProto(curColumn));
@@ -774,13 +779,15 @@ public class PTableImpl implements PTable {
 
     // build stats
     Map<String, byte[][]> statsMap = table.getTableStats().getGuidePosts();
-    for (Entry<String, byte[][]> entry : statsMap.entrySet()) {
-      PTableProtos.PTableStats.Builder statsBuilder = PTableProtos.PTableStats.newBuilder();
-      statsBuilder.setKey(entry.getKey());
-      for (byte[] curVal : entry.getValue()) {
-        statsBuilder.addValues(ByteString.copyFrom(curVal));
-      }
-      builder.addGuidePosts(statsBuilder.build());
+    if(statsMap != null) {
+	    for (Entry<String, byte[][]> entry : statsMap.entrySet()) {
+	      PTableProtos.PTableStats.Builder statsBuilder = PTableProtos.PTableStats.newBuilder();
+	      statsBuilder.setKey(entry.getKey());
+	      for (byte[] curVal : entry.getValue()) {
+	        statsBuilder.addValues(ByteString.copyFrom(curVal));
+	      }
+	      builder.addGuidePosts(statsBuilder.build());
+	    }
     }
     if (table.getParentName() != null) {
       builder.setDataTableNameBytes(ByteString.copyFrom(table.getParentTableName().getBytes()));

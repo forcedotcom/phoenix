@@ -58,7 +58,6 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.io.WritableUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,6 +74,7 @@ import com.salesforce.phoenix.expression.aggregator.ServerAggregators;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
+import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnModifier;
@@ -98,7 +98,8 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 0.1
  */
 public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver {
-    private static final Logger logger = LoggerFactory.getLogger(UngroupedAggregateRegionObserver.class);
+	private static final Logger logger = LoggerFactory.getLogger(UngroupedAggregateRegionObserver.class);
+
     // TODO: move all constants into a single class
     public static final String UNGROUPED_AGG = "UngroupedAgg";
     public static final String DELETE_AGG = "DeleteAgg";
@@ -155,8 +156,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                 
                 @Override
                 public long getMaxResultSize() {
-                    throw new UnsupportedOperationException(this.getClass().getName()
-                        + " doesn't support getMaxResultSize!");
+                	return scan.getMaxResultSize();
                 }
             };
         }
@@ -372,8 +372,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
             
             @Override
             public long getMaxResultSize() {
-                throw new UnsupportedOperationException(this.getClass().getName()
-                    + " doesn't support getMaxResultSize!");
+            	return scan.getMaxResultSize();
             }
         };
         return scanner;

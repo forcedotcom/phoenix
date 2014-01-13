@@ -54,7 +54,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import jline.internal.Log;
 
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.Coprocessor;
@@ -100,6 +99,7 @@ import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.GetVersionRes
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MetaDataResponse;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.UpdateIndexStateRequest;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
+import com.salesforce.phoenix.memory.GlobalMemoryManager;
 import com.salesforce.phoenix.protobuf.ProtobufUtil;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -127,7 +127,7 @@ import com.salesforce.phoenix.util.ServerUtil;
 
 public class MetaDataEndpointImpl extends MetaDataProtocol implements CoprocessorService,
         Coprocessor {
-    private static final Logger logger = LoggerFactory.getLogger(MetaDataEndpointImpl.class);
+	private static final Logger logger = LoggerFactory.getLogger(MetaDataEndpointImpl.class);
 
     // KeyValues for Table
     private static final KeyValue TABLE_TYPE_KV = KeyValue.createFirstOnRow(
@@ -291,7 +291,7 @@ public class MetaDataEndpointImpl extends MetaDataProtocol implements Coprocesso
             done.run(builder.build());
             return;
         } catch (Throwable t) {
-            Log.error("getTable failed", t);
+        	logger.error("getTable failed", t);
             ProtobufUtil.setControllerException(controller,
                 ServerUtil.createIOException(SchemaUtil.getTableName(schemaName, tableName), t));
         }
@@ -775,7 +775,7 @@ public class MetaDataEndpointImpl extends MetaDataProtocol implements Coprocesso
                 region.releaseRowLocks(locks);
             }
         } catch (Throwable t) {
-            Log.error("createTable failed", t);
+        	logger.error("createTable failed", t);
             ProtobufUtil.setControllerException(controller,
                 ServerUtil.createIOException(SchemaUtil.getTableName(schemaName, tableName), t));
         }
@@ -866,7 +866,7 @@ public class MetaDataEndpointImpl extends MetaDataProtocol implements Coprocesso
                 region.releaseRowLocks(locks);
             }
         } catch (Throwable t) {
-            Log.error("dropTable failed", t);
+        	logger.error("dropTable failed", t);
             ProtobufUtil.setControllerException(controller,
                 ServerUtil.createIOException(SchemaUtil.getTableName(schemaName, tableName), t));
         }
@@ -1415,7 +1415,7 @@ public class MetaDataEndpointImpl extends MetaDataProtocol implements Coprocesso
                 rowLock.release();
             }
         } catch (Throwable t) {
-            Log.error("updateIndexState failed", t);
+        	logger.error("updateIndexState failed", t);
             ProtobufUtil.setControllerException(controller,
                 ServerUtil.createIOException(SchemaUtil.getTableName(schemaName, tableName), t));
         }

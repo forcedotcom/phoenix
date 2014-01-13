@@ -72,10 +72,9 @@
     <pig.version>0.11.0</pig.version>
     <jackson.version>1.8.8</jackson.version>
     <antlr.version>3.5</antlr.version>
+    <log4j.version>1.2.17</log4j.version>
+    <slf4j.version>1.6.4</slf4j.version>
     <opencsv.version>2.3</opencsv.version>
-    <log4j.version>1.2.16</log4j.version>
-    <slf4j-api.version>1.4.3.jar</slf4j-api.version>
-    <slf4j-log4j.version>1.4.3</slf4j-log4j.version>
     <protobuf-java.version>2.5.0</protobuf-java.version>
     <commons-configuration.version>1.6</commons-configuration.version>
     <commons-io.version>2.1</commons-io.version>
@@ -436,6 +435,19 @@
       <artifactId>jruby-complete</artifactId>
       <version>${jruby.version}</version>
     </dependency>
+
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>${log4j.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>${slf4j.version}</version>
+    </dependency>
+
   </dependencies>
 
   <profiles>
