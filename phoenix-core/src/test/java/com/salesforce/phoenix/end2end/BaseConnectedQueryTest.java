@@ -128,6 +128,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             try {
                 conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
                 deletePriorTables(ts, conn);
+                deletePriorSequences(ts, conn);
             }
             finally {
                 conn.close();

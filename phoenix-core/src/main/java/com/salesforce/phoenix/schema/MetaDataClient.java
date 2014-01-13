@@ -248,8 +248,7 @@ public class MetaDataClient {
     public long updateCache(String schemaName, String tableName) throws SQLException {
         Long scn = connection.getSCN();
         long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
-        // TODO: better to check the type of the table
-        if (TYPE_SCHEMA.equals(schemaName) && TYPE_TABLE.equals(tableName)) {
+        if (TYPE_SCHEMA.equals(schemaName)) {
             return clientTimeStamp;
         }
         PTable table = null;
@@ -718,7 +717,7 @@ public class MetaDataClient {
             LinkedHashSet<PColumn> pkColumns;       
             
             if (tenantId != null) {
-                PTable baseTable = resolveTable(connection, schemaName, baseTableName);
+                PTable baseTable = resolveTable(connection, baseSchemaName, baseTableName);
                 if (baseTable.isTenantSpecificTable()) {
                     throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
@@ -842,7 +841,7 @@ public class MetaDataClient {
             
             
             // Bootstrapping for our SYSTEM.TABLE that creates itself before it exists 
-            if (tableType == PTableType.SYSTEM) {
+            if (SchemaUtil.isMetaTable(schemaName,tableName)) {
                 PTable table = PTableImpl.makePTable(PNameFactory.newName(schemaName),PNameFactory.newName(tableName), tableType, null,
                         MetaDataProtocol.MIN_TABLE_TIMESTAMP, PTable.INITIAL_SEQ_NUM, PNameFactory.newName(QueryConstants.SYSTEM_TABLE_PK_NAME),
                         null, columns, null, Collections.<PTable>emptyList(), isImmutableRows, 
