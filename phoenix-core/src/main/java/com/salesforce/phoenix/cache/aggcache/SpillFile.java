@@ -26,7 +26,7 @@ public class SpillFile implements Closeable {
 
     private static final Logger logger = LoggerFactory.getLogger(SpillFile.class);
     // Default size for a single spillFile 2GB
-    private static final int SPILL_FILE_SIZE = (1 << 13) - 1;
+    private static final int SPILL_FILE_SIZE = (1 << 31) - 1;
     // Page size for a spill file 4K
     static final int DEFAULT_PAGE_SIZE = 4096;
     // Map of initial SpillFile at index 0, and overflow spillFiles
