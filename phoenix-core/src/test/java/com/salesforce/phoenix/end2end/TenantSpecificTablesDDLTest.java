@@ -92,14 +92,18 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     
     @Test
     public void testCreateTenantTableBaseTableTopLevel() throws Exception {
+        createTestTable(getUrl(), "CREATE TABLE BASE_MULTI_TYPE_TABLE (TYPE_ID VARCHAR, K VARCHAR, CONSTRAINT pk PRIMARY KEY (TYPE_ID,K)) multi_type=true", null, nextTimestamp());
+        createTestTable(getUrl(), "DERIVE TABLE MULTI_TYPE_TABLE (COL VARCHAR) FROM BASE_MULTI_TYPE_TABLE AS 'aaa'", null, nextTimestamp());
         try {
-        	createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 (COL VARCHAR) FROM " + TENANT_TABLE_NAME + " AS 'aaa'", null, nextTimestamp());
+            // Only way to get this exception is to attempt to derive from a global, multi-type table, as we won't find
+            // a tenant-specific table when we attempt to resolve the base table.
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 (COL VARCHAR) FROM MULTI_TYPE_TABLE AS 'aaa'", null, nextTimestamp());
         }
         catch (SQLException expected) {
             assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
         }
     }
-    
+
     @Test
     public void testCreateTenantTableWithDifferentTypeId() throws Exception {
         try {

@@ -236,6 +236,54 @@ public class MetaDataClient {
     }
 
     /**
+     * Resolve a base table for a derived table, ensuring that we have the latest version based
+     * on our timestamp, pulling the table over from the server if necessary
+     * @param schemaName
+     * @param tableName
+     * @return the latest table based on our connection timestamp
+     * @throws SQLException
+     */
+    private PTable resolveBaseTable(String schemaName, String tableName) throws SQLException {
+        Long scn = connection.getSCN();
+        long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
+        String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
+        PTable table = null;
+        long tableTimestamp = HConstants.LATEST_TIMESTAMP;
+        try {
+            // TODO: our cache key should include tenantId
+            table = connection.getPMetaData().getTable(fullTableName);
+            tableTimestamp = table.getTimeStamp();
+        } catch (TableNotFoundException e) {
+            // Don't attempt to resolve SYSTEM tables on the server, as these should always be cached
+            if (TYPE_SCHEMA.equals(schemaName)) {
+                throw e;
+            }
+        }
+        final byte[] schemaBytes = PDataType.VARCHAR.toBytes(schemaName);
+        final byte[] tableBytes = PDataType.VARCHAR.toBytes(tableName);
+        MetaDataMutationResult result = connection.getQueryServices().getTable(null, schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
+        
+        MutationCode code = result.getMutationCode();
+        // If table was not found at the current time stamp and we have one cached, remove it.
+        // Otherwise, we're up to date, so there's nothing to do.
+        if (code == MutationCode.TABLE_NOT_FOUND) {
+            if (table != null) {
+                connection.removeTable(fullTableName);
+            }
+            throw new TableNotFoundException(schemaName, tableName);
+        }
+        PTable resultTable = result.getTable();
+        // We received an updated table, so update our cache and return the table
+        if (resultTable != null) {
+            // TODO: for tenant-specific connection, we shouldn't cache base tables
+            connection.addTable(resultTable);
+            return resultTable;
+        }
+        // Otherwise, our cache is up-to-date so return the cached table
+        return table;
+    }
+    
+    /**
      * Update the cache with the latest as of the connection scn.
      * @param schemaName
      * @param tableName
@@ -719,13 +767,7 @@ public class MetaDataClient {
             }
             
             if (baseTableName != null) {
-                // TODO: How does this resolve with a non null tenantId?
-                // TODO: put sequence number of base table in table metadata and confirm match as we do with indexes
-                // We should resolve outside as the parent and then special case if there's a base table too (and don't set the linking row)
-                // A tenant-specific index won't lock the parent table, but rather the parent table will be the tenant specific table (?).
-                // Figure this out when we do tenant-specific indexes
-                // TODO: Load base table if not already cached
-                PTable baseTable = resolveTable(connection, baseSchemaName, baseTableName);
+                PTable baseTable = resolveBaseTable(baseSchemaName, baseTableName);
                 if (baseTable.isDerivedTable()) {
                     throw new SQLExceptionInfo.Builder(BASE_TABLE_NOT_TOP_LEVEL).setSchemaName(schemaName).setTableName(tableName).build().buildException();
                 }
@@ -1020,10 +1062,6 @@ public class MetaDataClient {
         }
     }
 
-    private PTable resolveTable(PhoenixConnection connection, String schemaName, String tableName) throws TableNotFoundException {
-        return connection.getPMetaData().getTable(SchemaUtil.getTableName(schemaName, tableName));
-    }
-    
     public MutationState dropTable(DropTableStatement statement) throws SQLException {
         String schemaName = statement.getTableName().getSchemaName();
         String tableName = statement.getTableName().getTableName();
