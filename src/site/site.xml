@@ -61,21 +61,30 @@
             <item href="http://phoenix.incubator.apache.org/source.html" name="Source Repository"/>
             <item href="http://phoenix.incubator.apache.org/issues.html" name="Issue Tracking"/>
             <item href="http://phoenix.incubator.apache.org/download.html" name="Download" />
+            <item href="" name=""/>
+            <item href="http://www.apache.org/licenses/" name="License" />
+            <item href="http://www.apache.org/foundation/sponsorship.html" name="Sponsorship" />
+            <item href="http://www.apache.org/foundation/thanks.html" name="Thanks" />
+            <item href="http://www.apache.org/security/" name="Security" />
+
         </menu>
         <menu name="Using">
             <item href="http://phoenix.incubator.apache.org/faq.html" name="F.A.Q."/>
-            <item href="http://phoenix.incubator.apache.org/Phoenix-in-15-minutes-or-less.html" name="Phoenix Quick Start"/>
-            <item href="http://phoenix.incubator.apache.org/tuning.html" name="Configuration and Tuning"/>
-            <item href="http://phoenix.incubator.apache.org/building.html" name="Building Project"/>
+            <item href="http://phoenix.incubator.apache.org/Phoenix-in-15-minutes-or-less.html" name="Quick Start"/>
+            <item href="http://phoenix.incubator.apache.org/building.html" name="Building"/>
+            <item href="http://phoenix.incubator.apache.org/tuning.html" name="Tuning"/>
+            <item href="" name=""/>
+            <item href="http://phoenix.incubator.apache.org/secondary_indexing.html" name="Secondary Indexes"/>
+            <item href="http://phoenix.incubator.apache.org/sequences.html" name="Sequences"/>
             <item href="http://phoenix.incubator.apache.org/salted.html" name="Salted Tables"/>
             <item href="http://phoenix.incubator.apache.org/paged.html" name="Paged Queries"/>
-            <item href="http://phoenix.incubator.apache.org/secondary_indexing.html" name="Secondary Indexing"/>
-            <item href="http://phoenix.incubator.apache.org/skip_scan.html" name="Skip Scan"/>
             <item href="http://phoenix.incubator.apache.org/dynamic_columns.html" name="Dynamic Columns"/>
-            <item href="http://phoenix.incubator.apache.org/phoenix_on_emr.html" name="Phoenix on EMR"/>
-            <item href="http://phoenix.incubator.apache.org/mr_dataload.html" name="Bulk CSV via M/R"/>
+            <item href="http://phoenix.incubator.apache.org/skip_scan.html" name="Skip Scan"/>
+            <item href="http://phoenix.incubator.apache.org/mr_dataload.html" name="Bulk Loading"/>
+            <item href="" name=""/>
+            <item href="http://phoenix.incubator.apache.org/phoenix_on_emr.html" name="Amazon EMR Support"/>
             <item href="http://phoenix.incubator.apache.org/flume.html" name="Apache Flume Plugin"/>
-            <item href="http://phoenix.incubator.apache.org/sequences.html" name="Sequences"/>
+
         </menu>
         <menu name="Reference">
             <item href="http://phoenix.incubator.apache.org/language/index.html" name="Grammar"/>

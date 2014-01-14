@@ -48,15 +48,15 @@ margin-bottom: 10px;
 }
 
 
-@media (max-width: 579px) {
+@media (max-width: 479px) {
 	.xtoplogo {
 	height: 23px;
-	width: 150px;
+	width: 183px;
 	background:url(../images/topbar-logo-small.png)
 	}
 }
 
-@media (min-width: 580px) {
+@media (min-width: 480px) {
 	.xtoplogo {
 	height: 23px;
 	width: 360px;
