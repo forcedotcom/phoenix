@@ -26,7 +26,8 @@ code {
     background-color: #ece9d8;
     padding: 0px 4px;
     color: #000000;
-
+    font-family: "lucida grande", tahoma, verdana, arial, sans-serif;
+    font-size:small;
     -moz-border-radius: 4px;
     -webkit-border-radius: 4px;
     -khtml-border-radius: 4px;

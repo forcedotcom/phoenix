@@ -37,8 +37,8 @@ In addition, you can use the bin/psql.sh to load CSV data or execute SQL scripts
 
 Other alternatives include:
 * Using our [map-reduce based CSV loader](mr_dataload.html) for bigger data sets
-* [Mapping an existing HBase table to a Phoenix table](index.html#Mapping-to-an-Existing-HBase-Table) and using the [UPSERT SELECT](grammar.html#upsert_select) command to populate a new table.
-* Populating the table through our [UPSERT VALUES](grammar.html#upsert_values) command.
+* [Mapping an existing HBase table to a Phoenix table](index.html#Mapping-to-an-Existing-HBase-Table) and using the [UPSERT SELECT](language/index.html#upsert_select) command to populate a new table.
+* Populating the table through our [UPSERT VALUES](language/index.html#upsert_values) command.
 
 <h4>SQL Client</h4>
 

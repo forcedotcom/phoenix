@@ -39,7 +39,7 @@
     <highlightJs>true</highlightJs>
     <titleTemplate>%2$s | %1$s</titleTemplate>
     <brand>
-        <name><![CDATA[<img src="images/topbar-logo.png"/>]]></name>
+        <name><![CDATA[<div class="xtoplogo"></div>]]></name>
       <href>index.html</href>
     </brand>
     <skinAttribution>false</skinAttribution>
@@ -52,35 +52,35 @@
     <body>
 
         <menu name="About">
-            <item href="index.html" name="Overview"/>
-            <item href="recent.html" name="New Features"/>
-            <item href="roadmap.html" name="Roadmap"/>
-            <item href="performance.html" name="Performance"/>
-            <item href="team.html" name="Team"/>
-            <item href="mailing_list.html" name="Mailing Lists"/>
-            <item href="source.html" name="Source Repository"/>
-            <item href="issues.html" name="Issue Tracking"/>
-            <item href="download.html" name="Download" />
+            <item href="http://phoenix.incubator.apache.org/" name="Overview"/>
+            <item href="http://phoenix.incubator.apache.org/recent.html" name="New Features"/>
+            <item href="http://phoenix.incubator.apache.org/roadmap.html" name="Roadmap"/>
+            <item href="http://phoenix.incubator.apache.org/performance.html" name="Performance"/>
+            <item href="http://phoenix.incubator.apache.org/team.html" name="Team"/>
+            <item href="http://phoenix.incubator.apache.org/mailing_list.html" name="Mailing Lists"/>
+            <item href="http://phoenix.incubator.apache.org/source.html" name="Source Repository"/>
+            <item href="http://phoenix.incubator.apache.org/issues.html" name="Issue Tracking"/>
+            <item href="http://phoenix.incubator.apache.org/download.html" name="Download" />
         </menu>
         <menu name="Using">
-            <item href="faq.html" name="F.A.Q."/>
-            <item href="Phoenix-in-15-minutes-or-less.html" name="Phoenix Quick Start"/>
-            <item href="tuning.html" name="Configuration and Tuning"/>
-            <item href="building.html" name="Building Project"/>
-            <item href="salted.html" name="Salted Tables"/>
-            <item href="paged.html" name="Paged Queries"/>
-            <item href="secondary_indexing.html" name="Secondary Indexing"/>
-            <item href="skip_scan.html" name="Skip Scan"/>
-            <item href="dynamic_columns.html" name="Dynamic Columns"/>
-            <item href="phoenix_on_emr.html" name="Phoenix on EMR"/>
-            <item href="mr_dataload.html" name="Bulk CSV via M/R"/>
-            <item href="flume.html" name="Apache Flume Plugin"/>
-            <item href="sequences.html" name="Sequences"/>
+            <item href="http://phoenix.incubator.apache.org/faq.html" name="F.A.Q."/>
+            <item href="http://phoenix.incubator.apache.org/Phoenix-in-15-minutes-or-less.html" name="Phoenix Quick Start"/>
+            <item href="http://phoenix.incubator.apache.org/tuning.html" name="Configuration and Tuning"/>
+            <item href="http://phoenix.incubator.apache.org/building.html" name="Building Project"/>
+            <item href="http://phoenix.incubator.apache.org/salted.html" name="Salted Tables"/>
+            <item href="http://phoenix.incubator.apache.org/paged.html" name="Paged Queries"/>
+            <item href="http://phoenix.incubator.apache.org/secondary_indexing.html" name="Secondary Indexing"/>
+            <item href="http://phoenix.incubator.apache.org/skip_scan.html" name="Skip Scan"/>
+            <item href="http://phoenix.incubator.apache.org/dynamic_columns.html" name="Dynamic Columns"/>
+            <item href="http://phoenix.incubator.apache.org/phoenix_on_emr.html" name="Phoenix on EMR"/>
+            <item href="http://phoenix.incubator.apache.org/mr_dataload.html" name="Bulk CSV via M/R"/>
+            <item href="http://phoenix.incubator.apache.org/flume.html" name="Apache Flume Plugin"/>
+            <item href="http://phoenix.incubator.apache.org/sequences.html" name="Sequences"/>
         </menu>
         <menu name="Reference">
-            <item href="grammar.html" name="Grammar"/>
-            <item href="functions.html" name="Functions"/>
-            <item href="datatypes.html" name="Datatypes"/>
+            <item href="http://phoenix.incubator.apache.org/language/index.html" name="Grammar"/>
+            <item href="http://phoenix.incubator.apache.org/language/functions.html" name="Functions"/>
+            <item href="http://phoenix.incubator.apache.org/language/datatypes.html" name="Datatypes"/>
         </menu>
 
     </body>

@@ -211,7 +211,7 @@ Mutable table: `create table test (mykey varchar primary key, col1 varchar, col2
 
 `create index idx on test (col1) include (col2)`
 
-Upsert rows in this test table and Phoenix query optimizer will choose correct index to use. You can see in [explain plan](grammar.html#explain) if Phoenix is using the index table. You can also give a [hint](grammar.html#hint) in Phoenix query to use a specific index.
+Upsert rows in this test table and Phoenix query optimizer will choose correct index to use. You can see in [explain plan](language/index.html#explain) if Phoenix is using the index table. You can also give a [hint](language/index.html#hint) in Phoenix query to use a specific index.
 
 
 

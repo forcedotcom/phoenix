@@ -9,7 +9,7 @@ Phoenix supports two main forms of indexing: mutable and immutable indexing. The
 
 Often, the rows you are inserting are changing - pretty much any time you are not doing time-series data. In this case, use mutable indexing to ensure that your index is properly maintained as your data changes.
 
-All the performance penalties for indexes occur at write time. We intercept the primary table updates on write ([DELETE](grammar.html#delete), [UPSERT VALUES](grammar.html#upsert_values) and [UPSERT SELECT](grammar.html#upsert_select)), build the index update and then sent any necessary updates to all interested index tables. At read time, Phoenix will select the index table to use that will produce the fastest query time and directly scan it just like any other HBase table.
+All the performance penalties for indexes occur at write time. We intercept the primary table updates on write ([DELETE](language/index.html#delete), [UPSERT VALUES](language/index.html#upsert_values) and [UPSERT SELECT](language/index.html#upsert_select)), build the index update and then sent any necessary updates to all interested index tables. At read time, Phoenix will select the index table to use that will produce the fastest query time and directly scan it just like any other HBase table.
 
 ## Example
 
@@ -48,7 +48,7 @@ Other than that, all of the previous examples are identical for immutable indexi
 If you have an existing table that you'd like to switch from immutable indexing to mutable indexing, use the <code>ALTER TABLE</code> command as show below:
 
     ALTER TABLE my_table SET IMMUTABLE_ROWS=false;
-For the complete syntax, see our [Language Reference Guide](grammar.html#create_index).
+For the complete syntax, see our [Language Reference Guide](language/index.html#create_index).
 
 ## Data Guarantees and Failure Management
 

@@ -46,3 +46,20 @@ padding-bottom: 0px;
 margin-top: 20px;
 margin-bottom: 10px;
 }
+
+
+@media (max-width: 579px) {
+	.xtoplogo {
+	height: 23px;
+	width: 150px;
+	background:url(../images/topbar-logo-small.png)
+	}
+}
+
+@media (min-width: 580px) {
+	.xtoplogo {
+	height: 23px;
+	width: 360px;
+	background:url(../images/topbar-logo.png)
+	}
+}
