@@ -129,7 +129,7 @@ public class SpillManager implements Closeable {
 
     // serialize a key/value tuple into a byte array
     // WARNING: expensive
-    private byte[] serialize(ImmutableBytesWritable key, Aggregator[] aggs,
+    private byte[] serialize(ImmutableBytesPtr key, Aggregator[] aggs,
             ServerAggregators serverAggs) throws IOException {
 
         DataOutputStream output = null;
@@ -174,17 +174,18 @@ public class SpillManager implements Closeable {
             input = new DataInputStream(new ByteArrayInputStream(data));
             // key length
             int keyLength = WritableUtils.readVInt(input);
-            byte[] keyBytes = new byte[keyLength];
+            int offset = WritableUtils.getVIntSize(keyLength);
             // key
-            input.readFully(keyBytes, 0, keyLength);
-            return new ImmutableBytesPtr(keyBytes, 0, keyLength);
+            return new ImmutableBytesPtr(data, offset, keyLength);
         } finally {
             if (input != null) {
                 input.close();
+                input = null;
             }
         }
     }
 
+    
     // Instantiate Aggregators form a serialized byte array
     private Aggregator[] getAggregators(byte[] data) throws IOException {
         DataInputStream input = null;
@@ -192,20 +193,17 @@ public class SpillManager implements Closeable {
             input = new DataInputStream(new ByteArrayInputStream(data));
             // key length
             int keyLength = WritableUtils.readVInt(input);
-            byte[] keyBytes = new byte[keyLength];
-            // key
-            input.readFully(keyBytes, 0, keyLength);
-            ImmutableBytesPtr ptr = new ImmutableBytesPtr(keyBytes, 0, keyLength);
+            int vIntKeyLength = WritableUtils.getVIntSize(keyLength);
+            ImmutableBytesPtr ptr = new ImmutableBytesPtr(data, vIntKeyLength, keyLength);
 
             // value length
+            input.skip(keyLength);
             int valueLength = WritableUtils.readVInt(input);
-            byte[] valueBytes = new byte[valueLength];
-            // value bytes
-            input.readFully(valueBytes, 0, valueLength);
+            int vIntValLength = WritableUtils.getVIntSize(keyLength);
             KeyValue keyValue =
                     KeyValueUtil.newKeyValue(ptr.get(), ptr.getOffset(), ptr.getLength(),
                         QueryConstants.SINGLE_COLUMN_FAMILY, QueryConstants.SINGLE_COLUMN,
-                        QueryConstants.AGG_TIMESTAMP, valueBytes, 0, valueBytes.length);
+                        QueryConstants.AGG_TIMESTAMP, data, vIntKeyLength + keyLength + vIntValLength, valueLength);
             Tuple result = new SingleKeyValueTuple(keyValue);
             TupleUtil.getAggregateValue(result, ptr);
             KeyValueSchema schema = aggregators.getValueSchema();
@@ -261,8 +259,9 @@ public class SpillManager implements Closeable {
      */
     public void spill(ImmutableBytesWritable key, Aggregator[] value) throws IOException {
         SpillMap spillMap = spillMaps.get(getPartition(key));
-        byte[] data = serialize(key, value, aggregators);
-        spillMap.put(new ImmutableBytesPtr(key), data);
+        ImmutableBytesPtr keyPtr = new ImmutableBytesPtr(key);
+        byte[] data = serialize(keyPtr, value, aggregators);
+        spillMap.put(keyPtr, data);
     }
 
     /**

@@ -53,7 +53,7 @@ public class SpillFile implements Closeable {
 			
 			if (file != null) {
                 if (logger.isDebugEnabled()) {
-                    logger.debug("Deleting tempFIle: " + file.getAbsolutePath());
+                    logger.debug("Deleting tempFile: " + file.getAbsolutePath());
                 }
                 try {
                     file.delete();

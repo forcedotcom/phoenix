@@ -21,11 +21,10 @@ import com.google.common.hash.Funnels;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
- * Class implements an active spilled partition serialized tuples are first written into an
- * in-memory data structure that represents a single page. As the page fills up, it is written to
- * the current spillFile or spill partition For fast tuple discovery, the class maintains a per page
- * bloom-filter and never de-serializes elements. The element spilling employs an extentible hashing 
- * technique.
+ * Class implements an active spilled partition serialized tuples are first written into an in-memory data structure
+ * that represents a single page. As the page fills up, it is written to the current spillFile or spill partition For
+ * fast tuple discovery, the class maintains a per page bloom-filter and never de-serializes elements. The element
+ * spilling employs an extentible hashing technique.
  */
 public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements Iterable<byte[]> {
 
@@ -38,7 +37,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
     private SpillFile spillFile;
     // Directory of hash buckets --> extendible hashing implementation
     private MappedByteBufferMap[] directory;
-    
+
     public SpillMap(SpillFile file, int thresholdBytes, int estValueSize) throws IOException {
         this.thresholdBytes = thresholdBytes - Bytes.SIZEOF_INT;
         this.pageInserts = thresholdBytes / estValueSize;
@@ -91,17 +90,15 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         // compute the two new bucket Ids for splitting
         // SpillFile adds new files dynamically in case the directory points to pageIDs
         // that exceed the size limit of a single file.
-        
+
         // TODO verify if some sort of de-fragmentation might be helpful
         int tmpIndex = index ^ ((1 << localDepth));
         int b1Index = Math.min(index, tmpIndex);
         int b2Index = Math.max(index, tmpIndex);
 
         // Create two new split buckets
-        MappedByteBufferMap b1 =
-                new MappedByteBufferMap(b1Index, thresholdBytes, pageInserts, spillFile);
-        MappedByteBufferMap b2 =
-                new MappedByteBufferMap(b2Index, thresholdBytes, pageInserts, spillFile);
+        MappedByteBufferMap b1 = new MappedByteBufferMap(b1Index, thresholdBytes, pageInserts, spillFile);
+        MappedByteBufferMap b2 = new MappedByteBufferMap(b2Index, thresholdBytes, pageInserts, spillFile);
 
         // redistribute old elements into b1 and b2
         for (Entry<ImmutableBytesPtr, byte[]> element : byteMap.pageMap.entrySet()) {
@@ -128,7 +125,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         if (globalDepth < (localDepth + 1)) {
             // Double directory structure and re-adjust pointers
             doubleDir = true;
-            
+
             b2Index = doubleDirectory(b2Index, keyNew);
         }
 
@@ -150,21 +147,21 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             directory[b2Index] = b2;
         }
     }
-    
+
     // Doubles the directory and readjusts pointers.
     private int doubleDirectory(int b2Index, ImmutableBytesPtr keyNew) {
         // Double the directory in size, second half points to original first half
         int newDirSize = 1 << (globalDepth + 1);
-        
+
         // Ensure that the new directory size does not exceed size limits
         Preconditions.checkArgument(newDirSize < Integer.MAX_VALUE);
-        
-        //Double it!
+
+        // Double it!
         MappedByteBufferMap[] newDirectory = new MappedByteBufferMap[newDirSize];
         for (int i = 0; i < directory.length; i++) {
             newDirectory[i] = directory[i];
             newDirectory[i + directory.length] = directory[i];
-        }            
+        }
         directory = newDirectory;
         newDirectory = null;
 
@@ -173,20 +170,20 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
 
         // Increment global depth
         globalDepth++;
-        
+
         return b2Index;
     }
 
     /**
-     * Get a key from the spillable data structures. page is determined via hash partitioning, and a
-     * bloomFilter check is used to determine if its worth paging in the data.
+     * Get a key from the spillable data structures. page is determined via hash partitioning, and a bloomFilter check
+     * is used to determine if its worth paging in the data.
      */
     @Override
     public byte[] get(Object key) {
         if (!(key instanceof ImmutableBytesPtr)) {
             // TODO ... work on type safety
         }
-        ImmutableBytesPtr ikey = (ImmutableBytesPtr) key;
+        ImmutableBytesPtr ikey = (ImmutableBytesPtr)key;
         byte[] value = null;
 
         int bucketIndex = getBucketIndex(ikey);
@@ -198,7 +195,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             MappedByteBufferMap curByteMap = directory[curMapBufferIndex];
 
             // Use bloomFilter to check if key was spilled before
-            if (byteMap.containsKey(ikey.copyBytesIfNecessary())) {
+            boolean contained = byteMap.containsKey(ikey.copyBytesIfNecessary());
+            if (contained) {
                 // ensure consistency and flush current memory page to disk
                 // fflush current buffer
                 curByteMap.flushBuffer();
@@ -210,7 +208,6 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         }
         // get KV from current map
         value = byteMap.getPagedInElement(ikey);
-
         return value;
     }
 
@@ -235,10 +232,9 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
     }
 
     /**
-     * Spill a key First we discover if the key has been spilled before and load it into memory:
-     * #ref get() if it was loaded before just replace the old value in the memory page if it was
-     * not loaded before try to store it in the current page alternatively if not enough memory
-     * available, request new page.
+     * Spill a key First we discover if the key has been spilled before and load it into memory: #ref get() if it was
+     * loaded before just replace the old value in the memory page if it was not loaded before try to store it in the
+     * current page alternatively if not enough memory available, request new page.
      */
     @Override
     public byte[] put(ImmutableBytesPtr key, byte[] value) {
@@ -284,10 +280,9 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
     }
 
     /**
-     * This inner class represents the currently mapped file region. It uses a Map to represent the
-     * current in memory page for easy get() and update() calls on an individual key The class keeps
-     * track of the current size of the in memory page and handles flushing and paging in
-     * respectively
+     * This inner class represents the currently mapped file region. It uses a Map to represent the current in memory
+     * page for easy get() and update() calls on an individual key The class keeps track of the current size of the in
+     * memory page and handles flushing and paging in respectively
      */
     private static class MappedByteBufferMap {
         private SpillFile spillFile;
@@ -296,6 +291,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         private long totalResultSize;
         private boolean pagedIn;
         private int localDepth;
+        private boolean dirtyPage;
         // Use a map for in memory page representation
         Map<ImmutableBytesPtr, byte[]> pageMap = Maps.newHashMap();
         // Used to determine is an element was written to this page before or not
@@ -311,6 +307,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             pagedIn = true;
             totalResultSize = 0;
             localDepth = 1;
+            dirtyPage = true;
         }
 
         private boolean containsKey(byte[] key) {
@@ -342,22 +339,27 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         // Flush the current page to the memory mapped byte buffer
         private void flushBuffer() throws BufferOverflowException {
             if (pagedIn) {
-                Collection<byte[]> values = pageMap.values();
-                MappedByteBuffer buffer = spillFile.getPage(pageIndex);
-                buffer.clear();
-                // number of elements
-                buffer.putInt(values.size());
-                for (byte[] value : values) {
-                    // element length
-                    buffer.putInt(value.length);
-                    // element
-                    buffer.put(value, 0, value.length);
+                MappedByteBuffer buffer;
+                if (dirtyPage) {
+                    Collection<byte[]> values = pageMap.values();
+                    buffer = spillFile.getPage(pageIndex);
+                    buffer.clear();
+                    // number of elements
+                    buffer.putInt(values.size());
+                    for (byte[] value : values) {
+                        // element length
+                        buffer.putInt(value.length);
+                        // element
+                        buffer.put(value, 0, value.length);
+                    }
                 }
+                buffer = null;
                 // Reset page stats
                 pageMap.clear();
                 totalResultSize = 0;
-                pagedIn = false;
             }
+            pagedIn = false;
+            dirtyPage = false;
         }
 
         // load memory mapped region into a map for fast element access
@@ -380,11 +382,13 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
                     }
                 }
                 pagedIn = true;
+                dirtyPage = false;
             }
         }
 
         /**
          * Return a cache element currently page into memory Direct access via mapped page map
+         * 
          * @param key
          * @return
          */
@@ -393,8 +397,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         }
 
         /**
-         * Inserts / Replaces cache element in the currently loaded page. Direct access via mapped
-         * page map
+         * Inserts / Replaces cache element in the currently loaded page. Direct access via mapped page map
+         * 
          * @param key
          * @param value
          */
@@ -412,6 +416,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
                 // Add new size information
                 totalResultSize += (value.length + Bytes.SIZEOF_INT);
             }
+
+            dirtyPage = true;
         }
 
         /**
@@ -443,9 +449,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
 
                     while (!found) {
                         pageIndex++;
-                        if (pageIndex >= directory.length) {
-                            return false;
-                        }
+                        if (pageIndex >= directory.length) { return false; }
                         directory[pageIndex - 1].pageMap.clear();
                         // get keys from all spilled pages
                         if (!dups.contains(directory[pageIndex].pageIndex)) {
@@ -464,8 +468,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             @Override
             public byte[] next() {
                 // get elements from in memory map first
-                byte[] b = entriesIter.next();
-                return b;
+                return entriesIter.next();
             }
 
             @Override
