@@ -31,4 +31,8 @@ Use the m2e eclipse plugin and do Import->Maven Project and just pick the root '
 ===========
 Findbugs report is generated in /target/site
 	$ mvn site
+
+## Generate Apache Web Site
+===========================
+	$ mvn clean site -Ddependency.locations.enabled=false
 	
