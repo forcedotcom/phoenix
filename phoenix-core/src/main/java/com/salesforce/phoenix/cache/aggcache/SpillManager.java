@@ -96,7 +96,7 @@ public class SpillManager implements Closeable {
     private final ArrayList<SpillMap> spillMaps;
     private final int numSpillFiles;
 
-    private ServerAggregators aggregators;
+    private final ServerAggregators aggregators;
     private final Configuration conf;
 
     /**
@@ -105,7 +105,7 @@ public class SpillManager implements Closeable {
      * @param serverAggregators
      */
     public SpillManager(int numSpillFiles, ServerAggregators serverAggregators,
-            Configuration conf) {
+            Configuration conf, SpillableGroupByCache.QueryCache cache) {
         try {
             int estValueSize = serverAggregators.getEstimatedByteSize();
             spillMaps = Lists.newArrayList();
@@ -120,7 +120,7 @@ public class SpillManager implements Closeable {
             // Each Spillfile only handles up to 2GB data
             for (int i = 0; i < numSpillFiles; i++) {
                 SpillFile file = SpillFile.createSpillFile();
-                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE, estValueSize));
+                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE, estValueSize, cache));
             }
         } catch (IOException ioe) {
             throw new RuntimeException("Could not init the SpillManager");
@@ -129,7 +129,7 @@ public class SpillManager implements Closeable {
 
     // serialize a key/value tuple into a byte array
     // WARNING: expensive
-    private byte[] serialize(ImmutableBytesWritable key, Aggregator[] aggs,
+    private byte[] serialize(ImmutableBytesPtr key, Aggregator[] aggs,
             ServerAggregators serverAggs) throws IOException {
 
         DataOutputStream output = null;
@@ -146,9 +146,7 @@ public class SpillManager implements Closeable {
             WritableUtils.writeVInt(output, aggsByte.length);
             // aggs
             output.write(aggsByte);
-
-            byte[] data = bai.toByteArray();
-            return data;
+            return bai.toByteArray();
         } finally {
 
             if (bai != null) {
@@ -174,17 +172,18 @@ public class SpillManager implements Closeable {
             input = new DataInputStream(new ByteArrayInputStream(data));
             // key length
             int keyLength = WritableUtils.readVInt(input);
-            byte[] keyBytes = new byte[keyLength];
+            int offset = WritableUtils.getVIntSize(keyLength);
             // key
-            input.readFully(keyBytes, 0, keyLength);
-            return new ImmutableBytesPtr(keyBytes, 0, keyLength);
+            return new ImmutableBytesPtr(data, offset, keyLength);
         } finally {
             if (input != null) {
                 input.close();
+                input = null;
             }
         }
     }
 
+    
     // Instantiate Aggregators form a serialized byte array
     private Aggregator[] getAggregators(byte[] data) throws IOException {
         DataInputStream input = null;
@@ -192,20 +191,17 @@ public class SpillManager implements Closeable {
             input = new DataInputStream(new ByteArrayInputStream(data));
             // key length
             int keyLength = WritableUtils.readVInt(input);
-            byte[] keyBytes = new byte[keyLength];
-            // key
-            input.readFully(keyBytes, 0, keyLength);
-            ImmutableBytesPtr ptr = new ImmutableBytesPtr(keyBytes, 0, keyLength);
+            int vIntKeyLength = WritableUtils.getVIntSize(keyLength);
+            ImmutableBytesPtr ptr = new ImmutableBytesPtr(data, vIntKeyLength, keyLength);
 
             // value length
+            input.skip(keyLength);
             int valueLength = WritableUtils.readVInt(input);
-            byte[] valueBytes = new byte[valueLength];
-            // value bytes
-            input.readFully(valueBytes, 0, valueLength);
+            int vIntValLength = WritableUtils.getVIntSize(keyLength);
             KeyValue keyValue =
                     KeyValueUtil.newKeyValue(ptr.get(), ptr.getOffset(), ptr.getLength(),
                         QueryConstants.SINGLE_COLUMN_FAMILY, QueryConstants.SINGLE_COLUMN,
-                        QueryConstants.AGG_TIMESTAMP, valueBytes, 0, valueBytes.length);
+                        QueryConstants.AGG_TIMESTAMP, data, vIntKeyLength + keyLength + vIntValLength, valueLength);
             Tuple result = new SingleKeyValueTuple(keyValue);
             TupleUtil.getAggregateValue(result, ptr);
             KeyValueSchema schema = aggregators.getValueSchema();
@@ -261,8 +257,9 @@ public class SpillManager implements Closeable {
      */
     public void spill(ImmutableBytesWritable key, Aggregator[] value) throws IOException {
         SpillMap spillMap = spillMaps.get(getPartition(key));
-        byte[] data = serialize(key, value, aggregators);
-        spillMap.put(new ImmutableBytesPtr(key), data);
+        ImmutableBytesPtr keyPtr = new ImmutableBytesPtr(key);
+        byte[] data = serialize(keyPtr, value, aggregators);
+        spillMap.put(keyPtr, data);
     }
 
     /**

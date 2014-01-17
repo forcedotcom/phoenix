@@ -133,7 +133,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
         }
     }
 
-    private static int sizeOfUnorderedGroupByMap(int nRows, int valueSize) {
+    public static int sizeOfUnorderedGroupByMap(int nRows, int valueSize) {
         return SizedUtil.sizeOfMap(nRows, SizedUtil.IMMUTABLE_BYTES_WRITABLE_SIZE, valueSize);
     }
 
@@ -321,7 +321,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
             boolean spillableEnabled =
                     conf.getBoolean(GROUPBY_SPILLABLE_ATTRIB, DEFAULT_GROUPBY_SPILLABLE);
             if (spillableEnabled) {
-                return new SpillableGroupByCache(estDistVals, aggregators, env);
+                return new SpillableGroupByCache(env, tenantId, aggregators, estDistVals);
             } 
             
             return new InMemoryGroupByCache(env, tenantId, aggregators, estDistVals);
