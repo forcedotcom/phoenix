@@ -96,7 +96,7 @@ public class SpillManager implements Closeable {
     private final ArrayList<SpillMap> spillMaps;
     private final int numSpillFiles;
 
-    private ServerAggregators aggregators;
+    private final ServerAggregators aggregators;
     private final Configuration conf;
 
     /**
@@ -105,7 +105,7 @@ public class SpillManager implements Closeable {
      * @param serverAggregators
      */
     public SpillManager(int numSpillFiles, ServerAggregators serverAggregators,
-            Configuration conf) {
+            Configuration conf, SpillableGroupByCache.QueryCache cache) {
         try {
             int estValueSize = serverAggregators.getEstimatedByteSize();
             spillMaps = Lists.newArrayList();
@@ -120,7 +120,7 @@ public class SpillManager implements Closeable {
             // Each Spillfile only handles up to 2GB data
             for (int i = 0; i < numSpillFiles; i++) {
                 SpillFile file = SpillFile.createSpillFile();
-                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE, estValueSize));
+                spillMaps.add(new SpillMap(file, SpillFile.DEFAULT_PAGE_SIZE, estValueSize, cache));
             }
         } catch (IOException ioe) {
             throw new RuntimeException("Could not init the SpillManager");
@@ -146,9 +146,7 @@ public class SpillManager implements Closeable {
             WritableUtils.writeVInt(output, aggsByte.length);
             // aggs
             output.write(aggsByte);
-
-            byte[] data = bai.toByteArray();
-            return data;
+            return bai.toByteArray();
         } finally {
 
             if (bai != null) {

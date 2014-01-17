@@ -50,29 +50,28 @@ import com.salesforce.phoenix.util.KeyValueUtil;
  * exceeds this number, the cache size is increased by a factor of 1.5. This happens until the additional memory to grow
  * the cache cannot be requested. At this point the Cache starts spilling elements. As long as no eviction happens no
  * spillable data structures are allocated, this only happens as soon as the first element is evicted from the cache. We
- * cannot really make any assumptions on which keys arrive at the map, but assume the LRU would at least cover the
- * cases where some keys have a slight skew and they should stay memory resident. Once a key gets evicted, the
- * spillManager is instantiated. It basically takes care of spilling an element to disk and does all the SERDE work. It
- * pre-allocates a configurable number of SpillFiles (spill partition) which are memory mapped temp files. The
- * SpillManager keeps a list of these and hash distributes the keys within this list. Once an element gets spilled, it
- * is serialized and will only get deserialized again, when it is requested from the client, i.e. loaded back into the
- * LRU cache. The SpillManager holds a single SpillMap object in memory for every spill partition (SpillFile). The
- * SpillMap is an in memory Map representation of a single page of spilled serialized key/value pairs. To achieve fast
- * key lookup the key is hash partitioned into random pages of the current spill file. The code implements an extendible
- * hashing approach which dynamically adjusts the hash function, in order to adapt to growing number of storage pages
- * and avoiding long chains of overflow buckets. For an excellent discussion of the algorithm please refer to the
- * following online resource: http://db.inf.uni-tuebingen.de/files/teaching/ws1011/db2/db2-hash-indexes.pdf . For this,
- * each SpillFile keeps a directory of pointers to Integer.MAX_VALUE 4K pages in memory, which allows each directory to
- * address more pages than a single memory mapped temp file could theoretically store. In case directory doubling,
- * requests a page index that exceeds the limits of the initial temp file limits, the implementation dynamically
- * allocates additional temp files to the SpillFile. The directory starts with a global depth of 1 and therefore a
- * directory size of 2 buckets. Only during bucket split and directory doubling more than one page is temporarily kept
- * in memory until all elements have been redistributed. The current implementation conducts bucket splits as long as an
- * element does not fit onto a page. No overflow chain is created, which might be an alternative. For get requests, each
- * directory entry maintains a bloomFilter to prevent page-in operations in case an element has never been spilled
- * before. The deserialization is only triggered when a key a loaded back into the LRU cache. The aggregators are
- * returned from the LRU cache and the next value is computed. In case the key is not found on any page, the Loader
- * create new aggregators for it.
+ * cannot really make any assumptions on which keys arrive at the map, but assume the LRU would at least cover the cases
+ * where some keys have a slight skew and they should stay memory resident. Once a key gets evicted, the spillManager is
+ * instantiated. It basically takes care of spilling an element to disk and does all the SERDE work. It pre-allocates a
+ * configurable number of SpillFiles (spill partition) which are memory mapped temp files. The SpillManager keeps a list
+ * of these and hash distributes the keys within this list. Once an element gets spilled, it is serialized and will only
+ * get deserialized again, when it is requested from the client, i.e. loaded back into the LRU cache. The SpillManager
+ * holds a single SpillMap object in memory for every spill partition (SpillFile). The SpillMap is an in memory Map
+ * representation of a single page of spilled serialized key/value pairs. To achieve fast key lookup the key is hash
+ * partitioned into random pages of the current spill file. The code implements an extendible hashing approach which
+ * dynamically adjusts the hash function, in order to adapt to growing number of storage pages and avoiding long chains
+ * of overflow buckets. For an excellent discussion of the algorithm please refer to the following online resource:
+ * http://db.inf.uni-tuebingen.de/files/teaching/ws1011/db2/db2-hash-indexes.pdf . For this, each SpillFile keeps a
+ * directory of pointers to Integer.MAX_VALUE 4K pages in memory, which allows each directory to address more pages than
+ * a single memory mapped temp file could theoretically store. In case directory doubling, requests a page index that
+ * exceeds the limits of the initial temp file limits, the implementation dynamically allocates additional temp files to
+ * the SpillFile. The directory starts with a global depth of 1 and therefore a directory size of 2 buckets. Only during
+ * bucket split and directory doubling more than one page is temporarily kept in memory until all elements have been
+ * redistributed. The current implementation conducts bucket splits as long as an element does not fit onto a page. No
+ * overflow chain is created, which might be an alternative. For get requests, each directory entry maintains a
+ * bloomFilter to prevent page-in operations in case an element has never been spilled before. The deserialization is
+ * only triggered when a key a loaded back into the LRU cache. The aggregators are returned from the LRU cache and the
+ * next value is computed. In case the key is not found on any page, the Loader create new aggregators for it.
  */
 
 public class SpillableGroupByCache implements GroupByCache {
@@ -90,6 +89,14 @@ public class SpillableGroupByCache implements GroupByCache {
     private final ServerAggregators aggregators;
     private final RegionCoprocessorEnvironment env;
     private final MemoryChunk chunk;
+
+    /* inner class that makes cache queryable for other classes 
+     * that should not get the full instance. Queryable view of the cache */
+    public class QueryCache {
+        public boolean isKeyContained(ImmutableBytesPtr key) {
+            return cache.containsKey(key);
+        }
+    }
 
     /**
      * Instantiates a Loading LRU Cache that stores key / aggregator[] tuples used for group by queries
@@ -137,6 +144,7 @@ public class SpillableGroupByCache implements GroupByCache {
                     int estSize = GroupedAggregateRegionObserver.sizeOfUnorderedGroupByMap(cacheSize, estValueSize);
                     try {
                         chunk.resize(estSize);
+                        spill = true;
                     } catch (InsufficientMemoryException im) {
                         // Cannot extend Map anymore, start spilling
                         spill = true;
@@ -151,7 +159,8 @@ public class SpillableGroupByCache implements GroupByCache {
                             //
                             // Only create spill data structs if LRU
                             // cache is too small
-                            spillManager = new SpillManager(numSpillFilesConf, aggregators, env.getConfiguration());
+                            spillManager = new SpillManager(numSpillFilesConf, aggregators, env.getConfiguration(),
+                                    new QueryCache());
                         }
                         spillManager.spill(eldest.getKey(), eldest.getValue());
                         // keep track of elements in cache

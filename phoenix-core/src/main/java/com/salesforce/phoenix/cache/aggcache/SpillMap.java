@@ -37,11 +37,14 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
     private SpillFile spillFile;
     // Directory of hash buckets --> extendible hashing implementation
     private MappedByteBufferMap[] directory;
+    private final SpillableGroupByCache.QueryCache cache;
 
-    public SpillMap(SpillFile file, int thresholdBytes, int estValueSize) throws IOException {
+    public SpillMap(SpillFile file, int thresholdBytes, int estValueSize, SpillableGroupByCache.QueryCache cache)
+            throws IOException {
         this.thresholdBytes = thresholdBytes - Bytes.SIZEOF_INT;
         this.pageInserts = thresholdBytes / estValueSize;
         this.spillFile = file;
+        this.cache = cache;
 
         // Init the e-hashing directory structure
         globalDepth = 1;
@@ -104,12 +107,15 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         for (Entry<ImmutableBytesPtr, byte[]> element : byteMap.pageMap.entrySet()) {
             ImmutableBytesPtr key = element.getKey();
             byte[] value = element.getValue();
-
-            // Re-distribute element onto the new 2 split buckets
-            if ((key.hashCode() & ((1 << localDepth))) != 0) {
-                b2.addElement(null, key, value);
-            } else {
-                b1.addElement(null, key, value);
+            // Only add key during redistribution if its not in the cache
+            // Otherwise this is an good point to reduce the number of spilled elements
+            if (!cache.isKeyContained(key)) {
+                // Re-distribute element onto the new 2 split buckets
+                if ((key.hashCode() & ((1 << localDepth))) != 0) {
+                    b2.addElement(null, key, value);
+                } else {
+                    b1.addElement(null, key, value);
+                }
             }
         }
 
@@ -291,6 +297,8 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         private long totalResultSize;
         private boolean pagedIn;
         private int localDepth;
+        // dirtyPage flag tracks if a paged in page was modified
+        // if not, no need to flush it back out to disk
         private boolean dirtyPage;
         // Use a map for in memory page representation
         Map<ImmutableBytesPtr, byte[]> pageMap = Maps.newHashMap();
@@ -340,6 +348,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
         private void flushBuffer() throws BufferOverflowException {
             if (pagedIn) {
                 MappedByteBuffer buffer;
+                // Only flush if page was changed
                 if (dirtyPage) {
                     Collection<byte[]> values = pageMap.values();
                     buffer = spillFile.getPage(pageIndex);
