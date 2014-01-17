@@ -116,10 +116,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, PTableType tableType,
-            Map<String, Object> tableProps, List<Pair<byte[], Map<String, Object>>> families, byte[][] splits)
+    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, byte[] tableName,
+            PTableType tableType, Map<String, Object> tableProps, List<Pair<byte[], Map<String, Object>>> families, byte[][] splits)
             throws SQLException {
-        return getDelegate().createTable(tableMetaData, tableType, tableProps, families, splits);
+        return getDelegate().createTable(tableMetaData, tableName, tableType, tableProps, families, splits);
     }
 
     @Override

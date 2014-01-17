@@ -50,7 +50,6 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NUM_PREC_RADIX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
@@ -74,11 +73,12 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NA
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_EXPRESSION;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_TYPE;
 
 import java.math.BigDecimal;
 
@@ -193,11 +193,11 @@ public interface QueryConstants {
             INDEX_STATE + " CHAR(1),\n" +
             IMMUTABLE_ROWS + " BOOLEAN,\n" +
             // Columns added in 3.0.0
-            TYPE_ID + " VARBINARY,\n" +
+            VIEW_EXPRESSION + " VARBINARY,\n" +
             DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR,\n" +
             DISABLE_WAL + " BOOLEAN,\n" +
             MULTI_TENANT + " BOOLEAN,\n" +
-            MULTI_TYPE + " BOOLEAN,\n" +
+            VIEW_TYPE + " UNSIGNED_TINYINT,\n" +
             BASE_SCHEMA_NAME + " VARCHAR,\n" +
             BASE_TABLE_NAME + " VARCHAR,\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","

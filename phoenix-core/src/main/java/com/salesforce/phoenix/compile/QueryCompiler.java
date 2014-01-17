@@ -56,6 +56,7 @@ import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
+import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -124,6 +125,7 @@ public class QueryCompiler {
         PhoenixConnection connection = statement.getConnection();
         List<Object> binds = statement.getParameters();
         ColumnResolver resolver = FromCompiler.getMultiTableResolver(select, connection);
+        // TODO: do this normalization outside of this so as it's not repeated by the optimizer
         select = StatementNormalizer.normalize(select, resolver);
         StatementContext context = new StatementContext(statement, resolver, binds, scan);
         
@@ -254,6 +256,10 @@ public class QueryCompiler {
         if (tableRef.getTable().getType() == PTableType.INDEX && tableRef.getTable().getIndexState() != PIndexState.ACTIVE) {
             return new DegenerateQueryPlan(context, select, tableRef);
         }
+        PTable table = tableRef.getTable();
+        ParseNode viewNode = table.getViewNode();
+        // Push VIEW expression into select
+        select = SelectStatement.create(select, viewNode);
         Integer limit = LimitCompiler.compile(context, select);
 
         GroupBy groupBy = GroupByCompiler.compile(context, select);

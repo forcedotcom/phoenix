@@ -77,10 +77,12 @@ import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.SQLCloseables;
@@ -115,8 +117,19 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     
     private boolean isClosed = false;
     
+    private static Properties newPropsWithSCN(long scn, Properties props) {
+        props = new Properties(props);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(scn));
+        return props;
+    }
+    
     public PhoenixConnection(PhoenixConnection connection) throws SQLException {
         this(connection.getQueryServices(), connection.getURL(), connection.getClientInfo(), connection.getPMetaData());
+        this.isAutoCommit = connection.isAutoCommit;
+    }
+    
+    public PhoenixConnection(PhoenixConnection connection, long scn) throws SQLException {
+        this(connection.getQueryServices(), connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
         this.isAutoCommit = connection.isAutoCommit;
     }
     

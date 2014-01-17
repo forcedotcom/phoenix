@@ -27,17 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end;
 
-import static com.salesforce.phoenix.exception.SQLExceptionCode.BASE_TABLE_NOT_TOP_LEVEL;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DEFINE_PK_FOR_VIEW;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_DROP_PK;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MODIFY_PK_OF_DERIVED_TABLE;
+import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MODIFY_VIEW_PK;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.CANNOT_MUTATE_TABLE;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.CREATE_TENANT_TABLE_NO_PK;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.INSUFFICIENT_MULTI_TENANT_COLUMNS;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.INSUFFICIENT_MULTI_TYPE_COLUMNS;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.NO_TYPE_ID_FOR_MULTI_TYPE;
 import static com.salesforce.phoenix.exception.SQLExceptionCode.TABLE_UNDEFINED;
-import static com.salesforce.phoenix.exception.SQLExceptionCode.TYPE_ID_USED;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
@@ -62,6 +56,7 @@ import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.ColumnAlreadyExistsException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -91,16 +86,14 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     }
     
     @Test
-    public void testCreateTenantTableBaseTableTopLevel() throws Exception {
-        createTestTable(getUrl(), "CREATE TABLE BASE_MULTI_TYPE_TABLE (TYPE_ID VARCHAR, K VARCHAR, CONSTRAINT pk PRIMARY KEY (TYPE_ID,K)) multi_type=true", null, nextTimestamp());
-        createTestTable(getUrl(), "DERIVE TABLE MULTI_TYPE_TABLE (COL VARCHAR) FROM BASE_MULTI_TYPE_TABLE AS 'aaa'", null, nextTimestamp());
+    public void testCreateTenantViewFromNonMultiTenant() throws Exception {
+        createTestTable(getUrl(), "CREATE TABLE NON_MULTI_TENANT_TABLE (K VARCHAR PRIMARY KEY)", null, nextTimestamp());
         try {
             // Only way to get this exception is to attempt to derive from a global, multi-type table, as we won't find
             // a tenant-specific table when we attempt to resolve the base table.
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 (COL VARCHAR) FROM MULTI_TYPE_TABLE AS 'aaa'", null, nextTimestamp());
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW TENANT_TABLE2 (COL VARCHAR) AS SELECT * FROM NON_MULTI_TENANT_TABLE", null, nextTimestamp());
         }
-        catch (SQLException expected) {
-            assertEquals(BASE_TABLE_NOT_TOP_LEVEL.getErrorCode(), expected.getErrorCode());
+        catch (TableNotFoundException expected) {
         }
     }
 
@@ -114,25 +107,9 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     }
     
     @Test
-    public void testCreateTenantTableWithSameTypeId() throws Exception {
+    public void testCreateTenantTableWithSameWhereClause() throws Exception {
         createTestTable(getUrl(), PARENT_TABLE_DDL.replace(PARENT_TABLE_NAME, PARENT_TABLE_NAME + "_II"), null, nextTimestamp());
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL, null, nextTimestamp());
-        
-        // Create a tenant table with tenant type id used with a different base table.  This is allowed.
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_SPECIFIC_TABLE_II ( \n" + 
-    		    " col VARCHAR\n" + 
-    		    " ) FROM " + PARENT_TABLE_NAME + "_II" + " AS '" + TENANT_TYPE_ID + "'", null, nextTimestamp());
-        
-        try {
-        	// Create a tenant table with tenant type id already used for this base table.  This is not allowed.
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_SPECIFIC_TABLE2 ( \n" + 
-        		    " col VARCHAR\n" + 
-        		    " ) FROM PARENT_TABLE AS'" + TENANT_TYPE_ID + "'", null, nextTimestamp());
-        	fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(TYPE_ID_USED.getErrorCode(), expected.getErrorCode());
-        }
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, TENANT_TABLE_DDL.replace(TENANT_TABLE_NAME, TENANT_TABLE_NAME + "2"), null, nextTimestamp());
     }
     
     @Test(expected=TableNotFoundException.class)
@@ -146,30 +123,27 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         conn.close();
     }
     
-    @Test(expected=SQLException.class)
     public void testCreationOfParentTableFailsOnTenantSpecificConnection() throws Exception {
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE PARENT_TABLE ( \n" + 
-                "                user VARCHAR ,\n" + 
-                "                id INTEGER not null primary key desc\n" + 
-                "                ) ", null, nextTimestamp());
-    }
-    
-    @Test(expected=SQLException.class)
-    public void testCreationOfTenantSpecificTableFailsOnNonTenantSpecificConnection() throws Exception {
-        createTestTable(getUrl(), "CREATE TABLE TENANT_SPECIFIC_TABLE ( \n" + 
-                "                tenantCol VARCHAR \n" + 
-                "                ) BASE_TABLE='PARENT_TABLE', TENANT_TYPE_ID='abc'", null, nextTimestamp());
+        try {
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE TABLE PARENT_TABLE ( \n" + 
+                    "                user VARCHAR ,\n" + 
+                    "                id INTEGER not null primary key desc\n" + 
+                    "                ) ", null, nextTimestamp());
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.CANNOT_CREATE_TENANT_SPECIFIC_BASE_TABLE.getErrorCode(), e.getErrorCode());
+        }
     }
     
     @Test
     public void testTenantSpecificAndParentTablesMayBeInDifferentSchemas() throws SQLException {
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE DIFFSCHEMA.TENANT_TABLE ( \n" + 
-                "                tenant_col VARCHAR) \n" + 
-                "                FROM " + PARENT_TABLE_NAME + " AS 'aaa'", null, nextTimestamp());
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW DIFFSCHEMA.TENANT_TABLE ( \n" + 
+                "                tenant_col VARCHAR) AS SELECT * \n" + 
+                "                FROM " + PARENT_TABLE_NAME + " WHERE tenant_type_id = 'aaa'", null, nextTimestamp());
         try {
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE DIFFSCHEMA.TENANT_TABLE ( \n" + 
-                    "                tenant_col VARCHAR) \n"+
-                    "                FROM DIFFSCHEMA." + PARENT_TABLE_NAME + " AS 'aaa'", null, nextTimestamp());
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW DIFFSCHEMA.TENANT_TABLE ( \n" + 
+                    "                tenant_col VARCHAR) AS SELECT *\n"+
+                    "                FROM DIFFSCHEMA." + PARENT_TABLE_NAME + " WHERE tenant_type_id = 'aaa'", null, nextTimestamp());
             fail();
         }
         catch (SQLException expected) {
@@ -181,120 +155,55 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         "                tenant_id VARCHAR(5) NOT NULL,\n" + 
         "                tenant_type_id VARCHAR(3) NOT NULL, \n" + 
         "                id INTEGER NOT NULL\n" + 
-        "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true,MULTI_TYPE=true";
+        "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true";
         createTestTable(getUrl(), newDDL, null, nextTimestamp());
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE DIFFSCHEMA.TENANT_TABLE ( \n" + 
-                "                tenant_col VARCHAR) \n"+
-                "                FROM DIFFSCHEMA." + PARENT_TABLE_NAME + " AS 'aaa'", null, nextTimestamp());
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW DIFFSCHEMA.TENANT_TABLE ( \n" + 
+                "                tenant_col VARCHAR) AS SELECT *\n"+
+                "                FROM DIFFSCHEMA." + PARENT_TABLE_NAME + " WHERE tenant_type_id = 'aaa'", null, nextTimestamp());
     }
     
     @Test
     public void testTenantSpecificTableCannotDeclarePK() throws SQLException {
         try {
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 ( \n" + 
-                    "                tenant_col VARCHAR PRIMARY KEY) \n" + 
-                    "                FROM PARENT_TABLE AS 'aaa'", null, nextTimestamp());
+            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW TENANT_TABLE2 ( \n" + 
+                    "                tenant_col VARCHAR PRIMARY KEY) AS SELECT *\n" + 
+                    "                FROM PARENT_TABLE", null, nextTimestamp());
             fail();
         }
         catch (SQLException expected) {
-            assertEquals(CREATE_TENANT_TABLE_NO_PK.getErrorCode(), expected.getErrorCode());
+            assertEquals(CANNOT_DEFINE_PK_FOR_VIEW.getErrorCode(), expected.getErrorCode());
         }
     }
     
     @Test(expected=ColumnAlreadyExistsException.class)
     public void testTenantSpecificTableCannotOverrideParentCol() throws SQLException {
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 ( \n" + 
-                "                user INTEGER) \n" + 
-                "                FROM PARENT_TABLE AS 'aaa'", null, nextTimestamp());
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW TENANT_TABLE2 ( \n" + 
+                "                user INTEGER) AS SELECT *\n" + 
+                "                FROM PARENT_TABLE", null, nextTimestamp());
     }
     
     @Test
     public void testBaseTableWrongFormatWithTenantTypeId() throws Exception {
         // only two PK columns for multi_tenant, multi_type
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL PRIMARY KEY, ID VARCHAR NOT NULL, A INTEGER) MULTI_TENANT=true", null, nextTimestamp());
             fail();
         }
         catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS.getErrorCode(), expected.getErrorCode());
+            assertEquals(SQLExceptionCode.INSUFFICIENT_MULTI_TENANT_COLUMNS.getErrorCode(), expected.getErrorCode());
         }
-        
-        // only one PK columns for multi_tenant
-        try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS.getErrorCode(), expected.getErrorCode());
-        }
-        
-        // ok for just multi_tenant
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true", null, nextTimestamp());
-
-        // ok for just multi_type
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TYPE_ID VARCHAR NOT NULL, ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TYPE_ID, ID)) MULTI_TYPE=true", null, nextTimestamp());
-
-        // nullable typeId column is ok
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID VARCHAR(3) NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 (B VARCHAR) FROM BASE_TABLE2 AS 'aaa'", null, nextTimestamp());
-        
-        // typeId column may be of any type
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE2 (TENANT_ID VARCHAR NOT NULL, TENANT_TYPE_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TENANT_TYPE_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE2 (B VARCHAR) FROM BASE_TABLE2 AS 2", null, nextTimestamp());
     }
     
     @Test
     public void testBaseTableWrongFormatWithNoTenantTypeId() throws Exception {
-        // only one PK column
-        try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NOT NULL, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS.getErrorCode(), expected.getErrorCode());
-        }
-        
-        // nullable tenantId column is ok
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE3 (TENANT_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true", null, nextTimestamp());
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE3 (B VARCHAR) FROM BASE_TABLE3", null, nextTimestamp());
-        
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE4 (TENANT_ID VARCHAR NULL, TYPE_ID CHAR(3) NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, TYPE_ID, ID)) MULTI_TENANT=true, MULTI_TYPE=true", null, nextTimestamp());
-        try {
-            createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE TENANT_TABLE4 (B VARCHAR) FROM BASE_TABLE4", null, nextTimestamp());
-            fail();
-        } catch (SQLException expected) {
-            assertEquals(NO_TYPE_ID_FOR_MULTI_TYPE.getErrorCode(), expected.getErrorCode());
-        }
-        
         // tenantId column of wrong type
         try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE5 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true,MULTI_TYPE=true", null, nextTimestamp());
+            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE5 (TENANT_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TENANT_ID, ID)) MULTI_TENANT=true", null, nextTimestamp());
             fail();
         }
         catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TENANT_TYPE_COLUMNS.getErrorCode(), expected.getErrorCode());
+            assertEquals(SQLExceptionCode.INSUFFICIENT_MULTI_TENANT_COLUMNS.getErrorCode(), expected.getErrorCode());
         }
-
-        // multi_type with single column
-        try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE6 (TYPE_ID INTEGER NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (ID)) MULTI_TYPE=true", null, nextTimestamp());
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TYPE_COLUMNS.getErrorCode(), expected.getErrorCode());
-        }
-        // multi_tenant with single column
-        try {
-            createTestTable(getUrl(), "CREATE TABLE BASE_TABLE7 (TENANT_ID VARCHAR NOT NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (ID)) MULTI_TENANT=true", null, nextTimestamp());
-            fail();
-        }
-        catch (SQLException expected) {
-            assertEquals(INSUFFICIENT_MULTI_TENANT_COLUMNS.getErrorCode(), expected.getErrorCode());
-        }
-        // no tenantId for multi_type is ok
-        createTestTable(getUrl(), "CREATE TABLE BASE_TABLE9 (TYPE_ID VARCHAR NULL, ID VARCHAR, A INTEGER CONSTRAINT PK PRIMARY KEY (TYPE_ID, ID)) MULTI_TYPE=true", null, nextTimestamp());
-        createTestTable(getUrl(), "DERIVE TABLE MULTI_TYPE_TABLE (B VARCHAR) FROM BASE_TABLE9 AS 'a'", null, nextTimestamp());
-        
     }
     
     @Test
@@ -365,7 +274,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
                 fail();
             }
             catch (SQLException expected) {
-                assertEquals(CANNOT_MODIFY_PK_OF_DERIVED_TABLE.getErrorCode(), expected.getErrorCode());
+                assertEquals(CANNOT_MODIFY_VIEW_PK.getErrorCode(), expected.getErrorCode());
             }
             
             try {
@@ -476,7 +385,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertEquals(TENANT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
             assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
             assertEquals(PARENT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertEquals(TENANT_TYPE_ID, Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.TYPE_ID)));
+            assertEquals("TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_EXPRESSION)));
             assertFalse(rs.next());
             rs = meta.getSuperTables(null, null, null);
             assertTrue(rs.next());
@@ -484,13 +393,13 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertEquals(TENANT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
             assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
             assertEquals(PARENT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertEquals(TENANT_TYPE_ID, Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.TYPE_ID)));
+            assertEquals("TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_EXPRESSION)));
             assertTrue(rs.next());
             assertEquals(TENANT_ID, rs.getString(PhoenixDatabaseMetaData.TENANT_ID));
             assertEquals(TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
             assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
             assertEquals(PARENT_TABLE_NAME_NO_TENANT_TYPE_ID, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertNull(rs.getString(PhoenixDatabaseMetaData.TYPE_ID));
+            assertNull(rs.getString(PhoenixDatabaseMetaData.VIEW_EXPRESSION));
             assertFalse(rs.next());
         }
         finally {
@@ -504,9 +413,9 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet rs = meta.getTables(null, null, null, null);
             assertTrue(rs.next());
-            assertTableMetaData(rs, null, TENANT_TABLE_NAME, USER);
+            assertTableMetaData(rs, null, TENANT_TABLE_NAME, PTableType.VIEW);
             assertTrue(rs.next());
-            assertTableMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, USER);
+            assertTableMetaData(rs, null, TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, PTableType.VIEW);
             assertFalse(rs.next());
             
             // make sure tenants see parent table's columns and their own

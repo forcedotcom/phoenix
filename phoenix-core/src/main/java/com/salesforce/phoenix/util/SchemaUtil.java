@@ -50,8 +50,6 @@ import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
@@ -86,7 +84,6 @@ import com.salesforce.phoenix.schema.SaltingUtil;
  */
 public class SchemaUtil {
     private static final int VAR_LENGTH_ESTIMATE = 10;
-    private static final Logger logger = LoggerFactory.getLogger(SchemaUtil.class);
     
     public static final DataBlockEncoding DEFAULT_DATA_BLOCK_ENCODING = DataBlockEncoding.FAST_DIFF;
     public static final RowKeySchema VAR_BINARY_SCHEMA = new RowKeySchemaBuilder(1).addField(new PDatum() {
@@ -532,64 +529,6 @@ public class SchemaUtil {
         }
     }
     
-    private static final long OLD_MIN_SYSTEM_TABLE_TIMESTAMP = 8;
-    
-    public static boolean isUpgradeTo3FromSnapshot(byte[] schemaName, byte[] tableName, long timestamp) {
-        boolean executeUpgrade = SchemaUtil.isMetaTable(schemaName, tableName) && timestamp == OLD_MIN_SYSTEM_TABLE_TIMESTAMP;
-        logger.info("isUpgradeTo3FromSnapshot: executeUpgrade=" + executeUpgrade + ",timestamp = " + timestamp);
-        return executeUpgrade;
-    }
-    
-    // Small upgrade code that ensures that every table header row has a DEFAULT_COLUMN_FAMILY_NAME
-    // defined using the old default, so that when we change it we don't break folks.
-    public static void upgradeTo3FromSnapshot(HRegion region, List<Mutation> mutations) throws IOException {
-        logger.info("Called upgradeTo3FromSnapshot");
-        Scan scan = new Scan();
-        scan.setTimeRange(MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP+1, HConstants.LATEST_TIMESTAMP);
-        scan.setRaw(true);
-        scan.setMaxVersions(MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS);
-        RegionScanner scanner = region.getScanner(scan);
-        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
-        List<KeyValue> result;
-        region.startRegionOperation();
-        try {
-            do {
-                result = Lists.newArrayList();
-                scanner.nextRaw(result, null);
-                for (KeyValue keyValue : result) {
-                    byte[] buf = keyValue.getBuffer();
-                    if (Type.codeToType(keyValue.getType()) == Type.Put) {
-                        // Add a new DEFAULT_COLUMN_FAMILY_NAME key value as a table header column.
-                        // We can match here on any table column header we know will occur for any
-                        // table row.
-                        if (Bytes.compareTo(
-                                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                                PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES, 0, PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES.length) == 0) {
-                            // Add one to the timestamp because we have a Delete marker at the same timestamp because we set
-                            // the same column to null before
-                            KeyValue defCFNameKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
-                                    buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                                    PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES, 0, PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES.length,
-                                    keyValue.getTimestamp()+1, Type.Put,
-                                    ORIG_DEF_CF_NAME,0,ORIG_DEF_CF_NAME.length);
-                            byte[] row = defCFNameKeyValue.getRow();
-                            logger.info("Setting " + PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME + " for " + Bytes.toStringBinary(row));
-                            Put defCFNamePut = new Put(row);
-                            defCFNamePut.add(defCFNameKeyValue);
-                            mutations.add(defCFNamePut);
-                        }
-                    }
-                }
-            } while (!result.isEmpty());
-        } finally {
-            try {
-                scanner.close();
-            } finally {
-                region.closeRegionOperation();
-            }
-        }
-    }
-
     private static final byte[][] OLD_TO_NEW_DATA_TYPE_3_0 = new byte[PDataType.TIMESTAMP.getSqlType() + 1][];
     static {
         OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIMESTAMP.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIMESTAMP.getSqlType());

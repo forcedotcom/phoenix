@@ -145,24 +145,28 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         }
     }
     
+    private static final String[] TYPES_TO_DELETE = new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()};
+    
     private static void deletePriorTables(long ts, Connection conn) throws Exception {
         DatabaseMetaData dbmd = conn.getMetaData();
-        ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
+        ResultSet rs = dbmd.getTables(null, null, null, TYPES_TO_DELETE);
         while (rs.next()) {
             if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) != null) {
                 String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+                String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
+                conn.createStatement().executeUpdate(ddl);
             }
         }
-        rs = dbmd.getTables(null, null, null, new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()});
+        rs = dbmd.getTables(null, null, null, TYPES_TO_DELETE);
         while (rs.next()) {
             if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) == null) {
                 String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
+                String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
+                conn.createStatement().executeUpdate(ddl);
             }
         }
     }

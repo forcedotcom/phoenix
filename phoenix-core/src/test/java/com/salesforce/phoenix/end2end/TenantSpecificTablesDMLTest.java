@@ -171,7 +171,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             props = new Properties();
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
-            conn.createStatement().execute("drop table " + TENANT_TABLE_NAME);
+            conn.createStatement().execute("drop view " + TENANT_TABLE_NAME);
             conn.close();
             
             props = new Properties();
@@ -203,7 +203,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             props = new Properties();
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
-            conn.createStatement().execute("drop table " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID);
+            conn.createStatement().execute("drop view " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID);
             conn.close();
             
             props = new Properties();
@@ -245,8 +245,8 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
     
     @Test
     public void testUpsertSelectOnlyUpsertsTenantDataWithDifferentTenantTable() throws Exception {
-        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "DERIVE TABLE ANOTHER_TENANT_TABLE ( " + 
-            "tenant_col VARCHAR) FROM PARENT_TABLE AS 'def'", null, nextTimestamp(), false);
+        createTestTable(PHOENIX_JDBC_TENANT_SPECIFIC_URL, "CREATE VIEW ANOTHER_TENANT_TABLE ( " + 
+            "tenant_col VARCHAR) AS SELECT * FROM PARENT_TABLE WHERE tenant_type_id = 'def'", null, nextTimestamp(), false);
         
         Connection conn = DriverManager.getConnection(getUrl());
         try {

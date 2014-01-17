@@ -54,6 +54,10 @@ public class StatementNormalizer extends ParseNodeRewriter {
         super(resolver, expectedAliasCount);
     }
 
+    public static ParseNode normalize(ParseNode where, ColumnResolver resolver) throws SQLException {
+        return rewrite(where, new StatementNormalizer(resolver, 0));
+    }
+    
     /**
      * Rewrite the select statement by switching any constants to the right hand side
      * of the expression.

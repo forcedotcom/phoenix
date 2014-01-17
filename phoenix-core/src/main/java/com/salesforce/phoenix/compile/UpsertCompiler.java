@@ -42,6 +42,7 @@ import java.util.Map;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -67,11 +68,13 @@ import com.salesforce.phoenix.optimize.QueryOptimizer;
 import com.salesforce.phoenix.parse.AliasedNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.ColumnName;
+import com.salesforce.phoenix.parse.ColumnParseNode;
+import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.HintNode;
 import com.salesforce.phoenix.parse.HintNode.Hint;
+import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.ParseNodeFactory;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
@@ -87,6 +90,7 @@ import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnImpl;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
@@ -95,7 +99,6 @@ import com.salesforce.phoenix.schema.TypeMismatchException;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
-import com.sun.istack.NotNull;
 
 public class UpsertCompiler {
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
@@ -218,20 +221,31 @@ public class UpsertCompiler {
         final TableRef tableRef = resolver.getTables().get(0);
         PTable table = tableRef.getTable();
         if (table.getType() == PTableType.VIEW) {
-            throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef + ")");
+            if (table.getViewType().isReadOnly()) {
+                throw new ReadOnlyTableException(table.getSchemaName().getString(),table.getTableName().getString());
+            }
         }
         boolean isSalted = table.getBucketNum() != null;
+        boolean isTenantSpecific = table.isMultiTenant() && connection.getTenantId() != null;
+        String tenantId = isTenantSpecific ? connection.getTenantId().getString() : null;
         int posOffset = isSalted ? 1 : 0;
         // Setup array of column indexes parallel to values that are going to be set
         List<ColumnName> columnNodes = upsert.getColumns();
-        final String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
         List<PColumn> allColumns = table.getColumns();
+        Map<ColumnRef, byte[]> addViewColumns = Collections.emptyMap();
+        Map<PColumn, byte[]> overlapViewColumns = Collections.emptyMap();
 
         int[] columnIndexesToBe;
+        int nColumnsToSet = 0;
         int[] pkSlotIndexesToBe;
         List<PColumn> targetColumns;
-        // Allow full row upsert if no columns or only dynamic one are specified and values count match
-        int numColsInTable = table.getColumns().size();
+        if (table.getViewType() == ViewType.UPDATABLE) {
+            StatementContext context = new StatementContext(statement, resolver, this.statement.getParameters(), new Scan());
+            ViewValuesMapBuilder builder = new ViewValuesMapBuilder(context);
+            table.getViewNode().accept(builder);
+            addViewColumns = builder.getViewColumns();
+        }
+        // Allow full row upsert if no columns or only dynamic ones are specified and values count match
         if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
             columnIndexesToBe = new int[allColumns.size() - posOffset];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
@@ -245,36 +259,64 @@ public class UpsertCompiler {
                     pkSlotIndexesToBe[i-posOffset] = j++;
                 }
             }
-        } else {
-            if (table.isDerivedTable()) {
-                int pos = 0;
-                if (tenantId != null) {
-                    PColumn tenantIdColumn = table.getPKColumns().get(pos);
-                    columnNodes.add(pos++, ColumnName.caseSensitiveColumnName(null, tenantIdColumn.getName().getString()));
-                }
-                if (table.getTypeId() != null) {
-                    PColumn typeIdColumn = table.getPKColumns().get(pos);
-                    columnNodes.add(pos++, ColumnName.caseSensitiveColumnName(null, typeIdColumn.getName().getString()));
+            if (!addViewColumns.isEmpty()) {
+                // All view columns overlap in this case
+                overlapViewColumns = Maps.newHashMapWithExpectedSize(addViewColumns.size());
+                for (Map.Entry<ColumnRef, byte[]> entry : addViewColumns.entrySet()) {
+                    ColumnRef ref = entry.getKey();
+                    PColumn column = ref.getColumn();
+                    overlapViewColumns.put(column, entry.getValue());
                 }
             }
+        } else {
+            // Size for worse case
             int numColsInUpsert = columnNodes.size();
-            columnIndexesToBe = new int[numColsInUpsert];
+            nColumnsToSet = numColsInUpsert + addViewColumns.size() + (isTenantSpecific ? 1 : 0);
+            columnIndexesToBe = new int[nColumnsToSet];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
             targetColumns.addAll(Collections.<PColumn>nCopies(columnIndexesToBe.length, null));
             Arrays.fill(columnIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             Arrays.fill(pkSlotIndexesToBe, -1); // TODO: necessary? So we'll get an AIOB exception if it's not replaced
             BitSet pkColumnsSet = new BitSet(table.getPKColumns().size());
-            for (int i =0; i < numColsInUpsert; i++) {
+            int i = 0;
+            for (i = 0; i < numColsInUpsert; i++) {
                 ColumnName colName = columnNodes.get(i);
                 ColumnRef ref = resolver.resolveColumn(null, colName.getFamilyName(), colName.getColumnName());
+                PColumn column = ref.getColumn();
+                byte[] viewValue = addViewColumns.remove(ref);
+                if (viewValue != null) {
+                    if (overlapViewColumns.isEmpty()) {
+                        overlapViewColumns = Maps.newHashMapWithExpectedSize(addViewColumns.size());
+                    }
+                    nColumnsToSet--;
+                    overlapViewColumns.put(column, viewValue);
+                }
                 columnIndexesToBe[i] = ref.getColumnPosition();
-                targetColumns.set(i, ref.getColumn());
-                if (SchemaUtil.isPKColumn(ref.getColumn())) {
+                targetColumns.set(i, column);
+                if (SchemaUtil.isPKColumn(column)) {
                     pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
                 }
             }
-            int i = posOffset;
+            for (Map.Entry<ColumnRef, byte[]> entry : addViewColumns.entrySet()) {
+                ColumnRef ref = entry.getKey();
+                PColumn column = ref.getColumn();
+                columnIndexesToBe[i] = ref.getColumnPosition();
+                targetColumns.set(i, column);
+                if (SchemaUtil.isPKColumn(column)) {
+                    pkColumnsSet.set(pkSlotIndexesToBe[i] = ref.getPKSlotPosition());
+                }
+                i++;
+            }
+            // Add tenant column directly, as we don't want to resolve it as this will fail
+            if (isTenantSpecific) {
+                PColumn tenantColumn = table.getPKColumns().get(posOffset);
+                columnIndexesToBe[i] = tenantColumn.getPosition();
+                pkColumnsSet.set(pkSlotIndexesToBe[i] = posOffset);
+                targetColumns.set(i, tenantColumn);
+                i++;
+            }
+            i = posOffset;
             for ( ; i < table.getPKColumns().size(); i++) {
                 PColumn pkCol = table.getPKColumns().get(i);
                 if (!pkColumnsSet.get(i)) {
@@ -295,9 +337,7 @@ public class UpsertCompiler {
         if (valueNodes == null) {
             SelectStatement select = upsert.getSelect();
             assert(select != null);
-            if (table.isDerivedTable()) {
-                select = cloneAndPrependTenantConstraintsToSelect(select, tenantId, table.getTypeId().getString());
-            }
+            select = addTenantAndViewConstants(table, select, tenantId, addViewColumns);
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
             boolean sameTable = tableRef.equals(selectTableRef);
             /* We can run the upsert in a coprocessor if:
@@ -339,29 +379,21 @@ public class UpsertCompiler {
             // Cannot auto commit if doing aggregation or topN or salted
             // Salted causes problems because the row may end up living on a different region
         } else {
-            if (table.isDerivedTable()) {
-                int pos = 0;
-                if (tenantId != null) {
-                    valueNodes.add(pos++, new LiteralParseNode(tenantId));
-                }
-                if (table.getTypeId() != null) {
-                    valueNodes.add(pos, new LiteralParseNode(table.getTypeId().getString()));
-                }
-            }
-            nValuesToSet = valueNodes.size();
+            nValuesToSet = valueNodes.size() + addViewColumns.size() + (isTenantSpecific ? 1 : 0);
         }
         final RowProjector projector = rowProjectorToBe;
         final UpsertingParallelIteratorFactory upsertParallelIteratorFactory = upsertParallelIteratorFactoryToBe;
         final QueryPlan queryPlan = plan;
         // Resize down to allow a subset of columns to be specifiable
-        if (columnNodes.isEmpty()) {
+        if (columnNodes.isEmpty() && columnIndexesToBe.length >= nValuesToSet) {
+            nColumnsToSet = nValuesToSet;
             columnIndexesToBe = Arrays.copyOf(columnIndexesToBe, nValuesToSet);
             pkSlotIndexesToBe = Arrays.copyOf(pkSlotIndexesToBe, nValuesToSet);
         }
         
-        if (nValuesToSet != columnIndexesToBe.length) {
+        if (nValuesToSet != nColumnsToSet) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH)
-                .setMessage("Numbers of columns: " + columnIndexesToBe.length + ". Number of values: " + nValuesToSet)
+                .setMessage("Numbers of columns: " + nColumnsToSet + ". Number of values: " + nValuesToSet)
                 .build().buildException();
         }
         
@@ -373,6 +405,11 @@ public class UpsertCompiler {
         // UPSERT SELECT
         /////////////////////////////////////////////////////////////////////
         if (valueNodes == null) {
+            // Before we re-order, check that for updatable view columns
+            // the projected expression either matches the column name or
+            // is a constant with the same required value.
+            throwIfNotUpdatable(tableRef, overlapViewColumns, targetColumns, projector);
+            
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run server-side (maybe)
             /////////////////////////////////////////////////////////////////////
@@ -564,12 +601,6 @@ public class UpsertCompiler {
         ////////////////////////////////////////////////////////////////////
         // UPSERT VALUES
         /////////////////////////////////////////////////////////////////////
-        if (nValuesToSet > numColsInTable) {
-            throw new SQLExceptionInfo.Builder(SQLExceptionCode.UPSERT_COLUMN_NUMBERS_MISMATCH)
-                .setMessage("Numbers of columns in table: " + numColsInTable + ". Number of values: " + nValuesToSet)
-                .build().buildException();
-        }
-        
         int nodeIndex = 0;
         // Allocate array based on size of all columns in table,
         // since some values may not be set (if they're nullable).
@@ -622,8 +653,22 @@ public class UpsertCompiler {
             byteValue = column.getDataType().coerceBytes(byteValue, value,
                     constantExpression.getDataType(), constantExpression.getMaxLength(), constantExpression.getScale(),
                     column.getMaxLength(), column.getScale());
+            byte[] viewValue = overlapViewColumns.get(column);
+            if (viewValue != null && Bytes.compareTo(byteValue, viewValue) != 0) {
+                throw new SQLExceptionInfo.Builder(
+                        SQLExceptionCode.CANNOT_UPDATE_VIEW_COLUMN)
+                        .setColumnName(column.getName().getString())
+                        .setMessage("value=" + constantExpression.toString()).build().buildException();
+            }
             values[nodeIndex] = byteValue;
             nodeIndex++;
+        }
+        // Add columns based on view
+        for (byte[] value : addViewColumns.values()) {
+            values[nodeIndex++] = value;
+        }
+        if (isTenantSpecific) {
+            values[nodeIndex++] = connection.getTenantId().getBytes();
         }
         return new MutationPlan() {
 
@@ -712,15 +757,100 @@ public class UpsertCompiler {
         }
     }
     
-    private static SelectStatement cloneAndPrependTenantConstraintsToSelect(@NotNull SelectStatement statement, String tenantId, String typeId) {
-        List<AliasedNode> select = newArrayListWithCapacity(statement.getSelect().size() + 2);
-        if (tenantId != null) {
-            select.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+
+    // ExpressionCompiler needs a context
+    private static class ViewValuesMapBuilder extends ExpressionCompiler {
+        private ColumnRef columnRef;
+        private Map<ColumnRef, byte[]> viewColumns = Maps.newHashMapWithExpectedSize(5);
+
+        private ViewValuesMapBuilder(StatementContext context) {
+            super(context);
         }
-        if (typeId != null) {
-            select.add(new AliasedNode(null, new LiteralParseNode(typeId)));
+        
+        public Map<ColumnRef, byte[]> getViewColumns() {
+            return viewColumns;
         }
-        select.addAll(statement.getSelect());
-        return new ParseNodeFactory().select(statement.getFrom(), statement.getHint(), statement.isDistinct(), select, statement.getWhere(), statement.getGroupBy(), statement.getHaving(), statement.getOrderBy(), statement.getLimit(), statement.getBindCount(), statement.isAggregate());
+
+        @Override
+        protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
+            return columnRef = super.resolveColumn(node);
+        }
+
+        @Override
+        public Expression visitLeave(IsNullParseNode node, List<Expression> children) throws SQLException {
+            viewColumns.put(columnRef, ByteUtil.EMPTY_BYTE_ARRAY);
+            return null;
+        }
+        
+        @Override
+        public Expression visitLeave(ComparisonParseNode node, List<Expression> children) throws SQLException {
+            Expression literal = children.get(1);
+            ImmutableBytesWritable ptr = context.getTempPtr();
+            literal.evaluate(null, ptr);
+            PColumn column = columnRef.getColumn();
+            column.getDataType().coerceBytes(ptr, literal.getDataType(), literal.getColumnModifier(), column.getColumnModifier());
+            viewColumns.put(columnRef, ByteUtil.copyKeyBytesIfNecessary(ptr));
+            return null;
+        }
+    }
+    
+    private static SelectStatement addTenantAndViewConstants(PTable table, SelectStatement select, String tenantId, Map<ColumnRef, byte[]> addViewColumns) {
+        if (tenantId == null && addViewColumns.isEmpty()) {
+            return select;
+        }
+        List<AliasedNode> selectNodes = newArrayListWithCapacity(select.getSelect().size() + 1 + addViewColumns.size());
+        selectNodes.addAll(select.getSelect());
+        for (Map.Entry<ColumnRef, byte[]> entry : addViewColumns.entrySet()) {
+            ColumnRef ref = entry.getKey();
+            PColumn column = ref.getColumn();
+            byte[] byteValue = entry.getValue();
+            Object value = column.getDataType().toObject(byteValue);
+            selectNodes.add(new AliasedNode(null, new LiteralParseNode(value)));
+        }
+        if (table.isMultiTenant() && tenantId != null) {
+            selectNodes.add(new AliasedNode(null, new LiteralParseNode(tenantId)));
+        }
+        
+        return SelectStatement.create(select, selectNodes);
+    }
+    
+    /**
+     * Check that none of no columns in our updatable VIEW are changing values.
+     * @param tableRef
+     * @param overlapViewColumns
+     * @param targetColumns
+     * @param projector
+     * @throws SQLException
+     */
+    private static void throwIfNotUpdatable(TableRef tableRef, Map<PColumn, byte[]> overlapViewColumns, List<PColumn> targetColumns, RowProjector projector) throws SQLException {
+        PTable table = tableRef.getTable();
+        if (table.getViewType() == ViewType.UPDATABLE && !overlapViewColumns.isEmpty()) {
+            ImmutableBytesWritable ptr = new ImmutableBytesWritable();
+            for (int i = 0; i < targetColumns.size(); i++) {
+                // Must make new column if position has changed
+                PColumn targetColumn = targetColumns.get(i);
+                byte[] value = overlapViewColumns.get(targetColumn);
+                if (value != null) {
+                    Expression source = projector.getColumnProjector(i).getExpression();
+                    if (source == null) { // FIXME: is this possible?
+                    } else if (source.isConstant()) {
+                        source.evaluate(null, ptr);
+                        if (Bytes.compareTo(ptr.get(), ptr.getOffset(), ptr.getLength(), value, 0, value.length) == 0) {
+                            continue;
+                        }
+                    // TODO: we had a ColumnRef already in our map before
+                    } else if (source.equals(new ColumnRef(tableRef, targetColumn.getPosition()).newColumnExpression())) {
+                        continue;
+                    }
+                    // TODO: one other check we could do is if the source is an updatable VIEW,
+                    // check if the source column is a VIEW column with the same constant value
+                    // as expected.
+                    throw new SQLExceptionInfo.Builder(
+                            SQLExceptionCode.CANNOT_UPDATE_VIEW_COLUMN)
+                            .setColumnName(targetColumn.getName().getString())
+                            .build().buildException();
+                }
+            }
+        }
     }
 }

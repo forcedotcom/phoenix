@@ -211,8 +211,10 @@ public class StatementContext {
          * purely to bind the current time based on the server time.
          */
         PTable table = this.getCurrentTable().getTable();
-        MetaDataClient client = new MetaDataClient(getConnection());
-        currentTime = Math.abs(client.updateCache(table.getSchemaName().getString(), table.getTableName().getString()));
+        PhoenixConnection connection = getConnection();
+        MetaDataClient client = new MetaDataClient(connection);
+        byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
+        currentTime = Math.abs(client.updateCache(tenantId, table.getSchemaName().getString(), table.getTableName().getString()));
         return currentTime;
     }
 

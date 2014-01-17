@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
-
 import org.apache.http.annotation.Immutable;
 
 import com.salesforce.phoenix.expression.ColumnExpression;
@@ -101,7 +99,7 @@ public final class ColumnRef {
         return true;
     }
 
-    public ColumnExpression newColumnExpression() throws SQLException {
+    public ColumnExpression newColumnExpression() {
         boolean isIndex = tableRef.getTable().getType() == PTableType.INDEX;
         if (SchemaUtil.isPKColumn(this.getColumn())) {
             String name = this.getColumn().getName().getString();

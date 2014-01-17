@@ -51,6 +51,13 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     
     protected static final ParseNodeFactory NODE_FACTORY = new ParseNodeFactory();
 
+    public static ParseNode rewrite(ParseNode where, ParseNodeRewriter rewriter) throws SQLException {
+        if (where == null) {
+            return null;
+        }
+        rewriter.reset();
+        return where.accept(rewriter);
+    }
     
     /**
      * Rewrite the select statement by switching any constants to the right hand side

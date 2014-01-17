@@ -30,7 +30,9 @@ package com.salesforce.phoenix.query;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.client.HConnection;
+import org.apache.hadoop.hbase.client.HTable;
+import org.apache.hadoop.hbase.client.HTableInterface;
 
 /**
  * Creates clients to access HBase tables.
@@ -56,11 +58,7 @@ public interface HTableFactory {
     static class HTableFactoryImpl implements HTableFactory {
         @Override
         public HTableInterface getTable(byte[] tableName, HConnection connection, ExecutorService pool) throws IOException {
-            try {
-                return new HTable(tableName, connection, pool);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
+            return new HTable(tableName, connection, pool);
         }
     }
 }

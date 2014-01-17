@@ -169,14 +169,14 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
     public static final String DEFAULT_COLUMN_FAMILY_NAME = "DEFAULT_COLUMN_FAMILY";
     public static final byte[] DEFAULT_COLUMN_FAMILY_NAME_BYTES = Bytes.toBytes(DEFAULT_COLUMN_FAMILY_NAME);
-    public static final String TYPE_ID = "TYPE_ID";
-    public static final byte[] TYPE_ID_BYTES = Bytes.toBytes(TYPE_ID);
+    public static final String VIEW_EXPRESSION = "VIEW_EXPRESSION";
+    public static final byte[] VIEW_EXPRESSION_BYTES = Bytes.toBytes(VIEW_EXPRESSION);
     public static final String DISABLE_WAL = "DISABLE_WAL";
     public static final byte[] DISABLE_WAL_BYTES = Bytes.toBytes(DISABLE_WAL);
     public static final String MULTI_TENANT = "MULTI_TENANT";
     public static final byte[] MULTI_TENANT_BYTES = Bytes.toBytes(MULTI_TENANT);
-    public static final String MULTI_TYPE = "MULTI_TYPE";
-    public static final byte[] MULTI_TYPE_BYTES = Bytes.toBytes(MULTI_TYPE);
+    public static final String VIEW_TYPE = "VIEW_TYPE";
+    public static final byte[] VIEW_TYPE_BYTES = Bytes.toBytes(VIEW_TYPE);
     public static final String BASE_SCHEMA_NAME = "BASE_SCHEMA_NAME";
     public static final byte[] BASE_SCHEMA_NAME_BYTES = Bytes.toBytes(BASE_SCHEMA_NAME);
     public static final String BASE_TABLE_NAME = "BASE_TABLE_NAME";
@@ -785,7 +785,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SALT_BUCKETS + "," +
                 BASE_SCHEMA_NAME + "," +
                 BASE_TABLE_NAME + "," +
-                TYPE_ID + "," +
+                VIEW_EXPRESSION + "," +
                 TENANT_ID +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
@@ -902,9 +902,9 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SALT_BUCKETS + "," +
                 BASE_SCHEMA_NAME + "," +
                 BASE_TABLE_NAME + "," +
-                TYPE_ID + "," +
+                VIEW_EXPRESSION + "," +
                 MULTI_TENANT + "," +
-                MULTI_TYPE +
+                VIEW_TYPE +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");

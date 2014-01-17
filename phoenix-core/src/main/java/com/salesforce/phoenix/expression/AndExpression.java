@@ -40,6 +40,18 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
  * @since 0.1
  */
 public class AndExpression extends AndOrExpression {
+    private static final String AND = "AND";
+    
+    public static String combine(String expression1, String expression2) {
+        if (expression1 == null) {
+            return expression2;
+        }
+        if (expression2 == null) {
+            return expression1;
+        }
+        return "(" + expression1 + ") " + AND + " (" + expression2 + ")";
+    }
+    
     public AndExpression() {
     }
 
@@ -56,7 +68,7 @@ public class AndExpression extends AndOrExpression {
     public String toString() {
         StringBuilder buf = new StringBuilder("(");
         for (int i = 0; i < children.size() - 1; i++) {
-            buf.append(children.get(i) + " AND ");
+            buf.append(children.get(i) + " " + AND + " ");
         }
         buf.append(children.get(children.size()-1));
         buf.append(')');

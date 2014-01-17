@@ -144,6 +144,25 @@ public class SQLParser {
     }
 
     /**
+     * Parses the input as a SQL select statement.
+     * Used only in tests
+     * @throws SQLException 
+     */
+    public ParseNode parseCondition() throws SQLException {
+        try {
+            ParseNode node = parser.condition();
+            return node;
+        } catch (RecognitionException e) {
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                throw (SQLException) e.getCause();
+            }
+            throw PhoenixParserException.newException(e, parser.getTokenNames());
+        }
+    }
+
+    /**
      * Parses the input as a SQL literal
      * @throws SQLException 
      */

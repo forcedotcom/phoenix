@@ -279,7 +279,8 @@ public class MutationState implements SQLCloseable {
             long serverTimeStamp = tableRef.getTimeStamp();
             PTable table = tableRef.getTable();
             if (!connection.getAutoCommit()) {
-                serverTimeStamp = client.updateCache(table.getSchemaName().getString(), table.getTableName().getString());
+                byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
+                serverTimeStamp = client.updateCache(tenantId, table.getSchemaName().getString(), table.getTableName().getString());
                 if (serverTimeStamp < 0) {
                     serverTimeStamp *= -1;
                     // TODO: use bitset?

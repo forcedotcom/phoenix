@@ -27,17 +27,12 @@
  ******************************************************************************/
 package com.salesforce.phoenix.query;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TYPE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 import static com.salesforce.phoenix.query.QueryServicesOptions.DEFAULT_DROP_METADATA;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -105,7 +100,6 @@ import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.Sequence;
 import com.salesforce.phoenix.schema.SequenceKey;
-import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
@@ -182,6 +176,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public HTableInterface getTable(byte[] tableName) throws SQLException {
         try {
             return HBaseFactoryProvider.getHTableFactory().getTable(tableName, connection, getExecutor());
+        } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
+            byte[][] schemaAndTableName = new byte[2][];
+            SchemaUtil.getVarChars(tableName, schemaAndTableName);
+            throw new TableNotFoundException(Bytes.toString(schemaAndTableName[0]), Bytes.toString(schemaAndTableName[1]));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -399,7 +397,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
 
-    private static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
+    public static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
         for (PTable table : metaData.getTables().values()) {
             if (table.getTimeStamp() >= scn) {
                 return true;
@@ -408,30 +406,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         return false;
     }
     
-    private static PMetaData pruneNewerTables(long scn, PMetaData metaData) {
-        if (!hasMetaDataToPrune(scn, metaData)) {
-            return metaData;
-        }
-        Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
-        Iterator<Map.Entry<String, PTable>> tableIterator = newTables.entrySet().iterator();
-        boolean wasModified = false;
-        while (tableIterator.hasNext()) {
-            if (tableIterator.next().getValue().getTimeStamp() >= scn) {
-                tableIterator.remove();
-                wasModified = true;
-            }
-        }
-
-        if (wasModified) {
-            return new PMetaDataImpl(newTables);
-        }
-        return metaData;
-    }
-    
     @Override
     public PhoenixConnection connect(String url, Properties info) throws SQLException {
         Long scn = JDBCUtil.getCurrentSCN(url, info);
-        PMetaData metaData = scn == null ? latestMetaData : pruneNewerTables(scn, latestMetaData);
+        PMetaData metaData = scn == null ? latestMetaData : PMetaDataImpl.pruneNewerTables(scn, latestMetaData);
         return new PhoenixConnection(this, url, info, metaData);
     }
 
@@ -478,7 +456,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                 byte[] familyByte = family.getFirst();
                 if (descriptor.getFamily(familyByte) == null) {
                     if (tableType == PTableType.VIEW) {
-                        throw new ReadOnlyTableException("The HBase column families for a VIEW must already exist(" + Bytes.toStringBinary(familyByte) + ")");
+                        String fullTableName = Bytes.toString(tableName);
+                        throw new ReadOnlyTableException(
+                                "The HBase column families for a read-only table must already exist",
+                                SchemaUtil.getSchemaNameFromFullName(fullTableName),
+                                SchemaUtil.getTableNameFromFullName(fullTableName),
+                                Bytes.toString(familyByte));
                     }
                     HColumnDescriptor columnDescriptor = generateColumnFamilyDescriptor(family, tableType);
                     descriptor.addFamily(columnDescriptor);
@@ -548,7 +531,12 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
                 if (oldDescriptor == null) {
                     if (tableType == PTableType.VIEW) {
-                        throw new ReadOnlyTableException("The HBase column families for a read-only table must already exist(" + Bytes.toStringBinary(family.getFirst()) + ")");
+                        String fullTableName = Bytes.toString(tableName);
+                        throw new ReadOnlyTableException(
+                                "The HBase column families for a read-only table must already exist",
+                                SchemaUtil.getSchemaNameFromFullName(fullTableName),
+                                SchemaUtil.getTableNameFromFullName(fullTableName),
+                                Bytes.toString(family.getFirst()));
                     }
                     columnDescriptor = generateColumnFamilyDescriptor(family, tableType );
                 } else {
@@ -614,7 +602,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } catch (org.apache.hadoop.hbase.TableNotFoundException e) {
                 tableExist = false;
                 if (tableType == PTableType.VIEW) {
-                    throw new ReadOnlyTableException("An HBase table for a VIEW must already exist(" + Bytes.toString(tableName) + ")");
+                    String fullTableName = Bytes.toString(tableName);
+                    throw new ReadOnlyTableException(
+                            "An HBase table for a VIEW must already exist",
+                            SchemaUtil.getSchemaNameFromFullName(fullTableName),
+                            SchemaUtil.getTableNameFromFullName(fullTableName));
                 }
             }
 
@@ -817,8 +809,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
 
     @Override
-    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, PTableType tableType, Map<String,Object> tableProps,
-            final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
+    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, byte[] tableName, PTableType tableType,
+            Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[3][];
         Mutation m = tableMetaData.get(0);
         byte[] key = m.getRow();
@@ -826,8 +818,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        byte[] tableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
-        if (tenantIdBytes.length == 0) {
+        if (tableType != PTableType.VIEW || tableName != null) {
+            tableName = tableName == null ? SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes) : tableName;
             ensureTableCreated(tableName, tableType, tableProps, families, splits);
         }
         
@@ -987,7 +979,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
        
     }
 
-    private PhoenixConnection addColumnsIfNotExists(PhoenixConnection oldMetaConnection, long timestamp, String columns) throws SQLException {
+    // Keeping this to use for further upgrades
+    protected PhoenixConnection addColumnsIfNotExists(PhoenixConnection oldMetaConnection, long timestamp, String columns) throws SQLException {
         Properties props = new Properties(oldMetaConnection.getClientInfo());
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(timestamp));
         // Cannot go through DriverManager or you end up in an infinite loop because it'll call init again
@@ -1026,12 +1019,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             } catch (NewerTableAlreadyExistsException ignore) {
                 // Ignore, as this will happen if the SYSTEM.TABLE already exists at this fixed timestamp.
                 // A TableAlreadyExistsException is not thrown, since the table only exists *after* this fixed timestamp.
-            } catch (TableAlreadyExistsException e) {
-                PTable table = metaConnection.getPMetaData().getTable(PhoenixDatabaseMetaData.TYPE_TABLE_NAME);
-                if (table.getTimeStamp() < MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP) {
-                    metaConnection = addColumnsIfNotExists(metaConnection, MetaDataProtocol.MIN_SYSTEM_TABLE_TIMESTAMP,
-                            MULTI_TENANT + " BOOLEAN, " + MULTI_TYPE + " BOOLEAN," + BASE_SCHEMA_NAME + " VARCHAR," + BASE_TABLE_NAME + " VARCHAR");
-                }
             }
             try {
                 metaConnection.createStatement().executeUpdate(QueryConstants.CREATE_SEQUENCE_METADATA);

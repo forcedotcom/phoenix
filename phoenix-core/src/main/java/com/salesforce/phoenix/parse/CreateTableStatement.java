@@ -48,11 +48,11 @@ public class CreateTableStatement implements BindableStatement {
     private final ListMultimap<String,Pair<String,Object>> props;
     private final boolean ifNotExists;
     private final TableName baseTableName;
-    private final ParseNode tableTypeIdNode;
+    private final ParseNode whereClause;
     
     protected CreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint,
             List<ParseNode> splitNodes, PTableType tableType, boolean ifNotExists, 
-            TableName baseTableName, ParseNode tableTypeIdNode, int bindCount) {
+            TableName baseTableName, ParseNode whereClause, int bindCount) {
         this.tableName = tableName;
         this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
         this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : tableType;
@@ -62,7 +62,11 @@ public class CreateTableStatement implements BindableStatement {
         this.bindCount = bindCount;
         this.ifNotExists = ifNotExists;
         this.baseTableName = baseTableName;
-        this.tableTypeIdNode = tableTypeIdNode;
+        this.whereClause = whereClause;
+    }
+    
+    public ParseNode getWhereClause() {
+        return whereClause;
     }
     
     @Override
@@ -76,10 +80,6 @@ public class CreateTableStatement implements BindableStatement {
 
     public TableName getBaseTableName() {
         return baseTableName;
-    }
-
-    public ParseNode getTypeIdNode() {
-        return tableTypeIdNode;
     }
 
     public List<ColumnDef> getColumnDefs() {

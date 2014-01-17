@@ -88,6 +88,7 @@ import com.salesforce.phoenix.util.StringUtil;
 
 public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
 
+    // TODO: don't use this, but use QueryCompiler directly instead as is done in testTenantConstraintsAddedToScan()
     private static SelectStatement compileStatement(StatementContext context, SelectStatement select, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
         select = StatementNormalizer.normalize(select, resolver);
         Integer limit = LimitCompiler.compile(context, select);
@@ -924,18 +925,16 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId = "000000000000123";
         String url = getUrl(tenantId);
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, type_id char(4) not null, " +
-        		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id)) multi_tenant=true,multi_type=true");
-        createTestTable(url, "derive table tenant_filter_test (tenant_col integer) FROM BASE_TABLE_FOR_TENANT_FILTER_TEST AS '" + tenantTypeId + "'");
+        		"id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, type_id, id)) multi_tenant=true");
+        createTestTable(url, "create view tenant_filter_test (tenant_col integer) AS SELECT * FROM BASE_TABLE_FOR_TENANT_FILTER_TEST WHERE type_id= '" + tenantTypeId + "'");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
         SQLParser parser = new SQLParser(query);
         SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        select = compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixStatement pstmt = new PhoenixStatement(pconn);
+        QueryPlan plan = new QueryCompiler(pstmt).compile(select);
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
         assertEquals(
@@ -962,7 +961,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String url = getUrl(tenantId);
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, " +
                 "id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, id)) multi_tenant=true");
-        createTestTable(url, "derive table tenant_filter_test (tenant_col integer) FROM BASE_TABLE_FOR_TENANT_FILTER_TEST");
+        createTestTable(url, "create view tenant_filter_test (tenant_col integer) AS SELECT * FROM BASE_TABLE_FOR_TENANT_FILTER_TEST");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
         SQLParser parser = new SQLParser(query);

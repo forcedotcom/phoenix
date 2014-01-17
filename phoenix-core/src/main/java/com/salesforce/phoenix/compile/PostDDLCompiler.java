@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static java.util.Collections.singletonList;
-
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
@@ -48,14 +46,17 @@ import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
+import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
+import com.salesforce.phoenix.schema.AmbiguousColumnException;
+import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PName;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 import com.salesforce.phoenix.util.ScanUtil;
@@ -122,6 +123,10 @@ public class PostDDLCompiler {
                     for (final TableRef tableRef : tableRefs) {
                         Scan scan = new Scan();
                         scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
+                        PTable table = tableRef.getTable();
+                        ParseNode viewNode = table.getViewNode();
+                        SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, viewNode);
+                        // We need to use this tableRef
                         ColumnResolver resolver = new ColumnResolver() {
                             @Override
                             public List<TableRef> getTables() {
@@ -129,7 +134,10 @@ public class PostDDLCompiler {
                             }
                             @Override
                             public ColumnRef resolveColumn(String schemaName, String tableName, String colName) throws SQLException {
-                                throw new UnsupportedOperationException();
+                                PColumn column = tableName != null
+                                        ? tableRef.getTable().getColumnFamily(tableName).getColumn(colName)
+                                        : tableRef.getTable().getColumn(colName);
+                                return new ColumnRef(tableRef, column.getPosition());
                             }
                         };
                         StatementContext context = new StatementContext(new PhoenixStatement(connection), resolver, Collections.<Object>emptyList(), scan);
@@ -185,21 +193,19 @@ public class PostDDLCompiler {
                                 }
                                 projector = new RowProjector(projector,false);
                             }
-                            QueryPlan plan = new AggregatePlan(context, SelectStatement.COUNT_ONE, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
-                            PName tenantId = connection.getTenantId();
-                            if (tableRef.getTable().isDerivedTable()) {
-                                List<List<KeyRange>> slots = Lists.newArrayListWithCapacity(2);
-                                if (tenantId != null) {
-                                    KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
-                                    slots.add(singletonList(tenantIdKeyRange));
-                                }
-                                if (tableRef.getTable().getTypeId() != null) {
-                                    KeyRange typeIdKeyRange = KeyRange.getKeyRange(tableRef.getTable().getTypeId().getBytes());
-                                    slots.add(singletonList(typeIdKeyRange));
-                                }
-                                scan.setStartRow(ScanUtil.getMinKey(tableRef.getTable().getRowKeySchema(), slots));
-                                scan.setStopRow(ScanUtil.getMaxKey(tableRef.getTable().getRowKeySchema(), slots));
+                            // Ignore exceptions due to not being able to resolve any view columns,
+                            // as this just means the view is invalid. Continue on and try to perform
+                            // any other Post DDL operations.
+                            try {
+                                WhereCompiler.compile(context, select); // Push where clause into scan
+                            } catch (ColumnFamilyNotFoundException e) {
+                                continue;
+                            } catch (ColumnNotFoundException e) {
+                                continue;
+                            } catch (AmbiguousColumnException e) {
+                                continue;
                             }
+                            QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                             ResultIterator iterator = plan.iterator();
                             try {
                                 Tuple row = iterator.next();

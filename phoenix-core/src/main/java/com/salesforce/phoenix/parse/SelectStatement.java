@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -67,6 +68,22 @@ public class SelectStatement implements FilterableStatement {
         }
         return new SelectStatement(select.getFrom(), hint, select.isDistinct(), 
                 select.getSelect(), select.getWhere(), select.getGroupBy(), select.getHaving(), 
+                select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
+    }
+    public static SelectStatement create(SelectStatement select, ParseNode where) {
+        if (where == null) {
+            return select;
+        }
+        if (select.getWhere() != null) {
+            where = new AndParseNode(Arrays.asList(select.getWhere(), where));
+        }
+        return new SelectStatement(select.getFrom(), select.getHint(), select.isDistinct(), 
+                select.getSelect(), where, select.getGroupBy(), select.getHaving(), 
+                select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
+    }
+    public static SelectStatement create(SelectStatement select, List<AliasedNode> selects) {
+        return new SelectStatement(select.getFrom(), select.getHint(), select.isDistinct(), 
+                selects, select.getWhere(), select.getGroupBy(), select.getHaving(), 
                 select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
     }
     

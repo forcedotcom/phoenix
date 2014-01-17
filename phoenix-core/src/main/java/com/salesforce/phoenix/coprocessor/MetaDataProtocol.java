@@ -97,8 +97,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         NEWER_TABLE_FOUND,
         UNALLOWED_TABLE_MUTATION,
         NO_PK_COLUMNS,
-        PARENT_TABLE_NOT_FOUND,
-        TYPE_ID_USED
+        PARENT_TABLE_NOT_FOUND
     };
     
     public static class MetaDataMutationResult implements Writable {
@@ -142,6 +141,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         
         public PTable getTable() {
             return table;
+        }
+ 
+        public void setTable(PTable table) {
+            this.table = table;
         }
  
         public List<byte[]> getTableNamesToDelete() {
