@@ -90,8 +90,10 @@ public class SpillableGroupByCache implements GroupByCache {
     private final RegionCoprocessorEnvironment env;
     private final MemoryChunk chunk;
 
-    /* inner class that makes cache queryable for other classes 
-     * that should not get the full instance. Queryable view of the cache */
+    /*
+     * inner class that makes cache queryable for other classes that should not get the full instance. Queryable view of
+     * the cache
+     */
     public class QueryCache {
         public boolean isKeyContained(ImmutableBytesPtr key) {
             return cache.containsKey(key);
@@ -113,9 +115,7 @@ public class SpillableGroupByCache implements GroupByCache {
         this.env = env;
 
         final int estValueSize = aggregators.getEstimatedByteSize();
-        final int estSize = GroupedAggregateRegionObserver.sizeOfUnorderedGroupByMap(estSizeNum, estValueSize);
         final TenantCache tenantCache = GlobalCache.getTenantCache(env, tenantId);
-        this.chunk = tenantCache.getMemoryManager().allocate(estSize);
 
         // Compute Map initial map
         final Configuration conf = env.getConfiguration();
@@ -127,6 +127,14 @@ public class SpillableGroupByCache implements GroupByCache {
 
         // use upper and lower bounds for the cache size
         final int maxCacheSize = Math.max(minSizeNum, Math.min(maxSizeNum, estSizeNum));
+        final int estSize = GroupedAggregateRegionObserver.sizeOfUnorderedGroupByMap(maxCacheSize, estValueSize);
+        try {
+            this.chunk = tenantCache.getMemoryManager().allocate(estSize);
+        } catch (InsufficientMemoryException ime) {
+            logger.error("Requested Map size exceeds memory limit, please decrease max size via config paramter: "
+                    + GROUPBY_MAX_CACHE_SIZE_ATTRIB);
+            throw ime;
+        }
 
         if (logger.isDebugEnabled()) {
             logger.debug("Instantiating LRU groupby cache of element size: " + maxCacheSize);
