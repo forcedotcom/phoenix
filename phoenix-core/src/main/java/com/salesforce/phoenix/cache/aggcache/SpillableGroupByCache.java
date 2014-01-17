@@ -144,7 +144,6 @@ public class SpillableGroupByCache implements GroupByCache {
                     int estSize = GroupedAggregateRegionObserver.sizeOfUnorderedGroupByMap(cacheSize, estValueSize);
                     try {
                         chunk.resize(estSize);
-                        spill = true;
                     } catch (InsufficientMemoryException im) {
                         // Cannot extend Map anymore, start spilling
                         spill = true;
