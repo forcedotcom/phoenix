@@ -201,8 +201,7 @@ public class SpillMap extends AbstractMap<ImmutableBytesPtr, byte[]> implements 
             MappedByteBufferMap curByteMap = directory[curMapBufferIndex];
 
             // Use bloomFilter to check if key was spilled before
-            boolean contained = byteMap.containsKey(ikey.copyBytesIfNecessary());
-            if (contained) {
+            if (byteMap.containsKey(ikey.copyBytesIfNecessary())) {
                 // ensure consistency and flush current memory page to disk
                 // fflush current buffer
                 curByteMap.flushBuffer();
