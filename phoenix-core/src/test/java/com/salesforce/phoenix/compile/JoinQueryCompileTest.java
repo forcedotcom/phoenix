@@ -67,7 +67,7 @@ public class JoinQueryCompileTest extends BaseConnectionlessQueryTest {
         		"                    SERVER FILTER BY NAME LIKE 'C%'\n" +
         		"            BUILD HASH TABLE 1\n" +
         		"                CLIENT PARALLEL 1-WAY FULL SCAN OVER JOIN_ITEM_TABLE\n" +
-        		"    AFTER-JOIN SERVER FILTER BY I.NAME(PROJECTED[7]) LIKE 'T%'", QueryUtil.getExplainPlan(rs));
+        		"    AFTER-JOIN SERVER FILTER BY I.NAME LIKE 'T%'", QueryUtil.getExplainPlan(rs));
     }
 
 }
