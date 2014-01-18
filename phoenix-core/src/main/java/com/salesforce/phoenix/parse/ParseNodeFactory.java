@@ -233,8 +233,8 @@ public class ParseNodeFactory {
         return new StringConcatParseNode(children);
     }
 
-    public ColumnParseNode column(TableName tableName, String name, String alias) {
-        return new ColumnParseNode(tableName,name,alias);
+    public ColumnParseNode column(TableName tableName, String name) {
+        return new ColumnParseNode(tableName, name, tableName == null ? name : (tableName + "." + name));
     }
     
     public ColumnName columnName(String columnName) {
