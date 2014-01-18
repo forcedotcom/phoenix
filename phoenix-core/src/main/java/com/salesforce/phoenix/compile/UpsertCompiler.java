@@ -247,7 +247,8 @@ public class UpsertCompiler {
         }
         // Allow full row upsert if no columns or only dynamic ones are specified and values count match
         if (columnNodes.isEmpty() || columnNodes.size() == upsert.getTable().getDynamicColumns().size()) {
-            columnIndexesToBe = new int[allColumns.size() - posOffset];
+            nColumnsToSet = allColumns.size() - posOffset;
+            columnIndexesToBe = new int[nColumnsToSet];
             pkSlotIndexesToBe = new int[columnIndexesToBe.length];
             targetColumns = Lists.newArrayListWithExpectedSize(columnIndexesToBe.length);
             targetColumns.addAll(Collections.<PColumn>nCopies(columnIndexesToBe.length, null));
