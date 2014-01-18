@@ -647,21 +647,47 @@ public class MetaDataClient {
                 }
             }
             
-            Integer saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
-            if (saltBucketNum != null && (saltBucketNum <= 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
+            boolean isSalted = false;
+            Integer saltBucketNum = null;
+            String defaultFamilyName = null;
+            boolean isImmutableRows = false;
+            boolean multiTenant = false;
+            // Although unusual, it's possible to set a mapped VIEW as having immutable rows.
+            // This tells Phoenix that you've managing the index maintenance yourself.
+            if (tableType != PTableType.VIEW || viewType == ViewType.MAPPED) {
+                Boolean isImmutableRowsProp = (Boolean) tableProps.remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
+                if (isImmutableRowsProp == null) {
+                    isImmutableRows = connection.getQueryServices().getProps().getBoolean(QueryServices.IMMUTABLE_ROWS_ATTRIB, QueryServicesOptions.DEFAULT_IMMUTABLE_ROWS);
+                } else {
+                    isImmutableRows = isImmutableRowsProp;
+                }
             }
-            // Salt the index table if the data table is salted
-            if (saltBucketNum == null && parent != null) {
-                saltBucketNum = parent.getBucketNum();
-            }
-            boolean isSalted = (saltBucketNum != null);
             
-            String defaultFamilyName = (String)tableProps.remove(PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME);
-            if (defaultFamilyName == null) {
-                // Until we change this default, we need to have all tables set it
-                defaultFamilyName = QueryConstants.DEFAULT_COLUMN_FAMILY;
+            if (tableType != PTableType.VIEW) {
+                saltBucketNum = (Integer) tableProps.remove(PhoenixDatabaseMetaData.SALT_BUCKETS);
+                if (saltBucketNum != null && (saltBucketNum < 0 || saltBucketNum > SaltingUtil.MAX_BUCKET_NUM)) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_BUCKET_NUM).build().buildException();
+                }
+                // Salt the index table if the data table is salted
+                if (saltBucketNum == null) {
+                    if (parent != null) {
+                        saltBucketNum = parent.getBucketNum();
+                    }
+                } else if (saltBucketNum.intValue() == 0) {
+                    saltBucketNum = null; // Provides a way for an index to not be salted if its data table is salted
+                }
+                isSalted = (saltBucketNum != null);
+                
+                defaultFamilyName = (String)tableProps.remove(PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME);
+                if (defaultFamilyName == null) {
+                    // Until we change this default, we need to have all tables set it
+                    defaultFamilyName = QueryConstants.DEFAULT_COLUMN_FAMILY;
+                }
+                
+                Boolean multiTenantProp = (Boolean) tableProps.remove(PhoenixDatabaseMetaData.MULTI_TENANT);
+                multiTenant = Boolean.TRUE.equals(multiTenantProp);
             }
+            
             boolean disableWAL = false;
             Boolean disableWALProp = (Boolean) tableProps.remove(PhoenixDatabaseMetaData.DISABLE_WAL);
             if (disableWALProp == null) {
@@ -669,21 +695,6 @@ public class MetaDataClient {
             } else {
                 disableWAL = disableWALProp;
             }
-            boolean isImmutableRows;
-            Boolean isImmutableRowsProp = (Boolean) tableProps.remove(PTable.IS_IMMUTABLE_ROWS_PROP_NAME);
-            if (isImmutableRowsProp == null) {
-                isImmutableRows = connection.getQueryServices().getProps().getBoolean(QueryServices.IMMUTABLE_ROWS_ATTRIB, QueryServicesOptions.DEFAULT_IMMUTABLE_ROWS);
-            } else {
-                isImmutableRows = isImmutableRowsProp;
-            }
-            Boolean multiTenantProp = null;
-            boolean multiTenant = false;
-            // If tenant-specific connection, don't remove this property, as this is an error
-            if (tenantId == null) {
-                multiTenantProp = (Boolean) tableProps.remove(PhoenixDatabaseMetaData.MULTI_TENANT);
-                multiTenant = Boolean.TRUE.equals(multiTenantProp);
-            }
-
             // Delay this check as it is supported to have IMMUTABLE_ROWS and SALT_BUCKETS defined on views
             if (statement.getTableType() == PTableType.VIEW && !tableProps.isEmpty()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WITH_PROPERTIES).build().buildException();
@@ -711,10 +722,13 @@ public class MetaDataClient {
                     viewExpressionStr = AndExpression.combine(viewExpressionStr, parent.getViewExpression());
                     viewType = ViewType.combine(viewType, parent.getViewType());
                 }
-                // Propagate MULTI_TENANT property to VIEW, as we use this to know whether
-                // or not to add the tenantId on mutations and to filter the tenantId column
-                // from the column metadata
+                // Propagate property values to VIEW.
+                // TODO: formalize the known set of these properties
                 multiTenant = parent.isMultiTenant();
+                saltBucketNum = parent.getBucketNum();
+                isImmutableRows = parent.isImmutableRows();
+                disableWAL = (disableWALProp == null ? parent.isWALDisabled() : disableWALProp);
+                defaultFamilyName = parent.getDefaultFamilyName() == null ? null : parent.getDefaultFamilyName().getString();
                 columns = newArrayListWithExpectedSize(parent.getColumns().size() + colDefs.size());
                 columns.addAll(parent.getColumns());
                 pkColumns = newLinkedHashSet(parent.getPKColumns());

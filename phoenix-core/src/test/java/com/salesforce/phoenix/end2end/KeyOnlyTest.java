@@ -45,7 +45,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class KeyOnlyTest extends BaseClientMangedTimeTest {
+public class KeyOnlyTest extends BaseClientManagedTimeTest {
     @Test
     public void testKeyOnly() throws Exception {
         long ts = nextTimestamp();

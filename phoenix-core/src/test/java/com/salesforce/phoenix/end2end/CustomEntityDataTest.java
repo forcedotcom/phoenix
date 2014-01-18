@@ -40,7 +40,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
 
-public class CustomEntityDataTest extends BaseClientMangedTimeTest {
+public class CustomEntityDataTest extends BaseClientManagedTimeTest {
     
     protected static void initTableValues(String tenantId, byte[][] splits, long ts) throws Exception {
         ensureTableCreated(getUrl(),CUSTOM_ENTITY_DATA_FULL_NAME,null, ts-2);

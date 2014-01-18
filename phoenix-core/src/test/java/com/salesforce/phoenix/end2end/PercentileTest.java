@@ -40,7 +40,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class PercentileTest extends BaseClientMangedTimeTest {
+public class PercentileTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testPercentile() throws Exception {

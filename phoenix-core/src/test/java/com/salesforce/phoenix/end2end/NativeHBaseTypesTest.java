@@ -75,7 +75,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @author jtaylor
  * @since 0.1
  */
-public class NativeHBaseTypesTest extends BaseClientMangedTimeTest {
+public class NativeHBaseTypesTest extends BaseClientManagedTimeTest {
     private static final byte[] HBASE_NATIVE_BYTES = SchemaUtil.getTableNameAsBytes(HBASE_NATIVE_SCHEMA_NAME, HBASE_NATIVE);
     private static final byte[] FAMILY_NAME = Bytes.toBytes(SchemaUtil.normalizeIdentifier("1"));
     private static final byte[][] SPLITS = new byte[][] {Bytes.toBytes(20), Bytes.toBytes(30)};

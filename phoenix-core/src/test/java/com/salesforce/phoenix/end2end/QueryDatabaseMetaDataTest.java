@@ -86,7 +86,7 @@ import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 
-public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
+public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testTableMetadataScan() throws SQLException {

@@ -40,7 +40,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class MultiCfQueryExecTest extends BaseClientMangedTimeTest {
+public class MultiCfQueryExecTest extends BaseClientManagedTimeTest {
     private static final String MULTI_CF = "MULTI_CF";
     
     protected static void initTableValues(long ts) throws Exception {

@@ -67,7 +67,7 @@ import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.TestUtil;
 
-public class RowValueConstructorTest extends BaseClientMangedTimeTest {
+public class RowValueConstructorTest extends BaseClientManagedTimeTest {
     
     @Test
     public void testRowValueConstructorInWhereWithEqualsExpression() throws Exception {

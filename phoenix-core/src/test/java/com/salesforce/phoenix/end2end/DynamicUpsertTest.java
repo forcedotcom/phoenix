@@ -36,7 +36,7 @@ import com.salesforce.phoenix.schema.ColumnFamilyNotFoundException;
  * @since 1.3
  */
 
-public class DynamicUpsertTest extends BaseClientMangedTimeTest {
+public class DynamicUpsertTest extends BaseClientManagedTimeTest {
 
     private static final String TABLE = "DynamicUpserts";
     //private static final byte[] TABLE_BYTES = Bytes.toBytes(TABLE);

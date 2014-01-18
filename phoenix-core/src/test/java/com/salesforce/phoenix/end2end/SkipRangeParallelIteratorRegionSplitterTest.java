@@ -80,7 +80,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * Tests for {@link SkipRangeParallelIteratorRegionSplitter}.
  */
 @RunWith(Parameterized.class)
-public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientMangedTimeTest {
+public class SkipRangeParallelIteratorRegionSplitterTest extends BaseClientManagedTimeTest {
 
     private static final String SCHEMA_NAME = "";
     private static final String TABLE_NAME = "TEST_SKIP_RANGE_PARALLEL_ITERATOR";

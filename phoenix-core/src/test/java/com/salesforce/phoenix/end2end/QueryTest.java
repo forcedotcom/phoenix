@@ -107,7 +107,7 @@ import com.salesforce.phoenix.util.ReadOnlyProps;
  * @since 0.1
  */
 @RunWith(Parameterized.class)
-public class QueryTest extends BaseClientMangedTimeTest {
+public class QueryTest extends BaseClientManagedTimeTest {
     private static final String tenantId = getOrganizationId();
     private static final String ATABLE_INDEX_NAME = "ATABLE_IDX";
     private static final long BATCH_SIZE = 3;

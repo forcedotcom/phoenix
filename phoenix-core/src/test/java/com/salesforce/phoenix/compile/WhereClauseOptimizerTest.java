@@ -73,7 +73,7 @@ import com.salesforce.phoenix.util.TestUtil;
 
 
 
-public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
+public class WhereClauseOptimizerTest extends BaseConnectionlessQueryTest {
     
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds) throws SQLException {
         return compileStatement(query, scan, binds, null, null);
@@ -87,6 +87,7 @@ public class WhereClauseScanKeyTest extends BaseConnectionlessQueryTest {
         return compileStatement(query, scan, binds, null, extractedNodes);
     }
 
+    // TODO: remove this and replace checks on extractedNodes with tests for the scan filter
     private static StatementContext compileStatement(String query, Scan scan, List<Object> binds, Integer limit, Set<Expression> extractedNodes) throws SQLException {
         SQLParser parser = new SQLParser(query);
         SelectStatement statement = parser.parseQuery();

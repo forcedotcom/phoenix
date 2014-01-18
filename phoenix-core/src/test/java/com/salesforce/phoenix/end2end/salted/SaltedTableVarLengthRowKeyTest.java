@@ -11,10 +11,10 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.end2end.BaseClientMangedTimeTest;
+import com.salesforce.phoenix.end2end.BaseClientManagedTimeTest;
 
 
-public class SaltedTableVarLengthRowKeyTest extends BaseClientMangedTimeTest {
+public class SaltedTableVarLengthRowKeyTest extends BaseClientManagedTimeTest {
 
     private static void initTableValues() throws Exception {
         Properties props = new Properties(TEST_PROPERTIES);

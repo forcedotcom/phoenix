@@ -56,7 +56,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @author elevine
  * @since 0.1
  */
-public class ToNumberFunctionTest extends BaseClientMangedTimeTest {
+public class ToNumberFunctionTest extends BaseClientManagedTimeTest {
     
     public static final String TO_NUMBER_TABLE_NAME = "TO_NUMBER_TABLE";
     

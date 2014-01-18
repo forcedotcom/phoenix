@@ -39,7 +39,6 @@ import static com.salesforce.phoenix.util.TestUtil.multiKVFilter;
 import static com.salesforce.phoenix.util.TestUtil.not;
 import static com.salesforce.phoenix.util.TestUtil.or;
 import static com.salesforce.phoenix.util.TestUtil.singleKVFilter;
-import static java.util.Collections.emptyList;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -52,9 +51,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.text.Format;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
@@ -64,7 +61,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
@@ -72,9 +68,7 @@ import com.salesforce.phoenix.expression.function.SubstrFunction;
 import com.salesforce.phoenix.filter.RowKeyComparisonFilter;
 import com.salesforce.phoenix.filter.SkipScanFilter;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.SQLParser;
-import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.jdbc.PhoenixPreparedStatement;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.query.QueryConstants;
@@ -86,34 +80,16 @@ import com.salesforce.phoenix.util.NumberUtil;
 import com.salesforce.phoenix.util.StringUtil;
 
 
-public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
-
-    // TODO: don't use this, but use QueryCompiler directly instead as is done in testTenantConstraintsAddedToScan()
-    private static SelectStatement compileStatement(StatementContext context, SelectStatement select, ColumnResolver resolver, List<Object> binds, Scan scan, Integer expectedExtractedNodesSize, Integer expectedLimit) throws SQLException {
-        select = StatementNormalizer.normalize(select, resolver);
-        Integer limit = LimitCompiler.compile(context, select);
-        assertEquals(expectedLimit, limit);
-
-        Set<Expression> extractedNodes = Sets.newHashSet();
-        WhereCompiler.compileWhereClause(context, select, extractedNodes);
-        if (expectedExtractedNodesSize != null) {
-            assertEquals(expectedExtractedNodesSize.intValue(), extractedNodes.size());
-        }
-        return select;
-    }
+public class WhereClauseCompileTest extends BaseConnectionlessQueryTest {
 
     @Test
     public void testSingleEqualFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer=0";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -127,14 +103,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testMultiColumnEqualFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_string=b_string";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             multiKVFilter(columnComparison(
@@ -148,15 +120,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testCollapseFunctionToNull() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and substr(entity_id,null) = 'foo'";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        // Nothing extracted, since the where clause becomes FALSE
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertNull(filter);
 
@@ -164,18 +131,23 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         assertArrayEquals(scan.getStopRow(),KeyRange.EMPTY_RANGE.getUpperRange());
     }
 
+    private static void bindParams(PhoenixPreparedStatement stmt, List<Object> binds) throws SQLException {
+        for (int i = 0; i < binds.size(); i++) {
+            stmt.setObject(i+1, binds.get(i));
+        }
+    }
+    
     @Test
     public void testAndFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id=? and a_integer=0 and a_string='foo'";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
         List<Object> binds = Arrays.<Object>asList(tenantId);
+        
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         
         assertEquals(
@@ -195,14 +167,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testRHSLiteral() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and 0 >= a_integer";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
+        
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -217,14 +186,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId = "000000000000001";
         String dateStr = "2012-01-01 12:00:00";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_date >= to_date('" + dateStr + "')";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
         Format format = DateUtil.getDateParser(DateUtil.DEFAULT_DATE_FORMAT);
@@ -241,13 +206,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     private void helpTestToNumberFilter(String toNumberClause, BigDecimal expectedDecimal) throws Exception {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and x_decimal >= " + toNumberClause;
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, emptyList(), scan);
-        compileStatement(context, select, resolver, emptyList(), scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
         assertEquals(
@@ -300,14 +262,12 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testRowKeyFilter() throws SQLException {
         String keyPrefix = "foo";
         String query = "select * from atable where substr(entity_id,1,3)=?";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(keyPrefix);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
         assertEquals(
@@ -327,14 +287,12 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testPaddedRowKeyFilter() throws SQLException {
         String keyPrefix = "fo";
         String query = "select * from atable where entity_id=?";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(keyPrefix);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         assertEquals(0,scan.getStartRow().length);
         assertEquals(0,scan.getStopRow().length);
         assertNotNull(scan.getFilter());
@@ -345,14 +303,12 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId = "000000000000001";
         String keyPrefix = "fo";
         String query = "select * from atable where organization_id=? AND entity_id=?";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(tenantId,keyPrefix);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         assertArrayEquals(ByteUtil.concat(Bytes.toBytes(tenantId), StringUtil.padChar(Bytes.toBytes(keyPrefix), 15)),scan.getStartRow());
         assertArrayEquals(ByteUtil.nextKey(scan.getStartRow()),scan.getStopRow());
     }
@@ -361,16 +317,13 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testDegenerateRowKeyFilter() throws SQLException {
         String keyPrefix = "foobar";
         String query = "select * from atable where substr(entity_id,1,3)=?";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(keyPrefix);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
         // Degenerate b/c "foobar" is more than 3 characters
-        assertDegenerate(context);
+        assertDegenerate(plan.getContext());
     }
 
     @Test
@@ -379,16 +332,13 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         Arrays.fill(tooBigValue, (byte)50);
         String aString = (String)PDataType.VARCHAR.toObject(tooBigValue);
         String query = "select * from atable where a_string=?";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(aString);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
         // Degenerate b/c a_string length is 100
-        assertDegenerate(context);
+        assertDegenerate(plan.getContext());
     }
 
     @Test
@@ -397,14 +347,12 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String keyPrefix = "foo";
         int aInt = 2;
         String query = "select * from atable where organization_id=? and (substr(entity_id,1,3)=? or a_integer=?)";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         List<Object> binds = Arrays.<Object>asList(tenantId, keyPrefix, aInt);
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        bindParams(pstmt, binds);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter( // single b/c one column is a row key column
@@ -429,16 +377,11 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testTypeMismatch() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer > 'foo'";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        List<Object> binds = Collections.emptyList();
-        Scan scan = new Scan();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
 
         try {
-            StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-            compileStatement(context, select, resolver, binds, scan, 1, null);
+            pstmt.optimizeQuery();
             fail();
         } catch (SQLException e) {
             assertTrue(e.getMessage().contains("Type mismatch"));
@@ -449,44 +392,30 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testAndFalseFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer=0 and 2=3";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
-        assertDegenerate(context);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        assertDegenerate(plan.getContext());
     }
 
     @Test
     public void testFalseFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and 2=3";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
-        assertDegenerate(context);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        assertDegenerate(plan.getContext());
     }
 
     @Test
     public void testTrueFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and 2<=2";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         assertNull(scan.getFilter());
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
@@ -498,14 +427,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testAndTrueFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer=0 and 2<3";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -524,14 +449,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testOrFalseFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and (a_integer=0 or 3!=3)";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             singleKVFilter(constantComparison(
@@ -549,14 +470,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testOrTrueFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and (a_integer=0 or 3>2)";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertNull(filter);
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
@@ -569,14 +486,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testInFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_string IN ('a','b')";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = startRow;
@@ -598,15 +511,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId3 = "000000000000003";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s')",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId3);
@@ -619,7 +527,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                     pointRange(tenantId1),
                     pointRange(tenantId2),
                     pointRange(tenantId3))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
 
@@ -630,15 +538,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId3 = "000000000000003";
         String query = String.format("select * from %s where organization_id='%s' OR organization_id='%s' OR organization_id='%s'",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
 
         Filter filter = scan.getFilter();
         assertEquals(
@@ -647,7 +550,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                     pointRange(tenantId1),
                     pointRange(tenantId2),
                     pointRange(tenantId3))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
 
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId1);
@@ -663,15 +566,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId2 = "00000000000000Y";
         String query = String.format("select * from %s where organization_id='%s' AND entity_id IN ('%s','%s')",
                 ATABLE_NAME, tenantId, entityId1, entityId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         byte[] startRow = PDataType.VARCHAR.toBytes(tenantId + entityId1);
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = PDataType.VARCHAR.toBytes(tenantId + entityId2);
@@ -686,7 +584,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                     Arrays.asList(
                         pointRange(entityId1),
                         pointRange(entityId2))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
 
@@ -699,15 +597,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId2 = "00000000000000Y";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s') AND entity_id>='%s' AND entity_id<='%s'",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2, entityId1, entityId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 3, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             new SkipScanFilter(
@@ -721,7 +614,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         true,
                         Bytes.toBytes(entityId2),
                         true))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
     @Test
@@ -732,15 +625,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId = "00000000000000X";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s') AND entity_id='%s'",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2, entityId);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
             new SkipScanFilter(
@@ -750,7 +638,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                         pointRange(tenantId2),
                         pointRange(tenantId3)),
                     Arrays.asList(pointRange(entityId))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
     @Test
@@ -761,15 +649,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId = "00000000000000X";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s') AND entity_id='%s'",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2, entityId);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1), PDataType.VARCHAR.toBytes(entityId));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3), PDataType.VARCHAR.toBytes(entityId));
@@ -793,15 +676,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId2 = "00000000000000Y";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s') AND entity_id IN ('%s', '%s')",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2, entityId1, entityId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
 
         Filter filter = scan.getFilter();
         assertEquals(
@@ -814,7 +692,7 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
                     Arrays.asList(
                         pointRange(entityId1),
                         pointRange(entityId2))),
-                context.getResolver().getTables().get(0).getTable().getRowKeySchema()),
+                plan.getContext().getResolver().getTables().get(0).getTable().getRowKeySchema()),
             filter);
     }
 
@@ -825,15 +703,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String tenantId2 = "02";
         String query = String.format("select * from %s where organization_id > '%s' AND organization_id < '%s'",
                 ATABLE_NAME, tenantId1, tenantId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
 
         assertNull(scan.getFilter());
         byte[] wideLower = ByteUtil.nextKey(StringUtil.padChar(Bytes.toBytes(tenantId1), 15));
@@ -851,15 +724,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         String entityId2 = "00000000000000Y";
         String query = String.format("select * from %s where organization_id IN ('%s','%s','%s') AND entity_id IN ('%s', '%s')",
                 ATABLE_NAME, tenantId1, tenantId3, tenantId2, entityId1, entityId2);
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 2, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         byte[] startRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId1),PDataType.VARCHAR.toBytes(entityId1));
         assertArrayEquals(startRow, scan.getStartRow());
         byte[] stopRow = ByteUtil.concat(PDataType.VARCHAR.toBytes(tenantId3),PDataType.VARCHAR.toBytes(entityId2));
@@ -871,14 +739,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testBetweenFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer between 0 and 10";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
                 singleKVFilter(and(
@@ -897,14 +761,10 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     public void testNotBetweenFilter() throws SQLException {
         String tenantId = "000000000000001";
         String query = "select * from atable where organization_id='" + tenantId + "' and a_integer not between 0 and 10";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = Collections.emptyList();
         PhoenixConnection pconn = DriverManager.getConnection(getUrl(), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        compileStatement(context, select, resolver, binds, scan, 1, null);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
         assertEquals(
                 singleKVFilter(not(and(
@@ -929,11 +789,9 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
         createTestTable(url, "create view tenant_filter_test (tenant_col integer) AS SELECT * FROM BASE_TABLE_FOR_TENANT_FILTER_TEST WHERE type_id= '" + tenantTypeId + "'");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
         PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        PhoenixStatement pstmt = new PhoenixStatement(pconn);
-        QueryPlan plan = new QueryCompiler(pstmt).compile(select);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
         Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
@@ -958,20 +816,15 @@ public class WhereClauseFilterTest extends BaseConnectionlessQueryTest {
     @Test
     public void testTenantConstraintsAddedToScanWithNullTenantTypeId() throws SQLException {
         String tenantId = "000000000000123";
-        String url = getUrl(tenantId);
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, " +
                 "id char(5) not null, a_integer integer, a_string varchar(100) constraint pk primary key (tenant_id, id)) multi_tenant=true");
-        createTestTable(url, "create view tenant_filter_test (tenant_col integer) AS SELECT * FROM BASE_TABLE_FOR_TENANT_FILTER_TEST");
+        createTestTable(getUrl(tenantId), "create view tenant_filter_test (tenant_col integer) AS SELECT * FROM BASE_TABLE_FOR_TENANT_FILTER_TEST");
         
         String query = "select * from tenant_filter_test where a_integer=0 and a_string='foo'";
-        SQLParser parser = new SQLParser(query);
-        SelectStatement select = parser.parseQuery();
-        Scan scan = new Scan();
-        List<Object> binds = emptyList();
-        PhoenixConnection pconn = DriverManager.getConnection(url, TEST_PROPERTIES).unwrap(PhoenixConnection.class);
-        ColumnResolver resolver = FromCompiler.getResolver(select, pconn);
-        StatementContext context = new StatementContext(new PhoenixStatement(pconn), resolver, binds, scan);
-        select = compileStatement(context, select, resolver, binds, scan, 0, null);
+        PhoenixConnection pconn = DriverManager.getConnection(getUrl(tenantId), TEST_PROPERTIES).unwrap(PhoenixConnection.class);
+        PhoenixPreparedStatement pstmt = new PhoenixPreparedStatement(pconn, query);
+        QueryPlan plan = pstmt.optimizeQuery();
+        Scan scan = plan.getContext().getScan();
         Filter filter = scan.getFilter();
 
         assertEquals(

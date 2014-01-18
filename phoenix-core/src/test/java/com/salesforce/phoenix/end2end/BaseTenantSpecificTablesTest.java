@@ -40,7 +40,7 @@ import org.junit.Before;
  * @author elilevine
  * @since 2.2
  */
-public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeTest {
+public abstract class BaseTenantSpecificTablesTest extends BaseClientManagedTimeTest {
     protected static final String TENANT_ID = "ZZTop";
     protected static final String TENANT_TYPE_ID = "abc";
     protected static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;

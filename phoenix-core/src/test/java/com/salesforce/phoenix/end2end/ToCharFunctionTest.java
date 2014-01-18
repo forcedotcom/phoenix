@@ -59,7 +59,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * @author elevine
  * @since 0.1
  */
-public class ToCharFunctionTest extends BaseClientMangedTimeTest {
+public class ToCharFunctionTest extends BaseClientManagedTimeTest {
     
     public static final String TO_CHAR_TABLE_NAME = "TO_CHAR_TABLE";
     

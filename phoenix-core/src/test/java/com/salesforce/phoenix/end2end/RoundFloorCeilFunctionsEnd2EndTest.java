@@ -55,7 +55,7 @@ import com.salesforce.phoenix.util.DateUtil;
  * @author samarth.jain
  * @since 3.0.0
  */
-public class RoundFloorCeilFunctionsEnd2EndTest extends BaseClientMangedTimeTest {
+public class RoundFloorCeilFunctionsEnd2EndTest extends BaseClientManagedTimeTest {
     
     private static long millisPart = 660;
     private static int nanosPart = 500100;

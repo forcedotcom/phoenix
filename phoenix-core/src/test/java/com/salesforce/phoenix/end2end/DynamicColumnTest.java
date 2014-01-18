@@ -53,7 +53,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
  * @since 1.3
  */
 
-public class DynamicColumnTest extends BaseClientMangedTimeTest {
+public class DynamicColumnTest extends BaseClientManagedTimeTest {
     private static final byte[] HBASE_DYNAMIC_COLUMNS_BYTES = SchemaUtil.getTableNameAsBytes(null, HBASE_DYNAMIC_COLUMNS);
     private static final byte[] FAMILY_NAME = Bytes.toBytes(SchemaUtil.normalizeIdentifier("A"));
     private static final byte[] FAMILY_NAME2 = Bytes.toBytes(SchemaUtil.normalizeIdentifier("B"));

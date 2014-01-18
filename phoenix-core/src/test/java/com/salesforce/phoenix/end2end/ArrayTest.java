@@ -52,7 +52,7 @@ import com.salesforce.phoenix.query.BaseTest;
 import com.salesforce.phoenix.schema.PhoenixArray;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class ArrayTest extends BaseClientMangedTimeTest {
+public class ArrayTest extends BaseClientManagedTimeTest {
 
 	@Test
 	public void testScanByArrayValue() throws Exception {

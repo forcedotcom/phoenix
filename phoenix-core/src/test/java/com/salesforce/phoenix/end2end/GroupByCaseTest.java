@@ -48,7 +48,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class GroupByCaseTest extends BaseClientMangedTimeTest {
+public class GroupByCaseTest extends BaseClientManagedTimeTest {
 
     private static String GROUPBY1 = "select " +
             "case when uri LIKE 'Report%' then 'Reports' else 'Other' END category" +
