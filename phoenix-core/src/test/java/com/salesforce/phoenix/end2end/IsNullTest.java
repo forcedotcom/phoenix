@@ -38,7 +38,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class IsNullTest extends BaseClientMangedTimeTest {
+public class IsNullTest extends BaseClientManagedTimeTest {
     @Test
     public void testIsNullInPk() throws Exception {
         long ts = nextTimestamp();

@@ -45,7 +45,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
  * Extended tests for Phoenix JDBC implementation
  * 
  */
-public class ExtendedQueryExecTest extends BaseClientMangedTimeTest {
+public class ExtendedQueryExecTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testToDateFunctionBind() throws Exception {

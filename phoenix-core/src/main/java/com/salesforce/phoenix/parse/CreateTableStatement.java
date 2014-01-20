@@ -32,7 +32,9 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.util.Pair;
 
-import com.google.common.collect.*;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PTableType;
 
@@ -45,8 +47,12 @@ public class CreateTableStatement implements BindableStatement {
     private final int bindCount;
     private final ListMultimap<String,Pair<String,Object>> props;
     private final boolean ifNotExists;
+    private final TableName baseTableName;
+    private final ParseNode whereClause;
     
-    protected CreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint, List<ParseNode> splitNodes, PTableType tableType, boolean ifNotExists, int bindCount) {
+    protected CreateTableStatement(TableName tableName, ListMultimap<String,Pair<String,Object>> props, List<ColumnDef> columns, PrimaryKeyConstraint pkConstraint,
+            List<ParseNode> splitNodes, PTableType tableType, boolean ifNotExists, 
+            TableName baseTableName, ParseNode whereClause, int bindCount) {
         this.tableName = tableName;
         this.props = props == null ? ImmutableListMultimap.<String,Pair<String,Object>>of() : props;
         this.tableType = PhoenixDatabaseMetaData.TYPE_SCHEMA.equals(tableName.getSchemaName()) ? PTableType.SYSTEM : tableType;
@@ -55,6 +61,12 @@ public class CreateTableStatement implements BindableStatement {
         this.splitNodes = splitNodes == null ? Collections.<ParseNode>emptyList() : ImmutableList.copyOf(splitNodes);
         this.bindCount = bindCount;
         this.ifNotExists = ifNotExists;
+        this.baseTableName = baseTableName;
+        this.whereClause = whereClause;
+    }
+    
+    public ParseNode getWhereClause() {
+        return whereClause;
     }
     
     @Override
@@ -64,6 +76,10 @@ public class CreateTableStatement implements BindableStatement {
 
     public TableName getTableName() {
         return tableName;
+    }
+
+    public TableName getBaseTableName() {
+        return baseTableName;
     }
 
     public List<ColumnDef> getColumnDefs() {

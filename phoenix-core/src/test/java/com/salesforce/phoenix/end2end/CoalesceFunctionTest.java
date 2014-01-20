@@ -38,7 +38,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class CoalesceFunctionTest extends BaseClientMangedTimeTest {
+public class CoalesceFunctionTest extends BaseClientManagedTimeTest {
     @Test
     public void testCoalesce() throws Exception {
         long ts = nextTimestamp();

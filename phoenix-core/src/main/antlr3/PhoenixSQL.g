@@ -106,6 +106,7 @@ tokens
     VALUE='value';
     FOR='for';
     CACHE='cache';
+    DERIVE='derive';
 }
 
 
@@ -364,6 +365,7 @@ non_select_node returns [BindableStatement ret]
     :  (s=upsert_node
     |   s=delete_node
     |   s=create_table_node
+    |   s=create_view_node
     |   s=create_index_node
     |   s=drop_table_node
     |   s=drop_index_node
@@ -380,11 +382,22 @@ explain_node returns [BindableStatement ret]
 
 // Parse a create table statement.
 create_table_node returns [CreateTableStatement ret]
-    :   CREATE (tt=VIEW | TABLE) (IF NOT ex=EXISTS)? t=from_table_name 
-        (LPAREN cdefs=column_defs (pk=pk_constraint)? RPAREN)
+    :   CREATE TABLE (IF NOT ex=EXISTS)? t=from_table_name 
+        (LPAREN c=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
-        (SPLIT ON v=list_expressions)?
-        {ret = factory.createTable(t, p, cdefs, pk, v, tt!=null ? PTableType.VIEW : PTableType.USER, ex!=null, getBindCount()); }
+        (SPLIT ON s=list_expressions)?
+        {ret = factory.createTable(t, p, c, pk, s, PTableType.USER, ex!=null, null, null, getBindCount()); }
+    ;
+
+// Parse a create view statement.
+create_view_node returns [CreateTableStatement ret]
+    :   CREATE VIEW (IF NOT ex=EXISTS)? t=from_table_name 
+        (LPAREN c=column_defs (pk=pk_constraint)? RPAREN)
+        ( AS SELECT ASTERISK
+          FROM bt=from_table_name
+          (WHERE w=condition)? )?
+        (p=fam_properties)?
+        { ret = factory.createTable(t, p, c, pk, null, PTableType.VIEW, ex!=null, bt==null ? t : bt, w, getBindCount()); }
     ;
 
 // Parse a create index statement.

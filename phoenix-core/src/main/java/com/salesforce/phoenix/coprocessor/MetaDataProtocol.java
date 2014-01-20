@@ -65,8 +65,8 @@ import com.salesforce.phoenix.util.MetaDataUtil;
  * @since 0.1
  */
 public interface MetaDataProtocol extends CoprocessorProtocol {
-    public static final int PHOENIX_MAJOR_VERSION = 2;
-    public static final int PHOENIX_MINOR_VERSION = 1;
+    public static final int PHOENIX_MAJOR_VERSION = 3;
+    public static final int PHOENIX_MINOR_VERSION = 0;
     public static final int PHOENIX_PATCH_NUMBER = 0;
     public static final int PHOENIX_VERSION = 
             MetaDataUtil.encodeVersion(PHOENIX_MAJOR_VERSION, PHOENIX_MINOR_VERSION, PHOENIX_PATCH_NUMBER);
@@ -78,7 +78,9 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
     // columns to the existing system table (three new columns in 1.2.1 and two new columns in 1.2)
     // For 3.0 and above, we use MIN_TABLE_TIMESTAMP + 8 so that we can add the tenant_id column
     // as the first column to the existing system table.
-    public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 8;
+    // For 3.1 (SNAPSHOT) and above, we use MIN_TABLE_TIMESTAMP + 9 so that we can add
+    // the multi_tenant and multi_type columns for multi tenancy
+    public static final long MIN_SYSTEM_TABLE_TIMESTAMP = MIN_TABLE_TIMESTAMP + 9;
     public static final int DEFAULT_MAX_META_DATA_VERSIONS = 1000;
 
     // TODO: pare this down to minimum, as we don't need duplicates for both table and column errors, nor should we need
@@ -95,8 +97,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         NEWER_TABLE_FOUND,
         UNALLOWED_TABLE_MUTATION,
         NO_PK_COLUMNS,
-        PARENT_TABLE_NOT_FOUND,
-        TYPE_ID_USED
+        PARENT_TABLE_NOT_FOUND
     };
     
     public static class MetaDataMutationResult implements Writable {
@@ -140,6 +141,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         
         public PTable getTable() {
             return table;
+        }
+ 
+        public void setTable(PTable table) {
+            this.table = table;
         }
  
         public List<byte[]> getTableNamesToDelete() {

@@ -38,7 +38,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class DistinctCountTest extends BaseClientMangedTimeTest {
+public class DistinctCountTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testDistinctCountOnColumn() throws Exception {

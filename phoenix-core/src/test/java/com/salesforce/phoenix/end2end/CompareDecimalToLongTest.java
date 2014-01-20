@@ -38,7 +38,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class CompareDecimalToLongTest extends BaseClientMangedTimeTest {
+public class CompareDecimalToLongTest extends BaseClientManagedTimeTest {
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
         ensureTableCreated(getUrl(),"LongInKeyTest",splits, ts-2);
         

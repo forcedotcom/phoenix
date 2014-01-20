@@ -62,11 +62,13 @@ import javax.annotation.Nullable;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixStatement.PhoenixStatementParser;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
+import com.salesforce.phoenix.query.DelegateConnectionQueryServices;
 import com.salesforce.phoenix.query.MetaDataMutated;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.query.QueryServices;
@@ -75,10 +77,13 @@ import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PMetaData;
+import com.salesforce.phoenix.schema.PMetaDataImpl;
 import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.util.DateUtil;
 import com.salesforce.phoenix.util.JDBCUtil;
+import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.SQLCloseables;
 
@@ -112,16 +117,43 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     
     private boolean isClosed = false;
     
+    private static Properties newPropsWithSCN(long scn, Properties props) {
+        props = new Properties(props);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(scn));
+        return props;
+    }
+    
     public PhoenixConnection(PhoenixConnection connection) throws SQLException {
         this(connection.getQueryServices(), connection.getURL(), connection.getClientInfo(), connection.getPMetaData());
         this.isAutoCommit = connection.isAutoCommit;
     }
     
+    public PhoenixConnection(PhoenixConnection connection, long scn) throws SQLException {
+        this(connection.getQueryServices(), connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
+        this.isAutoCommit = connection.isAutoCommit;
+    }
+    
+    @SuppressWarnings("unchecked")
     public PhoenixConnection(ConnectionQueryServices services, String url, Properties info, PMetaData metaData) throws SQLException {
         this.url = url;
         // Copy so client cannot change
         this.info = info == null ? new Properties() : new Properties(info);
-        this.services = services;
+        if (this.info.isEmpty()) {
+            this.services = services;
+        } else {
+            Map<String, String> existingProps = services.getProps().asMap();
+            Map<String, String> tmpAugmentedProps = Maps.newHashMapWithExpectedSize(existingProps.size() + info.size());
+            tmpAugmentedProps.putAll(existingProps);
+            tmpAugmentedProps.putAll((Map)this.info);
+            final ReadOnlyProps augmentedProps = new ReadOnlyProps(tmpAugmentedProps);
+            this.services = new DelegateConnectionQueryServices(services) {
+    
+                @Override
+                public ReadOnlyProps getProps() {
+                    return augmentedProps;
+                }
+            };
+        }
         this.scn = JDBCUtil.getCurrentSCN(url, this.info);
         this.tenantId = JDBCUtil.getTenantId(url, this.info);
         this.mutateBatchSize = JDBCUtil.getMutateBatchSize(url, this.info, services.getProps());

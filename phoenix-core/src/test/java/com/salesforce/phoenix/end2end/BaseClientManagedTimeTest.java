@@ -42,7 +42,7 @@ import org.junit.Before;
  * @author jtaylor
  * @since 0.1
  */
-public abstract class BaseClientMangedTimeTest extends BaseConnectedQueryTest {
+public abstract class BaseClientManagedTimeTest extends BaseConnectedQueryTest {
     @Before
     public void doTestSetup() throws Exception {
         long ts = nextTimestamp();

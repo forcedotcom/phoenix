@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import java.sql.SQLException;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -35,6 +36,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
 import com.salesforce.phoenix.index.IndexMaintainer;
+import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -47,8 +49,47 @@ import com.salesforce.phoenix.schema.stat.PTableStats;
 public interface PTable extends Writable {
     public static final long INITIAL_SEQ_NUM = 0;
     public static final String IS_IMMUTABLE_ROWS_PROP_NAME = "IMMUTABLE_ROWS";
-    public static final String BASE_TABLE_PROP_NAME = "BASE_TABLE"; // specifies the base table when creating tenant-specific tables
     public static final boolean DEFAULT_DISABLE_WAL = false;
+    
+    public enum ViewType { 
+        MAPPED((byte)1),
+        READ_ONLY((byte)2),
+        UPDATABLE((byte)3);
+
+        private final byte serializedValue;
+        
+        ViewType(byte serializedValue) {
+            this.serializedValue = serializedValue;
+        }
+        
+        public boolean isReadOnly() {
+            return this != UPDATABLE;
+        }
+        
+        public byte getSerializedValue() {
+            return this.serializedValue;
+        }
+        
+        public static ViewType fromSerializedValue(byte serializedValue) {
+            if (serializedValue < 1 || serializedValue > ViewType.values().length) {
+                throw new IllegalArgumentException("Invalid ViewType " + serializedValue);
+            }
+            return ViewType.values()[serializedValue-1];
+        }
+        
+        public static ViewType combine(ViewType type1, ViewType type2) {
+            if (type1 == null) {
+                return type2;
+            }
+            if (type2 == null) {
+                return type1;
+            }
+            if (type1 == UPDATABLE && type2 == UPDATABLE) {
+                return UPDATABLE;
+            }
+            return READ_ONLY;
+        }
+    }
 
     long getTimeStamp();
     long getSequenceNumber();
@@ -179,35 +220,36 @@ public interface PTable extends Writable {
     PIndexState getIndexState();
 
     /**
-     * For a table of index type or a tenant-specific table, return the name of the data table.
-     * @return the name of the data table that this index is on.
+     * Gets the full name of the data table for an index table.
+     * @return the name of the data table that this index is on
+     *  or null if not an index.
+     */
+    PName getParentName();
+    /**
+     * Gets the table name of the data table for an index table.
+     * @return the table name of the data table that this index is
+     * on or null if not an index.
      */
     PName getParentTableName();
     
     /**
      * For a tenant-specific table, return the name of table in Phoenix that physically stores data.
      * @return the name of the data table that tenant-specific table points to or null if this table is not tenant-specifidc.
-     * @see #isTenantSpecificTable()
+     * @see #isDerivedTable()
      */
+    @Nullable PName getBaseName();
+    @Nullable PName getBaseSchemaName();
     @Nullable PName getBaseTableName();
-    PName getParentName();
+
     PName getPhysicalName();
     boolean isImmutableRows();
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
-    boolean isTenantSpecificTable();
-    /**
-     * Return the column that identifies tenants.  If non-null, this column is always the leading PK column.   
-     * @see #isTenantSpecificTable()
-     */
-    @Nullable PColumn getTenantIdColumn();
-    /**
-     * Return the column that identifies tenant's type id.  If non-null, this column is always the second PK column.   
-     * @see #isTenantSpecificTable()
-     */
-    @Nullable PColumn getTenantTypeIdColumn();
     PName getDefaultFamilyName();
-    PName getTenantTypeId();
+    String getViewExpression();
+    ParseNode getViewNode() throws SQLException;
     
     boolean isWALDisabled();
+    boolean isMultiTenant();
+    ViewType getViewType();
 }

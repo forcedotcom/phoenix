@@ -53,7 +53,7 @@ import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.TestUtil;
 
 
-public class UpsertValuesTest extends BaseClientMangedTimeTest {
+public class UpsertValuesTest extends BaseClientManagedTimeTest {
     @Test
     public void testUpsertDateValues() throws Exception {
         long ts = nextTimestamp();

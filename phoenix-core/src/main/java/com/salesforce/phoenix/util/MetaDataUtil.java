@@ -166,12 +166,16 @@ public class MetaDataUtil {
         throw new IllegalStateException();
     }
 
-    public static byte[] getTenantTypeId(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.TENANT_TYPE_ID_BYTES);
+    public static byte[] getTypeId(List<Mutation> tableMutations) {
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.VIEW_EXPRESSION_BYTES);
     }
     
     public static byte[] getBaseTableName(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.DATA_TABLE_NAME_BYTES);
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES);
+    }
+    
+    public static byte[] getBaseSchemaName(List<Mutation> tableMutations) {
+        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_SCHEMA_NAME_BYTES);
     }
     
     public static long getSequenceNumber(List<Mutation> tableMetaData) {
@@ -231,6 +235,4 @@ public class MetaDataUtil {
     public static byte[] getParentLinkKey(byte[] tenantId, byte[] schemaName, byte[] tableName, byte[] indexName) {
         return ByteUtil.concat(tenantId == null ? ByteUtil.EMPTY_BYTE_ARRAY : tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName, QueryConstants.SEPARATOR_BYTE_ARRAY, QueryConstants.SEPARATOR_BYTE_ARRAY, indexName);
     }
-
-
 }

@@ -129,12 +129,11 @@ public enum SQLExceptionCode {
     READ_ONLY_TABLE(505, "42000", "Table is read only.", new Factory() {
         @Override
         public SQLException newException(SQLExceptionInfo info) {
-            return new ReadOnlyTableException(info.getMessage(), info.getRootCause());
+            return new ReadOnlyTableException(info.getMessage(), info.getSchemaName(), info.getTableName(), info.getFamilyName());
         }
     }),
     CANNOT_DROP_PK(506, "42817", "Primary key column may not be dropped."),
     CANNOT_CONVERT_TYPE(507, "42846", "Cannot convert type."),
-    UNSUPPORTED_ORDER_BY_QUERY(508, "42878", "ORDER BY only allowed for limited or aggregate queries"),
     PRIMARY_KEY_MISSING(509, "42888", "The table does not have a primary key."),
     PRIMARY_KEY_ALREADY_EXISTS(510, "42889", "The table already has a primary key."),
     ORDER_BY_NOT_IN_SELECT_DISTINCT(511, "42890", "All ORDER BY expressions must appear in SELECT DISTINCT:"),
@@ -167,7 +166,7 @@ public enum SQLExceptionCode {
     NOT_NULLABLE_COLUMN_IN_ROW_KEY(1006, "42J04", "Only nullable columns may be added to a multi-part row key."),
     VARBINARY_LAST_PK(1015, "42J04", "Cannot add column to table when the last PK column is of type VARBINARY."),
     NULLABLE_FIXED_WIDTH_LAST_PK(1023, "42J04", "Cannot add column to table when the last PK column is nullable and fixed width."),
-    TENANT_TABLE_PK(1036, "42J04", "Cannot modify PK of a tenant-specific table."),
+    CANNOT_MODIFY_VIEW_PK(1036, "42J04", "Cannot modify the primary key of a VIEW."),
     BASE_TABLE_COLUMN(1037, "42J04", "Cannot modify columns of base table used by tenant-specific tables."),
     // Key/value column related errors
     KEY_VALUE_NOT_NULL(1007, "42K01", "A key/value column may not be declared as not null."),
@@ -209,14 +208,14 @@ public enum SQLExceptionCode {
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
             + IndexManagementUtil.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
             +  IndexManagementUtil.INDEX_WAL_EDIT_CODEC_CLASS_NAME + " in the hbase-sites.xml of every region server"),
-    CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
-    CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),
-    BASE_TABLE_NOT_TOP_LEVEL(1032, "42Y91", "Base table for a tenant table-specific table must be top level."),
+            
+            
+    CANNOT_CREATE_TENANT_SPECIFIC_BASE_TABLE(1030, "42Y89", "Cannot create table for tenant-specific connection"),
+    CANNOT_DEFINE_PK_FOR_VIEW(1031, "42Y90", "Defining PK columns for a VIEW is not allowed."),
     DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
-    TENANT_TYPE_ID_ONLY_ON_CREATE_TABLE(1035, "42Y94", "Tenant type ID may only be specified when creating a table."),
-    TYPE_ID_USED(1039, "42Y95", "Type id is already used by this tenant for this base table."),
-    BASE_TABLE_NO_TENANT_ID_PK_NO_TENANT_TYPE_ID(1040, "42Y96", "Base table for a tenant table-specific table must have 2 or more PK columns when creating tenant-specific tables with an empty TENANT_TYPE_ID.  First PK column must be non-nullable VARCHAR or CHAR."),
-    BASE_TABLE_NO_TENANT_ID_PK_WITH_TENANT_TYPE_ID(1041, "42Y97", "Base table for a tenant table-specific table must have 3 or more PK columns when creating tenant-specific tables with a non-empty TENANT_TYPE_ID.  First two PK columns must be non-nullable VARCHAR or CHAR."),
+    INSUFFICIENT_MULTI_TENANT_COLUMNS(1040, "42Y96", "A MULTI_TENANT table must have 2 or more PK columns with the first column being VARCHAR or CHAR."),
+    VIEW_WHERE_IS_CONSTANT(1045, "43A02", "WHERE clause in VIEW should not evaluate to a constant."),
+    CANNOT_UPDATE_VIEW_COLUMN(1046, "43A03", "Column used in WHERE clause of VIEW may not be updated."),
         
     /** Sequence related */
     SEQUENCE_ALREADY_EXIST(1200, "42Z00", "Sequence already exists.", new Factory() {

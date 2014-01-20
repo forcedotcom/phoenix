@@ -19,7 +19,6 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
-import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
@@ -36,13 +35,6 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     private static final String DEFAULT_SCHEMA_NAME = "";
     private static final String DEFAULT_TABLE_NAME = "rkTest";
-    
-    @Before
-    public void beforeTest() throws Exception {
-        stopServer();
-        startServer(getUrl());
-    }
-    
     
     private void testIndexRowKeyBuilding(String dataColumns, String pk, String indexColumns, Object[] values) throws Exception {
         testIndexRowKeyBuilding(DEFAULT_SCHEMA_NAME, DEFAULT_TABLE_NAME, dataColumns, pk, indexColumns, values, "", "", "");

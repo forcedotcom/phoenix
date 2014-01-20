@@ -28,8 +28,8 @@
 package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_NAME;
 import static com.salesforce.phoenix.util.TestUtil.ATABLE_SCHEMA_NAME;
 import static com.salesforce.phoenix.util.TestUtil.BTABLE_NAME;
@@ -86,7 +86,7 @@ import com.salesforce.phoenix.util.StringUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 
-public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
+public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testTableMetadataScan() throws SQLException {
@@ -648,7 +648,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientMangedTimeTest {
         try {
             conn1.createStatement().execute(createStmt);
             fail();
-        } catch (ReadOnlyTableException e) {
+        } catch (TableNotFoundException e) {
             // expected to fail b/c table doesn't exist
         }
         createStmt = "create view " + MDTEST_NAME + 

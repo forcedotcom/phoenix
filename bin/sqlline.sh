@@ -42,4 +42,4 @@ if [ "$2" ]
   then sqlfile="--run=$2";
 fi
 
-java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --silent=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile
+java -cp ".:$phoenix_client_jar" -Dlog4j.configuration=file:$current_dir/log4j.properties sqlline.SqlLine -d com.salesforce.phoenix.jdbc.PhoenixDriver -u jdbc:phoenix:$1 -n none -p none --color=true --fastConnect=false --verbose=true --isolation=TRANSACTION_READ_COMMITTED $sqlfile

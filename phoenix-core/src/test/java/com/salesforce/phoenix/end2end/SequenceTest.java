@@ -23,11 +23,14 @@ import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.query.QueryServices;
 import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
+import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ReadOnlyProps;
 import com.salesforce.phoenix.util.TestUtil;
 
-public class SequenceTest extends BaseHBaseManagedTimeTest {
+public class SequenceTest extends BaseClientManagedTimeTest {
     private static final long BATCH_SIZE = 3;
+    
+    private Connection conn;
     
     @BeforeClass 
     public static void doSetup() throws Exception {
@@ -42,7 +45,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testSystemTable() throws Exception {		
-		Connection conn = getConnection();
+		nextConnection();
 		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertFalse(rs.next());
@@ -50,10 +53,11 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testDuplicateSequences() throws Exception {
-		Connection conn = getConnection();		
+        nextConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
 
 		try {
+	        nextConnection();
 			conn.createStatement().execute("CREATE SEQUENCE alpha.beta START WITH 2 INCREMENT BY 4\n");
 			Assert.fail("Duplicate sequences");
 		} catch (SequenceAlreadyExistsException e){
@@ -63,7 +67,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testSequenceNotFound() throws Exception {
-		Connection conn = getConnection();
+        nextConnection();
 		String query = "SELECT NEXT value FOR qwert.asdf FROM SYSTEM.\"SEQUENCE\"";
 		try {
 			conn.prepareStatement(query).executeQuery();
@@ -75,8 +79,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testCreateSequence() throws Exception {	
-		Connection conn = getConnection();
+        nextConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.omega START WITH 2 INCREMENT BY 4");
+        nextConnection();
 		String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\" WHERE sequence_name='OMEGA'";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -90,8 +95,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     @Test
     public void testCurrentValueFor() throws Exception {
         ResultSet rs;
-        Connection conn = getConnection();
+        nextConnection();
         conn.createStatement().execute("CREATE SEQUENCE used.nowhere START WITH 2 INCREMENT BY 4");
+        nextConnection();
         try {
             rs = conn.createStatement().executeQuery("SELECT CURRENT VALUE FOR used.nowhere FROM SYSTEM.\"SEQUENCE\"");
             rs.next();
@@ -110,8 +116,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testDropSequence() throws Exception { 
-        Connection conn = getConnection();
+        nextConnection();
         conn.createStatement().execute("CREATE SEQUENCE alpha.omega START WITH 2 INCREMENT BY 4");
+        nextConnection();
         String query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\" WHERE sequence_name='OMEGA'";
         ResultSet rs = conn.prepareStatement(query).executeQuery();
         assertTrue(rs.next());
@@ -122,6 +129,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         assertFalse(rs.next());
 
         conn.createStatement().execute("DROP SEQUENCE alpha.omega");
+        nextConnection();
         query = "SELECT sequence_schema, sequence_name, current_value, increment_by FROM SYSTEM.\"SEQUENCE\" WHERE sequence_name='OMEGA'";
         rs = conn.prepareStatement(query).executeQuery();
         assertFalse(rs.next());
@@ -135,8 +143,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testSelectNextValueFor() throws Exception {
-		Connection conn = getConnection();
+        nextConnection();
 		conn.createStatement().execute("CREATE SEQUENCE foo.bar START WITH 3 INCREMENT BY 2");
+        nextConnection();
 		String query = "SELECT NEXT VALUE FOR foo.bar FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -153,12 +162,14 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testInsertNextValueFor() throws Exception {
-		Connection conn = getConnection();
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE alpha.tau START WITH 2 INCREMENT BY 1");
 		conn.createStatement().execute("CREATE TABLE test.sequence_number ( id INTEGER NOT NULL PRIMARY KEY)");
-		conn.createStatement().execute("CREATE SEQUENCE alpha.tau START WITH 2 INCREMENT BY 1");
+        nextConnection();
 		conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
         conn.createStatement().execute("UPSERT INTO test.sequence_number (id) VALUES (NEXT VALUE FOR alpha.tau)");
 		conn.commit();
+        nextConnection();
 		String query = "SELECT id FROM test.sequence_number";		
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -169,8 +180,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
 	@Test
 	public void testSequenceCreation() throws Exception {		
-		Connection conn = getConnection();
+        nextConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.gamma START WITH 2 INCREMENT BY 3 CACHE 5");
+        nextConnection();
         ResultSet rs = conn.createStatement().executeQuery("SELECT start_with, increment_by, cache_size, sequence_schema, sequence_name FROM SYSTEM.\"SEQUENCE\"");
         assertTrue(rs.next());
         assertEquals(2, rs.getLong(1));
@@ -193,8 +205,9 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testSameMultipleSequenceValues() throws Exception {
-        Connection conn = getConnection();
+        nextConnection();
         conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
+        nextConnection();
         String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.zeta FROM SYSTEM.\"SEQUENCE\"";
         ResultSet rs = conn.prepareStatement(query).executeQuery();
         assertTrue(rs.next());
@@ -206,9 +219,10 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
 	public void testMultipleSequenceValues() throws Exception {
-		Connection conn = getConnection();
+        nextConnection();
 		conn.createStatement().execute("CREATE SEQUENCE alpha.zeta START WITH 4 INCREMENT BY 7");
 		conn.createStatement().execute("CREATE SEQUENCE alpha.kappa START WITH 9 INCREMENT BY 2");
+        nextConnection();
 		String query = "SELECT NEXT VALUE FOR alpha.zeta, NEXT VALUE FOR alpha.kappa FROM SYSTEM.\"SEQUENCE\"";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -220,7 +234,7 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         assertFalse(rs.next());
         conn.close();
         // Test that sequences don't have gaps (if no other client request the same sequence before we close it)
-        conn = getConnection();
+        nextConnection();
         rs = conn.prepareStatement(query).executeQuery();
         assertTrue(rs.next());
         assertEquals(4+7*2, rs.getInt(1));
@@ -234,21 +248,25 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 	
 	@Test
 	public void testCompilerOptimization() throws Exception {
-		Connection conn = getConnection();
-		conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
-        conn.createStatement().execute("CREATE INDEX idx ON t(v1) INCLUDE (v2)");
+		nextConnection();
         conn.createStatement().execute("CREATE SEQUENCE seq.perf START WITH 3 INCREMENT BY 2");        
+		conn.createStatement().execute("CREATE TABLE t (k INTEGER NOT NULL PRIMARY KEY, v1 VARCHAR, v2 VARCHAR) IMMUTABLE_ROWS=true");
+        nextConnection();
+        conn.createStatement().execute("CREATE INDEX idx ON t(v1) INCLUDE (v2)");
+        nextConnection();
         PhoenixStatement stmt = conn.createStatement().unwrap(PhoenixStatement.class);
         stmt.optimizeQuery("SELECT k, NEXT VALUE FOR seq.perf FROM t WHERE v1 = 'bar'");
 	}
 	
 	@Test
 	public void testSelectRowAndSequence() throws Exception {
-		Connection conn = getConnection();
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE alpha.epsilon START WITH 1 INCREMENT BY 4");
 		conn.createStatement().execute("CREATE TABLE test.foo ( id INTEGER NOT NULL PRIMARY KEY)");
-		conn.createStatement().execute("CREATE SEQUENCE alpha.epsilon START WITH 1 INCREMENT BY 4");
+        nextConnection();
 		conn.createStatement().execute("UPSERT INTO test.foo (id) VALUES (NEXT VALUE FOR alpha.epsilon)");
 		conn.commit();
+        nextConnection();
 		String query = "SELECT NEXT VALUE FOR alpha.epsilon, id FROM test.foo";
 		ResultSet rs = conn.prepareStatement(query).executeQuery();
 		assertTrue(rs.next());
@@ -259,15 +277,17 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testSelectNextValueForOverMultipleBatches() throws Exception {
-        Connection conn = getConnection();
-        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+        nextConnection();
         conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
+        nextConnection();
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE  * 2 + 1; i++) {
             stmt.execute();
         }
         conn.commit();
+        nextConnection();
         ResultSet rs = conn.createStatement().executeQuery("SELECT count(*),max(k) FROM foo");
         assertTrue(rs.next());
         assertEquals(BATCH_SIZE * 2 + 1, rs.getInt(1));
@@ -276,11 +296,12 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testSelectNextValueForGroupBy() throws Exception {
-        Connection conn = getConnection();
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
         conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY, v VARCHAR)");
         conn.createStatement().execute("CREATE TABLE bar (k BIGINT NOT NULL PRIMARY KEY, v VARCHAR)");
-        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
         
+        nextConnection();
         PreparedStatement stmt = conn.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar, ?)");
         stmt.setString(1, "a");
         stmt.execute();
@@ -294,8 +315,10 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         stmt.execute();
         conn.commit();
         
+        nextConnection();
         conn.setAutoCommit(true);;
         conn.createStatement().execute("UPSERT INTO bar SELECT NEXT VALUE FOR foo.bar,v FROM foo GROUP BY v");
+        nextConnection();
         ResultSet rs = conn.createStatement().executeQuery("SELECT * from bar");
         assertTrue(rs.next());
         assertEquals(6, rs.getInt(1));
@@ -311,16 +334,22 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testSelectNextValueForMultipleConn() throws Exception {
-        Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
-        conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+
+        nextConnection();
+        Connection conn1 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
             stmt1.execute();
         }
         conn1.commit();
-        Connection conn2 = getConnection();
+        
+        nextConnection();
+        Connection conn2 = conn;
         PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         stmt2.execute();
         stmt1.close(); // Should still continue with next value, even on separate connection
@@ -328,41 +357,50 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
             stmt2.execute();
         }
         conn2.commit();
+        conn2.close();
+        conn1.close();
         
-        ResultSet rs = conn2.createStatement().executeQuery("SELECT k FROM foo");
-        for (int i = 0; i < BATCH_SIZE+ 1; i++) {
+        nextConnection();
+        // No gaps exist even when sequences were generated from different connections
+        ResultSet rs = conn.createStatement().executeQuery("SELECT k FROM foo");
+        for (int i = 0; i < (BATCH_SIZE+ 1)*2; i++) {
             assertTrue(rs.next());
             assertEquals(i+1, rs.getInt(1));
-        }
-        // Gaps exist b/c sequences were generated from different connections
-        for (int i = 0; i < BATCH_SIZE+ 1; i++) {
-            assertTrue(rs.next());
-            assertEquals(BATCH_SIZE+1+i+1, rs.getInt(1));
         }
         assertFalse(rs.next());
     }
 
     @Test
     public void testSelectNextValueForMultipleConnWithStmtClose() throws Exception {
-        Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
-        conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+        
+        nextConnection();
+        Connection conn1 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
             stmt1.execute();
         }
         conn1.commit();
-        stmt1.close(); // will return unused sequences, so no gaps now
+        stmt1.close();
         
-        Connection conn2 = getConnection();
+        nextConnection();
+        Connection conn2 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
+        
         PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE + 1; i++) {
             stmt2.execute();
         }
         conn2.commit();
+        conn2.close();
+        conn1.close();
         
-        ResultSet rs = conn2.createStatement().executeQuery("SELECT k FROM foo");
+        nextConnection();
+        ResultSet rs = conn.createStatement().executeQuery("SELECT k FROM foo");
         for (int i = 0; i < 2*(BATCH_SIZE + 1); i++) {
             assertTrue(rs.next());
             assertEquals(i+1, rs.getInt(1));
@@ -372,9 +410,13 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
 
     @Test
     public void testSelectNextValueForMultipleConnWithConnClose() throws Exception {
-        Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
-        conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
+        
+        nextConnection();
+        Connection conn1 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
         
         PreparedStatement stmt1 = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE+ 1; i++) {
@@ -383,14 +425,19 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         conn1.commit();
         conn1.close(); // will return unused sequences, so no gaps now
         
-        Connection conn2 = getConnection();
+        nextConnection();
+        Connection conn2 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
+        
         PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
         for (int i = 0; i < BATCH_SIZE + 1; i++) {
             stmt2.execute();
         }
         conn2.commit();
+        conn1.close();
         
-        ResultSet rs = conn2.createStatement().executeQuery("SELECT k FROM foo");
+        nextConnection();
+        ResultSet rs = conn.createStatement().executeQuery("SELECT k FROM foo");
         for (int i = 0; i < 2*(BATCH_SIZE + 1); i++) {
             assertTrue(rs.next());
             assertEquals(i+1, rs.getInt(1));
@@ -409,26 +456,36 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
     }
     
     private void testDropCachedSeq(boolean detectDeleteSeqInEval) throws Exception {
-        Connection conn1 = getConnection();
-        conn1.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
-        conn1.createStatement().execute("CREATE SEQUENCE foo.bar");
-        conn1.createStatement().execute("CREATE SEQUENCE bar.bas START WITH 101");
+        nextConnection();
+        conn.createStatement().execute("CREATE SEQUENCE foo.bar");
+        conn.createStatement().execute("CREATE SEQUENCE bar.bas START WITH 101");
+        conn.createStatement().execute("CREATE TABLE foo (k BIGINT NOT NULL PRIMARY KEY)");
         
-        PreparedStatement stmt1a = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)");
+        nextConnection();
+        Connection conn1 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
+        
+        String stmtStr1a = "UPSERT INTO foo VALUES(NEXT VALUE FOR foo.bar)";
+        PreparedStatement stmt1a = conn1.prepareStatement(stmtStr1a);
         stmt1a.execute();
         stmt1a.execute();
-        PreparedStatement stmt1b = conn1.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR bar.bas)");
+        String stmtStr1b = "UPSERT INTO foo VALUES(NEXT VALUE FOR bar.bas)";
+        PreparedStatement stmt1b = conn1.prepareStatement(stmtStr1b);
         stmt1b.execute();
         stmt1b.execute();
         stmt1b.execute();
         conn1.commit();
         
-        Connection conn2 = getConnection();
+        nextConnection();
+        Connection conn2 = conn;
+        conn = null; // So that call to nextConnection doesn't close it
+        
         PreparedStatement stmt2 = conn2.prepareStatement("UPSERT INTO foo VALUES(NEXT VALUE FOR bar.bas)");
         stmt2.execute();
         conn2.commit();
         
-        ResultSet rs = conn2.createStatement().executeQuery("SELECT k FROM foo");
+        nextConnection();
+        ResultSet rs = conn.createStatement().executeQuery("SELECT k FROM foo");
         assertTrue(rs.next());
         assertEquals(1, rs.getInt(1));
         assertTrue(rs.next());
@@ -443,23 +500,31 @@ public class SequenceTest extends BaseHBaseManagedTimeTest {
         assertEquals(104, rs.getInt(1));
         assertFalse(rs.next());
         
-        conn2.createStatement().execute("DROP SEQUENCE bar.bas");
+        nextConnection();
+        conn.createStatement().execute("DROP SEQUENCE bar.bas");
 
+        nextConnection();
+        stmt1a = conn.prepareStatement(stmtStr1a);
         stmt1a.execute();
         if (!detectDeleteSeqInEval) {
             stmt1a.execute(); // Will allocate new batch for foo.bar and get error for bar.bas, but ignore it
         }
         
+        stmt1b = conn.prepareStatement(stmtStr1b);
         try {
             stmt1b.execute(); // Will try to get new batch, but fail b/c sequence has been dropped
             fail();
         } catch (SequenceNotFoundException e) {
         }
+        conn1.close();
+        conn2.close();
     }
 
-	private Connection getConnection() throws Exception {
+	private void nextConnection() throws Exception {
+	    if (conn != null) conn.close();
+	    long ts = nextTimestamp();
 		Properties props = new Properties(TestUtil.TEST_PROPERTIES);
-		Connection conn = DriverManager.getConnection(getUrl(), props);
-		return conn;
+		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts));
+		conn = DriverManager.getConnection(getUrl(), props);
 	}	
 }

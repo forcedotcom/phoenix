@@ -97,10 +97,12 @@ import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
 import com.salesforce.phoenix.schema.ColumnModifier;
+import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.TableRef;
@@ -481,7 +483,19 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
      * @throws SQLException if the column expression node does not refer to a known/unambiguous column
      */
     protected ColumnRef resolveColumn(ColumnParseNode node) throws SQLException {
-        return context.getResolver().resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
+        ColumnRef ref = context.getResolver().resolveColumn(node.getSchemaName(), node.getTableName(), node.getName());
+        PTable table = ref.getTable();
+        int pkPosition = ref.getPKSlotPosition();
+        // Disallow explicit reference to SALT or TENANT_ID columns
+        if (pkPosition >= 0) {
+            boolean isSalted = table.getBucketNum() != null;
+            boolean isMultiTenant = context.getConnection().getTenantId() != null && table.isMultiTenant();
+            int minPosition = (isSalted ? 1 : 0) + (isMultiTenant ? 1 : 0);
+            if (pkPosition < minPosition) {
+                throw new ColumnNotFoundException(table.getSchemaName().getString(), table.getTableName().getString(), null, ref.getColumn().getName().getString());
+            }
+        }
+        return ref;
     }
 
     @Override

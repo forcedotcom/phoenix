@@ -29,12 +29,14 @@ package com.salesforce.phoenix.schema;
 
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.query.ConnectionQueryServicesImpl;
 
 public class PMetaDataImpl implements PMetaData {
     public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap());
@@ -148,5 +150,26 @@ public class PMetaDataImpl implements PMetaData {
         PTable newTable = PTableImpl.makePTable(table, tableTimeStamp, tableSeqNum, columns);
         tables.put(tableName, newTable);
         return new PMetaDataImpl(tables);
+    }
+
+    public static PMetaData pruneNewerTables(long scn, PMetaData metaData) {
+        if (!ConnectionQueryServicesImpl.hasMetaDataToPrune(scn, metaData)) {
+            return metaData;
+        }
+        Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
+        Iterator<Map.Entry<String, PTable>> tableIterator = newTables.entrySet().iterator();
+        boolean wasModified = false;
+        while (tableIterator.hasNext()) {
+            PTable table = tableIterator.next().getValue();
+            if (table.getTimeStamp() >= scn && table.getType() != PTableType.SYSTEM) {
+                tableIterator.remove();
+                wasModified = true;
+            }
+        }
+    
+        if (wasModified) {
+            return new PMetaDataImpl(newTables);
+        }
+        return metaData;
     }
 }

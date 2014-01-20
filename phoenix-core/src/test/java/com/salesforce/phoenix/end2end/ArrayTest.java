@@ -54,7 +54,7 @@ import com.salesforce.phoenix.query.BaseTest;
 import com.salesforce.phoenix.schema.PhoenixArray;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class ArrayTest extends BaseClientMangedTimeTest {
+public class ArrayTest extends BaseClientManagedTimeTest {
 
 	private static final String SIMPLE_TABLE_WITH_ARRAY = "SIMPLE_TABLE_WITH_ARRAY";
 

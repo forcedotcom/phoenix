@@ -52,7 +52,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class TopNTest extends BaseClientMangedTimeTest {
+public class TopNTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testMultiOrderByExpr() throws Exception {

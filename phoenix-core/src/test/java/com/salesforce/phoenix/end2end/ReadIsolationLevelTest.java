@@ -38,7 +38,7 @@ import org.junit.Test;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class ReadIsolationLevelTest extends BaseClientMangedTimeTest {
+public class ReadIsolationLevelTest extends BaseClientManagedTimeTest {
     private static final String ENTITY_ID1= "000000000000001";
     private static final String ENTITY_ID2= "000000000000002";
     private static final String VALUE1 = "a";

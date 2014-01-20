@@ -68,6 +68,7 @@ import com.salesforce.phoenix.schema.PColumnFamily;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.TableRef;
@@ -107,7 +108,12 @@ public class ProjectionCompiler {
     
     private static void projectAllTableColumns(StatementContext context, TableRef tableRef, List<Expression> projectedExpressions, List<ExpressionProjector> projectedColumns) throws SQLException {
         PTable table = tableRef.getTable();
-        for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getColumns().size(); i++) {
+        int posOffset = table.getBucketNum() == null ? 0 : 1;
+        // In SELECT *, don't include tenant column for tenant connection
+        if (tableRef.getTable().isMultiTenant() && context.getConnection().getTenantId() != null) {
+            posOffset++;
+        }
+        for (int i = posOffset; i < table.getColumns().size(); i++) {
             ColumnRef ref = new ColumnRef(tableRef,i);
             Expression expression = ref.newColumnExpression();
             projectedExpressions.add(expression);
@@ -268,7 +274,7 @@ public class ProjectionCompiler {
         selectVisitor.compile();
         // Since we don't have the empty key value in read-only tables,
         // we must project everything.
-        boolean isProjectEmptyKeyValue = table.getType() != PTableType.VIEW && !isWildcard;
+        boolean isProjectEmptyKeyValue = table.getType() != PTableType.VIEW && table.getViewType() != ViewType.MAPPED && !isWildcard;
         if (isProjectEmptyKeyValue) {
             for (byte[] family : projectedFamilies) {
                 projectColumnFamily(table, scan, family);       

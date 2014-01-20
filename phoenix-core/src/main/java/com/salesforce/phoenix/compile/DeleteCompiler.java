@@ -178,8 +178,9 @@ public class DeleteCompiler {
         final ConnectionQueryServices services = connection.getQueryServices();
         final ColumnResolver resolver = FromCompiler.getResolver(delete, connection);
         final TableRef tableRef = resolver.getTables().get(0);
-        if (tableRef.getTable().getType() == PTableType.VIEW) {
-            throw new ReadOnlyTableException("Mutations not allowed for a view (" + tableRef.getTable() + ")");
+        PTable table = tableRef.getTable();
+        if (table.getType() == PTableType.VIEW && table.getViewType().isReadOnly()) {
+            throw new ReadOnlyTableException(table.getSchemaName().getString(),table.getTableName().getString());
         }
         
         final boolean hasLimit = delete.getLimit() != null;
@@ -189,9 +190,10 @@ public class DeleteCompiler {
             hint = HintNode.create(hint, Hint.USE_DATA_OVER_INDEX_TABLE);
         }
 
-        PTable table = tableRef.getTable();
         List<AliasedNode> aliasedNodes = Lists.newArrayListWithExpectedSize(table.getPKColumns().size());
-        for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getPKColumns().size(); i++) {
+        boolean isSalted = table.getBucketNum() != null;
+        boolean isMultiTenant = connection.getTenantId() != null && table.isMultiTenant();
+        for (int i = (isSalted ? 1 : 0) + (isMultiTenant ? 1 : 0); i < table.getPKColumns().size(); i++) {
             PColumn column = table.getPKColumns().get(i);
             String name = column.getName().getString();
             aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));

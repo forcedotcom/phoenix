@@ -29,6 +29,6 @@ package com.salesforce.phoenix.flume;
 
 public interface KeyGenerator {
 
-    public String generate ();
+    public String generate();
 }
 

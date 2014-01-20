@@ -30,19 +30,33 @@ package com.salesforce.phoenix.compile;
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 
+import com.google.common.collect.Iterators;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
+import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ComparisonExpression;
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.expression.IsNullExpression;
+import com.salesforce.phoenix.expression.KeyValueColumnExpression;
 import com.salesforce.phoenix.expression.LiteralExpression;
+import com.salesforce.phoenix.expression.RowKeyColumnExpression;
+import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PTable;
+import com.salesforce.phoenix.schema.PTable.ViewType;
+import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.TableRef;
 
 
 public class CreateTableCompiler {
@@ -54,10 +68,42 @@ public class CreateTableCompiler {
 
     public MutationPlan compile(final CreateTableStatement create) throws SQLException {
         final PhoenixConnection connection = statement.getConnection();
-        final ColumnResolver resolver = FromCompiler.getResolver(create, connection);
+        ColumnResolver resolver = FromCompiler.getResolver(create, connection);
+        // TODO: create new connection at timestamp of base table for VIEW
+        PTableType type = create.getTableType();
+        PhoenixConnection connectionToBe = connection;
+        PTable parentToBe = null;
+        ViewType viewTypeToBe = null;
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
+        ParseNode whereNode = create.getWhereClause();
+        Expression where = null;
+        if (type == PTableType.VIEW) {
+            TableRef tableRef = resolver.getTables().get(0);
+            parentToBe = tableRef.getTable();
+            viewTypeToBe = parentToBe.getViewType() == ViewType.MAPPED ? ViewType.MAPPED : ViewType.UPDATABLE;
+            if (whereNode != null) {
+                if (whereNode.isConstant()) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WHERE_IS_CONSTANT)
+                        .build().buildException();
+                }
+                whereNode = StatementNormalizer.normalize(whereNode, resolver);
+                where = whereNode.accept(expressionCompiler);
+                if (expressionCompiler.isAggregate()) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
+                }
+                if (viewTypeToBe != ViewType.MAPPED) {
+                    Long scn = connection.getSCN();
+                    connectionToBe = scn == null ? new PhoenixConnection(connection, tableRef.getTimeStamp()) : connection;
+                    ViewWhereExpressionVisitor visitor = new ViewWhereExpressionVisitor();
+                    where.accept(visitor);
+                    viewTypeToBe = visitor.isUpdatable() ? ViewType.UPDATABLE : ViewType.READ_ONLY;
+                }
+            }
+        }
+        final Expression viewExpression = where;
+        final ViewType viewType = viewTypeToBe;
         List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
         for (int i = 0; i < splits.length; i++) {
@@ -69,7 +115,9 @@ public class CreateTableCompiler {
             LiteralExpression expression = (LiteralExpression)node.accept(expressionCompiler);
             splits[i] = expression.getBytes();
         }
-        final MetaDataClient client = new MetaDataClient(connection);
+        // If VIEW, open new connection at timestamp at which base table was resolved
+        final MetaDataClient client = new MetaDataClient(connectionToBe);
+        final PTable parent = parentToBe;
         
         return new MutationPlan() {
 
@@ -80,7 +128,14 @@ public class CreateTableCompiler {
 
             @Override
             public MutationState execute() throws SQLException {
-                return client.createTable(create, splits);
+                try {
+                    return client.createTable(create, splits, parent, viewExpression, viewType);
+                } finally {
+                    if (client.getConnection() != connection) {
+                        // TODO: add new view to clientConnection()
+                        client.getConnection().close();
+                    }
+                }
             }
 
             @Override
@@ -94,5 +149,62 @@ public class CreateTableCompiler {
             }
             
         };
+    }
+    
+    private static class ViewWhereExpressionVisitor extends TraverseNoExpressionVisitor<Boolean> {
+        private boolean isUpdatable = true;
+
+        public boolean isUpdatable() {
+            return isUpdatable;
+        }
+
+        @Override
+        public Boolean defaultReturn(Expression node, List<Boolean> l) {
+            // We only hit this if we're trying to traverse somewhere
+            // where we haven't returned null for visitEnter.
+            isUpdatable = false;
+            return null;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(AndExpression node) {
+            return node.getChildren().iterator();
+        }
+
+        @Override
+        public Boolean visitLeave(AndExpression node, List<Boolean> l) {
+            return l.isEmpty() ? null : Boolean.TRUE;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(ComparisonExpression node) {
+            return node.getFilterOp() == CompareOp.EQUAL && node.getChildren().get(1).isConstant() ? Iterators.singletonIterator(node.getChildren().get(0)) : super.visitEnter(node);
+        }
+
+        @Override
+        public Boolean visitLeave(ComparisonExpression node, List<Boolean> l) {
+            return l.isEmpty() ? null : Boolean.TRUE;
+        }
+
+        @Override
+        public Iterator<Expression> visitEnter(IsNullExpression node) {
+            return node.isNegate() ? super.visitEnter(node) : node.getChildren().iterator();
+        }
+        
+        @Override
+        public Boolean visitLeave(IsNullExpression node, List<Boolean> l) {
+            return l.isEmpty() ? null : Boolean.TRUE;
+        }
+        
+        @Override
+        public Boolean visit(RowKeyColumnExpression node) {
+            return Boolean.TRUE;
+        }
+
+        @Override
+        public Boolean visit(KeyValueColumnExpression node) {
+            return Boolean.TRUE;
+        }
+        
     }
 }

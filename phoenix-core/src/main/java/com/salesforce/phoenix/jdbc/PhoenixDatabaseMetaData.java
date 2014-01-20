@@ -143,7 +143,6 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
 
     public static final String TENANT_ID = "TENANT_ID";
     public static final byte[] TENANT_ID_BYTES = Bytes.toBytes(TENANT_ID);
-    public static final String BASE_TABLE = "BASE_TABLE";
     
     public static final String COLUMN_NAME = "COLUMN_NAME";
     public static final String DATA_TYPE = "DATA_TYPE";
@@ -170,11 +169,18 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     public static final byte[] IMMUTABLE_ROWS_BYTES = Bytes.toBytes(IMMUTABLE_ROWS);
     public static final String DEFAULT_COLUMN_FAMILY_NAME = "DEFAULT_COLUMN_FAMILY";
     public static final byte[] DEFAULT_COLUMN_FAMILY_NAME_BYTES = Bytes.toBytes(DEFAULT_COLUMN_FAMILY_NAME);
-    public static final String TENANT_TYPE_ID = "TENANT_TYPE_ID";
-    public static final byte[] TENANT_TYPE_ID_BYTES = Bytes.toBytes(TENANT_TYPE_ID);
+    public static final String VIEW_EXPRESSION = "VIEW_EXPRESSION";
+    public static final byte[] VIEW_EXPRESSION_BYTES = Bytes.toBytes(VIEW_EXPRESSION);
     public static final String DISABLE_WAL = "DISABLE_WAL";
     public static final byte[] DISABLE_WAL_BYTES = Bytes.toBytes(DISABLE_WAL);
-    
+    public static final String MULTI_TENANT = "MULTI_TENANT";
+    public static final byte[] MULTI_TENANT_BYTES = Bytes.toBytes(MULTI_TENANT);
+    public static final String VIEW_TYPE = "VIEW_TYPE";
+    public static final byte[] VIEW_TYPE_BYTES = Bytes.toBytes(VIEW_TYPE);
+    public static final String BASE_SCHEMA_NAME = "BASE_SCHEMA_NAME";
+    public static final byte[] BASE_SCHEMA_NAME_BYTES = Bytes.toBytes(BASE_SCHEMA_NAME);
+    public static final String BASE_TABLE_NAME = "BASE_TABLE_NAME";
+    public static final byte[] BASE_TABLE_NAME_BYTES = Bytes.toBytes(BASE_TABLE_NAME);
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
@@ -759,14 +765,57 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
         return "";
     }
 
+    private ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern, String typeNamePattern) throws SQLException {
+        // Catalogs are not supported for schemas
+        // Tenant specific connections have no derived tables
+        if (catalog != null && catalog.length() > 0 || (connection.getTenantId() != null)) {
+            return emptyResultSet;
+        }
+        StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/" +
+                TABLE_CAT_NAME + "," + // no catalog for tables
+                TABLE_SCHEM_NAME + "," +
+                TABLE_NAME_NAME + " ," +
+                SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
+                REMARKS_NAME + " ," +
+                TYPE_NAME + "," +
+                SELF_REFERENCING_COL_NAME_NAME + "," +
+                REF_GENERATION_NAME + "," +
+                IndexStateNameFunction.NAME + "(" + INDEX_STATE + ") AS " + INDEX_STATE + "," +
+                IMMUTABLE_ROWS + "," +
+                SALT_BUCKETS + "," +
+                BASE_SCHEMA_NAME + "," +
+                BASE_TABLE_NAME + "," +
+                VIEW_EXPRESSION + "," +
+                TENANT_ID +
+                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " where " + COLUMN_NAME + " is null" +
+                " and " + TABLE_CAT_NAME + " is null");
+        buf.append(" and " + TENANT_ID + " IS NOT NULL ");
+        if (schemaPattern != null) {
+            buf.append(" and " + TABLE_SCHEM_NAME + (schemaPattern.length() == 0 ? " is null" : " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'" ));
+        }
+        if (tableNamePattern != null) {
+            buf.append(" and " + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
+        }
+        if (typeNamePattern != null) {
+            buf.append(" and " + SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") like '" + SchemaUtil.normalizeIdentifier(typeNamePattern) + "'" );
+        }
+        buf.append(" order by " + TENANT_ID + "," + TYPE_SCHEMA_AND_TABLE + "." +TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
+        Statement stmt = connection.createStatement();
+        return stmt.executeQuery(buf.toString());
+    }
+    
+    /**
+     * Use/abuse this to get the derived tables ordered by TENANT_ID, TABLE_TYPE, SCHEMA_NAME, TABLE_NAME
+     */
     @Override
     public ResultSet getSuperTables(String catalog, String schemaPattern, String tableNamePattern) throws SQLException {
-        return emptyResultSet;
+        return getSuperTables(catalog, schemaPattern, tableNamePattern, null);
     }
 
     @Override
     public ResultSet getSuperTypes(String catalog, String schemaPattern, String typeNamePattern) throws SQLException {
-        return emptyResultSet;
+        return getSuperTables(catalog, schemaPattern, null, typeNamePattern);
     }
 
     @Override
@@ -849,7 +898,13 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 SELF_REFERENCING_COL_NAME_NAME + "," +
                 REF_GENERATION_NAME + "," +
                 IndexStateNameFunction.NAME + "(" + INDEX_STATE + ") AS " + INDEX_STATE + "," +
-                IMMUTABLE_ROWS +
+                IMMUTABLE_ROWS + "," +
+                SALT_BUCKETS + "," +
+                BASE_SCHEMA_NAME + "," +
+                BASE_TABLE_NAME + "," +
+                VIEW_EXPRESSION + "," +
+                MULTI_TENANT + "," +
+                VIEW_TYPE +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");

@@ -104,9 +104,9 @@ public class WhereOptimizer {
     // For testing so that the extractedNodes can be verified
     public static Expression pushKeyExpressionsToScan(StatementContext context, FilterableStatement statement,
             Expression whereClause, Set<Expression> extractNodes) {
-        // TODO: Single table for now
+        PName tenantId = context.getConnection().getTenantId();
         PTable table = context.getResolver().getTables().get(0).getTable();
-        if (whereClause == null && ! table.isTenantSpecificTable()) {
+        if (whereClause == null && (tenantId == null || !table.isMultiTenant())) {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
@@ -122,7 +122,7 @@ public class WhereOptimizer {
             // becomes consistent.
             keySlots = whereClause.accept(visitor);
     
-            if (keySlots == null && ! table.isTenantSpecificTable()) {
+            if (keySlots == null && (tenantId == null || !table.isMultiTenant())) {
                 context.setScanRanges(ScanRanges.EVERYTHING);
                 return whereClause;
             }
@@ -152,19 +152,17 @@ public class WhereOptimizer {
         boolean hasUnboundedRange = false;
         boolean hasAnyRange = false;
         
+        Iterator<KeyExpressionVisitor.KeySlot> iterator = keySlots.iterator();
         // add tenant data isolation for tenant-specific tables
-        if (table.isTenantSpecificTable()) {
-            // tenant id and tenant type id are always first parts of a pk
-            PName tenantId = context.getConnection().getTenantId();
+        if (tenantId != null && table.isMultiTenant()) {
             KeyRange tenantIdKeyRange = KeyRange.getKeyRange(tenantId.getBytes());
             cnf.add(singletonList(tenantIdKeyRange));
-            if (table.getTenantTypeId() != null) {
-                KeyRange tenantTypeIdKeyRange = KeyRange.getKeyRange(table.getTenantTypeId().getBytes());
-                cnf.add(singletonList(tenantTypeIdKeyRange));
-            }
+            if (iterator.hasNext()) iterator.next();
+            pkPos++;
         }
         // Concat byte arrays of literals to form scan start key
-        for (KeyExpressionVisitor.KeySlot slot : keySlots) {
+        while (iterator.hasNext()) {
+            KeyExpressionVisitor.KeySlot slot = iterator.next();
             // If the position of the pk columns in the query skips any part of the row k
             // then we have to handle in the next phase through a key filter.
             // If the slot is null this means we have no entry for this pk position.

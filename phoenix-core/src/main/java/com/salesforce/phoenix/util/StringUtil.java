@@ -36,6 +36,7 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 
 
 public class StringUtil {
+    public static final String EMPTY_STRING = "";
     // Masks to determine how many bytes are in each character
     // From http://tools.ietf.org/html/rfc3629#section-3
     public static final byte SPACE_UTF8 = 0x20;

@@ -40,7 +40,7 @@ import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class StddevTest extends BaseClientMangedTimeTest {
+public class StddevTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testSTDDEV_POP() throws Exception {

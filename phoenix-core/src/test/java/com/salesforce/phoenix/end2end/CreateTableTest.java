@@ -44,7 +44,7 @@ import com.salesforce.phoenix.query.KeyRange;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
-public class CreateTableTest  extends BaseClientMangedTimeTest {
+public class CreateTableTest  extends BaseClientManagedTimeTest {
     
     @Test
     public void testStartKeyStopKey() throws SQLException {

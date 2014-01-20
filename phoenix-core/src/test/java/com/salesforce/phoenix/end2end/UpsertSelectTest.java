@@ -61,7 +61,7 @@ import com.salesforce.phoenix.util.QueryUtil;
 import com.salesforce.phoenix.util.TestUtil;
 
 
-public class UpsertSelectTest extends BaseClientMangedTimeTest {
+public class UpsertSelectTest extends BaseClientManagedTimeTest {
     
     @Test
     public void testUpsertSelectWithNoIndex() throws Exception {

@@ -39,7 +39,7 @@ import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 
-public class FunkyNamesTest extends BaseClientMangedTimeTest {
+public class FunkyNamesTest extends BaseClientManagedTimeTest {
 
     protected static void initTableValues(byte[][] splits, long ts) throws Exception {
         ensureTableCreated(getUrl(),FUNKY_NAME,splits, ts-2);

@@ -28,6 +28,8 @@
 package com.salesforce.phoenix.query;
 
 
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.BUFFER_LENGTH;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CACHE_SIZE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.CHAR_OCTET_LENGTH;
@@ -47,6 +49,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INCREMENT_BY;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_AUTOINCREMENT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.IS_NULLABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.NUM_PREC_RADIX;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
@@ -70,11 +73,12 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NA
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_TYPE_ID;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_NAME;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_EXPRESSION;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_TYPE;
 
 import java.math.BigDecimal;
 
@@ -145,7 +149,9 @@ public interface QueryConstants {
     
 
     public static final String CREATE_TABLE_METADATA =
-            "CREATE TABLE IF NOT EXISTS " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
+            // Do not use IF NOT EXISTS as we sometimes catch the TableAlreadyExists exception
+            // and add columns to the SYSTEM.TABLE dynamically.
+            "CREATE TABLE " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"(\n" +
             // PK columns
             TENANT_ID + " VARCHAR NULL," +
             TABLE_SCHEM_NAME + " VARCHAR NULL," +
@@ -183,13 +189,17 @@ public interface QueryConstants {
             COLUMN_MODIFIER + " INTEGER," +
             SALT_BUCKETS + " INTEGER," +
             // Columns added in 2.0.0
-            DATA_TABLE_NAME + " VARCHAR NULL," +
+            DATA_TABLE_NAME + " VARCHAR," +
             INDEX_STATE + " CHAR(1),\n" +
             IMMUTABLE_ROWS + " BOOLEAN,\n" +
             // Columns added in 3.0.0
-            TENANT_TYPE_ID + " VARBINARY,\n" +
+            VIEW_EXPRESSION + " VARBINARY,\n" +
             DEFAULT_COLUMN_FAMILY_NAME + " VARCHAR,\n" +
-            DISABLE_WAL + " BOOLEAN\n" +
+            DISABLE_WAL + " BOOLEAN,\n" +
+            MULTI_TENANT + " BOOLEAN,\n" +
+            VIEW_TYPE + " UNSIGNED_TINYINT,\n" +
+            BASE_SCHEMA_NAME + " VARCHAR,\n" +
+            BASE_TABLE_NAME + " VARCHAR,\n" +
             "CONSTRAINT " + SYSTEM_TABLE_PK_NAME + " PRIMARY KEY (" + TENANT_ID + ","
             + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME + "," + COLUMN_NAME + "," + TABLE_CAT_NAME + "))\n" +
             HConstants.VERSIONS + "=" + MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS + ",\n" +

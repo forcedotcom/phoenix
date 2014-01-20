@@ -44,7 +44,7 @@ import java.util.Properties;
 
 import org.junit.Test;
 
-import com.salesforce.phoenix.end2end.BaseClientMangedTimeTest;
+import com.salesforce.phoenix.end2end.BaseClientManagedTimeTest;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.QueryUtil;
 
@@ -52,7 +52,7 @@ import com.salesforce.phoenix.util.QueryUtil;
 /**
  * Tests for table with transparent salting.
  */
-public class SaltedTableTest extends BaseClientMangedTimeTest {
+public class SaltedTableTest extends BaseClientManagedTimeTest {
 
     private static void initTableValues(byte[][] splits, long ts) throws Exception {
         String url = PHOENIX_JDBC_URL + ";" + PhoenixRuntime.CURRENT_SCN_ATTRIB + "=" + ts;

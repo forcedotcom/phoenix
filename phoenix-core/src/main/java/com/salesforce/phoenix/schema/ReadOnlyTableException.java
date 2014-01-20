@@ -43,22 +43,23 @@ public class ReadOnlyTableException extends SQLException {
     private static final long serialVersionUID = 1L;
     private static SQLExceptionCode code = SQLExceptionCode.READ_ONLY_TABLE;
 
-    public ReadOnlyTableException() {
-        super(new SQLExceptionInfo.Builder(code).build().toString(), code.getSQLState(), code.getErrorCode());
+    public ReadOnlyTableException(String schemaName, String tableName) {
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).toString(),
+                code.getSQLState(), code.getErrorCode());
     }
 
-    public ReadOnlyTableException(String message) {
-        super(new SQLExceptionInfo.Builder(code).setMessage(message).toString(), code.getSQLState(), code.getErrorCode());
+    public ReadOnlyTableException(String message, String schemaName, String tableName) {
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).setMessage(message).toString(),
+                code.getSQLState(), code.getErrorCode());
     }
 
-    public ReadOnlyTableException(Throwable cause) {
-        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).build().toString(),
+    public ReadOnlyTableException(String message, String schemaName, String tableName, Throwable cause) {
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).setRootCause(cause).setMessage(message).toString(),
                 code.getSQLState(), code.getErrorCode(), cause);
     }
 
-    public ReadOnlyTableException(String message, Throwable cause) {
-        super(new SQLExceptionInfo.Builder(code).setRootCause(cause).setMessage(message).toString(),
-                code.getSQLState(), code.getErrorCode(), cause);
+    public ReadOnlyTableException(String message, String schemaName, String tableName, String familyName) {
+        super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).setFamilyName(familyName).setMessage(message).toString(),
+                code.getSQLState(), code.getErrorCode());
     }
-
 }

@@ -40,7 +40,7 @@ import org.junit.Before;
  * @author elilevine
  * @since 2.2
  */
-public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeTest {
+public abstract class BaseTenantSpecificTablesTest extends BaseClientManagedTimeTest {
     protected static final String TENANT_ID = "ZZTop";
     protected static final String TENANT_TYPE_ID = "abc";
     protected static final String PHOENIX_JDBC_TENANT_SPECIFIC_URL = getUrl() + ';' + TENANT_ID_ATTRIB + '=' + TENANT_ID;
@@ -51,24 +51,24 @@ public abstract class BaseTenantSpecificTablesTest extends BaseClientMangedTimeT
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
             "                tenant_type_id VARCHAR(3) NOT NULL, \n" + 
             "                id INTEGER NOT NULL\n" + 
-            "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id))";
+            "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true,MULTI_TYPE=true";
     
     protected static final String TENANT_TABLE_NAME = "TENANT_TABLE";
-    protected static final String TENANT_TABLE_DDL = "CREATE TABLE " + TENANT_TABLE_NAME + " ( \n" + 
-            "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='" + PARENT_TABLE_NAME + "', TENANT_TYPE_ID='" + TENANT_TYPE_ID + '\'';
+    protected static final String TENANT_TABLE_DDL = "CREATE VIEW " + TENANT_TABLE_NAME + " ( \n" + 
+            "                tenant_col VARCHAR) AS SELECT *\n" + 
+            "                FROM " + PARENT_TABLE_NAME + " WHERE tenant_type_id= '" + TENANT_TYPE_ID + "'";
     
     protected static final String PARENT_TABLE_NAME_NO_TENANT_TYPE_ID = "PARENT_TABLE_NO_TENANT_TYPE_ID";
     protected static final String PARENT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
             "                user VARCHAR ,\n" + 
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
-            "                id INTEGER NOT NULL\n" + 
-            "                CONSTRAINT pk PRIMARY KEY (tenant_id, id))";
+            "                id INTEGER NOT NULL,\n" + 
+            "                CONSTRAINT pk PRIMARY KEY (tenant_id, id)) MULTI_TENANT=true";
     
     protected static final String TENANT_TABLE_NAME_NO_TENANT_TYPE_ID = "TENANT_TABLE_NO_TENANT_TYPE_ID";
-    protected static final String TENANT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE TABLE " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
-            "                tenant_col VARCHAR)\n" + 
-            "                BASE_TABLE='" + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID + "'";
+    protected static final String TENANT_TABLE_DDL_NO_TENANT_TYPE_ID = "CREATE VIEW " + TENANT_TABLE_NAME_NO_TENANT_TYPE_ID + " ( \n" + 
+            "                tenant_col VARCHAR) AS SELECT *\n" + 
+            "                FROM " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID;
     
     @Before
     public void createTables() throws SQLException {

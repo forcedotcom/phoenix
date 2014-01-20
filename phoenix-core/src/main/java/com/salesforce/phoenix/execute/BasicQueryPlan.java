@@ -44,19 +44,15 @@ import com.salesforce.phoenix.compile.RowProjector;
 import com.salesforce.phoenix.compile.ScanRanges;
 import com.salesforce.phoenix.compile.StatementContext;
 import com.salesforce.phoenix.iterate.DelegateResultIterator;
-import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.iterate.ParallelIterators.ParallelIteratorFactory;
+import com.salesforce.phoenix.iterate.ResultIterator;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
-import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.schema.PTable;
-import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.SQLCloseable;
 import com.salesforce.phoenix.util.SQLCloseables;
 import com.salesforce.phoenix.util.ScanUtil;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 
@@ -129,13 +125,6 @@ public abstract class BasicQueryPlan implements QueryPlan {
         return childServices;
     }
 
-    protected void projectEmptyKeyValue() {
-        Scan scan = context.getScan();
-        PTable table = tableRef.getTable();
-        if (!projection.isProjectEmptyKeyValue() && table.getType() != PTableType.VIEW) {
-                scan.addColumn(SchemaUtil.getEmptyColumnFamily(table.getColumnFamilies()), QueryConstants.EMPTY_COLUMN_BYTES);
-        }
-    }
 //    /**
 //     * Sets up an id used to do round robin queue processing on the server
 //     * @param scan

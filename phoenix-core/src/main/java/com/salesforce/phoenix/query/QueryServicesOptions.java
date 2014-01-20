@@ -31,6 +31,9 @@ import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_PRODUCER_ATT
 import static com.salesforce.phoenix.query.QueryServices.CALL_QUEUE_ROUND_ROBIN_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.DATE_FORMAT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.DROP_METADATA_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_MAX_CACHE_SIZE_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_SPILL_FILES_ATTRIB;
+import static com.salesforce.phoenix.query.QueryServices.GROUPBY_SPILLABLE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.IMMUTABLE_ROWS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.KEEP_ALIVE_MS_ATTRIB;
@@ -52,9 +55,6 @@ import static com.salesforce.phoenix.query.QueryServices.ROW_KEY_ORDER_SALTED_TA
 import static com.salesforce.phoenix.query.QueryServices.RPC_TIMEOUT_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SCAN_CACHE_SIZE_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SEQUENCE_CACHE_SIZE_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_ENABLED_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_MAX_CACHE_SIZE_ATTRIB;
-import static com.salesforce.phoenix.query.QueryServices.SPGBY_NUM_SPILLFILES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.SPOOL_THRESHOLD_BYTES_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB;
 import static com.salesforce.phoenix.query.QueryServices.TARGET_QUERY_CONCURRENCY_ATTRIB;
@@ -113,12 +113,12 @@ public class QueryServicesOptions {
     // Spillable GroupBy - SPGBY prefix
     //
     // Enable / disable spillable group by
-    public static boolean DEFAULT_SPGBY_ENABLED = true;
+    public static boolean DEFAULT_GROUPBY_SPILLABLE = true;
     // Number of spill files / partitions the keys are distributed to
     // Each spill file fits 2GB of data
-    public static final int DEFAULT_SPGBY_NUM_SPILLFILES = 2;
+    public static final int DEFAULT_GROUPBY_SPILL_FILES = 2;
     // Max size of 1st level main memory cache in bytes --> upper bound
-    public static final long DEFAULT_SPGBY_CACHE_MAX_SIZE = 1024L*1024L*100L;  // 100 Mb
+    public static final long DEFAULT_GROUPBY_MAX_CACHE_MAX = 1024L*1024L*100L;  // 100 Mb
     
     public static final int DEFAULT_SEQUENCE_CACHE_SIZE = 100;  // reserve 100 sequences at a time
     
@@ -172,9 +172,9 @@ public class QueryServicesOptions {
             .setIfUnset(INDEX_MUTATE_BATCH_SIZE_THRESHOLD_ATTRIB, DEFAULT_INDEX_MUTATE_BATCH_SIZE_THRESHOLD)
             .setIfUnset(MAX_SPOOL_TO_DISK_BYTES_ATTRIB, DEFAULT_MAX_SPOOL_TO_DISK_BYTES)
             .setIfUnset(DROP_METADATA_ATTRIB, DEFAULT_DROP_METADATA)
-            .setIfUnset(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED)
-            .setIfUnset(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE)
-            .setIfUnset(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES)
+            .setIfUnset(GROUPBY_SPILLABLE_ATTRIB, DEFAULT_GROUPBY_SPILLABLE)
+            .setIfUnset(GROUPBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_GROUPBY_MAX_CACHE_MAX)
+            .setIfUnset(GROUPBY_SPILL_FILES_ATTRIB, DEFAULT_GROUPBY_SPILL_FILES)
             .setIfUnset(SEQUENCE_CACHE_SIZE_ATTRIB, DEFAULT_SEQUENCE_CACHE_SIZE)
             ;
         // HBase sets this to 1, so we reset it to something more appropriate.
@@ -295,15 +295,15 @@ public class QueryServicesOptions {
     }
     
     public QueryServicesOptions setSPGBYEnabled(boolean enabled) {
-        return set(SPGBY_ENABLED_ATTRIB, enabled);
+        return set(GROUPBY_SPILLABLE_ATTRIB, enabled);
     }
 
     public QueryServicesOptions setSPGBYMaxCacheSize(long size) {
-        return set(SPGBY_MAX_CACHE_SIZE_ATTRIB, size);
+        return set(GROUPBY_MAX_CACHE_SIZE_ATTRIB, size);
     }
     
     public QueryServicesOptions setSPGBYNumSpillFiles(long num) {
-        return set(SPGBY_NUM_SPILLFILES_ATTRIB, num);
+        return set(GROUPBY_SPILL_FILES_ATTRIB, num);
     }
 
     
@@ -372,15 +372,15 @@ public class QueryServicesOptions {
     }
     
     public boolean isSpillableGroupByEnabled() {
-        return config.getBoolean(SPGBY_ENABLED_ATTRIB, DEFAULT_SPGBY_ENABLED);
+        return config.getBoolean(GROUPBY_SPILLABLE_ATTRIB, DEFAULT_GROUPBY_SPILLABLE);
     }
     
     public long getSpillableGroupByMaxCacheSize() {
-        return config.getLong(SPGBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_SPGBY_CACHE_MAX_SIZE);
+        return config.getLong(GROUPBY_MAX_CACHE_SIZE_ATTRIB, DEFAULT_GROUPBY_MAX_CACHE_MAX);
     }
     
     public int getSpillableGroupByNumSpillFiles() {
-        return config.getInt(SPGBY_NUM_SPILLFILES_ATTRIB, DEFAULT_SPGBY_NUM_SPILLFILES);
+        return config.getInt(GROUPBY_SPILL_FILES_ATTRIB, DEFAULT_GROUPBY_SPILL_FILES);
     }
 
     public QueryServicesOptions setMaxServerCacheTTLMs(int ttl) {

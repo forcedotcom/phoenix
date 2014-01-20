@@ -43,4 +43,10 @@ public class HBaseFactoryProviderTest {
         ConfigurationFactory provided = HBaseFactoryProvider.getConfigurationFactory();
         assertTrue(provided instanceof ConfigurationFactory.ConfigurationFactoryImpl);
     }
+
+    @Test
+    public void testDefaultHConnectionFactory() {
+        HConnectionFactory provided = HBaseFactoryProvider.getHConnectionFactory();
+        assertTrue(provided instanceof HConnectionFactory.HConnectionFactoryImpl);
+    }
 }
