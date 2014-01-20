@@ -29,6 +29,7 @@ package com.salesforce.phoenix.end2end;
 
 import static com.salesforce.phoenix.util.TestUtil.B_VALUE;
 import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
+import static com.salesforce.phoenix.util.TestUtil.ROW1;
 import static com.salesforce.phoenix.util.TestUtil.TABLE_WITH_ARRAY;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
@@ -38,6 +39,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.sql.Array;
 import java.sql.Connection;
+import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -53,6 +55,8 @@ import com.salesforce.phoenix.schema.PhoenixArray;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 public class ArrayTest extends BaseClientMangedTimeTest {
+
+	private static final String SIMPLE_TABLE_WITH_ARRAY = "SIMPLE_TABLE_WITH_ARRAY";
 
 	@Test
 	public void testScanByArrayValue() throws Exception {
@@ -325,6 +329,53 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 			conn.close();
 		}
 	}
+	
+	@Test
+	public void testUpsertSelectWithArray() throws Exception {
+		long ts = nextTimestamp();
+		String tenantId = getOrganizationId();
+		createTableWithArray(BaseConnectedQueryTest.getUrl(),
+				getDefaultSplits(tenantId), null, ts - 2);
+		initTablesWithArrays(tenantId, null, ts, false);
+		try {
+			createSimpleTableWithArray(BaseConnectedQueryTest.getUrl(),
+					getDefaultSplits(tenantId), null, ts - 2);
+			initSimpleArrayTable(tenantId, null, ts, false);
+			Properties props = new Properties(TEST_PROPERTIES);
+			props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+					Long.toString(ts)); // Execute at timestamp 2
+			Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL,
+					props);
+			String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array) "
+					+ "SELECT organization_id, entity_id, a_double_array  FROM "
+					+ SIMPLE_TABLE_WITH_ARRAY
+					+ " WHERE a_double_array[1] = 89.96d";
+			PreparedStatement statement = conn.prepareStatement(query);
+			int executeUpdate = statement.executeUpdate();
+			assertEquals(1, executeUpdate);
+			conn.commit();
+			statement.close();
+			conn.close();
+			// create another connection
+			props = new Properties(TEST_PROPERTIES);
+			props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+					Long.toString(ts + 2)); // Execute at timestamp 2
+			conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+			query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
+			statement = conn.prepareStatement(query);
+			ResultSet rs = statement.executeQuery();
+			assertTrue(rs.next());
+			// Need to support primitive
+			Double[] doubleArr = new Double[1];
+			doubleArr[0] = 89.96d;
+			conn.createArrayOf("DOUBLE", doubleArr);
+			Double result = rs.getDouble(1);
+			assertEquals(result, doubleArr[0]);
+			assertFalse(rs.next());
+
+		} finally {
+		}
+	}
 
 	@Test
 	public void testArrayIndexUsedInWhereClause() throws Exception {
@@ -541,4 +592,46 @@ public class ArrayTest extends BaseClientMangedTimeTest {
 		BaseTest.createTestTable(url, ddlStmt, bs, ts);
 	}
 	
+	static void createSimpleTableWithArray(String url, byte[][] bs, Object object,
+			long ts) throws SQLException {
+		String ddlStmt = "create table "
+				+ SIMPLE_TABLE_WITH_ARRAY
+				+ "   (organization_id char(15) not null, \n"
+				+ "    entity_id char(15) not null,\n"
+				+ "    a_double_array double array[],\n"
+				+ "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n"
+				+ ")";
+		BaseTest.createTestTable(url, ddlStmt, bs, ts);
+	}
+	
+	protected static void initSimpleArrayTable(String tenantId, Date date, Long ts, boolean useNull) throws Exception {
+   	 Properties props = new Properties();
+        if (ts != null) {
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, ts.toString());
+        }
+        Connection conn = DriverManager.getConnection(getUrl(), props);
+        try {
+            // Insert all rows at ts
+            PreparedStatement stmt = conn.prepareStatement(
+                    "upsert into " +SIMPLE_TABLE_WITH_ARRAY+
+                    "(" +
+                    "    ORGANIZATION_ID, " +
+                    "    ENTITY_ID, " +
+                    "    a_double_array)" +
+                    "VALUES (?, ?, ?)");
+            stmt.setString(1, tenantId);
+            stmt.setString(2, ROW1);
+            // Need to support primitive
+            Double[] doubleArr =  new Double[2];
+            doubleArr[0] = 64.87;
+            doubleArr[1] = 89.96;
+            Array array = conn.createArrayOf("DOUBLE", doubleArr);
+            stmt.setArray(3, array);
+            stmt.execute();
+                
+            conn.commit();
+        } finally {
+            conn.close();
+        }
+   }
 }

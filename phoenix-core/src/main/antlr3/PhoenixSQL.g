@@ -750,12 +750,12 @@ expression_negate returns [ParseNode ret]
 // The lowest level function, which includes literals, binds, but also parenthesized expressions, functions, and case statements.
 expression_term returns [ParseNode ret]
     :   e=literal_or_bind_value { $ret = e; }
-    |   ex=ARRAY LSQUARE v=expression_terms RSQUARE {$ret = factory.upsertStmtArrayNode(v);}
     |   e=arrayable_expression_term (LSQUARE s=expression RSQUARE)?  { if (s == null) { $ret = e; } else { $ret = factory.arrayElemRef(Arrays.<ParseNode>asList(e,s)); } } 
 	;
 	    
 arrayable_expression_term returns [ParseNode ret]
     :   field=identifier { $ret = factory.column(null,field,field); }
+    |   ex=ARRAY LSQUARE v=expression_terms RSQUARE {$ret = factory.upsertStmtArrayNode(v);}
     |   tableName=table_name DOT field=identifier { $ret = factory.column(tableName, field, field); }
     |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (a=ASC | DESC) RPAREN)?
         {
