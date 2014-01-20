@@ -58,7 +58,7 @@ import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.FamilyWildcardParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.SequenceOpParseNode;
+import com.salesforce.phoenix.parse.SequenceValueParseNode;
 import com.salesforce.phoenix.parse.WildcardParseNode;
 import com.salesforce.phoenix.schema.ArgumentTypeMismatchException;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -237,7 +237,7 @@ public class ProjectionCompiler {
                 if (node instanceof BindParseNode) {
                     context.getBindManager().addParamMetaData((BindParseNode)node, expression);
                 }
-                if (!node.isConstant()) {
+                if (!node.isStateless()) {
                     if (!selectVisitor.isAggregate() && statement.isAggregate()) {
                         ExpressionCompiler.throwNonAggExpressionInAggException(expression.toString());
                     }
@@ -372,7 +372,7 @@ public class ProjectionCompiler {
         }
         
         @Override
-        public Expression visit(SequenceOpParseNode node) throws SQLException {
+        public Expression visit(SequenceValueParseNode node) throws SQLException {
             if (aggregateFunction != null) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR)
                 .setSchemaName(node.getTableName().getSchemaName())

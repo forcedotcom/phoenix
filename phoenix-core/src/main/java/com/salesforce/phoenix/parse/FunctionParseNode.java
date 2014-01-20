@@ -65,20 +65,11 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class FunctionParseNode extends CompoundParseNode {
     private final String name;
     private final BuiltInFunctionInfo info;
-    private final boolean isConstant;
     
     FunctionParseNode(String name, List<ParseNode> children, BuiltInFunctionInfo info) {
         super(children);
         this.name = SchemaUtil.normalizeIdentifier(name);
         this.info = info;
-        boolean isConstant = true;
-        for (ParseNode child : children) {
-            if (!child.isConstant()) {
-                isConstant = false;
-                break;
-            }
-        }
-        this.isConstant = isConstant;
     }
 
     public BuiltInFunctionInfo getInfo() {
@@ -89,11 +80,6 @@ public class FunctionParseNode extends CompoundParseNode {
         return name;
     }
 
-    @Override
-    public boolean isConstant() {
-        return isConstant;
-    }
-    
     @Override
     public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
         List<T> l = Collections.emptyList();
@@ -161,7 +147,7 @@ public class FunctionParseNode extends CompoundParseNode {
         if (args.length > children.size()) {
             List<Expression> moreChildren = new ArrayList<Expression>(children);
             for (int i = children.size(); i < info.getArgs().length; i++) {
-                moreChildren.add(LiteralExpression.newConstant(null, args[i].allowedTypes.length == 0 ? null :  args[i].allowedTypes[0]));
+                moreChildren.add(LiteralExpression.newConstant(null, args[i].allowedTypes.length == 0 ? null :  args[i].allowedTypes[0], true));
             }
             children = moreChildren;
         }
@@ -198,7 +184,7 @@ public class FunctionParseNode extends CompoundParseNode {
                     // based on the function argument annonation set the parameter meta data.
                     if (child.getDataType() == null) {
                         if (allowedTypes.length > 0) {
-                            context.getBindManager().addParamMetaData(bindNode, LiteralExpression.newConstant(null, allowedTypes[0]));
+                            context.getBindManager().addParamMetaData(bindNode, LiteralExpression.newConstant(null, allowedTypes[0], true));
                         }
                     } else { // Use expression as is, since we already have the data type set
                         context.getBindManager().addParamMetaData(bindNode, child);
@@ -400,11 +386,11 @@ public class FunctionParseNode extends CompoundParseNode {
                 SQLParser parser = new SQLParser(strValue);
                 try {
                     LiteralParseNode node = parser.parseLiteral();
-                    LiteralExpression defaultValue = LiteralExpression.newConstant(node.getValue(), this.allowedTypes[0]);
+                    LiteralExpression defaultValue = LiteralExpression.newConstant(node.getValue(), this.allowedTypes[0], true);
                     if (this.getAllowedTypes().length > 0) {
                         for (PDataType type : this.getAllowedTypes()) {
                             if (defaultValue.getDataType() == null || defaultValue.getDataType().isCoercibleTo(type, node.getValue())) {
-                                return LiteralExpression.newConstant(node.getValue(), type);
+                                return LiteralExpression.newConstant(node.getValue(), type, true);
                             }
                         }
                         throw new IllegalStateException("Unable to coerce default value " + strValue + " to any of the allowed types of " + Arrays.toString(this.getAllowedTypes()));

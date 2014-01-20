@@ -42,20 +42,23 @@ import java.util.List;
  */
 public abstract class CompoundParseNode extends ParseNode {
     private final List<ParseNode> children;
-    private final boolean isConstant;
+    private final boolean isStateless;
     
     CompoundParseNode(List<ParseNode> children) {
         this.children = Collections.unmodifiableList(children);
-        boolean isConstant = true;
+        boolean isStateless = true;
         for (ParseNode child : children) {
-            isConstant &= child.isConstant();
+            isStateless &= child.isStateless();
+            if (!isStateless) {
+                break;
+            }
         }
-        this.isConstant = isConstant;
+        this.isStateless = isStateless;
     }
     
     @Override
-    public boolean isConstant() {
-        return isConstant;
+    public boolean isStateless() {
+        return isStateless;
     }
     
     @Override

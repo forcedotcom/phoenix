@@ -3,12 +3,12 @@ package com.salesforce.phoenix.parse;
 import java.sql.SQLException;
 
 
-public class SequenceOpParseNode extends TerminalParseNode {
+public class SequenceValueParseNode extends TerminalParseNode {
     public enum Op {NEXT_VALUE, CURRENT_VALUE};
 	private final TableName tableName;
 	private final Op op;
 
-	public SequenceOpParseNode(TableName tableName, Op op) {
+	public SequenceValueParseNode(TableName tableName, Op op) {
 		this.tableName = tableName;
 		this.op = op;
 	}
@@ -22,10 +22,10 @@ public class SequenceOpParseNode extends TerminalParseNode {
 		return tableName;
 	}
 
-	@Override
-	public boolean isConstant() {
-		return true;
-	}
+    @Override
+    public boolean isStateless() {
+        return true;
+    }
 
     public Op getOp() {
         return op;

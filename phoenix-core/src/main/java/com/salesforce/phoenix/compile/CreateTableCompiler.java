@@ -35,6 +35,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.google.common.collect.Iterators;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -45,18 +46,20 @@ import com.salesforce.phoenix.expression.ComparisonExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.IsNullExpression;
 import com.salesforce.phoenix.expression.KeyValueColumnExpression;
-import com.salesforce.phoenix.expression.LiteralExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.CreateTableStatement;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.query.DelegateConnectionQueryServices;
 import com.salesforce.phoenix.schema.MetaDataClient;
+import com.salesforce.phoenix.schema.PMetaData;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.TableRef;
+import com.salesforce.phoenix.util.ByteUtil;
 
 
 public class CreateTableCompiler {
@@ -69,7 +72,6 @@ public class CreateTableCompiler {
     public MutationPlan compile(final CreateTableStatement create) throws SQLException {
         final PhoenixConnection connection = statement.getConnection();
         ColumnResolver resolver = FromCompiler.getResolver(create, connection);
-        // TODO: create new connection at timestamp of base table for VIEW
         PTableType type = create.getTableType();
         PhoenixConnection connectionToBe = connection;
         PTable parentToBe = null;
@@ -84,7 +86,7 @@ public class CreateTableCompiler {
             parentToBe = tableRef.getTable();
             viewTypeToBe = parentToBe.getViewType() == ViewType.MAPPED ? ViewType.MAPPED : ViewType.UPDATABLE;
             if (whereNode != null) {
-                if (whereNode.isConstant()) {
+                if (whereNode.isStateless()) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WHERE_IS_CONSTANT)
                         .build().buildException();
                 }
@@ -95,7 +97,23 @@ public class CreateTableCompiler {
                 }
                 if (viewTypeToBe != ViewType.MAPPED) {
                     Long scn = connection.getSCN();
-                    connectionToBe = scn == null ? new PhoenixConnection(connection, tableRef.getTimeStamp()) : connection;
+                    connectionToBe = scn != null ? connection :
+                        // If we haved no SCN on our connection, freeze the SCN at when
+                        // the base table was resolved to prevent any race condition on
+                        // the error checking we do for the base table. The only potential
+                        // issue is if the base table lives on a different region server
+                        // than the new table will, then we're relying here on the system
+                        // clocks being in sync.
+                        new PhoenixConnection(
+                            // When the new table is created, we still want to cache it
+                            // on our connection.
+                            new DelegateConnectionQueryServices(connection.getQueryServices()) {
+                                @Override
+                                public PMetaData addTable(PTable table) throws SQLException {
+                                    return connection.addTable(table);
+                                }
+                            },
+                            connection, tableRef.getTimeStamp());
                     ViewWhereExpressionVisitor visitor = new ViewWhereExpressionVisitor();
                     where.accept(visitor);
                     viewTypeToBe = visitor.isUpdatable() ? ViewType.UPDATABLE : ViewType.READ_ONLY;
@@ -106,16 +124,19 @@ public class CreateTableCompiler {
         final ViewType viewType = viewTypeToBe;
         List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
+        ImmutableBytesWritable ptr = context.getTempPtr();
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
-            if (!node.isConstant()) {
-                throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
-                    .setMessage("Node: " + node).build().buildException();
+            if (node.isStateless()) {
+                Expression expression = node.accept(expressionCompiler);
+                if (expression.evaluate(null, ptr)) {;
+                    splits[i] = ByteUtil.copyKeyBytesIfNecessary(ptr);
+                    continue;
+                }
             }
-            LiteralExpression expression = (LiteralExpression)node.accept(expressionCompiler);
-            splits[i] = expression.getBytes();
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
+                .setMessage("Node: " + node).build().buildException();
         }
-        // If VIEW, open new connection at timestamp at which base table was resolved
         final MetaDataClient client = new MetaDataClient(connectionToBe);
         final PTable parent = parentToBe;
         
@@ -132,7 +153,6 @@ public class CreateTableCompiler {
                     return client.createTable(create, splits, parent, viewExpression, viewType);
                 } finally {
                     if (client.getConnection() != connection) {
-                        // TODO: add new view to clientConnection()
                         client.getConnection().close();
                     }
                 }
@@ -161,7 +181,7 @@ public class CreateTableCompiler {
         @Override
         public Boolean defaultReturn(Expression node, List<Boolean> l) {
             // We only hit this if we're trying to traverse somewhere
-            // where we haven't returned null for visitEnter.
+            // in which we don't have a visitLeave that returns non null
             isUpdatable = false;
             return null;
         }
@@ -178,7 +198,7 @@ public class CreateTableCompiler {
 
         @Override
         public Iterator<Expression> visitEnter(ComparisonExpression node) {
-            return node.getFilterOp() == CompareOp.EQUAL && node.getChildren().get(1).isConstant() ? Iterators.singletonIterator(node.getChildren().get(0)) : super.visitEnter(node);
+            return node.getFilterOp() == CompareOp.EQUAL && node.getChildren().get(1).isStateless() && node.getChildren().get(1).isDeterministic() ? Iterators.singletonIterator(node.getChildren().get(0)) : super.visitEnter(node);
         }
 
         @Override

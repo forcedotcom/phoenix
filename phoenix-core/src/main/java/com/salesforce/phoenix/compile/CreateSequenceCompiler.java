@@ -130,18 +130,18 @@ public class CreateSequenceCompiler {
     public MutationPlan compile(final CreateSequenceStatement sequence) throws SQLException {
         ParseNode startsWithNode = sequence.getStartWith();
         ParseNode incrementByNode = sequence.getIncrementBy();
-        if (!startsWithNode.isConstant()) {
+        if (!startsWithNode.isStateless()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.STARTS_WITH_MUST_BE_CONSTANT)
             .setSchemaName(sequence.getSequenceName().getSchemaName())
             .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
         }
-        if (!incrementByNode.isConstant()) {
+        if (!incrementByNode.isStateless()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.INCREMENT_BY_MUST_BE_CONSTANT)
             .setSchemaName(sequence.getSequenceName().getSchemaName())
             .setTableName(sequence.getSequenceName().getTableName()).build().buildException();
         }
         ParseNode cacheNode = sequence.getCacheSize();
-        if (cacheNode != null && !cacheNode.isConstant()) {
+        if (cacheNode != null && !cacheNode.isStateless()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.CACHE_MUST_BE_NON_NEGATIVE_CONSTANT)
             .setSchemaName(sequence.getSequenceName().getSchemaName())
             .setTableName(sequence.getSequenceName().getTableName()).build().buildException();

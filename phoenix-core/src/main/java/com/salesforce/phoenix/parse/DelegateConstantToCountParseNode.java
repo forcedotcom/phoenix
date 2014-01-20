@@ -44,7 +44,7 @@ public abstract class DelegateConstantToCountParseNode extends AggregateFunction
     
     protected CountAggregateFunction getDelegateFunction(List<Expression> children, StatementContext context) {
         CountAggregateFunction countFunc = null;
-        if (getChildren().get(0).isConstant()) {
+        if (getChildren().get(0).isStateless()) {
             countFunc = (CountAggregateFunction)context.getExpressionManager().addIfAbsent(new CountAggregateFunction(children));
         }
         return countFunc;

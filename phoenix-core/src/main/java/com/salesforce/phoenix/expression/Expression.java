@@ -78,8 +78,13 @@ public interface Expression extends PDatum, Writable {
     void reset();
     
     /**
-     * @return true if the expression represents a constant value and
-     * false otherwise.
+     * @return true if the expression can be evaluated without
+     * requiring a row Tuple and false otherwise.
      */
-    boolean isConstant();
+    boolean isStateless();
+    /**
+     * @return true if the expression returns the same output every
+     * time given the same input.
+     */
+    boolean isDeterministic();
 }

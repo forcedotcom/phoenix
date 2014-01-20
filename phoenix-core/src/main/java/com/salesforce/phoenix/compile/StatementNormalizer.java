@@ -72,7 +72,7 @@ public class StatementNormalizer extends ParseNodeRewriter {
     
     @Override
     public ParseNode visitLeave(ComparisonParseNode node, List<ParseNode> nodes) throws SQLException {
-         if (nodes.get(0).isConstant() && !nodes.get(1).isConstant()) {
+         if (nodes.get(0).isStateless() && !nodes.get(1).isStateless()) {
              List<ParseNode> normNodes = Lists.newArrayListWithExpectedSize(2);
              normNodes.add(nodes.get(1));
              normNodes.add(nodes.get(0));

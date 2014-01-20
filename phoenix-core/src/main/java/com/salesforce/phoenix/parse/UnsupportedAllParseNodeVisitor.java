@@ -224,7 +224,7 @@ abstract public class UnsupportedAllParseNodeVisitor<E> extends BaseParseNodeVis
     }
     
     @Override
-    public E visit(SequenceOpParseNode node) throws SQLException {			
+    public E visit(SequenceValueParseNode node) throws SQLException {			
 		return null;
 	}
 }

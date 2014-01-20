@@ -25,50 +25,28 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.expression;
 
-import java.sql.SQLException;
-import java.util.Collections;
 import java.util.List;
 
-import com.salesforce.phoenix.exception.SQLExceptionCode;
-import com.salesforce.phoenix.exception.SQLExceptionInfo;
+import com.salesforce.phoenix.expression.function.ScalarFunction;
 
+public abstract class CurrentDateTimeFunction extends ScalarFunction {
 
+    public CurrentDateTimeFunction() {
+    }
 
-/**
- * 
- * Node representing the IN literal list expression in SQL
- *
- * @author jtaylor
- * @since 0.1
- */
-public class InListParseNode extends CompoundParseNode {
-    private final boolean negate;
-
-    InListParseNode(List<ParseNode> children, boolean negate) {
+    public CurrentDateTimeFunction(List<Expression> children) {
         super(children);
-        // All values in the IN must be constant. First child is the LHS
-        for (int i = 1; i < children.size(); i++) {
-            ParseNode child = children.get(i);
-            if (!child.isStateless()) {
-                throw new ParseException(new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_LIST_NOT_CONSTANT)
-                .build().buildException());
-            }
-        }
-        this.negate = negate;
     }
     
-    public boolean isNegate() {
-        return negate;
+    @Override
+    public boolean isStateless() {
+        return true;
     }
 
     @Override
-    public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
-        List<T> l = Collections.emptyList();
-        if (visitor.visitEnter(this)) {
-            l = acceptChildren(visitor);
-        }
-        return visitor.visitLeave(this, l);
+    public boolean isDeterministic() {
+        return false;
     }
 }

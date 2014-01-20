@@ -129,7 +129,11 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     }
     
     public PhoenixConnection(PhoenixConnection connection, long scn) throws SQLException {
-        this(connection.getQueryServices(), connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
+        this(connection.getQueryServices(), connection, scn);
+    }
+    
+    public PhoenixConnection(ConnectionQueryServices services, PhoenixConnection connection, long scn) throws SQLException {
+        this(services, connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
         this.isAutoCommit = connection.isAutoCommit;
     }
     

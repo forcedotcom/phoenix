@@ -37,11 +37,11 @@ public class AggregateFunctionParseNode extends FunctionParseNode {
     }
     
     /**
-     * Aggregate function are not constant, even though all the args may be constants,
+     * Aggregate function are not stateless, even though all the args may be stateless,
      * for example, COUNT(1)
      */
     @Override
-    public boolean isConstant() {
+    public boolean isStateless() {
         return false;
     }
 }

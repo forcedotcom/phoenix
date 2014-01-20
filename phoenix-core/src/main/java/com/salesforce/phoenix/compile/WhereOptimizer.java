@@ -110,7 +110,7 @@ public class WhereOptimizer {
             context.setScanRanges(ScanRanges.EVERYTHING);
             return whereClause;
         }
-        if (whereClause == LiteralExpression.FALSE_EXPRESSION) {
+        if (LiteralExpression.isFalse(whereClause)) {
             context.setScanRanges(ScanRanges.NOTHING);
             return null;
         }
@@ -259,7 +259,7 @@ public class WhereOptimizer {
             if (l.size() != node.getChildren().size()) {
                 if (l.isEmpty()) {
                     // Don't return null here, because then our defaultReturn will kick in
-                    return LiteralExpression.TRUE_EXPRESSION;
+                    return LiteralExpression.newConstant(true, true);
                 }
                 if (l.size() == 1) {
                     return l.get(0);
@@ -327,7 +327,7 @@ public class WhereOptimizer {
         }
 
         private KeySlots newRowValueConstructorKeyParts(RowValueConstructorExpression rvc, List<KeySlots> childSlots) {
-            if (childSlots.isEmpty() || rvc.isConstant()) {
+            if (childSlots.isEmpty() || rvc.isStateless()) {
                 return null;
             }
             
@@ -662,7 +662,7 @@ public class WhereOptimizer {
         @Override
         public Iterator<Expression> visitEnter(ComparisonExpression node) {
             Expression rhs = node.getChildren().get(1);
-            if (!rhs.isConstant() || node.getFilterOp() == CompareOp.NOT_EQUAL) {
+            if (!rhs.isStateless() || node.getFilterOp() == CompareOp.NOT_EQUAL) {
                 return Iterators.emptyIterator();
             }
             return Iterators.singletonIterator(node.getChildren().get(0));
@@ -996,7 +996,7 @@ public class WhereOptimizer {
                     this.nodes = Collections.<Expression>singletonList(rvc);
                     this.childSlots = childSlots;
                 } else {
-                    this.rvc = new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isConstant());
+                    this.rvc = new RowValueConstructorExpression(rvc.getChildren().subList(0, span),rvc.isStateless());
                     this.nodes = Collections.<Expression>emptyList();
                     this.childSlots = childSlots.subList(0,  span);
                 }
@@ -1034,7 +1034,7 @@ public class WhereOptimizer {
                     }
                     if (!usedAllOfLHS || rvc.getChildren().size() != rhs.getChildren().size()) {
                         // We know that rhs was converted to a row value constructor and that it's a constant
-                        rhs= new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isConstant());
+                        rhs= new RowValueConstructorExpression(rhs.getChildren().subList(0, Math.min(rvc.getChildren().size(), rhs.getChildren().size())), rhs.isStateless());
                     }
                 }
                 /*

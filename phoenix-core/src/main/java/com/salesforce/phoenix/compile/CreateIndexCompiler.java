@@ -61,7 +61,7 @@ public class CreateIndexCompiler {
         final byte[][] splits = new byte[splitNodes.size()][];
         for (int i = 0; i < splits.length; i++) {
             ParseNode node = splitNodes.get(i);
-            if (!node.isConstant()) {
+            if (!node.isStateless()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.SPLIT_POINT_NOT_CONSTANT)
                     .setMessage("Node: " + node).build().buildException();
             }

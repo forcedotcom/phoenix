@@ -55,7 +55,7 @@ import com.salesforce.phoenix.util.SchemaUtil;
 @BuiltInFunction(name=CountAggregateFunction.NAME, args= {@Argument()} )
 public class CountAggregateFunction extends SingleAggregateFunction {
     public static final String NAME = "COUNT";
-    public static final List<Expression> STAR = Arrays.<Expression>asList(LiteralExpression.newConstant(1));
+    public static final List<Expression> STAR = Arrays.<Expression>asList(LiteralExpression.newConstant(1, true));
     public static final String NORMALIZED_NAME = SchemaUtil.normalizeIdentifier(NAME);
     
     public CountAggregateFunction() {

@@ -103,7 +103,7 @@ public class SelectStatement implements FilterableStatement {
     private static int countConstants(List<ParseNode> nodes) {
         int count = 0;
         for (int i = 0; i < nodes.size(); i++) {
-            if (nodes.get(i).isConstant()) {
+            if (nodes.get(i).isStateless()) {
                 count++;
             }
         }

@@ -76,7 +76,7 @@ import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.SequenceOpParseNode;
+import com.salesforce.phoenix.parse.SequenceValueParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.parse.UpsertStmtArrayNode;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
@@ -441,7 +441,7 @@ public class UpsertCompiler {
                         }
                         // Add literal null for missing PK columns
                         pos = projectedExpressions.size();
-                        Expression literalNull = LiteralExpression.newConstant(null, column.getDataType());
+                        Expression literalNull = LiteralExpression.newConstant(null, column.getDataType(), true);
                         projectedExpressions.add(literalNull);
                         allColumnsIndexes[pos] = column.getPosition();
                     } 
@@ -612,7 +612,7 @@ public class UpsertCompiler {
         // First build all the expressions, as with sequences we want to collect them all first
         // and initialize them in one batch
         for (ParseNode valueNode : valueNodes) {
-            if (!valueNode.isConstant()) {
+            if (!valueNode.isStateless()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
             }
             PColumn column = allColumns.get(columnIndexes[nodeIndex]);
@@ -724,7 +724,7 @@ public class UpsertCompiler {
             if (isTopLevel()) {
                 context.getBindManager().addParamMetaData(node, column);
                 Object value = context.getBindManager().getBindValue(node);
-                return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier());
+                return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier(), true);
             }
             return super.visit(node);
         }    
@@ -732,7 +732,7 @@ public class UpsertCompiler {
         @Override
         public Expression visit(LiteralParseNode node) throws SQLException {
             if (isTopLevel()) {
-                return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
+                return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier(), true);
             }
             return super.visit(node);
         }
@@ -749,11 +749,11 @@ public class UpsertCompiler {
         	}
         	PDataType baseType = PDataType.fromTypeId(column.getDataType().getSqlType() - Types.ARRAY);
         	Object value = PArrayDataType.instantiatePhoenixArray(baseType, elements);
-        	return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier());
+        	return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier(), true);
         }
         
         @Override
-        public Expression visit(SequenceOpParseNode node) throws SQLException {
+        public Expression visit(SequenceValueParseNode node) throws SQLException {
             return context.getSequenceManager().newSequenceReference(node);
         }
     }
@@ -834,7 +834,7 @@ public class UpsertCompiler {
                 if (value != null) {
                     Expression source = projector.getColumnProjector(i).getExpression();
                     if (source == null) { // FIXME: is this possible?
-                    } else if (source.isConstant()) {
+                    } else if (source.isStateless()) {
                         source.evaluate(null, ptr);
                         if (Bytes.compareTo(ptr.get(), ptr.getOffset(), ptr.getLength(), value, 0, value.length) == 0) {
                             continue;

@@ -177,7 +177,7 @@ public class GroupByCompiler {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_GROUP_BY)
                     .setMessage(expression.toString()).build().buildException();
             }
-            if (!expression.isConstant()) {
+            if (!expression.isStateless()) {
                 groupByVisitor.addEntry(expression);
             }
             groupByVisitor.reset();

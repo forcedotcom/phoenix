@@ -29,6 +29,7 @@ package com.salesforce.phoenix.expression.function;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.expression.CurrentDateTimeFunction;
 import com.salesforce.phoenix.parse.CurrentTimeParseNode;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
@@ -46,7 +47,7 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  * @since 0.1
  */
 @BuiltInFunction(name=CurrentTimeFunction.NAME, nodeClass=CurrentTimeParseNode.class, args={} )
-public class CurrentTimeFunction extends ScalarFunction {
+public class CurrentTimeFunction extends CurrentDateTimeFunction {
     public static final String NAME = "CURRENT_TIME";
     private final ImmutableBytesWritable currentDate = new ImmutableBytesWritable(new byte[PDataType.TIME.getByteSize()]);
     

@@ -105,7 +105,12 @@ public abstract class BaseExpression implements Expression {
     }
     
     @Override
-    public boolean isConstant() {
+    public boolean isDeterministic() {
+        return true;
+    }
+    
+    @Override
+    public boolean isStateless() {
         return false;
     }
 }

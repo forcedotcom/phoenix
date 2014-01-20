@@ -239,7 +239,7 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     }
     
     @Override
-    public T visit(SequenceOpParseNode node) throws SQLException {			
+    public T visit(SequenceValueParseNode node) throws SQLException {			
 		return null;
 	}
 }

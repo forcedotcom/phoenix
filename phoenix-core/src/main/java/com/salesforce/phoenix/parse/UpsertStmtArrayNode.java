@@ -42,7 +42,7 @@ public class UpsertStmtArrayNode extends TerminalParseNode {
 	}
 
 	@Override
-	public boolean isConstant() {
+	public boolean isStateless() {
 		return true;
 	}
 	
