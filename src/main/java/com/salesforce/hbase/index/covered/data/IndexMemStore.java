@@ -99,7 +99,7 @@ public class IndexMemStore implements KeyValueStore {
 
     @Override
     public int compare(final KeyValue left, final KeyValue right) {
-      return rawcomparator.compareRows(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
+      return rawcomparator.compareFlatKey(left.getBuffer(), left.getOffset() + KeyValue.ROW_OFFSET,
         left.getKeyLength(), right.getBuffer(), right.getOffset() + KeyValue.ROW_OFFSET,
         right.getKeyLength());
     }

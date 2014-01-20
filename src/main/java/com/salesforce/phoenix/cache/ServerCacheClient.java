@@ -62,6 +62,7 @@ import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFacto
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheRequest;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.ClearCacheResponse;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MetaDataService;
+import com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos;
 import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.AddServerCacheRequest;
 import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.AddServerCacheResponse;
 import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.RemoveServerCacheRequest;
@@ -200,7 +201,9 @@ public class ServerCacheClient {
                                                     }
                                                     builder.setCacheId(ByteString.copyFrom(cacheId));
                                                     builder.setCachePtr(ByteString.copyFrom(cachePtr.get()));
-                                                    builder.setServerCacheFactory(cacheFactory.toString());
+                                                    ServerCacheFactoryProtos.ServerCacheFactory.Builder svrCacheFactoryBuider = ServerCacheFactoryProtos.ServerCacheFactory.newBuilder();
+                                                    svrCacheFactoryBuider.setClassName(cacheFactory.getClass().getName());
+                                                    builder.setCacheFactory(svrCacheFactoryBuider.build());
                                                     instance.addServerCache(controller, builder.build(), rpcCallback);
                                                     if(controller.getFailedOn() != null) {
                                                         throw controller.getFailedOn();

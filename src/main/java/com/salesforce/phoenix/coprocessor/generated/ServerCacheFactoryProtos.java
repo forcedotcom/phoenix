@@ -11,17 +11,17 @@ public final class ServerCacheFactoryProtos {
   public interface ServerCacheFactoryOrBuilder
       extends com.google.protobuf.MessageOrBuilder {
 
-    // required string class_name = 1;
+    // required string className = 1;
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     boolean hasClassName();
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     java.lang.String getClassName();
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     com.google.protobuf.ByteString
         getClassNameBytes();
@@ -122,17 +122,17 @@ public final class ServerCacheFactoryProtos {
     }
 
     private int bitField0_;
-    // required string class_name = 1;
-    public static final int CLASS_NAME_FIELD_NUMBER = 1;
+    // required string className = 1;
+    public static final int CLASSNAME_FIELD_NUMBER = 1;
     private java.lang.Object className_;
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     public boolean hasClassName() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     public java.lang.String getClassName() {
       java.lang.Object ref = className_;
@@ -149,7 +149,7 @@ public final class ServerCacheFactoryProtos {
       }
     }
     /**
-     * <code>required string class_name = 1;</code>
+     * <code>required string className = 1;</code>
      */
     public com.google.protobuf.ByteString
         getClassNameBytes() {
@@ -242,7 +242,7 @@ public final class ServerCacheFactoryProtos {
       int hash = 41;
       hash = (19 * hash) + getDescriptorForType().hashCode();
       if (hasClassName()) {
-        hash = (37 * hash) + CLASS_NAME_FIELD_NUMBER;
+        hash = (37 * hash) + CLASSNAME_FIELD_NUMBER;
         hash = (53 * hash) + getClassName().hashCode();
       }
       hash = (29 * hash) + getUnknownFields().hashCode();
@@ -440,16 +440,16 @@ public final class ServerCacheFactoryProtos {
       }
       private int bitField0_;
 
-      // required string class_name = 1;
+      // required string className = 1;
       private java.lang.Object className_ = "";
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public boolean hasClassName() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public java.lang.String getClassName() {
         java.lang.Object ref = className_;
@@ -463,7 +463,7 @@ public final class ServerCacheFactoryProtos {
         }
       }
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public com.google.protobuf.ByteString
           getClassNameBytes() {
@@ -479,7 +479,7 @@ public final class ServerCacheFactoryProtos {
         }
       }
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public Builder setClassName(
           java.lang.String value) {
@@ -492,7 +492,7 @@ public final class ServerCacheFactoryProtos {
         return this;
       }
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public Builder clearClassName() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -501,7 +501,7 @@ public final class ServerCacheFactoryProtos {
         return this;
       }
       /**
-       * <code>required string class_name = 1;</code>
+       * <code>required string className = 1;</code>
        */
       public Builder setClassNameBytes(
           com.google.protobuf.ByteString value) {
@@ -539,10 +539,10 @@ public final class ServerCacheFactoryProtos {
       descriptor;
   static {
     java.lang.String[] descriptorData = {
-      "\n\030ServerCacheFactory.proto\"(\n\022ServerCach" +
-      "eFactory\022\022\n\nclass_name\030\001 \002(\tBP\n,com.sale" +
-      "sforce.phoenix.coprocessor.generatedB\030Se" +
-      "rverCacheFactoryProtosH\001\210\001\001\240\001\001"
+      "\n\030ServerCacheFactory.proto\"\'\n\022ServerCach" +
+      "eFactory\022\021\n\tclassName\030\001 \002(\tBP\n,com.sales" +
+      "force.phoenix.coprocessor.generatedB\030Ser" +
+      "verCacheFactoryProtosH\001\210\001\001\240\001\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {

@@ -65,7 +65,7 @@ public class ServerCachingEndpointImpl extends ServerCachingService implements C
     try {
       @SuppressWarnings("unchecked")
       Class<ServerCacheFactory> serverCacheFactoryClass =
-          (Class<ServerCacheFactory>) Class.forName(request.getServerCacheFactory());
+          (Class<ServerCacheFactory>) Class.forName(request.getCacheFactory().getClassName());
       ServerCacheFactory cacheFactory = serverCacheFactoryClass.newInstance();
       tenantCache.addServerCache(new ImmutableBytesPtr(request.getCacheId().toByteArray()),
         cachePtr, cacheFactory);

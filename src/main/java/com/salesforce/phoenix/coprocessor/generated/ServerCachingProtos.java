@@ -41,20 +41,19 @@ public final class ServerCachingProtos {
      */
     com.google.protobuf.ByteString getCachePtr();
 
-    // required string ServerCacheFactory = 4;
+    // required .ServerCacheFactory cacheFactory = 4;
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    boolean hasServerCacheFactory();
+    boolean hasCacheFactory();
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    java.lang.String getServerCacheFactory();
+    com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory getCacheFactory();
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    com.google.protobuf.ByteString
-        getServerCacheFactoryBytes();
+    com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder getCacheFactoryOrBuilder();
   }
   /**
    * Protobuf type {@code AddServerCacheRequest}
@@ -123,8 +122,16 @@ public final class ServerCachingProtos {
               break;
             }
             case 34: {
+              com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000008) == 0x00000008)) {
+                subBuilder = cacheFactory_.toBuilder();
+              }
+              cacheFactory_ = input.readMessage(com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(cacheFactory_);
+                cacheFactory_ = subBuilder.buildPartial();
+              }
               bitField0_ |= 0x00000008;
-              serverCacheFactory_ = input.readBytes();
               break;
             }
           }
@@ -215,54 +222,33 @@ public final class ServerCachingProtos {
       return cachePtr_;
     }
 
-    // required string ServerCacheFactory = 4;
-    public static final int SERVERCACHEFACTORY_FIELD_NUMBER = 4;
-    private java.lang.Object serverCacheFactory_;
+    // required .ServerCacheFactory cacheFactory = 4;
+    public static final int CACHEFACTORY_FIELD_NUMBER = 4;
+    private com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory cacheFactory_;
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    public boolean hasServerCacheFactory() {
+    public boolean hasCacheFactory() {
       return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    public java.lang.String getServerCacheFactory() {
-      java.lang.Object ref = serverCacheFactory_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          serverCacheFactory_ = s;
-        }
-        return s;
-      }
+    public com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory getCacheFactory() {
+      return cacheFactory_;
     }
     /**
-     * <code>required string ServerCacheFactory = 4;</code>
+     * <code>required .ServerCacheFactory cacheFactory = 4;</code>
      */
-    public com.google.protobuf.ByteString
-        getServerCacheFactoryBytes() {
-      java.lang.Object ref = serverCacheFactory_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        serverCacheFactory_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
+    public com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder getCacheFactoryOrBuilder() {
+      return cacheFactory_;
     }
 
     private void initFields() {
       tenantId_ = com.google.protobuf.ByteString.EMPTY;
       cacheId_ = com.google.protobuf.ByteString.EMPTY;
       cachePtr_ = com.google.protobuf.ByteString.EMPTY;
-      serverCacheFactory_ = "";
+      cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -277,7 +263,11 @@ public final class ServerCachingProtos {
         memoizedIsInitialized = 0;
         return false;
       }
-      if (!hasServerCacheFactory()) {
+      if (!hasCacheFactory()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!getCacheFactory().isInitialized()) {
         memoizedIsInitialized = 0;
         return false;
       }
@@ -298,7 +288,7 @@ public final class ServerCachingProtos {
         output.writeBytes(3, cachePtr_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        output.writeBytes(4, getServerCacheFactoryBytes());
+        output.writeMessage(4, cacheFactory_);
       }
       getUnknownFields().writeTo(output);
     }
@@ -323,7 +313,7 @@ public final class ServerCachingProtos {
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(4, getServerCacheFactoryBytes());
+          .computeMessageSize(4, cacheFactory_);
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -363,10 +353,10 @@ public final class ServerCachingProtos {
         result = result && getCachePtr()
             .equals(other.getCachePtr());
       }
-      result = result && (hasServerCacheFactory() == other.hasServerCacheFactory());
-      if (hasServerCacheFactory()) {
-        result = result && getServerCacheFactory()
-            .equals(other.getServerCacheFactory());
+      result = result && (hasCacheFactory() == other.hasCacheFactory());
+      if (hasCacheFactory()) {
+        result = result && getCacheFactory()
+            .equals(other.getCacheFactory());
       }
       result = result &&
           getUnknownFields().equals(other.getUnknownFields());
@@ -393,9 +383,9 @@ public final class ServerCachingProtos {
         hash = (37 * hash) + CACHEPTR_FIELD_NUMBER;
         hash = (53 * hash) + getCachePtr().hashCode();
       }
-      if (hasServerCacheFactory()) {
-        hash = (37 * hash) + SERVERCACHEFACTORY_FIELD_NUMBER;
-        hash = (53 * hash) + getServerCacheFactory().hashCode();
+      if (hasCacheFactory()) {
+        hash = (37 * hash) + CACHEFACTORY_FIELD_NUMBER;
+        hash = (53 * hash) + getCacheFactory().hashCode();
       }
       hash = (29 * hash) + getUnknownFields().hashCode();
       memoizedHashCode = hash;
@@ -498,6 +488,7 @@ public final class ServerCachingProtos {
       }
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+          getCacheFactoryFieldBuilder();
         }
       }
       private static Builder create() {
@@ -512,7 +503,11 @@ public final class ServerCachingProtos {
         bitField0_ = (bitField0_ & ~0x00000002);
         cachePtr_ = com.google.protobuf.ByteString.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000004);
-        serverCacheFactory_ = "";
+        if (cacheFactoryBuilder_ == null) {
+          cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
+        } else {
+          cacheFactoryBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
@@ -557,7 +552,11 @@ public final class ServerCachingProtos {
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.serverCacheFactory_ = serverCacheFactory_;
+        if (cacheFactoryBuilder_ == null) {
+          result.cacheFactory_ = cacheFactory_;
+        } else {
+          result.cacheFactory_ = cacheFactoryBuilder_.build();
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -583,10 +582,8 @@ public final class ServerCachingProtos {
         if (other.hasCachePtr()) {
           setCachePtr(other.getCachePtr());
         }
-        if (other.hasServerCacheFactory()) {
-          bitField0_ |= 0x00000008;
-          serverCacheFactory_ = other.serverCacheFactory_;
-          onChanged();
+        if (other.hasCacheFactory()) {
+          mergeCacheFactory(other.getCacheFactory());
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -601,7 +598,11 @@ public final class ServerCachingProtos {
           
           return false;
         }
-        if (!hasServerCacheFactory()) {
+        if (!hasCacheFactory()) {
+          
+          return false;
+        }
+        if (!getCacheFactory().isInitialized()) {
           
           return false;
         }
@@ -735,78 +736,121 @@ public final class ServerCachingProtos {
         return this;
       }
 
-      // required string ServerCacheFactory = 4;
-      private java.lang.Object serverCacheFactory_ = "";
+      // required .ServerCacheFactory cacheFactory = 4;
+      private com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
+      private com.google.protobuf.SingleFieldBuilder<
+          com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder> cacheFactoryBuilder_;
       /**
-       * <code>required string ServerCacheFactory = 4;</code>
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
        */
-      public boolean hasServerCacheFactory() {
+      public boolean hasCacheFactory() {
         return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
-       * <code>required string ServerCacheFactory = 4;</code>
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
        */
-      public java.lang.String getServerCacheFactory() {
-        java.lang.Object ref = serverCacheFactory_;
-        if (!(ref instanceof java.lang.String)) {
-          java.lang.String s = ((com.google.protobuf.ByteString) ref)
-              .toStringUtf8();
-          serverCacheFactory_ = s;
-          return s;
+      public com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory getCacheFactory() {
+        if (cacheFactoryBuilder_ == null) {
+          return cacheFactory_;
         } else {
-          return (java.lang.String) ref;
+          return cacheFactoryBuilder_.getMessage();
         }
       }
       /**
-       * <code>required string ServerCacheFactory = 4;</code>
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
        */
-      public com.google.protobuf.ByteString
-          getServerCacheFactoryBytes() {
-        java.lang.Object ref = serverCacheFactory_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          serverCacheFactory_ = b;
-          return b;
+      public Builder setCacheFactory(com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory value) {
+        if (cacheFactoryBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          cacheFactory_ = value;
+          onChanged();
         } else {
-          return (com.google.protobuf.ByteString) ref;
+          cacheFactoryBuilder_.setMessage(value);
         }
-      }
-      /**
-       * <code>required string ServerCacheFactory = 4;</code>
-       */
-      public Builder setServerCacheFactory(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        serverCacheFactory_ = value;
-        onChanged();
+        bitField0_ |= 0x00000008;
         return this;
       }
       /**
-       * <code>required string ServerCacheFactory = 4;</code>
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
        */
-      public Builder clearServerCacheFactory() {
+      public Builder setCacheFactory(
+          com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder builderForValue) {
+        if (cacheFactoryBuilder_ == null) {
+          cacheFactory_ = builderForValue.build();
+          onChanged();
+        } else {
+          cacheFactoryBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000008;
+        return this;
+      }
+      /**
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
+       */
+      public Builder mergeCacheFactory(com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory value) {
+        if (cacheFactoryBuilder_ == null) {
+          if (((bitField0_ & 0x00000008) == 0x00000008) &&
+              cacheFactory_ != com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance()) {
+            cacheFactory_ =
+              com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.newBuilder(cacheFactory_).mergeFrom(value).buildPartial();
+          } else {
+            cacheFactory_ = value;
+          }
+          onChanged();
+        } else {
+          cacheFactoryBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000008;
+        return this;
+      }
+      /**
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
+       */
+      public Builder clearCacheFactory() {
+        if (cacheFactoryBuilder_ == null) {
+          cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
+          onChanged();
+        } else {
+          cacheFactoryBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000008);
-        serverCacheFactory_ = getDefaultInstance().getServerCacheFactory();
-        onChanged();
         return this;
       }
       /**
-       * <code>required string ServerCacheFactory = 4;</code>
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
        */
-      public Builder setServerCacheFactoryBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        serverCacheFactory_ = value;
+      public com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder getCacheFactoryBuilder() {
+        bitField0_ |= 0x00000008;
         onChanged();
-        return this;
+        return getCacheFactoryFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
+       */
+      public com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder getCacheFactoryOrBuilder() {
+        if (cacheFactoryBuilder_ != null) {
+          return cacheFactoryBuilder_.getMessageOrBuilder();
+        } else {
+          return cacheFactory_;
+        }
+      }
+      /**
+       * <code>required .ServerCacheFactory cacheFactory = 4;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilder<
+          com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder> 
+          getCacheFactoryFieldBuilder() {
+        if (cacheFactoryBuilder_ == null) {
+          cacheFactoryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+              com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactoryOrBuilder>(
+                  cacheFactory_,
+                  getParentForChildren(),
+                  isClean());
+          cacheFactory_ = null;
+        }
+        return cacheFactoryBuilder_;
       }
 
       // @@protoc_insertion_point(builder_scope:AddServerCacheRequest)
@@ -2575,19 +2619,20 @@ public final class ServerCachingProtos {
   static {
     java.lang.String[] descriptorData = {
       "\n\032ServerCachingService.proto\032\030ServerCach" +
-      "eFactory.proto\"h\n\025AddServerCacheRequest\022" +
+      "eFactory.proto\"w\n\025AddServerCacheRequest\022" +
       "\020\n\010tenantId\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014\022\020\n\010ca" +
-      "chePtr\030\003 \002(\014\022\032\n\022ServerCacheFactory\030\004 \002(\t" +
-      "\"(\n\026AddServerCacheResponse\022\016\n\006return\030\001 \002" +
-      "(\010\"=\n\030RemoveServerCacheRequest\022\020\n\010tenant" +
-      "Id\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014\"+\n\031RemoveServe" +
-      "rCacheResponse\022\016\n\006return\030\001 \002(\0102\245\001\n\024Serve" +
-      "rCachingService\022A\n\016addServerCache\022\026.AddS" +
-      "erverCacheRequest\032\027.AddServerCacheRespon",
-      "se\022J\n\021removeServerCache\022\031.RemoveServerCa" +
-      "cheRequest\032\032.RemoveServerCacheResponseBK" +
-      "\n,com.salesforce.phoenix.coprocessor.gen" +
-      "eratedB\023ServerCachingProtosH\001\210\001\001\240\001\001"
+      "chePtr\030\003 \002(\014\022)\n\014cacheFactory\030\004 \002(\0132\023.Ser" +
+      "verCacheFactory\"(\n\026AddServerCacheRespons" +
+      "e\022\016\n\006return\030\001 \002(\010\"=\n\030RemoveServerCacheRe" +
+      "quest\022\020\n\010tenantId\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014" +
+      "\"+\n\031RemoveServerCacheResponse\022\016\n\006return\030" +
+      "\001 \002(\0102\245\001\n\024ServerCachingService\022A\n\016addSer" +
+      "verCache\022\026.AddServerCacheRequest\032\027.AddSe",
+      "rverCacheResponse\022J\n\021removeServerCache\022\031" +
+      ".RemoveServerCacheRequest\032\032.RemoveServer" +
+      "CacheResponseBK\n,com.salesforce.phoenix." +
+      "coprocessor.generatedB\023ServerCachingProt" +
+      "osH\001\210\001\001\240\001\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -2599,7 +2644,7 @@ public final class ServerCachingProtos {
           internal_static_AddServerCacheRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_AddServerCacheRequest_descriptor,
-              new java.lang.String[] { "TenantId", "CacheId", "CachePtr", "ServerCacheFactory", });
+              new java.lang.String[] { "TenantId", "CacheId", "CachePtr", "CacheFactory", });
           internal_static_AddServerCacheResponse_descriptor =
             getDescriptor().getMessageTypes().get(1);
           internal_static_AddServerCacheResponse_fieldAccessorTable = new

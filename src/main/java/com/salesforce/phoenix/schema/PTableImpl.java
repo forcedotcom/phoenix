@@ -762,14 +762,18 @@ public class PTableImpl implements PTable {
       builder.setPkNameBytes(ByteString.copyFrom(tmp.getBytes()));
     }
     Integer bucketNum = table.getBucketNum();
+    int offset = 0;
     if(bucketNum == null){
     	builder.setBucketNum(NO_SALTING);
     } else {
+    	offset = 1;
     	builder.setBucketNum(bucketNum);
     }
     List<PColumn> columns = table.getColumns();
-    for (PColumn curColumn : columns) {
-      builder.addColumns(PColumnImpl.toProto(curColumn));
+    int columnSize = columns.size();
+    for (int i = offset; i < columnSize; i++) {
+        PColumn column = columns.get(i);
+        builder.addColumns(PColumnImpl.toProto(column));
     }
     List<PTable> indexes = table.getIndexes();
     for (PTable curIndex : indexes) {

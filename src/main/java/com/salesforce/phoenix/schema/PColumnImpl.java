@@ -178,7 +178,7 @@ public class PColumnImpl implements PColumn {
     PName columnName = PNameFactory.newName(columnNameBytes);
     PName familyName = null;
     if (column.hasFamilyNameBytes()) {
-      familyName = PNameFactory.newName(column.getColumnNameBytes().toByteArray());
+      familyName = PNameFactory.newName(column.getFamilyNameBytes().toByteArray());
     }
     PDataType dataType = PDataType.values()[column.getDataType().ordinal()];
     Integer maxLength = null;

@@ -38,7 +38,7 @@ message AddServerCacheRequest {
   optional bytes tenantId = 1;
   required bytes cacheId  = 2;
   required bytes cachePtr = 3;
-  required string ServerCacheFactory = 4;
+  required ServerCacheFactory cacheFactory = 4;
 }
 
 message AddServerCacheResponse {
