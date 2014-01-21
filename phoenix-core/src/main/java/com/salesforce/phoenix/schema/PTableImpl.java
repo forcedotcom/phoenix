@@ -58,6 +58,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.client.GenericKeyValueBuilder;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.SQLParser;
@@ -120,6 +123,8 @@ public class PTableImpl implements PTable {
     private ViewType viewType;
     
     private ParseNode viewNode;
+    // default to the generic builder, and only override when we know on the client
+    private KeyValueBuilder kvBuilder = GenericKeyValueBuilder.INSTANCE;
     
     public PTableImpl() {
     }
@@ -501,14 +506,18 @@ public class PTableImpl implements PTable {
         private Delete unsetValues;
         private Delete deleteRow;
         private final long ts;
+        private ImmutableBytesWritable keyPtr;
 
         public PRowImpl(ImmutableBytesWritable key, long ts, Integer bucketNum) {
             this.ts = ts;
             if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
+                this.keyPtr = new ImmutableBytesPtr(this.key);
             } else {
+                this.keyPtr = key;
                 this.key = ByteUtil.copyKeyBytesIfNecessary(key);
             }
+
             newMutations();
         }
         
@@ -571,7 +580,14 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
                 removeIfPresent(setValues, family, qualifier);
-                unsetValues.deleteColumns(family, qualifier, ts);
+                try {
+                    unsetValues.addDeleteMarker(kvBuilder.buildDeleteColumns(keyPtr, column
+                        .getFamilyName().getBytesPtr(), column.getName().getBytesPtr(), ts));
+                } catch (IOException e) {
+                    // this should never happen
+                    throw new RuntimeException(
+                            "KeyValueBuilder built delete marker that was not of delete type!", e);
+                }
             } else {
             	Integer	byteSize = column.getByteSize();
 				if (byteSize != null && type.isFixedWidth()
@@ -581,7 +597,14 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
                 removeIfPresent(unsetValues, family, qualifier);
-                setValues.add(family, qualifier, ts, byteValue);
+                try {
+                    setValues.add(kvBuilder.buildPut(keyPtr, column.getFamilyName().getBytesPtr(),
+                        column.getName().getBytesPtr(), ts, new ImmutableBytesPtr(byteValue)));
+                } catch (IOException e) {
+                    // this should never happen
+                    throw new RuntimeException("KeyValueBuilder " + kvBuilder
+                            + " built put marker that was NOT valid!", e);
+                }
             }
         }
         
@@ -811,7 +834,7 @@ public class PTableImpl implements PTable {
     @Override
     public synchronized IndexMaintainer getIndexMaintainer(PTable dataTable) {
         if (indexMaintainer == null) {
-            indexMaintainer = IndexMaintainer.create(dataTable, this);
+            indexMaintainer = IndexMaintainer.create(dataTable, this, dataTable.getKvBuilder());
         }
         return indexMaintainer;
     }
@@ -874,5 +897,15 @@ public class PTableImpl implements PTable {
         }
         SQLParser parser = new SQLParser(viewExpression);
         return parser.parseCondition();
+    }
+
+    @Override
+    public void setKvBuilder(KeyValueBuilder builder) {
+        this.kvBuilder = builder;
+    }
+
+    @Override
+    public KeyValueBuilder getKvBuilder() {
+        return this.kvBuilder;
     }
 }

@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -252,4 +253,7 @@ public interface PTable extends Writable {
     boolean isWALDisabled();
     boolean isMultiTenant();
     ViewType getViewType();
+
+    void setKvBuilder(KeyValueBuilder keyValueBuilder);
+    KeyValueBuilder getKvBuilder();
 }

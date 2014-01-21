@@ -28,7 +28,10 @@
 package com.salesforce.hbase.index.covered.update;
 
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
+
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 
 /**
  * 
@@ -48,6 +51,8 @@ public class ColumnReference implements Comparable<ColumnReference> {
   private final int hashCode;
   protected final byte[] family;
   protected final byte[] qualifier;
+    private volatile ImmutableBytesWritable familyPtr;
+    private volatile ImmutableBytesWritable qualifierPtr;
 
   public ColumnReference(byte[] family, byte[] qualifier) {
     this.family = family;
@@ -62,6 +67,28 @@ public class ColumnReference implements Comparable<ColumnReference> {
   public byte[] getQualifier() {
     return this.qualifier;
   }
+  
+    public ImmutableBytesWritable getFamilyWritable() {
+        if (this.familyPtr == null) {
+            synchronized (this.family) {
+                if (this.familyPtr == null) {
+                    this.familyPtr = new ImmutableBytesPtr(this.family);
+                }
+            }
+        }
+        return this.familyPtr;
+    }
+
+    public ImmutableBytesWritable getQualifierWritable() {
+        if (this.qualifierPtr == null) {
+            synchronized (this.qualifier) {
+                if (this.qualifierPtr == null) {
+                    this.qualifierPtr = new ImmutableBytesPtr(this.qualifier);
+                }
+            }
+        }
+        return this.qualifierPtr;
+    }
 
   public boolean matches(KeyValue kv) {
     if (matchesFamily(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength())) {

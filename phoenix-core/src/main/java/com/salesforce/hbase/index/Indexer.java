@@ -150,6 +150,9 @@ public class Indexer extends BaseRegionObserver {
 
   public static final String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
+    public static final int INDEXING_SUPPORTED_MAJOR_VERSION = 94;
+    private static final int INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION = 9;
+
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
       try {
@@ -661,37 +664,46 @@ public class Indexer extends BaseRegionObserver {
     return this.builder.getBuilderForTesting();
   }
 
-  /**
-   * Validate that the version and configuration parameters are supported
-   * @param hBaseVersion current version of HBase on which <tt>this</tt> coprocessor is installed
-   * @param conf configuration to check for allowed parameters (e.g. WAL Compression only if >=
-   *          0.94.9)
-   */
-  public static String validateVersion(String hBaseVersion, Configuration conf) {
-    String[] versions = hBaseVersion.split("[.]");
-    if (versions.length < 3) {
-      return "HBase version could not be read, expected three parts, but found: "
-          + Arrays.toString(versions);
-    }
-  
-    if (versions[1].equals("94")) {
-      String pointVersion = versions[2];
-      //remove -SNAPSHOT if applicable
-      int snapshot = pointVersion.indexOf("-");
-      if(snapshot > 0){
-        pointVersion = pointVersion.substring(0, snapshot);
-      }
-      // less than 0.94.9, so we need to check if WAL Compression is enabled
-      if (Integer.parseInt(pointVersion) < 9) {
-        if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
-          return
-                "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
-              + Arrays.toString(versions);
+    /**
+     * Validate that the version and configuration parameters are supported
+     * @param hbaseVersion current version of HBase on which <tt>this</tt> coprocessor is installed
+     * @param conf configuration to check for allowed parameters (e.g. WAL Compression only if >=
+     *            0.94.9)
+     * @return <tt>null</tt> if the version is supported, the error message to display otherwise
+     */
+    public static String validateVersion(String hbaseVersion, Configuration conf) {
+        int[] versions = decodeHBaseVersion(hbaseVersion);
+        if (versions[1] == INDEXING_SUPPORTED_MAJOR_VERSION) {
+            // less than 0.94.9, so we need to check if WAL Compression is enabled
+            if (versions[2] < INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION) {
+                if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+                    return "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
+                            + Arrays.toString(versions);
+                }
+            }
         }
-      }
+        return null;
     }
-    return null;
-  }
+
+    public static int[] decodeHBaseVersion(String version) {
+        int[] versions = new int[3];
+        String[] v = version.split("[.]");
+        if (v.length < 3) {
+                throw new IllegalStateException(
+                        "HBase version could not be read, expected three parts, but found: "
+                            + Arrays.toString(v));
+        }
+      
+        int snapshot = v[2].indexOf("-");
+        if (snapshot > 0) {
+            v[2] = v[2].substring(0, snapshot);
+        }
+        for (int i = 0; i < 3; i++) {
+            versions[i] = Integer.parseInt(v[i]);
+        }
+
+        return versions;
+    }
 
   /**
    * Enable indexing on the given table

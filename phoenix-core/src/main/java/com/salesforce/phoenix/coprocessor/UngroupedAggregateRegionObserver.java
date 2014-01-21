@@ -219,7 +219,9 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 }
                             }
                             projectedTable.newKey(ptr, values);
-                            PRow row = projectedTable.newRow(ts, ptr);
+                            // need to do a copy here because something below munges the data in the
+                            // "immutable" pointer :-/
+                            PRow row = projectedTable.newRow(ts, new ImmutableBytesWritable(ptr));
                             for (; i < projectedColumns.size(); i++) {
                                 Expression expression = selectExpressions.get(i);
                                 if (expression.evaluate(result, ptr)) {

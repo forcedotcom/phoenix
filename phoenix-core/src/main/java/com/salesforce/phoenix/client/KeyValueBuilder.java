@@ -27,20 +27,29 @@
  ******************************************************************************/
 package com.salesforce.phoenix.client;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.hbase.index.Indexer;
 
 /**
  * Build {@link KeyValue} in an efficient way
  */
 public abstract class KeyValueBuilder {
 
-  public static KeyValueBuilder get(Configuration conf) {
-    // TODO Implement builder creation based on correct HBase version
-    return null;
-  }
+    private static final int CUSTOM_KEY_VALUE_BUILDER_MINOR_VERSION = 94;
+    private static final int CUSTOM_KEY_VALUE_BUILDER_PATCH_VERSION = 14;
+
+    public static KeyValueBuilder get(String hbaseVersion) {
+        // Figure out the version of HBase so we can determine if we able to use ClientKeyValues
+        int[] versions = Indexer.decodeHBaseVersion(hbaseVersion);
+        if (versions[1] >= CUSTOM_KEY_VALUE_BUILDER_MINOR_VERSION
+                && versions[2] >= CUSTOM_KEY_VALUE_BUILDER_PATCH_VERSION) {
+            return ClientKeyValueBuilder.INSTANCE;
+        }
+        return GenericKeyValueBuilder.INSTANCE;
+    }
 
   public KeyValue buildPut(ImmutableBytesWritable row, ImmutableBytesWritable family,
       ImmutableBytesWritable qualifier, ImmutableBytesWritable value) {
@@ -51,29 +60,26 @@ public abstract class KeyValueBuilder {
       ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value);
 
   public KeyValue buildDeleteFamily(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, ImmutableBytesWritable value) {
-    return buildDeleteFamily(row, family, qualifier, HConstants.LATEST_TIMESTAMP, value);
+            ImmutableBytesWritable qualifier) {
+        return buildDeleteFamily(row, family, qualifier, HConstants.LATEST_TIMESTAMP);
   }
 
   public abstract KeyValue buildDeleteFamily(ImmutableBytesWritable row,
-      ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts,
-      ImmutableBytesWritable value);
+            ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts);
 
   public KeyValue buildDeleteColumns(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, ImmutableBytesWritable value) {
-    return buildDeleteColumns(row, family, qualifier, HConstants.LATEST_TIMESTAMP, value);
+            ImmutableBytesWritable qualifier) {
+        return buildDeleteColumns(row, family, qualifier, HConstants.LATEST_TIMESTAMP);
   }
 
   public abstract KeyValue buildDeleteColumns(ImmutableBytesWritable row,
-      ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts,
-      ImmutableBytesWritable value);
+            ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts);
 
   public KeyValue buildDeleteColumn(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, ImmutableBytesWritable value) {
-    return buildDeleteColumn(row, family, qualifier, HConstants.LATEST_TIMESTAMP, value);
+            ImmutableBytesWritable qualifier) {
+        return buildDeleteColumn(row, family, qualifier, HConstants.LATEST_TIMESTAMP);
   }
 
   public abstract KeyValue buildDeleteColumn(ImmutableBytesWritable row,
-      ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts,
-      ImmutableBytesWritable value);
+            ImmutableBytesWritable family, ImmutableBytesWritable qualifier, long ts);
 }

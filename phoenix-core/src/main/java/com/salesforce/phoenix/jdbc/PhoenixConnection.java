@@ -60,9 +60,12 @@ import java.util.concurrent.Executor;
 
 import javax.annotation.Nullable;
 
+import org.apache.hadoop.hbase.util.VersionInfo;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
@@ -116,6 +119,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     private final String datePattern;
     
     private boolean isClosed = false;
+    private KeyValueBuilder kvBuilder;
     
     private static Properties newPropsWithSCN(long scn, Properties props) {
         props = new Properties(props);
@@ -168,6 +172,10 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         formatters[PDataType.TIME.ordinal()] = dateTimeFormat;
         this.metaData = metaData;
         this.mutationState = new MutationState(maxSize, this);
+
+        // find the HBase version and use that to determine the KeyValueBuilder that should be used
+        String hbaseVersion = VersionInfo.getVersion();
+        this.kvBuilder = KeyValueBuilder.get(hbaseVersion);
         services.addConnection(this);
     }
 
@@ -671,5 +679,8 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     protected boolean removeStatement(PhoenixStatement statement) throws SQLException {
         return statements.remove(statement);
    }
-   
+
+    public KeyValueBuilder getKeyValueBuilder() {
+        return this.kvBuilder;
+    }
 }

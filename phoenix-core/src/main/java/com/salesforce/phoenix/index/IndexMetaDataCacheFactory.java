@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
+import com.salesforce.phoenix.client.GenericKeyValueBuilder;
 import com.salesforce.phoenix.coprocessor.ServerCachingProtocol.ServerCacheFactory;
 import com.salesforce.phoenix.memory.MemoryManager.MemoryChunk;
 
@@ -42,7 +43,9 @@ public class IndexMetaDataCacheFactory implements ServerCacheFactory {
 
     @Override
     public Closeable newCache (ImmutableBytesWritable cachePtr, final MemoryChunk chunk) throws SQLException {
-        final List<IndexMaintainer> maintainers = IndexMaintainer.deserialize(cachePtr);
+        // just use the standard keyvalue builder - this doesn't really need to be fast
+        final List<IndexMaintainer> maintainers =
+                IndexMaintainer.deserialize(cachePtr, GenericKeyValueBuilder.INSTANCE);
         return new IndexMetaDataCache() {
 
             @Override

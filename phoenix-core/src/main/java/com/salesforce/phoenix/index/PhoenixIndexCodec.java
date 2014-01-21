@@ -42,12 +42,14 @@ import com.salesforce.phoenix.cache.GlobalCache;
 import com.salesforce.phoenix.cache.IndexMetaDataCache;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.TenantCache;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.ServerUtil;
+
 /**
- * Phoenix-basec {@link IndexCodec}. Manages all the logic of how to cleanup an index (
+ * Phoenix-based {@link IndexCodec}. Manages all the logic of how to cleanup an index (
  * {@link #getIndexDeletes(TableState)}) as well as what the new index state should be (
  * {@link #getIndexUpserts(TableState)}).
  */
@@ -56,13 +58,17 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
     public static final String INDEX_UUID = "IdxUUID";
 
     private RegionCoprocessorEnvironment env;
+    private KeyValueBuilder builder;
 
     @Override
     public void initialize(RegionCoprocessorEnvironment env) {
-      this.env = env;
-      Configuration conf = env.getConfiguration();
-      // Install handler that will attempt to disable the index first before killing the region server
-      conf.setIfUnset(IndexWriter.INDEX_FAILURE_POLICY_CONF_KEY, PhoenixIndexFailurePolicy.class.getName());
+        this.env = env;
+        Configuration conf = env.getConfiguration();
+        // Install handler that will attempt to disable the index first before killing the region
+        // server
+        conf.setIfUnset(IndexWriter.INDEX_FAILURE_POLICY_CONF_KEY,
+            PhoenixIndexFailurePolicy.class.getName());
+        this.builder = KeyValueBuilder.get(env.getHBaseVersion());
     }
 
     List<IndexMaintainer> getIndexMaintainers(Map<String, byte[]> attributes) throws IOException{
@@ -76,7 +82,7 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
         byte[] md = attributes.get(INDEX_MD);
         List<IndexMaintainer> indexMaintainers;
         if (md != null) {
-            indexMaintainers = IndexMaintainer.deserialize(md);
+            indexMaintainers = IndexMaintainer.deserialize(md, builder);
         } else {
             byte[] tenantIdBytes = attributes.get(PhoenixRuntime.TENANT_ID_ATTRIB);
             ImmutableBytesWritable tenantId =
@@ -111,10 +117,14 @@ public class PhoenixIndexCodec extends BaseIndexCodec {
             if (maintainer.isRowDeleted(state.getPendingUpdate())) {
                 continue;
             }
-            // TODO: if more efficient, I could do this just once with all columns in all indexes
+
+            // Get a scanner over the columns this maintainer would like to look at
+            // Any updates that we would make for those columns are then added to the index update
             Pair<Scanner,IndexUpdate> statePair = state.getIndexedColumnsTableState(maintainer.getAllColumns());
             IndexUpdate indexUpdate = statePair.getSecond();
             Scanner scanner = statePair.getFirst();
+
+            // get the values from the scanner so we can actually use them
             ValueGetter valueGetter = IndexManagementUtil.createGetterFromScanner(scanner, dataRowKey);
             ptr.set(dataRowKey);
             Put put = maintainer.buildUpdateMutation(valueGetter, ptr, state.getCurrentTimestamp());

@@ -335,6 +335,7 @@ public class MutationState implements SQLCloseable {
             Map<ImmutableBytesPtr,Map<PColumn,byte[]>> valuesMap = entry.getValue();
             TableRef tableRef = entry.getKey();
             PTable table = tableRef.getTable();
+            table.setKvBuilder(this.connection.getKeyValueBuilder());
             table.getIndexMaintainers(tempPtr);
             boolean hasIndexMaintainers = tempPtr.getLength() > 0;
             boolean isDataTable = true;

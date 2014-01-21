@@ -34,30 +34,17 @@ import com.salesforce.phoenix.util.SchemaUtil;
 
 
 @Immutable
-public class PNormalizedName implements PName {
-    private final String stringName;
-    private final byte[] bytesName;
+public class PNormalizedName extends PNameImpl {
     
     public PNormalizedName(String nonNormalizedName) {
-        this.stringName = SchemaUtil.normalizeIdentifier(nonNormalizedName);
-        this.bytesName = Bytes.toBytes(this.stringName);
-    }
-    
-    @Override
-    public String getString() {
-        return stringName;
+        super(SchemaUtil.normalizeIdentifier(nonNormalizedName));
     }
 
-    @Override
-    public byte[] getBytes() {
-        return bytesName;
-    }
-    
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + stringName.hashCode();
+        result = prime * result + getString().hashCode();
         return result;
     }
 
@@ -69,12 +56,7 @@ public class PNormalizedName implements PName {
         PNormalizedName other = (PNormalizedName)obj;
         // Compare normalized stringName for equality, since bytesName
         // may differ since it remains case sensitive.
-        if (!stringName.equals(other.stringName)) return false;
+        if (!getString().equals(other.getString())) return false;
         return true;
-    }
-
-    @Override
-    public String toString() {
-        return stringName;
     }
 }
