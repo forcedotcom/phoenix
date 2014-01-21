@@ -38,7 +38,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.tuple.Tuple;
-import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -92,7 +91,7 @@ public class KeyValueColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return SchemaUtil.getColumnDisplayName(cf, cq);
+        return Bytes.toString(cq);
     }
 
     @Override
