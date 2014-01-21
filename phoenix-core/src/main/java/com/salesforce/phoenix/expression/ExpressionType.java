@@ -158,7 +158,8 @@ public enum ExpressionType {
     TimestampAddExpression(TimestampAddExpression.class),
     TimestampSubtractExpression(TimestampSubtractExpression.class),
     ArrayIndexFunction(ArrayIndexFunction.class),
-    ArrayLengthFunction(ArrayLengthFunction.class);
+    ArrayLengthFunction(ArrayLengthFunction.class),
+    ArrayConstructorExpression(ArrayConstructorExpression.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

@@ -32,6 +32,7 @@ import java.util.List;
 
 import com.salesforce.phoenix.expression.AddExpression;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ArrayConstructorExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
@@ -131,6 +132,9 @@ public interface ExpressionVisitor<E> {
     
     public Iterator<Expression> visitEnter(CoerceExpression node);
     public E visitLeave(CoerceExpression node, List<E> l);
+
+    public Iterator<Expression> visitEnter(ArrayConstructorExpression node);
+    public E visitLeave(ArrayConstructorExpression node, List<E> l);
     
     public E visit(LiteralExpression node);
     public E visit(RowKeyColumnExpression node);

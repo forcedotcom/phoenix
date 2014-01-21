@@ -43,6 +43,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ArrayConstructorExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
@@ -96,10 +97,12 @@ import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
+import com.salesforce.phoenix.parse.ArrayConstructorNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PTable;
@@ -523,8 +526,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     public Expression visit(BindParseNode node) throws SQLException {
         Object value = context.getBindManager().getBindValue(node);
         return LiteralExpression.newConstant(value);
-    }    
-
+    }
+    
     @Override
     public Expression visit(LiteralParseNode node) throws SQLException {
         return LiteralExpression.newConstant(node.getValue(), node.getType());
@@ -1288,5 +1291,46 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_USE_OF_NEXT_VALUE_FOR)
         .setSchemaName(node.getTableName().getSchemaName())
         .setTableName(node.getTableName().getTableName()).build().buildException();
+	}
+
+	@Override
+	public Expression visitLeave(ArrayConstructorNode node, List<Expression> children)
+			throws SQLException {
+		ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(
+				children);
+		for (int i = 0; i < children.size(); i++) {
+			ParseNode childNode = node.getChildren().get(i);
+			if (childNode instanceof BindParseNode) {
+				context.getBindManager().addParamMetaData(
+						(BindParseNode) childNode, arrayExpression);
+			}
+		}
+		boolean isLiteralExpression = true;
+		for (Expression child:children) {
+            isLiteralExpression&=(child instanceof LiteralExpression);
+        }
+        if (isLiteralExpression) {
+        	Object[] elements = new Object[children.size()];
+        	// TODO : We should check if children can be of different type other than literals
+    		// The variable ptr does not get used here
+    		PDataType elementType = null;
+        	for (int i = 0; i < children.size(); i++) {
+        		LiteralExpression literalExpression = (LiteralExpression)children.get(i);
+    			elements[i] = literalExpression.getValue();
+    			if (literalExpression.getDataType() != null
+    					& literalExpression.getDataType() != elementType) {
+    				elementType = literalExpression.getDataType();
+    			}
+        	}
+        	PDataType baseType = PDataType.fromTypeId(elementType.getSqlType());
+        	Object value = PArrayDataType.instantiatePhoenixArray(baseType, elements);
+            return LiteralExpression.newConstant(value, arrayExpression.getDataType());
+        }
+		return wrapGroupByExpression(arrayExpression);
+	}
+
+	@Override
+	public boolean visitEnter(ArrayConstructorNode node) throws SQLException {
+		return true;
 	}
 }

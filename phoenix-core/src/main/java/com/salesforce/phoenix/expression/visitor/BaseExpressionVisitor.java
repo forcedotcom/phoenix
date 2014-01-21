@@ -32,6 +32,7 @@ import java.util.List;
 
 import com.salesforce.phoenix.expression.AddExpression;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ArrayConstructorExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
@@ -257,6 +258,15 @@ public abstract class BaseExpressionVisitor<E> implements ExpressionVisitor<E> {
     
     @Override
     public E visitLeave(CoerceExpression node, List<E> l) {
+        return null;
+    }
+
+    @Override
+    public Iterator<Expression> visitEnter(ArrayConstructorExpression node) {
+        return null;
+    }
+    @Override
+    public E visitLeave(ArrayConstructorExpression node, List<E> l) {
         return null;
     }
 }
