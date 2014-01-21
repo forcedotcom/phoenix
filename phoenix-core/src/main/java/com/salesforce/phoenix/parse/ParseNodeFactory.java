@@ -234,7 +234,7 @@ public class ParseNodeFactory {
     }
 
     public ColumnParseNode column(TableName tableName, String name) {
-        return new ColumnParseNode(tableName, name, tableName == null ? name : (tableName + "." + name));
+        return new ColumnParseNode(tableName, name, null);
     }
     
     public ColumnName columnName(String columnName) {
