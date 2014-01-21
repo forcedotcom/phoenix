@@ -34,10 +34,16 @@ option optimize_for = SPEED;
 
 import "ServerCacheFactory.proto";
 
+message ImmutableBytesWritable {
+  required bytes byteArray = 1;
+  required int32 offset = 2;
+  required int32 length = 3;
+}
+
 message AddServerCacheRequest {
   optional bytes tenantId = 1;
   required bytes cacheId  = 2;
-  required bytes cachePtr = 3;
+  required ImmutableBytesWritable cachePtr = 3;
   required ServerCacheFactory cacheFactory = 4;
 }
 

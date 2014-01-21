@@ -8,6 +8,647 @@ public final class ServerCachingProtos {
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistry registry) {
   }
+  public interface ImmutableBytesWritableOrBuilder
+      extends com.google.protobuf.MessageOrBuilder {
+
+    // required bytes byteArray = 1;
+    /**
+     * <code>required bytes byteArray = 1;</code>
+     */
+    boolean hasByteArray();
+    /**
+     * <code>required bytes byteArray = 1;</code>
+     */
+    com.google.protobuf.ByteString getByteArray();
+
+    // required int32 offset = 2;
+    /**
+     * <code>required int32 offset = 2;</code>
+     */
+    boolean hasOffset();
+    /**
+     * <code>required int32 offset = 2;</code>
+     */
+    int getOffset();
+
+    // required int32 length = 3;
+    /**
+     * <code>required int32 length = 3;</code>
+     */
+    boolean hasLength();
+    /**
+     * <code>required int32 length = 3;</code>
+     */
+    int getLength();
+  }
+  /**
+   * Protobuf type {@code ImmutableBytesWritable}
+   */
+  public static final class ImmutableBytesWritable extends
+      com.google.protobuf.GeneratedMessage
+      implements ImmutableBytesWritableOrBuilder {
+    // Use ImmutableBytesWritable.newBuilder() to construct.
+    private ImmutableBytesWritable(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
+      super(builder);
+      this.unknownFields = builder.getUnknownFields();
+    }
+    private ImmutableBytesWritable(boolean noInit) { this.unknownFields = com.google.protobuf.UnknownFieldSet.getDefaultInstance(); }
+
+    private static final ImmutableBytesWritable defaultInstance;
+    public static ImmutableBytesWritable getDefaultInstance() {
+      return defaultInstance;
+    }
+
+    public ImmutableBytesWritable getDefaultInstanceForType() {
+      return defaultInstance;
+    }
+
+    private final com.google.protobuf.UnknownFieldSet unknownFields;
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+        getUnknownFields() {
+      return this.unknownFields;
+    }
+    private ImmutableBytesWritable(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      initFields();
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(input, unknownFields,
+                                     extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+            case 10: {
+              bitField0_ |= 0x00000001;
+              byteArray_ = input.readBytes();
+              break;
+            }
+            case 16: {
+              bitField0_ |= 0x00000002;
+              offset_ = input.readInt32();
+              break;
+            }
+            case 24: {
+              bitField0_ |= 0x00000004;
+              length_ = input.readInt32();
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e.getMessage()).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.internal_static_ImmutableBytesWritable_descriptor;
+    }
+
+    protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.internal_static_ImmutableBytesWritable_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.class, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder.class);
+    }
+
+    public static com.google.protobuf.Parser<ImmutableBytesWritable> PARSER =
+        new com.google.protobuf.AbstractParser<ImmutableBytesWritable>() {
+      public ImmutableBytesWritable parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new ImmutableBytesWritable(input, extensionRegistry);
+      }
+    };
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<ImmutableBytesWritable> getParserForType() {
+      return PARSER;
+    }
+
+    private int bitField0_;
+    // required bytes byteArray = 1;
+    public static final int BYTEARRAY_FIELD_NUMBER = 1;
+    private com.google.protobuf.ByteString byteArray_;
+    /**
+     * <code>required bytes byteArray = 1;</code>
+     */
+    public boolean hasByteArray() {
+      return ((bitField0_ & 0x00000001) == 0x00000001);
+    }
+    /**
+     * <code>required bytes byteArray = 1;</code>
+     */
+    public com.google.protobuf.ByteString getByteArray() {
+      return byteArray_;
+    }
+
+    // required int32 offset = 2;
+    public static final int OFFSET_FIELD_NUMBER = 2;
+    private int offset_;
+    /**
+     * <code>required int32 offset = 2;</code>
+     */
+    public boolean hasOffset() {
+      return ((bitField0_ & 0x00000002) == 0x00000002);
+    }
+    /**
+     * <code>required int32 offset = 2;</code>
+     */
+    public int getOffset() {
+      return offset_;
+    }
+
+    // required int32 length = 3;
+    public static final int LENGTH_FIELD_NUMBER = 3;
+    private int length_;
+    /**
+     * <code>required int32 length = 3;</code>
+     */
+    public boolean hasLength() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <code>required int32 length = 3;</code>
+     */
+    public int getLength() {
+      return length_;
+    }
+
+    private void initFields() {
+      byteArray_ = com.google.protobuf.ByteString.EMPTY;
+      offset_ = 0;
+      length_ = 0;
+    }
+    private byte memoizedIsInitialized = -1;
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized != -1) return isInitialized == 1;
+
+      if (!hasByteArray()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!hasOffset()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!hasLength()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      getSerializedSize();
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        output.writeBytes(1, byteArray_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        output.writeInt32(2, offset_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeInt32(3, length_);
+      }
+      getUnknownFields().writeTo(output);
+    }
+
+    private int memoizedSerializedSize = -1;
+    public int getSerializedSize() {
+      int size = memoizedSerializedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(1, byteArray_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(2, offset_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(3, length_);
+      }
+      size += getUnknownFields().getSerializedSize();
+      memoizedSerializedSize = size;
+      return size;
+    }
+
+    private static final long serialVersionUID = 0L;
+    @java.lang.Override
+    protected java.lang.Object writeReplace()
+        throws java.io.ObjectStreamException {
+      return super.writeReplace();
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable)) {
+        return super.equals(obj);
+      }
+      com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable other = (com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable) obj;
+
+      boolean result = true;
+      result = result && (hasByteArray() == other.hasByteArray());
+      if (hasByteArray()) {
+        result = result && getByteArray()
+            .equals(other.getByteArray());
+      }
+      result = result && (hasOffset() == other.hasOffset());
+      if (hasOffset()) {
+        result = result && (getOffset()
+            == other.getOffset());
+      }
+      result = result && (hasLength() == other.hasLength());
+      if (hasLength()) {
+        result = result && (getLength()
+            == other.getLength());
+      }
+      result = result &&
+          getUnknownFields().equals(other.getUnknownFields());
+      return result;
+    }
+
+    private int memoizedHashCode = 0;
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptorForType().hashCode();
+      if (hasByteArray()) {
+        hash = (37 * hash) + BYTEARRAY_FIELD_NUMBER;
+        hash = (53 * hash) + getByteArray().hashCode();
+      }
+      if (hasOffset()) {
+        hash = (37 * hash) + OFFSET_FIELD_NUMBER;
+        hash = (53 * hash) + getOffset();
+      }
+      if (hasLength()) {
+        hash = (37 * hash) + LENGTH_FIELD_NUMBER;
+        hash = (53 * hash) + getLength();
+      }
+      hash = (29 * hash) + getUnknownFields().hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input, extensionRegistry);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return PARSER.parseDelimitedFrom(input);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseDelimitedFrom(input, extensionRegistry);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input);
+    }
+    public static com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return PARSER.parseFrom(input, extensionRegistry);
+    }
+
+    public static Builder newBuilder() { return Builder.create(); }
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder(com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable prototype) {
+      return newBuilder().mergeFrom(prototype);
+    }
+    public Builder toBuilder() { return newBuilder(this); }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code ImmutableBytesWritable}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessage.Builder<Builder>
+       implements com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.internal_static_ImmutableBytesWritable_descriptor;
+      }
+
+      protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.internal_static_ImmutableBytesWritable_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.class, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder.class);
+      }
+
+      // Construct using com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+        }
+      }
+      private static Builder create() {
+        return new Builder();
+      }
+
+      public Builder clear() {
+        super.clear();
+        byteArray_ = com.google.protobuf.ByteString.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000001);
+        offset_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000002);
+        length_ = 0;
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+
+      public Builder clone() {
+        return create().mergeFrom(buildPartial());
+      }
+
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.internal_static_ImmutableBytesWritable_descriptor;
+      }
+
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable getDefaultInstanceForType() {
+        return com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance();
+      }
+
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable build() {
+        com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable buildPartial() {
+        com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable result = new com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.byteArray_ = byteArray_;
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.offset_ = offset_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.length_ = length_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable) {
+          return mergeFrom((com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable other) {
+        if (other == com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance()) return this;
+        if (other.hasByteArray()) {
+          setByteArray(other.getByteArray());
+        }
+        if (other.hasOffset()) {
+          setOffset(other.getOffset());
+        }
+        if (other.hasLength()) {
+          setLength(other.getLength());
+        }
+        this.mergeUnknownFields(other.getUnknownFields());
+        return this;
+      }
+
+      public final boolean isInitialized() {
+        if (!hasByteArray()) {
+          
+          return false;
+        }
+        if (!hasOffset()) {
+          
+          return false;
+        }
+        if (!hasLength()) {
+          
+          return false;
+        }
+        return true;
+      }
+
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable) e.getUnfinishedMessage();
+          throw e;
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      // required bytes byteArray = 1;
+      private com.google.protobuf.ByteString byteArray_ = com.google.protobuf.ByteString.EMPTY;
+      /**
+       * <code>required bytes byteArray = 1;</code>
+       */
+      public boolean hasByteArray() {
+        return ((bitField0_ & 0x00000001) == 0x00000001);
+      }
+      /**
+       * <code>required bytes byteArray = 1;</code>
+       */
+      public com.google.protobuf.ByteString getByteArray() {
+        return byteArray_;
+      }
+      /**
+       * <code>required bytes byteArray = 1;</code>
+       */
+      public Builder setByteArray(com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        byteArray_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>required bytes byteArray = 1;</code>
+       */
+      public Builder clearByteArray() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        byteArray_ = getDefaultInstance().getByteArray();
+        onChanged();
+        return this;
+      }
+
+      // required int32 offset = 2;
+      private int offset_ ;
+      /**
+       * <code>required int32 offset = 2;</code>
+       */
+      public boolean hasOffset() {
+        return ((bitField0_ & 0x00000002) == 0x00000002);
+      }
+      /**
+       * <code>required int32 offset = 2;</code>
+       */
+      public int getOffset() {
+        return offset_;
+      }
+      /**
+       * <code>required int32 offset = 2;</code>
+       */
+      public Builder setOffset(int value) {
+        bitField0_ |= 0x00000002;
+        offset_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>required int32 offset = 2;</code>
+       */
+      public Builder clearOffset() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        offset_ = 0;
+        onChanged();
+        return this;
+      }
+
+      // required int32 length = 3;
+      private int length_ ;
+      /**
+       * <code>required int32 length = 3;</code>
+       */
+      public boolean hasLength() {
+        return ((bitField0_ & 0x00000004) == 0x00000004);
+      }
+      /**
+       * <code>required int32 length = 3;</code>
+       */
+      public int getLength() {
+        return length_;
+      }
+      /**
+       * <code>required int32 length = 3;</code>
+       */
+      public Builder setLength(int value) {
+        bitField0_ |= 0x00000004;
+        length_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>required int32 length = 3;</code>
+       */
+      public Builder clearLength() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        length_ = 0;
+        onChanged();
+        return this;
+      }
+
+      // @@protoc_insertion_point(builder_scope:ImmutableBytesWritable)
+    }
+
+    static {
+      defaultInstance = new ImmutableBytesWritable(true);
+      defaultInstance.initFields();
+    }
+
+    // @@protoc_insertion_point(class_scope:ImmutableBytesWritable)
+  }
+
   public interface AddServerCacheRequestOrBuilder
       extends com.google.protobuf.MessageOrBuilder {
 
@@ -31,15 +672,19 @@ public final class ServerCachingProtos {
      */
     com.google.protobuf.ByteString getCacheId();
 
-    // required bytes cachePtr = 3;
+    // required .ImmutableBytesWritable cachePtr = 3;
     /**
-     * <code>required bytes cachePtr = 3;</code>
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
      */
     boolean hasCachePtr();
     /**
-     * <code>required bytes cachePtr = 3;</code>
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
      */
-    com.google.protobuf.ByteString getCachePtr();
+    com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable getCachePtr();
+    /**
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+     */
+    com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder getCachePtrOrBuilder();
 
     // required .ServerCacheFactory cacheFactory = 4;
     /**
@@ -117,8 +762,16 @@ public final class ServerCachingProtos {
               break;
             }
             case 26: {
+              com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000004) == 0x00000004)) {
+                subBuilder = cachePtr_.toBuilder();
+              }
+              cachePtr_ = input.readMessage(com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(cachePtr_);
+                cachePtr_ = subBuilder.buildPartial();
+              }
               bitField0_ |= 0x00000004;
-              cachePtr_ = input.readBytes();
               break;
             }
             case 34: {
@@ -206,19 +859,25 @@ public final class ServerCachingProtos {
       return cacheId_;
     }
 
-    // required bytes cachePtr = 3;
+    // required .ImmutableBytesWritable cachePtr = 3;
     public static final int CACHEPTR_FIELD_NUMBER = 3;
-    private com.google.protobuf.ByteString cachePtr_;
+    private com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable cachePtr_;
     /**
-     * <code>required bytes cachePtr = 3;</code>
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
      */
     public boolean hasCachePtr() {
       return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
-     * <code>required bytes cachePtr = 3;</code>
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
      */
-    public com.google.protobuf.ByteString getCachePtr() {
+    public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable getCachePtr() {
+      return cachePtr_;
+    }
+    /**
+     * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+     */
+    public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder getCachePtrOrBuilder() {
       return cachePtr_;
     }
 
@@ -247,7 +906,7 @@ public final class ServerCachingProtos {
     private void initFields() {
       tenantId_ = com.google.protobuf.ByteString.EMPTY;
       cacheId_ = com.google.protobuf.ByteString.EMPTY;
-      cachePtr_ = com.google.protobuf.ByteString.EMPTY;
+      cachePtr_ = com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance();
       cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
     }
     private byte memoizedIsInitialized = -1;
@@ -264,6 +923,10 @@ public final class ServerCachingProtos {
         return false;
       }
       if (!hasCacheFactory()) {
+        memoizedIsInitialized = 0;
+        return false;
+      }
+      if (!getCachePtr().isInitialized()) {
         memoizedIsInitialized = 0;
         return false;
       }
@@ -285,7 +948,7 @@ public final class ServerCachingProtos {
         output.writeBytes(2, cacheId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        output.writeBytes(3, cachePtr_);
+        output.writeMessage(3, cachePtr_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         output.writeMessage(4, cacheFactory_);
@@ -309,7 +972,7 @@ public final class ServerCachingProtos {
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeBytesSize(3, cachePtr_);
+          .computeMessageSize(3, cachePtr_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.CodedOutputStream
@@ -488,6 +1151,7 @@ public final class ServerCachingProtos {
       }
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders) {
+          getCachePtrFieldBuilder();
           getCacheFactoryFieldBuilder();
         }
       }
@@ -501,7 +1165,11 @@ public final class ServerCachingProtos {
         bitField0_ = (bitField0_ & ~0x00000001);
         cacheId_ = com.google.protobuf.ByteString.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000002);
-        cachePtr_ = com.google.protobuf.ByteString.EMPTY;
+        if (cachePtrBuilder_ == null) {
+          cachePtr_ = com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance();
+        } else {
+          cachePtrBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000004);
         if (cacheFactoryBuilder_ == null) {
           cacheFactory_ = com.salesforce.phoenix.coprocessor.generated.ServerCacheFactoryProtos.ServerCacheFactory.getDefaultInstance();
@@ -548,7 +1216,11 @@ public final class ServerCachingProtos {
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.cachePtr_ = cachePtr_;
+        if (cachePtrBuilder_ == null) {
+          result.cachePtr_ = cachePtr_;
+        } else {
+          result.cachePtr_ = cachePtrBuilder_.build();
+        }
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
@@ -580,7 +1252,7 @@ public final class ServerCachingProtos {
           setCacheId(other.getCacheId());
         }
         if (other.hasCachePtr()) {
-          setCachePtr(other.getCachePtr());
+          mergeCachePtr(other.getCachePtr());
         }
         if (other.hasCacheFactory()) {
           mergeCacheFactory(other.getCacheFactory());
@@ -599,6 +1271,10 @@ public final class ServerCachingProtos {
           return false;
         }
         if (!hasCacheFactory()) {
+          
+          return false;
+        }
+        if (!getCachePtr().isInitialized()) {
           
           return false;
         }
@@ -700,40 +1376,121 @@ public final class ServerCachingProtos {
         return this;
       }
 
-      // required bytes cachePtr = 3;
-      private com.google.protobuf.ByteString cachePtr_ = com.google.protobuf.ByteString.EMPTY;
+      // required .ImmutableBytesWritable cachePtr = 3;
+      private com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable cachePtr_ = com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance();
+      private com.google.protobuf.SingleFieldBuilder<
+          com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder> cachePtrBuilder_;
       /**
-       * <code>required bytes cachePtr = 3;</code>
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
        */
       public boolean hasCachePtr() {
         return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
-       * <code>required bytes cachePtr = 3;</code>
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
        */
-      public com.google.protobuf.ByteString getCachePtr() {
-        return cachePtr_;
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable getCachePtr() {
+        if (cachePtrBuilder_ == null) {
+          return cachePtr_;
+        } else {
+          return cachePtrBuilder_.getMessage();
+        }
       }
       /**
-       * <code>required bytes cachePtr = 3;</code>
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
        */
-      public Builder setCachePtr(com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        cachePtr_ = value;
-        onChanged();
+      public Builder setCachePtr(com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable value) {
+        if (cachePtrBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          cachePtr_ = value;
+          onChanged();
+        } else {
+          cachePtrBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000004;
         return this;
       }
       /**
-       * <code>required bytes cachePtr = 3;</code>
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+       */
+      public Builder setCachePtr(
+          com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder builderForValue) {
+        if (cachePtrBuilder_ == null) {
+          cachePtr_ = builderForValue.build();
+          onChanged();
+        } else {
+          cachePtrBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000004;
+        return this;
+      }
+      /**
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+       */
+      public Builder mergeCachePtr(com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable value) {
+        if (cachePtrBuilder_ == null) {
+          if (((bitField0_ & 0x00000004) == 0x00000004) &&
+              cachePtr_ != com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance()) {
+            cachePtr_ =
+              com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.newBuilder(cachePtr_).mergeFrom(value).buildPartial();
+          } else {
+            cachePtr_ = value;
+          }
+          onChanged();
+        } else {
+          cachePtrBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000004;
+        return this;
+      }
+      /**
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
        */
       public Builder clearCachePtr() {
+        if (cachePtrBuilder_ == null) {
+          cachePtr_ = com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.getDefaultInstance();
+          onChanged();
+        } else {
+          cachePtrBuilder_.clear();
+        }
         bitField0_ = (bitField0_ & ~0x00000004);
-        cachePtr_ = getDefaultInstance().getCachePtr();
-        onChanged();
         return this;
+      }
+      /**
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+       */
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder getCachePtrBuilder() {
+        bitField0_ |= 0x00000004;
+        onChanged();
+        return getCachePtrFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+       */
+      public com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder getCachePtrOrBuilder() {
+        if (cachePtrBuilder_ != null) {
+          return cachePtrBuilder_.getMessageOrBuilder();
+        } else {
+          return cachePtr_;
+        }
+      }
+      /**
+       * <code>required .ImmutableBytesWritable cachePtr = 3;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilder<
+          com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder> 
+          getCachePtrFieldBuilder() {
+        if (cachePtrBuilder_ == null) {
+          cachePtrBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+              com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritable.Builder, com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos.ImmutableBytesWritableOrBuilder>(
+                  cachePtr_,
+                  getParentForChildren(),
+                  isClean());
+          cachePtr_ = null;
+        }
+        return cachePtrBuilder_;
       }
 
       // required .ServerCacheFactory cacheFactory = 4;
@@ -2590,6 +3347,11 @@ public final class ServerCachingProtos {
   }
 
   private static com.google.protobuf.Descriptors.Descriptor
+    internal_static_ImmutableBytesWritable_descriptor;
+  private static
+    com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_ImmutableBytesWritable_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.Descriptor
     internal_static_AddServerCacheRequest_descriptor;
   private static
     com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -2619,46 +3381,54 @@ public final class ServerCachingProtos {
   static {
     java.lang.String[] descriptorData = {
       "\n\032ServerCachingService.proto\032\030ServerCach" +
-      "eFactory.proto\"w\n\025AddServerCacheRequest\022" +
-      "\020\n\010tenantId\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014\022\020\n\010ca" +
-      "chePtr\030\003 \002(\014\022)\n\014cacheFactory\030\004 \002(\0132\023.Ser" +
-      "verCacheFactory\"(\n\026AddServerCacheRespons" +
-      "e\022\016\n\006return\030\001 \002(\010\"=\n\030RemoveServerCacheRe" +
-      "quest\022\020\n\010tenantId\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014" +
-      "\"+\n\031RemoveServerCacheResponse\022\016\n\006return\030" +
-      "\001 \002(\0102\245\001\n\024ServerCachingService\022A\n\016addSer" +
-      "verCache\022\026.AddServerCacheRequest\032\027.AddSe",
-      "rverCacheResponse\022J\n\021removeServerCache\022\031" +
-      ".RemoveServerCacheRequest\032\032.RemoveServer" +
-      "CacheResponseBK\n,com.salesforce.phoenix." +
-      "coprocessor.generatedB\023ServerCachingProt" +
-      "osH\001\210\001\001\240\001\001"
+      "eFactory.proto\"K\n\026ImmutableBytesWritable" +
+      "\022\021\n\tbyteArray\030\001 \002(\014\022\016\n\006offset\030\002 \002(\005\022\016\n\006l" +
+      "ength\030\003 \002(\005\"\220\001\n\025AddServerCacheRequest\022\020\n" +
+      "\010tenantId\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014\022)\n\010cach" +
+      "ePtr\030\003 \002(\0132\027.ImmutableBytesWritable\022)\n\014c" +
+      "acheFactory\030\004 \002(\0132\023.ServerCacheFactory\"(" +
+      "\n\026AddServerCacheResponse\022\016\n\006return\030\001 \002(\010" +
+      "\"=\n\030RemoveServerCacheRequest\022\020\n\010tenantId" +
+      "\030\001 \001(\014\022\017\n\007cacheId\030\002 \002(\014\"+\n\031RemoveServerC",
+      "acheResponse\022\016\n\006return\030\001 \002(\0102\245\001\n\024ServerC" +
+      "achingService\022A\n\016addServerCache\022\026.AddSer" +
+      "verCacheRequest\032\027.AddServerCacheResponse" +
+      "\022J\n\021removeServerCache\022\031.RemoveServerCach" +
+      "eRequest\032\032.RemoveServerCacheResponseBK\n," +
+      "com.salesforce.phoenix.coprocessor.gener" +
+      "atedB\023ServerCachingProtosH\001\210\001\001\240\001\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
         public com.google.protobuf.ExtensionRegistry assignDescriptors(
             com.google.protobuf.Descriptors.FileDescriptor root) {
           descriptor = root;
-          internal_static_AddServerCacheRequest_descriptor =
+          internal_static_ImmutableBytesWritable_descriptor =
             getDescriptor().getMessageTypes().get(0);
+          internal_static_ImmutableBytesWritable_fieldAccessorTable = new
+            com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+              internal_static_ImmutableBytesWritable_descriptor,
+              new java.lang.String[] { "ByteArray", "Offset", "Length", });
+          internal_static_AddServerCacheRequest_descriptor =
+            getDescriptor().getMessageTypes().get(1);
           internal_static_AddServerCacheRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_AddServerCacheRequest_descriptor,
               new java.lang.String[] { "TenantId", "CacheId", "CachePtr", "CacheFactory", });
           internal_static_AddServerCacheResponse_descriptor =
-            getDescriptor().getMessageTypes().get(1);
+            getDescriptor().getMessageTypes().get(2);
           internal_static_AddServerCacheResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_AddServerCacheResponse_descriptor,
               new java.lang.String[] { "Return", });
           internal_static_RemoveServerCacheRequest_descriptor =
-            getDescriptor().getMessageTypes().get(2);
+            getDescriptor().getMessageTypes().get(3);
           internal_static_RemoveServerCacheRequest_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_RemoveServerCacheRequest_descriptor,
               new java.lang.String[] { "TenantId", "CacheId", });
           internal_static_RemoveServerCacheResponse_descriptor =
-            getDescriptor().getMessageTypes().get(3);
+            getDescriptor().getMessageTypes().get(4);
           internal_static_RemoveServerCacheResponse_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_RemoveServerCacheResponse_descriptor,

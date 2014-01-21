@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.ipc.ServerRpcController;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MutationProto;
 import org.apache.hadoop.hbase.protobuf.generated.ClientProtos.MutationProto.MutationType;
@@ -34,6 +35,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.RpcController;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos;
+import com.salesforce.phoenix.coprocessor.generated.ServerCachingProtos;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MetaDataResponse;
 import com.salesforce.phoenix.coprocessor.generated.MetaDataProtos.MutationCode;
 import com.salesforce.phoenix.coprocessor.generated.PTableProtos;
@@ -126,5 +128,18 @@ public class ProtobufUtil {
             throw new IllegalArgumentException("Only Put and Delete are supported");
         }
         return org.apache.hadoop.hbase.protobuf.ProtobufUtil.toMutation(type, mutation);
+    }
+    
+    public static ServerCachingProtos.ImmutableBytesWritable toProto(ImmutableBytesWritable w) {
+        ServerCachingProtos.ImmutableBytesWritable.Builder builder = 
+        		ServerCachingProtos.ImmutableBytesWritable.newBuilder();
+        builder.setByteArray(ByteString.copyFrom(w.get()));
+        builder.setOffset(w.getOffset());
+        builder.setLength(w.getLength());
+        return builder.build();
+    }
+    
+    public static ImmutableBytesWritable toImmutableBytesWritable(ServerCachingProtos.ImmutableBytesWritable proto) {
+    	return new ImmutableBytesWritable(proto.getByteArray().toByteArray(), proto.getOffset(), proto.getLength());
     }
 }

@@ -60,7 +60,7 @@ public class ServerCachingEndpointImpl extends ServerCachingService implements C
     }
     TenantCache tenantCache = GlobalCache.getTenantCache(this.env, tenantId);
     ImmutableBytesWritable cachePtr =
-        new ImmutableBytesWritable(request.getCachePtr().toByteArray());
+    		com.salesforce.phoenix.protobuf.ProtobufUtil.toImmutableBytesWritable(request.getCachePtr());
 
     try {
       @SuppressWarnings("unchecked")
