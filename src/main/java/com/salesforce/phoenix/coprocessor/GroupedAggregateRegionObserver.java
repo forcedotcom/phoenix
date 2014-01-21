@@ -307,8 +307,7 @@ public class GroupedAggregateRegionObserver extends BaseScannerRegionObserver {
 
                 @Override
                 public long getMaxResultSize() {
-                    throw new UnsupportedOperationException(this.getClass().getName()
-                        + " doesn't support getMaxResultSize!");
+                	return s.getMaxResultSize();
                 }
             };
             success = true;
