@@ -751,8 +751,8 @@ expression_term returns [ParseNode ret]
 	;
 	    
 arrayable_expression_term returns [ParseNode ret]
-    :   field=identifier { $ret = factory.column(null,field,field); }
-    |   tableName=table_name DOT field=identifier { $ret = factory.column(tableName, field, field); }
+    :   field=identifier { $ret = factory.column(null,field,null); }
+    |   tableName=table_name DOT field=identifier { $ret = factory.column(tableName, field, null); }
     |   field=identifier LPAREN l=expression_list RPAREN wg=(WITHIN GROUP LPAREN ORDER BY l2=expression_terms (a=ASC | DESC) RPAREN)?
         {
             FunctionParseNode f = wg==null ? factory.function(field, l) : factory.function(field,l,l2,a!=null);

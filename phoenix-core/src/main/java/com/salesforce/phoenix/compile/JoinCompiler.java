@@ -935,8 +935,7 @@ public class JoinCompiler {
         } else {
             for (ColumnRef colRef : columnRefs.keySet()) {
                 if (colRef.getTableRef().equals(table)) {
-                    String cName = colRef.getColumn().getName().getString();
-                    selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, cName, cName)));
+                    selectList.add(NODE_FACTORY.aliasedNode(null, NODE_FACTORY.column(tName, colRef.getColumn().getName().getString(), null)));
                 }
             }
         }

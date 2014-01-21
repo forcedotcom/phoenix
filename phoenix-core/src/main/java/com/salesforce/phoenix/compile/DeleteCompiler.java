@@ -193,8 +193,7 @@ public class DeleteCompiler {
         List<AliasedNode> aliasedNodes = Lists.newArrayListWithExpectedSize(table.getPKColumns().size());
         for (int i = table.getBucketNum() == null ? 0 : 1; i < table.getPKColumns().size(); i++) {
             PColumn column = table.getPKColumns().get(i);
-            String name = column.getName().getString();
-            aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));
+            aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, column.getName().getString(), null)));
         }
         SelectStatement select = FACTORY.select(
                 Collections.singletonList(delete.getTable()), 
