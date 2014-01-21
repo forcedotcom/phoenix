@@ -95,6 +95,6 @@ public class StatementNormalizer extends ParseNodeRewriter {
     @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
         return node.getAlias() != null ? node : 
-            NODE_FACTORY.column(NODE_FACTORY.table(node.getSchemaName(), node.getTableName()), node.getName(), useFullNameForAlias ? node.getFullName() : node.getName());
+            NODE_FACTORY.column(node.getTableName() == null ? null : NODE_FACTORY.table(node.getSchemaName(), node.getTableName()), node.getName(), useFullNameForAlias ? node.getFullName() : node.getName());
     }
 }
