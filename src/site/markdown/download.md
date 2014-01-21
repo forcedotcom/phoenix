@@ -62,4 +62,23 @@ Through SQuirrel, you can issue SQL statements in the SQL tab (create tables, in
 ### Samples ###
 The best place to see samples are in our unit tests under src/test/java. The ones in the endToEnd package are tests demonstrating how to use all aspects of the Phoenix JDBC driver. We also have some examples in the examples directory.
 
+### Phoenix Client - Server Compatibility
+
+Major and minor version should match between client and server (patch version can mismatch). Following is the list of compatible client and server version(s). It is recommended that same client and server version are used. 
+
+Phoenix Client Version | Compatible Server Versions
+-----------------------|---
+1.0.0 | 1.0.0
+1.1.0 | 1.1.0
+1.2.0 | 1.2.0, 1.2.1
+1.2.1 | 1.2.0, 1.2.1
+2.0.0 | 2.0.0, 2.0.1, 2.0.2
+2.0.1 | 2.0.0, 2.0.1, 2.0.2
+2.0.2 | 2.0.0, 2.0.1, 2.0.2
+2.1.0 | 2.1.0, 2.1.1, 2.1.2
+2.1.1 | 2.1.0, 2.1.1, 2.1.2
+2.1.2 | 2.1.0, 2.1.1, 2.1.2
+2.2.0 | 2.2.0, 2.2.1
+2.2.1 | 2.2.0, 2.2.1
+
 [![githalytics.com alpha](https://cruel-carlota.pagodabox.com/33878dc7c0522eed32d2d54db9c59f78 "githalytics.com")](http://githalytics.com/forcedotcom/phoenix.git)
