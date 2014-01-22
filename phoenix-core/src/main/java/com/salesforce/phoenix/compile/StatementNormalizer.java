@@ -38,6 +38,7 @@ import com.salesforce.phoenix.parse.LessThanOrEqualParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -94,7 +95,12 @@ public class StatementNormalizer extends ParseNodeRewriter {
 
     @Override
     public ParseNode visit(ColumnParseNode node) throws SQLException {
-        return node.getAlias() != null ? node : 
-            NODE_FACTORY.column(node.getTableName() == null ? null : NODE_FACTORY.table(node.getSchemaName(), node.getTableName()), node.getName(), useFullNameForAlias ? node.getFullName() : node.getName());
+        if (useFullNameForAlias 
+                && node.getAlias() != null 
+                && node.getTableName() != null
+                && SchemaUtil.normalizeIdentifier(node.getAlias()).equals(node.getName())) {
+            node = NODE_FACTORY.column(NODE_FACTORY.table(node.getSchemaName(), node.getTableName()), node.isCaseSensitive() ? '"' + node.getName() + '"' : node.getName(), node.getFullName());
+        }
+        return super.visit(node);
     }
 }
