@@ -536,7 +536,7 @@ dyn_column_defs returns [List<ColumnDef> ret]
 
 dyn_column_def returns [ColumnDef ret]
     :   c=column_name dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? (lsq=LSQUARE (a=NUMBER)? RSQUARE)?
-        {$ret = factory.columnDef(c, dt, lsq != null,  a == null ? null :  Integer.parseInt( a.getText() ), true,
+        {$ret = factory.columnDef(c, dt, true,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             false, 
@@ -545,7 +545,7 @@ dyn_column_def returns [ColumnDef ret]
 
 dyn_column_name_or_def returns [ColumnDef ret]
     :   c=column_name (dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? )? (lsq=LSQUARE (a=NUMBER)? RSQUARE)?
-        {$ret = factory.columnDef(c, dt, lsq != null,  a == null ? null :  Integer.parseInt( a.getText() ), true,
+        {$ret = factory.columnDef(c, dt, true,
             l == null ? null : Integer.parseInt( l.getText() ),
             s == null ? null : Integer.parseInt( s.getText() ),
             false, 

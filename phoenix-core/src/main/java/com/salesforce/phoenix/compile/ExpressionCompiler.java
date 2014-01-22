@@ -76,6 +76,7 @@ import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.ArithmeticParseNode;
+import com.salesforce.phoenix.parse.ArrayConstructorNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
 import com.salesforce.phoenix.parse.CastParseNode;
@@ -97,7 +98,6 @@ import com.salesforce.phoenix.parse.SequenceOpParseNode;
 import com.salesforce.phoenix.parse.StringConcatParseNode;
 import com.salesforce.phoenix.parse.SubtractParseNode;
 import com.salesforce.phoenix.parse.UnsupportedAllParseNodeVisitor;
-import com.salesforce.phoenix.parse.ArrayConstructorNode;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
@@ -1312,7 +1312,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (isLiteralExpression) {
         	Object[] elements = new Object[children.size()];
         	// TODO : We should check if children can be of different type other than literals
-    		// The variable ptr does not get used here
+    		// The variable ptr does not get used here, inturn we don't use the ArrayConstructorExpression.evaluate()
     		PDataType elementType = null;
         	for (int i = 0; i < children.size(); i++) {
         		LiteralExpression literalExpression = (LiteralExpression)children.get(i);
