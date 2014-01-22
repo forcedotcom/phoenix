@@ -59,7 +59,7 @@ public class StatementNormalizer extends ParseNodeRewriter {
     }
 
     public static ParseNode normalize(ParseNode where, ColumnResolver resolver) throws SQLException {
-        return rewrite(where, new StatementNormalizer(resolver, 0));
+        return rewrite(where, new StatementNormalizer(resolver, 0, false));
     }
     
     /**
