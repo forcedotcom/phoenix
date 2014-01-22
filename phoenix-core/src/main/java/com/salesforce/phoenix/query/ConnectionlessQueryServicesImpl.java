@@ -46,8 +46,10 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.VersionInfo;
 
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -85,10 +87,14 @@ import com.salesforce.phoenix.util.SchemaUtil;
 public class ConnectionlessQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices  {
     private PMetaData metaData;
     private final Map<SequenceKey, Long> sequenceMap = Maps.newHashMap();
+    private KeyValueBuilder kvBuilder;
     
     public ConnectionlessQueryServicesImpl(QueryServices queryServices) {
         super(queryServices);
         metaData = PMetaDataImpl.EMPTY_META_DATA;
+        // find the HBase version and use that to determine the KeyValueBuilder that should be used
+        String hbaseVersion = VersionInfo.getVersion();
+        this.kvBuilder = KeyValueBuilder.get(hbaseVersion);
     }
 
     @Override
@@ -341,5 +347,10 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
 
     @Override
     public void removeConnection(PhoenixConnection connection) throws SQLException {
+    }
+
+    @Override
+    public KeyValueBuilder getKeyValueBuilder() {
+        return this.kvBuilder;
     }
 }

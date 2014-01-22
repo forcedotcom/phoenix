@@ -80,8 +80,7 @@ import com.salesforce.phoenix.util.TrustedByteArrayOutputStream;
  */
 public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
     
-    public static IndexMaintainer create(PTable dataTable, PTable index,
-            KeyValueBuilder keyValueBuilder) {
+    public static IndexMaintainer create(PTable dataTable, PTable index) {
         if (dataTable.getType() == PTableType.INDEX || index.getType() != PTableType.INDEX || !dataTable.getIndexes().contains(index)) {
             throw new IllegalArgumentException();
         }
@@ -122,7 +121,6 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
                 maintainer.getCoverededColumns().add(new ColumnReference(column.getFamilyName().getBytes(), column.getName().getBytes()));
             }
         }
-        maintainer.kvBuilder = keyValueBuilder;
         maintainer.initCachedState();
         return maintainer;
     }
@@ -630,7 +628,7 @@ public class IndexMaintainer implements Writable, Iterable<ColumnReference> {
         maxTrailingNulls = nIndexPkColumns-indexPkPos-1;
     }
 
-    private void setKvBuilder(KeyValueBuilder builder) {
+    public void setKvBuilder(KeyValueBuilder builder) {
         this.kvBuilder = builder;
     }
 

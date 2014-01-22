@@ -65,12 +65,12 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
         KeyValueBuilder builder = GenericKeyValueBuilder.INSTANCE;
         testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
-        
+
         //do the same, but with the client key-value builder, to ensure that works the same
         builder = ClientKeyValueBuilder.INSTANCE;
         testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
     }
-        
+
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns,
             String pk, String indexColumns, Object[] values, String includeColumns,
             String dataProps, String indexProps, KeyValueBuilder builder) throws Exception {
@@ -108,7 +108,8 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
             }
             ValueGetter valueGetter = newValueGetter(valueMap);
             
-            List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation, ptr);
+            List<Mutation> indexMutations =
+                    IndexTestUtil.generateIndexData(index, table, dataMutation, ptr, builder);
             assertEquals(1,indexMutations.size());
             assertTrue(indexMutations.get(0) instanceof Put);
             Mutation indexMutation = indexMutations.get(0);

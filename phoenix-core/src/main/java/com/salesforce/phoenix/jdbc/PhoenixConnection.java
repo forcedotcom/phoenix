@@ -172,10 +172,6 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         formatters[PDataType.TIME.ordinal()] = dateTimeFormat;
         this.metaData = metaData;
         this.mutationState = new MutationState(maxSize, this);
-
-        // find the HBase version and use that to determine the KeyValueBuilder that should be used
-        String hbaseVersion = VersionInfo.getVersion();
-        this.kvBuilder = KeyValueBuilder.get(hbaseVersion);
         services.addConnection(this);
     }
 
@@ -681,6 +677,6 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
    }
 
     public KeyValueBuilder getKeyValueBuilder() {
-        return this.kvBuilder;
+        return this.services.getKeyValueBuilder();
     }
 }

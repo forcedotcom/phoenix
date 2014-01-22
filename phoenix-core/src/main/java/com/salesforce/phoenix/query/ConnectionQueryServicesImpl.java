@@ -61,6 +61,7 @@ import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.VersionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,6 +70,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.salesforce.hbase.index.Indexer;
 import com.salesforce.hbase.index.covered.CoveredColumnsIndexBuilder;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import com.salesforce.phoenix.coprocessor.MetaDataEndpointImpl;
@@ -129,6 +131,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     private int connectionCount = 0;
     
     private ConcurrentMap<SequenceKey,Sequence> sequenceMap = Maps.newConcurrentMap();
+    private KeyValueBuilder kvBuilder;
 
     /**
      * Construct a ConnectionQueryServicesImpl that represents a connection to an HBase
@@ -165,6 +168,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         int statsUpdateFrequencyMs = this.getProps().getInt(QueryServices.STATS_UPDATE_FREQ_MS_ATTRIB, QueryServicesOptions.DEFAULT_STATS_UPDATE_FREQ_MS);
         int maxStatsAgeMs = this.getProps().getInt(QueryServices.MAX_STATS_AGE_MS_ATTRIB, QueryServicesOptions.DEFAULT_MAX_STATS_AGE_MS);
         this.statsManager = new StatsManagerImpl(this, statsUpdateFrequencyMs, maxStatsAgeMs);
+
+        // find the HBase version and use that to determine the KeyValueBuilder that should be used
+        String hbaseVersion = VersionInfo.getVersion();
+        this.kvBuilder = KeyValueBuilder.get(hbaseVersion);
     }
 
     @Override
@@ -1430,5 +1437,10 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             // When there are no more connections, attempt to return any sequences
             returnAllSequenceValues(formerSequenceMap);
         }
+    }
+
+    @Override
+    public KeyValueBuilder getKeyValueBuilder() {
+        return this.kvBuilder;
     }
 }

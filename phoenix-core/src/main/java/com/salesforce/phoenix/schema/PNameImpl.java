@@ -35,7 +35,7 @@ public class PNameImpl implements PName {
         public ImmutableBytesPtr ptr;
 
         /**
-         * 
+         *
          */
         public PNameImplData() {
         }
@@ -46,12 +46,12 @@ public class PNameImpl implements PName {
         this.data.stringName = name;
         this.data.bytesName = Bytes.toBytes(name);
     }
-    
+
     PNameImpl(byte[] name) {
         this.data.stringName = Bytes.toString(name);
         this.data.bytesName = name;
     }
-    
+
     @Override
     public String getString() {
         return data.stringName;
@@ -61,7 +61,7 @@ public class PNameImpl implements PName {
     public byte[] getBytes() {
         return data.bytesName;
     }
-    
+
     @Override
     public ImmutableBytesPtr getBytesPtr() {
         if (data.ptr == null) {
@@ -87,7 +87,7 @@ public class PNameImpl implements PName {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        PNameImpl other = (PNameImpl)obj;
+        PNameImpl other = (PNameImpl) obj;
         // Compare normalized stringName for equality, since bytesName
         // may differ since it remains case sensitive.
         if (!data.stringName.equals(other.data.stringName)) return false;

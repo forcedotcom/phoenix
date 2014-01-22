@@ -29,6 +29,8 @@ package com.salesforce.phoenix.schema;
 
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
 import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
+import static com.salesforce.phoenix.client.KeyValueBuilder.addQuietly;
+import static com.salesforce.phoenix.client.KeyValueBuilder.deleteQuietly;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -464,13 +466,14 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values) {
+    public PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key,
+            byte[]... values) {
         return newRow(ts, key, 0, values);
     }
 
     @Override
-    public PRow newRow(ImmutableBytesWritable key, byte[]... values) {
-        return newRow(HConstants.LATEST_TIMESTAMP, key, values);
+    public PRow newRow(KeyValueBuilder builder, ImmutableBytesWritable key, byte[]... values) {
+        return newRow(builder, HConstants.LATEST_TIMESTAMP, key, values);
     }
 
     @Override
@@ -539,7 +542,9 @@ public class PTableImpl implements PTable {
                 // Because we cannot enforce a not null constraint on a KV column (since we don't know if the row exists when
                 // we upsert it), se instead add a KV that is always emtpy. This allows us to imitate SQL semantics given the
                 // way HBase works.
-                setValues.add(SchemaUtil.getEmptyColumnFamily(getColumnFamilies()), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+                addQuietly(setValues, kvBuilder, kvBuilder.buildPut(keyPtr,
+                    SchemaUtil.getEmptyColumnFamilyPtr(getColumnFamilies()),
+                    QueryConstants.EMPTY_COLUMN_BYTES_PTR, ts, ByteUtil.EMPTY_BYTE_ARRAY_PTR));
                 mutations.add(setValues);
                 if (!unsetValues.isEmpty()) {
                     mutations.add(unsetValues);
@@ -580,14 +585,8 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
                 removeIfPresent(setValues, family, qualifier);
-                try {
-                    unsetValues.addDeleteMarker(kvBuilder.buildDeleteColumns(keyPtr, column
+                deleteQuietly(unsetValues, kvBuilder, kvBuilder.buildDeleteColumns(keyPtr, column
                         .getFamilyName().getBytesPtr(), column.getName().getBytesPtr(), ts));
-                } catch (IOException e) {
-                    // this should never happen
-                    throw new RuntimeException(
-                            "KeyValueBuilder built delete marker that was not of delete type!", e);
-                }
             } else {
             	Integer	byteSize = column.getByteSize();
 				if (byteSize != null && type.isFixedWidth()
@@ -597,14 +596,9 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
                 removeIfPresent(unsetValues, family, qualifier);
-                try {
-                    setValues.add(kvBuilder.buildPut(keyPtr, column.getFamilyName().getBytesPtr(),
+                addQuietly(setValues, kvBuilder, kvBuilder.buildPut(keyPtr, column.getFamilyName()
+                        .getBytesPtr(),
                         column.getName().getBytesPtr(), ts, new ImmutableBytesPtr(byteValue)));
-                } catch (IOException e) {
-                    // this should never happen
-                    throw new RuntimeException("KeyValueBuilder " + kvBuilder
-                            + " built put marker that was NOT valid!", e);
-                }
             }
         }
         
@@ -834,7 +828,7 @@ public class PTableImpl implements PTable {
     @Override
     public synchronized IndexMaintainer getIndexMaintainer(PTable dataTable) {
         if (indexMaintainer == null) {
-            indexMaintainer = IndexMaintainer.create(dataTable, this, dataTable.getKvBuilder());
+            indexMaintainer = IndexMaintainer.create(dataTable, this);
         }
         return indexMaintainer;
     }
@@ -897,15 +891,5 @@ public class PTableImpl implements PTable {
         }
         SQLParser parser = new SQLParser(viewExpression);
         return parser.parseCondition();
-    }
-
-    @Override
-    public void setKvBuilder(KeyValueBuilder builder) {
-        this.kvBuilder = builder;
-    }
-
-    @Override
-    public KeyValueBuilder getKvBuilder() {
-        return this.kvBuilder;
     }
 }

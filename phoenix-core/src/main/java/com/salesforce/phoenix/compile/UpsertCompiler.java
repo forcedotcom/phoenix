@@ -136,7 +136,6 @@ public class UpsertCompiler {
             int rowCount = 0;
             Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(batchSize);
             PTable table = tableRef.getTable();
-            table.setKvBuilder(connection.getKeyValueBuilder());
             ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
             while (rs.next()) {
                 for (int i = 0; i < values.length; i++) {

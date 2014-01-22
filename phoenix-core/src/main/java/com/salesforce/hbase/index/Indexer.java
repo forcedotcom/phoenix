@@ -81,6 +81,7 @@ import com.salesforce.hbase.index.write.IndexWriter;
 import com.salesforce.hbase.index.write.recovery.PerRegionIndexWriteCache;
 import com.salesforce.hbase.index.write.recovery.StoreFailuresInCachePolicy;
 import com.salesforce.hbase.index.write.recovery.TrackingParallelWriterIndexCommitter;
+import com.salesforce.phoenix.util.MetaDataUtil;
 
 /**
  * Do all the work of managing index updates from a single coprocessor. All Puts/Delets are passed
@@ -150,8 +151,12 @@ public class Indexer extends BaseRegionObserver {
 
   public static final String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
 
-    public static final int INDEXING_SUPPORTED_MAJOR_VERSION = 94;
-    private static final int INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION = 9;
+    public static final int INDEXING_SUPPORTED_MAJOR_VERSION = MetaDataUtil
+            .encodeMaxPatchVersion(0, 94);
+    public static final int INDEXING_SUPPORTED__MIN_MAJOR_VERSION = MetaDataUtil
+            .encodeVersion("0.94.0");
+    private static final int INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION = MetaDataUtil
+            .encodeVersion("0.94.9");
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
@@ -672,37 +677,23 @@ public class Indexer extends BaseRegionObserver {
      * @return <tt>null</tt> if the version is supported, the error message to display otherwise
      */
     public static String validateVersion(String hbaseVersion, Configuration conf) {
-        int[] versions = decodeHBaseVersion(hbaseVersion);
-        if (versions[1] == INDEXING_SUPPORTED_MAJOR_VERSION) {
-            // less than 0.94.9, so we need to check if WAL Compression is enabled
-            if (versions[2] < INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION) {
-                if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
-                    return "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
-                            + Arrays.toString(versions);
-                }
+        int encodedVersion = MetaDataUtil.encodeVersion(hbaseVersion);
+        // above 0.94 everything should be supported
+        if (encodedVersion > INDEXING_SUPPORTED_MAJOR_VERSION) {
+            return null;
+        }
+        // check to see if its at least 0.94
+        if (encodedVersion < INDEXING_SUPPORTED__MIN_MAJOR_VERSION) {
+            return "Indexing not supported for versions older than 0.94.X";
+        }
+        // if less than 0.94.9, we need to check if WAL Compression is enabled
+        if (encodedVersion < INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION) {
+            if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+                return "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
+                        + hbaseVersion;
             }
         }
         return null;
-    }
-
-    public static int[] decodeHBaseVersion(String version) {
-        int[] versions = new int[3];
-        String[] v = version.split("[.]");
-        if (v.length < 3) {
-                throw new IllegalStateException(
-                        "HBase version could not be read, expected three parts, but found: "
-                            + Arrays.toString(v));
-        }
-      
-        int snapshot = v[2].indexOf("-");
-        if (snapshot > 0) {
-            v[2] = v[2].substring(0, snapshot);
-        }
-        for (int i = 0; i < 3; i++) {
-            versions[i] = Integer.parseInt(v[i]);
-        }
-
-        return versions;
     }
 
   /**

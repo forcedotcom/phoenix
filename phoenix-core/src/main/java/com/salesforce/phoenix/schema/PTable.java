@@ -168,7 +168,7 @@ public interface PTable extends Writable {
      * @throws ConstraintViolationException if row data violates schema
      * constraint
      */
-    PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values);
+    PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key, byte[]... values);
 
     /**
      * Creates a new row for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[][])}
@@ -181,7 +181,7 @@ public interface PTable extends Writable {
      * @throws ConstraintViolationException if row data violates schema
      * constraint
      */
-    PRow newRow(ImmutableBytesWritable key, byte[]... values);
+    PRow newRow(KeyValueBuilder builder, ImmutableBytesWritable key, byte[]... values);
 
     /**
      * Formulates a row key using the values provided. The values must be in
@@ -244,6 +244,7 @@ public interface PTable extends Writable {
 
     PName getPhysicalName();
     boolean isImmutableRows();
+
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     PName getDefaultFamilyName();
@@ -253,7 +254,4 @@ public interface PTable extends Writable {
     boolean isWALDisabled();
     boolean isMultiTenant();
     ViewType getViewType();
-
-    void setKvBuilder(KeyValueBuilder keyValueBuilder);
-    KeyValueBuilder getKvBuilder();
 }

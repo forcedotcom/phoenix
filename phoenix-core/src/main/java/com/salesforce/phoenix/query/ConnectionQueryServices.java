@@ -40,6 +40,7 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
 
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
@@ -99,4 +100,9 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
     void returnSequenceValues(List<SequenceKey> sequenceKeys, long timestamp, SQLException[] exceptions) throws SQLException;
     void addConnection(PhoenixConnection connection) throws SQLException;
     void removeConnection(PhoenixConnection connection) throws SQLException;
+
+    /**
+     * @return the {@link KeyValueBuilder} that is valid for the locally installed version of HBase.
+     */
+    public KeyValueBuilder getKeyValueBuilder();
 }

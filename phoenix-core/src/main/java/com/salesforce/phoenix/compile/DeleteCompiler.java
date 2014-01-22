@@ -96,8 +96,6 @@ public class DeleteCompiler {
         Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutations = Maps.newHashMapWithExpectedSize(batchSize);
         try {
             PTable table = tableRef.getTable();
-            // ok, this is a little hacky - it probably shouldn't reach this far into statement...
-            table.setKvBuilder(statement.getConnection().getKeyValueBuilder());
             List<PColumn> pkColumns = table.getPKColumns();
             int offset = table.getBucketNum() == null ? 0 : 1; // Take into account salting
             byte[][] values = new byte[pkColumns.size()][];
