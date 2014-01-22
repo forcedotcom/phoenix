@@ -195,8 +195,7 @@ public class DeleteCompiler {
         boolean isMultiTenant = connection.getTenantId() != null && table.isMultiTenant();
         for (int i = (isSalted ? 1 : 0) + (isMultiTenant ? 1 : 0); i < table.getPKColumns().size(); i++) {
             PColumn column = table.getPKColumns().get(i);
-            String name = column.getName().getString();
-            aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, name, name)));
+            aliasedNodes.add(FACTORY.aliasedNode(null, FACTORY.column(null, '"' + column.getName().getString() + '"', null)));
         }
         SelectStatement select = FACTORY.select(
                 Collections.singletonList(delete.getTable()), 

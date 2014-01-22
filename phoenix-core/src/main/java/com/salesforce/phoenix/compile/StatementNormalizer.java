@@ -32,11 +32,13 @@ import java.util.List;
 
 import com.google.common.collect.Lists;
 import com.salesforce.phoenix.parse.BetweenParseNode;
+import com.salesforce.phoenix.parse.ColumnParseNode;
 import com.salesforce.phoenix.parse.ComparisonParseNode;
 import com.salesforce.phoenix.parse.LessThanOrEqualParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.parse.ParseNodeRewriter;
 import com.salesforce.phoenix.parse.SelectStatement;
+import com.salesforce.phoenix.util.SchemaUtil;
 
 
 /**
@@ -49,9 +51,11 @@ import com.salesforce.phoenix.parse.SelectStatement;
  * @since 0.1
  */
 public class StatementNormalizer extends ParseNodeRewriter {
+    private boolean useFullNameForAlias;
     
-    public StatementNormalizer(ColumnResolver resolver, int expectedAliasCount) {
+    public StatementNormalizer(ColumnResolver resolver, int expectedAliasCount, boolean useFullNameForAlias) {
         super(resolver, expectedAliasCount);
+        this.useFullNameForAlias = useFullNameForAlias;
     }
 
     public static ParseNode normalize(ParseNode where, ColumnResolver resolver) throws SQLException {
@@ -67,7 +71,7 @@ public class StatementNormalizer extends ParseNodeRewriter {
      * @throws SQLException 
      */
     public static SelectStatement normalize(SelectStatement statement, ColumnResolver resolver) throws SQLException {
-        return rewrite(statement, new StatementNormalizer(resolver, statement.getSelect().size()));
+        return rewrite(statement, new StatementNormalizer(resolver, statement.getSelect().size(), statement.getFrom().size() > 1));
     }
     
     @Override
@@ -91,5 +95,16 @@ public class StatementNormalizer extends ParseNodeRewriter {
         parseNodes.add(this.visitLeave(lhsNode, lhsNode.getChildren()));
         parseNodes.add(this.visitLeave(rhsNode, rhsNode.getChildren()));
         return super.visitLeave(node, parseNodes);
+    }
+
+    @Override
+    public ParseNode visit(ColumnParseNode node) throws SQLException {
+        if (useFullNameForAlias 
+                && node.getAlias() != null 
+                && node.getTableName() != null
+                && SchemaUtil.normalizeIdentifier(node.getAlias()).equals(node.getName())) {
+            node = NODE_FACTORY.column(NODE_FACTORY.table(node.getSchemaName(), node.getTableName()), node.isCaseSensitive() ? '"' + node.getName() + '"' : node.getName(), node.getFullName());
+        }
+        return super.visit(node);
     }
 }

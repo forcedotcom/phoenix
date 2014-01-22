@@ -73,6 +73,7 @@ import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeySchema;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.IndexUtil;
+import com.salesforce.phoenix.util.SchemaUtil;
 import com.salesforce.phoenix.util.SizedUtil;
 
 
@@ -242,8 +243,8 @@ public class ProjectionCompiler {
                         ExpressionCompiler.throwNonAggExpressionInAggException(expression.toString());
                     }
                 }
-                String columnAlias = aliasedNode.getAlias();
-                boolean isCaseSensitive = aliasedNode.isCaseSensitve() || selectVisitor.isCaseSensitive;
+                String columnAlias = aliasedNode.getAlias() != null ? aliasedNode.getAlias() : SchemaUtil.normalizeIdentifier(aliasedNode.getNode().getAlias());
+                boolean isCaseSensitive = (columnAlias != null && (aliasedNode.isCaseSensitve() || SchemaUtil.isCaseSensitive(columnAlias)))  || selectVisitor.isCaseSensitive;
                 String name = columnAlias == null ? expression.toString() : columnAlias;
                 projectedColumns.add(new ExpressionProjector(name, table.getName().getString(), expression, isCaseSensitive));
             }

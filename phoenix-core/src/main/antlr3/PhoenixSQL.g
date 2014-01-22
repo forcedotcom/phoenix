@@ -622,7 +622,7 @@ select_list returns [List<AliasedNode> ret]
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
-    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a == null ? field.getAlias() : a, field); }
+    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
     | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 
