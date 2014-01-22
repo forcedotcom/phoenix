@@ -25,6 +25,9 @@ import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.client.ClientKeyValueBuilder;
+import com.salesforce.phoenix.client.GenericKeyValueBuilder;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.end2end.index.IndexTestUtil;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
@@ -60,6 +63,17 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
     }
     
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns, String pk, String indexColumns, Object[] values, String includeColumns, String dataProps, String indexProps) throws Exception {
+        KeyValueBuilder builder = GenericKeyValueBuilder.INSTANCE;
+        testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
+
+        //do the same, but with the client key-value builder, to ensure that works the same
+        builder = ClientKeyValueBuilder.INSTANCE;
+        testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
+    }
+
+    private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns,
+            String pk, String indexColumns, Object[] values, String includeColumns,
+            String dataProps, String indexProps, KeyValueBuilder builder) throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
         String fullTableName = SchemaUtil.getTableName(schemaName, tableName) ;
         conn.createStatement().execute("CREATE TABLE " + fullTableName + "(" + dataColumns + " CONSTRAINT pk PRIMARY KEY (" + pk + "))  " + (dataProps.isEmpty() ? "" : dataProps) );
@@ -69,7 +83,7 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
             PTable index = conn.unwrap(PhoenixConnection.class).getPMetaData().getTable(SchemaUtil.getTableName(SchemaUtil.normalizeIdentifier(schemaName),SchemaUtil.normalizeIdentifier("idx")));
             ImmutableBytesWritable ptr = new ImmutableBytesWritable();
             table.getIndexMaintainers(ptr);
-            List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr);
+            List<IndexMaintainer> c1 = IndexMaintainer.deserialize(ptr, builder);
             assertEquals(1,c1.size());
             IndexMaintainer im1 = c1.get(0);
             
@@ -94,7 +108,8 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
             }
             ValueGetter valueGetter = newValueGetter(valueMap);
             
-            List<Mutation> indexMutations = IndexTestUtil.generateIndexData(index, table, dataMutation, ptr);
+            List<Mutation> indexMutations =
+                    IndexTestUtil.generateIndexData(index, table, dataMutation, ptr, builder);
             assertEquals(1,indexMutations.size());
             assertTrue(indexMutations.get(0) instanceof Put);
             Mutation indexMutation = indexMutations.get(0);

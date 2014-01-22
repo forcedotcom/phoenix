@@ -42,6 +42,7 @@ import com.google.common.collect.Lists;
 import com.salesforce.hbase.index.ValueGetter;
 import com.salesforce.hbase.index.covered.update.ColumnReference;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.index.IndexMaintainer;
@@ -150,9 +151,13 @@ public class IndexUtil {
         return (Bytes.compareTo(emptyKeyValueCF, ref.getFamily()) == 0 &&
                 Bytes.compareTo(QueryConstants.EMPTY_COLUMN_BYTES, ref.getQualifier()) == 0);
     }
-    public static List<Mutation> generateIndexData(final PTable table, PTable index, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+
+    public static List<Mutation> generateIndexData(final PTable table, PTable index,
+            List<Mutation> dataMutations, ImmutableBytesWritable ptr, KeyValueBuilder builder)
+            throws SQLException {
         try {
             IndexMaintainer maintainer = index.getIndexMaintainer(table);
+            maintainer.setKvBuilder(builder);
             List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
            for (final Mutation dataMutation : dataMutations) {
                 long ts = MetaDataUtil.getClientTimeStamp(dataMutation);

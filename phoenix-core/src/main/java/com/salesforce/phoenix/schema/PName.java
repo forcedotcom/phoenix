@@ -27,6 +27,7 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.util.ByteUtil;
 
@@ -55,6 +56,11 @@ public interface PName {
         public String toString() {
             return getString();
         }
+
+        @Override
+        public ImmutableBytesPtr getBytesPtr() {
+            return ByteUtil.EMPTY_BYTE_ARRAY_PTR;
+        }
     };
     public static PName EMPTY_COLUMN_NAME = new PName() {
         @Override
@@ -71,6 +77,11 @@ public interface PName {
         public String toString() {
             return getString();
         }
+
+        @Override
+        public ImmutableBytesPtr getBytesPtr() {
+            return QueryConstants.EMPTY_COLUMN_BYTES_PTR;
+        }
     };
     /**
      * Get the client-side, normalized name as referenced
@@ -85,4 +96,9 @@ public interface PName {
      * @return the name as a byte array
      */
     byte[] getBytes();
+
+    /**
+     * @return a pointer to the underlying bytes
+     */
+    ImmutableBytesPtr getBytesPtr();
 }

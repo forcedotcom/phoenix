@@ -43,7 +43,7 @@ import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
  */
 public class ClientKeyValueBuilder extends KeyValueBuilder {
 
-  public static final KeyValueBuilder INSTANCE = new ClientKeyValueBuilder();
+    public static final KeyValueBuilder INSTANCE = new ClientKeyValueBuilder();
 
   private ClientKeyValueBuilder() {
     // private ctor for singleton
@@ -57,19 +57,19 @@ public class ClientKeyValueBuilder extends KeyValueBuilder {
 
   @Override
   public KeyValue buildDeleteFamily(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return new ClientKeyValue(row, family, qualifier, ts, Type.DeleteFamily, value);
+            ImmutableBytesWritable qualifier, long ts) {
+        return new ClientKeyValue(row, family, qualifier, ts, Type.DeleteFamily, null);
   }
 
   @Override
   public KeyValue buildDeleteColumns(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return new ClientKeyValue(row, family, qualifier, ts, Type.DeleteColumn, value);
+            ImmutableBytesWritable qualifier, long ts) {
+        return new ClientKeyValue(row, family, qualifier, ts, Type.DeleteColumn, null);
   }
 
   @Override
   public KeyValue buildDeleteColumn(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return new ClientKeyValue(row, family, qualifier, ts, Type.Delete, value);
+            ImmutableBytesWritable qualifier, long ts) {
+        return new ClientKeyValue(row, family, qualifier, ts, Type.Delete, null);
   }
 }

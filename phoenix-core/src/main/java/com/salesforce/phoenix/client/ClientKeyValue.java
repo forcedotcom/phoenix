@@ -270,6 +270,13 @@ public class ClientKeyValue extends KeyValue {
       other.getQualifierLength());
   }
 
+  @Override
+  public boolean matchingRow(byte[] row){
+    if (row == null) {
+      return false;
+    }
+    return matches(row, 0, row.length, this.row);
+  }
 
   @Override
   public boolean matchingRow(byte[] row, int offset, int length) {
