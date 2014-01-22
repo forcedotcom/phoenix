@@ -771,7 +771,7 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
     
     @Test
     public void testStarJoin() throws Exception {
-        String query = "SELECT order_id, c.name, i.name, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
+        String query = "SELECT order_id, c.name, i.name iname, quantity, o.date FROM " + JOIN_ORDER_TABLE + " o LEFT JOIN " 
             + JOIN_CUSTOMER_TABLE + " c ON o.customer_id = c.customer_id LEFT JOIN " 
             + JOIN_ITEM_TABLE + " i ON o.item_id = i.item_id";
         Properties props = new Properties(TEST_PROPERTIES);
@@ -781,9 +781,13 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "000000000000001");
+            assertEquals(rs.getString("order_id"), "000000000000001");
             assertEquals(rs.getString(2), "C4");
+            assertEquals(rs.getString("C.name"), "C4");
             assertEquals(rs.getString(3), "T1");
+            assertEquals(rs.getString("iName"), "T1");
             assertEquals(rs.getInt(4), 1000);
+            assertEquals(rs.getInt("Quantity"), 1000);
             assertNotNull(rs.getDate(5));
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "000000000000002");
@@ -1066,7 +1070,7 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
     
     @Test
     public void testJoinWithWildcard() throws Exception {
-        String query = "SELECT * FROM " + JOIN_ITEM_TABLE + " item LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON item.supplier_id = supp.supplier_id";
+        String query = "SELECT * FROM " + JOIN_ITEM_TABLE + " LEFT JOIN " + JOIN_SUPPLIER_TABLE + " supp ON " + JOIN_ITEM_TABLE + ".supplier_id = supp.supplier_id";
         Properties props = new Properties(TEST_PROPERTIES);
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
@@ -1074,17 +1078,29 @@ public class HashJoinTest extends BaseHBaseManagedTimeTest {
             ResultSet rs = statement.executeQuery();
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000001");
+            assertEquals(rs.getString(JOIN_ITEM_TABLE + ".item_id"), "0000000001");
             assertEquals(rs.getString(2), "T1");
+            assertEquals(rs.getString(JOIN_ITEM_TABLE + ".name"), "T1");
             assertEquals(rs.getInt(3), 100);
+            assertEquals(rs.getInt(JOIN_ITEM_TABLE + ".price"), 100);
             assertEquals(rs.getInt(4), 5);
+            assertEquals(rs.getInt(JOIN_ITEM_TABLE + ".discount1"), 5);
             assertEquals(rs.getInt(5), 10);
+            assertEquals(rs.getInt(JOIN_ITEM_TABLE + ".discount2"), 10);
             assertEquals(rs.getString(6), "0000000001");
+            assertEquals(rs.getString(JOIN_ITEM_TABLE + ".supplier_id"), "0000000001");
             assertEquals(rs.getString(7), "Item T1");
+            assertEquals(rs.getString(JOIN_ITEM_TABLE + ".description"), "Item T1");
             assertEquals(rs.getString(8), "0000000001");
+            assertEquals(rs.getString("supp.supplier_id"), "0000000001");
             assertEquals(rs.getString(9), "S1");
+            assertEquals(rs.getString("supp.name"), "S1");
             assertEquals(rs.getString(10), "888-888-1111");
+            assertEquals(rs.getString("supp.phone"), "888-888-1111");
             assertEquals(rs.getString(11), "101 YYY Street");
+            assertEquals(rs.getString("supp.address"), "101 YYY Street");
             assertEquals(rs.getString(12), "10001");            
+            assertEquals(rs.getString("supp.loc_id"), "10001");            
             assertTrue (rs.next());
             assertEquals(rs.getString(1), "0000000002");
             assertEquals(rs.getString(2), "T2");
