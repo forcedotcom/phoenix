@@ -87,7 +87,6 @@ import com.salesforce.phoenix.schema.PTableImpl;
 import com.salesforce.phoenix.schema.tuple.MultiKeyValueTuple;
 import com.salesforce.phoenix.util.ByteUtil;
 import com.salesforce.phoenix.util.KeyValueUtil;
-import com.salesforce.phoenix.util.MetaDataUtil;
 import com.salesforce.phoenix.util.ScanUtil;
 import com.salesforce.phoenix.util.SchemaUtil;
 

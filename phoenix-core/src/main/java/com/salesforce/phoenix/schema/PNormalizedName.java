@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.http.annotation.Immutable;
 
 import com.salesforce.phoenix.util.SchemaUtil;

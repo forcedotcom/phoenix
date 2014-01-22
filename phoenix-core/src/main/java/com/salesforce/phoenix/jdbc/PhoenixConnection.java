@@ -60,8 +60,6 @@ import java.util.concurrent.Executor;
 
 import javax.annotation.Nullable;
 
-import org.apache.hadoop.hbase.util.VersionInfo;
-
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -119,7 +117,6 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     private final String datePattern;
     
     private boolean isClosed = false;
-    private KeyValueBuilder kvBuilder;
     
     private static Properties newPropsWithSCN(long scn, Properties props) {
         props = new Properties(props);
