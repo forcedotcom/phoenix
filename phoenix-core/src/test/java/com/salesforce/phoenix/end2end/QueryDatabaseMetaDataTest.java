@@ -702,7 +702,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
             } catch (ReadOnlyTableException e) {
                 // expected to fail b/c table is read-only
             }
-            conn2.createStatement().execute("ALTER TABLE " + MDTEST_NAME + " SET IMMUTABLE_ROWS=TRUE");
+            conn2.createStatement().execute("ALTER VIEW " + MDTEST_NAME + " SET IMMUTABLE_ROWS=TRUE");
             
             HTableInterface htable = conn2.getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(MDTEST_SCHEMA_NAME,MDTEST_NAME));
             Put put = new Put(Bytes.toBytes("0"));
