@@ -721,6 +721,8 @@ public class MetaDataClient {
                 if (parent.getType() == PTableType.VIEW) {
                     viewExpressionStr = AndExpression.combine(viewExpressionStr, parent.getViewExpression());
                     viewType = ViewType.combine(viewType, parent.getViewType());
+                    baseTableName = parent.getBaseTableName().getString();
+                    baseSchemaName = parent.getBaseSchemaName() == null ? null : parent.getBaseSchemaName().getString();
                 }
                 // Propagate property values to VIEW.
                 // TODO: formalize the known set of these properties
@@ -1360,10 +1362,18 @@ public class MetaDataClient {
 
 
     private String dropColumnMutations(PTable table, List<PColumn> columnsToDrop, List<Mutation> tableMetaData) throws SQLException {
+        String tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getString();
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         String familyName = null;
-        StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE " + TABLE_SCHEM_NAME);
+        StringBuilder buf = new StringBuilder("DELETE FROM " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" WHERE ");
+        buf.append(TENANT_ID);
+        if (tenantId == null || tenantId.length() == 0) {
+            buf.append(" IS NULL AND ");
+        } else {
+            buf.append(" = ? AND ");
+        }
+        buf.append(TABLE_SCHEM_NAME);
         if (schemaName == null || schemaName.length() == 0) {
             buf.append(" IS NULL AND ");
         } else {
@@ -1378,6 +1388,9 @@ public class MetaDataClient {
         try {
             for(PColumn columnToDrop : columnsToDrop) {
                 int i = 1;
+                if (tenantId != null && tenantId.length() > 0) {
+                    colDelete.setString(i++, tenantId);
+                }
                 if (schemaName != null & schemaName.length() > 0) {
                     colDelete.setString(i++, schemaName);    
                 }

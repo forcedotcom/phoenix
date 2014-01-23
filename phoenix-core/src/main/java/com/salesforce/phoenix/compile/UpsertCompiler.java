@@ -75,6 +75,7 @@ import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.parse.SequenceValueParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
@@ -242,7 +243,8 @@ public class UpsertCompiler {
         if (table.getViewType() == ViewType.UPDATABLE) {
             StatementContext context = new StatementContext(statement, resolver, this.statement.getParameters(), new Scan());
             ViewValuesMapBuilder builder = new ViewValuesMapBuilder(context);
-            table.getViewNode().accept(builder);
+            ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
+            viewNode.accept(builder);
             addViewColumns = builder.getViewColumns();
         }
         // Allow full row upsert if no columns or only dynamic ones are specified and values count match

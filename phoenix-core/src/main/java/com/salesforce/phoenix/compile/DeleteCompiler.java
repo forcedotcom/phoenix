@@ -184,7 +184,8 @@ public class DeleteCompiler {
         }
         
         final boolean hasLimit = delete.getLimit() != null;
-        boolean runOnServer = isAutoCommit && !hasLimit && !hasImmutableIndex(tableRef);
+        boolean noQueryReqd = !hasLimit && !hasImmutableIndex(tableRef);
+        boolean runOnServer = isAutoCommit && noQueryReqd;
         HintNode hint = delete.getHint();
         if (runOnServer && !delete.getHint().hasHint(Hint.USE_INDEX_OVER_DATA_TABLE)) {
             hint = HintNode.create(hint, Hint.USE_DATA_OVER_INDEX_TABLE);
@@ -205,7 +206,10 @@ public class DeleteCompiler {
                 delete.getBindCount(), false);
         DeletingParallelIteratorFactory parallelIteratorFactory = hasLimit ? null : new DeletingParallelIteratorFactory(connection, tableRef);
         final QueryPlan plan = new QueryOptimizer(services).optimize(select, statement, Collections.<PColumn>emptyList(), parallelIteratorFactory);
-        runOnServer &= plan.getTableRef().equals(tableRef);
+        if (!plan.getTableRef().equals(tableRef)) {
+            runOnServer = false;
+            noQueryReqd = false;
+        }
         
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
  
@@ -218,7 +222,7 @@ public class DeleteCompiler {
         // If we're doing a query for a single row with no where clause, then we don't need to contact the server at all.
         // A simple check of the none existence of a where clause in the parse node is not sufficient, as the where clause
         // may have been optimized out.
-        if (runOnServer && context.isSingleRowScan()) {
+        if (noQueryReqd && context.isSingleRowScan()) {
             final ImmutableBytesPtr key = new ImmutableBytesPtr(context.getScan().getStartRow());
             return new MutationPlan() {
 

@@ -47,6 +47,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixParameterMetaData;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -124,7 +125,7 @@ public class PostDDLCompiler {
                         Scan scan = new Scan();
                         scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
                         PTable table = tableRef.getTable();
-                        ParseNode viewNode = table.getViewNode();
+                        ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
                         SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, viewNode);
                         // We need to use this tableRef
                         ColumnResolver resolver = new ColumnResolver() {

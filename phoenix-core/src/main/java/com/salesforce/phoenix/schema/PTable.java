@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -37,7 +36,6 @@ import org.apache.hadoop.io.Writable;
 
 import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
-import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -249,7 +247,6 @@ public interface PTable extends Writable {
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     PName getDefaultFamilyName();
     String getViewExpression();
-    ParseNode getViewNode() throws SQLException;
     
     boolean isWALDisabled();
     boolean isMultiTenant();

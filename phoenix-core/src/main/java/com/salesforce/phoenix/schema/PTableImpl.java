@@ -63,8 +63,6 @@ import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -122,8 +120,6 @@ public class PTableImpl implements PTable {
     private boolean disableWAL;
     private boolean multiTenant;
     private ViewType viewType;
-    
-    private ParseNode viewNode;
     
     public PTableImpl() {
     }
@@ -880,17 +876,5 @@ public class PTableImpl implements PTable {
     @Override
     public boolean isWALDisabled() {
         return disableWAL;
-    }
-
-    @Override
-    public ParseNode getViewNode() throws SQLException {
-        if (viewNode != null) {
-            return viewNode;
-        }
-        if (viewExpression == null) {
-            return null;
-        }
-        SQLParser parser = new SQLParser(viewExpression);
-        return parser.parseCondition();
     }
 }
