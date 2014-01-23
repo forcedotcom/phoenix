@@ -33,7 +33,6 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +80,7 @@ import com.salesforce.hbase.index.write.IndexWriter;
 import com.salesforce.hbase.index.write.recovery.PerRegionIndexWriteCache;
 import com.salesforce.hbase.index.write.recovery.StoreFailuresInCachePolicy;
 import com.salesforce.hbase.index.write.recovery.TrackingParallelWriterIndexCommitter;
+import com.salesforce.phoenix.util.MetaDataUtil;
 
 /**
  * Do all the work of managing index updates from a single coprocessor. All Puts/Delets are passed
@@ -149,6 +149,13 @@ public class Indexer extends BaseRegionObserver {
   private boolean disabled;
 
   public static final String RecoveryFailurePolicyKeyForTesting = INDEX_RECOVERY_FAILURE_POLICY_KEY;
+
+    public static final int INDEXING_SUPPORTED_MAJOR_VERSION = MetaDataUtil
+            .encodeMaxPatchVersion(0, 94);
+    public static final int INDEXING_SUPPORTED__MIN_MAJOR_VERSION = MetaDataUtil
+            .encodeVersion("0.94.0");
+    private static final int INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION = MetaDataUtil
+            .encodeVersion("0.94.9");
 
   @Override
   public void start(CoprocessorEnvironment e) throws IOException {
@@ -661,37 +668,32 @@ public class Indexer extends BaseRegionObserver {
     return this.builder.getBuilderForTesting();
   }
 
-  /**
-   * Validate that the version and configuration parameters are supported
-   * @param hBaseVersion current version of HBase on which <tt>this</tt> coprocessor is installed
-   * @param conf configuration to check for allowed parameters (e.g. WAL Compression only if >=
-   *          0.94.9)
-   */
-  public static String validateVersion(String hBaseVersion, Configuration conf) {
-    String[] versions = hBaseVersion.split("[.]");
-    if (versions.length < 3) {
-      return "HBase version could not be read, expected three parts, but found: "
-          + Arrays.toString(versions);
-    }
-  
-    if (versions[1].equals("94")) {
-      String pointVersion = versions[2];
-      //remove -SNAPSHOT if applicable
-      int snapshot = pointVersion.indexOf("-");
-      if(snapshot > 0){
-        pointVersion = pointVersion.substring(0, snapshot);
-      }
-      // less than 0.94.9, so we need to check if WAL Compression is enabled
-      if (Integer.parseInt(pointVersion) < 9) {
-        if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
-          return
-                "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
-              + Arrays.toString(versions);
+    /**
+     * Validate that the version and configuration parameters are supported
+     * @param hbaseVersion current version of HBase on which <tt>this</tt> coprocessor is installed
+     * @param conf configuration to check for allowed parameters (e.g. WAL Compression only if >=
+     *            0.94.9)
+     * @return <tt>null</tt> if the version is supported, the error message to display otherwise
+     */
+    public static String validateVersion(String hbaseVersion, Configuration conf) {
+        int encodedVersion = MetaDataUtil.encodeVersion(hbaseVersion);
+        // above 0.94 everything should be supported
+        if (encodedVersion > INDEXING_SUPPORTED_MAJOR_VERSION) {
+            return null;
         }
-      }
+        // check to see if its at least 0.94
+        if (encodedVersion < INDEXING_SUPPORTED__MIN_MAJOR_VERSION) {
+            return "Indexing not supported for versions older than 0.94.X";
+        }
+        // if less than 0.94.9, we need to check if WAL Compression is enabled
+        if (encodedVersion < INDEX_WAL_COMPRESSION_MINIMUM_SUPPORTED_VERSION) {
+            if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) {
+                return "Indexing not supported with WAL Compression for versions of HBase older than 0.94.9 - found version:"
+                        + hbaseVersion;
+            }
+        }
+        return null;
     }
-    return null;
-  }
 
   /**
    * Enable indexing on the given table

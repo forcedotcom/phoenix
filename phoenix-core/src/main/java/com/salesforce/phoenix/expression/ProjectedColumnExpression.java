@@ -105,7 +105,7 @@ public class ProjectedColumnExpression extends ColumnExpression {
 
     @Override
     public String toString() {
-        return Bytes.toString(name) + "(PROJECTED[" + position + "])";
+        return Bytes.toString(name);
     }
 	
 	@Override

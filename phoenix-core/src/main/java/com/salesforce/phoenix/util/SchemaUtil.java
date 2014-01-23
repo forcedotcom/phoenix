@@ -52,6 +52,7 @@ import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
@@ -351,6 +352,11 @@ public class SchemaUtil {
 
     public static byte[] getEmptyColumnFamily(List<PColumnFamily> families) {
         return families.isEmpty() ? QueryConstants.EMPTY_COLUMN_BYTES : families.get(0).getName().getBytes();
+    }
+
+    public static ImmutableBytesPtr getEmptyColumnFamilyPtr(List<PColumnFamily> families) {
+        return families.isEmpty() ? QueryConstants.EMPTY_COLUMN_BYTES_PTR : families.get(0)
+                .getName().getBytesPtr();
     }
 
     public static boolean isMetaTable(byte[] tableName) {

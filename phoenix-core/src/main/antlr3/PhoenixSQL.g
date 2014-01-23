@@ -392,7 +392,7 @@ create_table_node returns [CreateTableStatement ret]
 // Parse a create view statement.
 create_view_node returns [CreateTableStatement ret]
     :   CREATE VIEW (IF NOT ex=EXISTS)? t=from_table_name 
-        (LPAREN c=column_defs (pk=pk_constraint)? RPAREN)
+        (LPAREN c=column_defs (pk=pk_constraint)? RPAREN)?
         ( AS SELECT ASTERISK
           FROM bt=from_table_name
           (WHERE w=condition)? )?
@@ -622,7 +622,7 @@ select_list returns [List<AliasedNode> ret]
 
 // Parse either a select field or a sub select.
 selectable returns [AliasedNode ret]
-    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a == null ? field.getAlias() : a, field); }
+    :   field=expression (a=parseAlias)? { $ret = factory.aliasedNode(a, field); }
     | 	familyName=identifier DOT ASTERISK { $ret = factory.aliasedNode(null, factory.family(familyName));} // i.e. the 'cf.*' in 'select cf.* from' cf being column family of an hbase table    
     ;
 

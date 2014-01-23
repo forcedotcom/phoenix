@@ -21,53 +21,26 @@ import java.util.List;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PhoenixArray;
 import com.salesforce.phoenix.schema.tuple.Tuple;
+
 /**
- * 
  * Creates an expression for Upsert with Values/Select using ARRAY
- *
  */
 public class ArrayConstructorExpression extends BaseCompoundExpression {
     private PDataType baseType;
-
-    public ArrayConstructorExpression(List<Expression> children) {
+    public ArrayConstructorExpression(List<Expression> children, PDataType baseType) {
         super(children);
-    }
-
-    @Override
-    // Currently this not getting called anywhere
-    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        PDataType elementType = null;
-        for (int i = 0; i < children.size(); i++) {
-            Expression child = children.get(i);
-            if (!child.evaluate(tuple, ptr)) { return false; }
-            // Should we check for mismatch here? I think not needed here
-            if (child.getDataType() != elementType) {
-                elementType = child.getDataType();
-            }
-        }
-        baseType = elementType;
-        return true;
+        this.baseType = baseType;
     }
 
     @Override
     public PDataType getDataType() {
-        // WE need to implement getDataType for which need to check the datatype
-        if (baseType == null) {
-            PDataType elementType = null;
-            for (int i = 0; i < children.size(); i++) {
-                Expression child = children.get(i);
-                // Should we check for mismatch here? I think not needed here
-                if (child.getDataType() != elementType) {
-                    elementType = child.getDataType();
-                }
-            }
-            baseType = elementType;
-        }
         return PDataType.fromTypeId(baseType.getSqlType() + Types.ARRAY);
     }
-    
+
     @Override
     public final <T> T accept(ExpressionVisitor<T> visitor) {
         List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
@@ -76,5 +49,20 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
             t = visitor.defaultReturn(this, l);
         }
         return t;
+    }
+
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Object[] elements = new Object[children.size()];
+        for (int i = 0; i < children.size(); i++) {
+            Expression child = children.get(i);
+            if (!child.evaluate(tuple, ptr)) {
+                return false;
+            } else {
+                elements[i] = baseType.toObject(ptr, child.getDataType(), child.getColumnModifier());
+            }
+        }
+        PhoenixArray array = PArrayDataType.instantiatePhoenixArray(baseType, elements);
+        return true;
     }
 }

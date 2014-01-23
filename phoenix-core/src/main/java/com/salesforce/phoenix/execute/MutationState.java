@@ -172,7 +172,7 @@ public class MutationState implements SQLCloseable {
         while (iterator.hasNext()) {
             Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry = iterator.next();
             ImmutableBytesPtr key = rowEntry.getKey();
-            PRow row = tableRef.getTable().newRow(timestamp, key);
+            PRow row = tableRef.getTable().newRow(connection.getKeyValueBuilder(), timestamp, key);
             if (rowEntry.getValue() == null) { // means delete
                 row.delete();
             } else {
@@ -203,7 +203,9 @@ public class MutationState implements SQLCloseable {
                 PTable index = indexes.next();
                 List<Mutation> indexMutations;
                 try {
-                    indexMutations = IndexUtil.generateIndexData(tableRef.getTable(), index, mutations, tempPtr);
+                    indexMutations =
+                            IndexUtil.generateIndexData(tableRef.getTable(), index, mutations,
+                                tempPtr, connection.getKeyValueBuilder());
                 } catch (SQLException e) {
                     throw new IllegalDataException(e);
                 }

@@ -42,18 +42,30 @@ import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 public abstract class BaseCompoundExpression extends BaseExpression {
     protected List<Expression> children;
     private boolean isNullable;
+    private boolean isStateless;
+    private boolean isDeterministic;
    
     public BaseCompoundExpression() {
     }
     
-    public BaseCompoundExpression(List<? extends Expression> children) {
+    public BaseCompoundExpression(List<Expression> children) {
+        init(children);
+    }
+    
+    private void init(List<Expression> children) {
         this.children = ImmutableList.copyOf(children);
+        boolean isStateless = true;
+        boolean isDeterministic = true;
+        boolean isNullable = false;
         for (int i = 0; i < children.size(); i++) {
             Expression child = children.get(i);
-            if (child.isNullable()) {
-                isNullable = true;
-            }
+            isNullable |= child.isNullable();
+            isStateless &= child.isStateless();
+            isDeterministic &= child.isDeterministic();
         }
+        this.isStateless = isStateless;
+        this.isDeterministic = isDeterministic;
+        this.isNullable = isNullable;
     }
     
     @Override
@@ -61,6 +73,17 @@ public abstract class BaseCompoundExpression extends BaseExpression {
         return children;
     }
     
+    
+    @Override
+    public boolean isDeterministic() {
+        return isDeterministic;
+    }
+    
+    @Override
+    public boolean isStateless() {
+        return isStateless;
+    }
+
     @Override
     public boolean isNullable() {
         return isNullable;
@@ -91,10 +114,9 @@ public abstract class BaseCompoundExpression extends BaseExpression {
         for (int i = 0; i < len; i++) {
             Expression child = ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
             child.readFields(input);
-            isNullable |= child.isNullable();
             children.add(child);
         }
-        this.children = ImmutableList.copyOf(children);
+        init(children);
     }
 
     @Override

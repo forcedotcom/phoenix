@@ -40,7 +40,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.jdbc.PhoenixStatement;
-import com.salesforce.phoenix.parse.SequenceOpParseNode;
+import com.salesforce.phoenix.parse.SequenceValueParseNode;
 import com.salesforce.phoenix.parse.TableName;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.schema.PDataType;
@@ -102,7 +102,7 @@ public class SequenceManager {
         }
     }
 
-    public SequenceValueExpression newSequenceReference(SequenceOpParseNode node) {
+    public SequenceValueExpression newSequenceReference(SequenceValueParseNode node) {
         if (sequenceMap == null) {
             sequenceMap = Maps.newHashMap();
             isNextSequence = new BitSet();
@@ -118,7 +118,7 @@ public class SequenceManager {
             sequenceMap.put(key, expression);
         }
         // If we see a NEXT and a CURRENT, treat the CURRENT just like a NEXT
-        if (node.getOp() == SequenceOpParseNode.Op.NEXT_VALUE) {
+        if (node.getOp() == SequenceValueParseNode.Op.NEXT_VALUE) {
             isNextSequence.set(expression.getIndex());
         }
            
@@ -189,8 +189,12 @@ public class SequenceManager {
         }
         
         @Override
-        public boolean isConstant() {
-            // Enables use of NEXT VALUE FOR in SELECT expression of aggregate query
+        public boolean isDeterministic() {
+            return false;
+        }
+        
+        @Override
+        public boolean isStateless() {
             return true;
         }
 

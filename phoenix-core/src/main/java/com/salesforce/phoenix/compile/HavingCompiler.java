@@ -73,10 +73,10 @@ public class HavingCompiler {
         if (expression.getDataType() != PDataType.BOOLEAN) {
             throw TypeMismatchException.newException(PDataType.BOOLEAN, expression.getDataType(), expression.toString());
         }
-        if (LiteralExpression.FALSE_EXPRESSION == expression) {
+        if (LiteralExpression.isFalse(expression)) {
             context.setScanRanges(ScanRanges.NOTHING);
             return null;
-        } else if (LiteralExpression.TRUE_EXPRESSION == expression) {
+        } else if (LiteralExpression.isTrue(expression)) {
             return null;
         }
         if (!expressionBuilder.isAggregate()) {

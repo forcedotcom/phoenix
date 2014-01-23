@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import static com.salesforce.phoenix.client.KeyValueBuilder.addQuietly;
+import static com.salesforce.phoenix.client.KeyValueBuilder.deleteQuietly;
 import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
 import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
@@ -58,9 +60,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
-import com.salesforce.phoenix.parse.ParseNode;
-import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.RowKeySchema.RowKeySchemaBuilder;
 import com.salesforce.phoenix.schema.stat.PTableStats;
@@ -118,8 +120,6 @@ public class PTableImpl implements PTable {
     private boolean disableWAL;
     private boolean multiTenant;
     private ViewType viewType;
-    
-    private ParseNode viewNode;
     
     public PTableImpl() {
     }
@@ -444,8 +444,8 @@ public class PTableImpl implements PTable {
         }
     }
 
-    private PRow newRow(long ts, ImmutableBytesWritable key, int i, byte[]... values) {
-        PRow row = new PRowImpl(key, ts, getBucketNum());
+    private PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key, int i, byte[]... values) {
+        PRow row = new PRowImpl(builder, key, ts, getBucketNum());
         if (i < values.length) {
             for (PColumnFamily family : getColumnFamilies()) {
                 for (PColumn column : family.getColumns()) {
@@ -459,13 +459,14 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values) {
-        return newRow(ts, key, 0, values);
+    public PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key,
+            byte[]... values) {
+        return newRow(builder, ts, key, 0, values);
     }
 
     @Override
-    public PRow newRow(ImmutableBytesWritable key, byte[]... values) {
-        return newRow(HConstants.LATEST_TIMESTAMP, key, values);
+    public PRow newRow(KeyValueBuilder builder, ImmutableBytesWritable key, byte[]... values) {
+        return newRow(builder, HConstants.LATEST_TIMESTAMP, key, values);
     }
 
     @Override
@@ -497,18 +498,26 @@ public class PTableImpl implements PTable {
      */
     private class PRowImpl implements PRow {
         private final byte[] key;
+        private final ImmutableBytesWritable keyPtr;
+        // default to the generic builder, and only override when we know on the client
+        private final KeyValueBuilder kvBuilder;
+
         private Put setValues;
         private Delete unsetValues;
         private Delete deleteRow;
         private final long ts;
 
-        public PRowImpl(ImmutableBytesWritable key, long ts, Integer bucketNum) {
+        public PRowImpl(KeyValueBuilder kvBuilder, ImmutableBytesWritable key, long ts, Integer bucketNum) {
+            this.kvBuilder = kvBuilder;
             this.ts = ts;
             if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
+                this.keyPtr = new ImmutableBytesPtr(this.key);
             } else {
+                this.keyPtr =  new ImmutableBytesPtr(key);
                 this.key = ByteUtil.copyKeyBytesIfNecessary(key);
             }
+
             newMutations();
         }
         
@@ -530,7 +539,9 @@ public class PTableImpl implements PTable {
                 // Because we cannot enforce a not null constraint on a KV column (since we don't know if the row exists when
                 // we upsert it), se instead add a KV that is always emtpy. This allows us to imitate SQL semantics given the
                 // way HBase works.
-                setValues.add(SchemaUtil.getEmptyColumnFamily(getColumnFamilies()), QueryConstants.EMPTY_COLUMN_BYTES, ts, ByteUtil.EMPTY_BYTE_ARRAY);
+                addQuietly(setValues, kvBuilder, kvBuilder.buildPut(keyPtr,
+                    SchemaUtil.getEmptyColumnFamilyPtr(getColumnFamilies()),
+                    QueryConstants.EMPTY_COLUMN_BYTES_PTR, ts, ByteUtil.EMPTY_BYTE_ARRAY_PTR));
                 mutations.add(setValues);
                 if (!unsetValues.isEmpty()) {
                     mutations.add(unsetValues);
@@ -571,7 +582,8 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not be null");
                 }
                 removeIfPresent(setValues, family, qualifier);
-                unsetValues.deleteColumns(family, qualifier, ts);
+                deleteQuietly(unsetValues, kvBuilder, kvBuilder.buildDeleteColumns(keyPtr, column
+                        .getFamilyName().getBytesPtr(), column.getName().getBytesPtr(), ts));
             } else {
             	Integer	byteSize = column.getByteSize();
 				if (byteSize != null && type.isFixedWidth()
@@ -581,7 +593,9 @@ public class PTableImpl implements PTable {
                     throw new ConstraintViolationException(name.getString() + "." + column.getName().getString() + " may not exceed " + byteSize + " bytes (" + type.toObject(byteValue) + ")");
                 }
                 removeIfPresent(unsetValues, family, qualifier);
-                setValues.add(family, qualifier, ts, byteValue);
+                addQuietly(setValues, kvBuilder, kvBuilder.buildPut(keyPtr, column.getFamilyName()
+                        .getBytesPtr(),
+                        column.getName().getBytesPtr(), ts, new ImmutableBytesPtr(byteValue)));
             }
         }
         
@@ -862,17 +876,5 @@ public class PTableImpl implements PTable {
     @Override
     public boolean isWALDisabled() {
         return disableWAL;
-    }
-
-    @Override
-    public ParseNode getViewNode() throws SQLException {
-        if (viewNode != null) {
-            return viewNode;
-        }
-        if (viewExpression == null) {
-            return null;
-        }
-        SQLParser parser = new SQLParser(viewExpression);
-        return parser.parseCondition();
     }
 }

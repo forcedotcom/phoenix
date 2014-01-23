@@ -51,7 +51,7 @@ public class InListParseNode extends CompoundParseNode {
         // All values in the IN must be constant. First child is the LHS
         for (int i = 1; i < children.size(); i++) {
             ParseNode child = children.get(i);
-            if (!child.isConstant()) {
+            if (!child.isStateless()) {
                 throw new ParseException(new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_LIST_NOT_CONSTANT)
                 .build().buildException());
             }

@@ -66,7 +66,7 @@ public class RoundDecimalExpression extends ScalarFunction {
         if (expr.getDataType().isCoercibleTo(PDataType.LONG)) {
             return expr;
         }
-        Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER);
+        Expression scaleExpr = LiteralExpression.newConstant(scale, PDataType.INTEGER, true);
         List<Expression> expressions = Lists.newArrayList(expr, scaleExpr);
         return new RoundDecimalExpression(expressions);
     }

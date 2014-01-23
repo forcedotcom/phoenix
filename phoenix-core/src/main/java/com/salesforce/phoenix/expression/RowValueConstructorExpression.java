@@ -153,7 +153,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 coercedNodes.add(coerce(null, rhs.getChildren().get(i), wrapper));
             }
             trimTrailingNulls(coercedNodes);
-            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isConstant());
+            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isStateless());
         } else if (lhs instanceof RowValueConstructorExpression) {
             List<Expression> coercedNodes = Lists.newArrayListWithExpectedSize(Math.max(rhs.getChildren().size(), lhs.getChildren().size()));
             coercedNodes.add(coerce(lhs.getChildren().get(0), rhs, wrapper));
@@ -161,7 +161,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 coercedNodes.add(coerce(lhs.getChildren().get(i), null, wrapper));
             }
             trimTrailingNulls(coercedNodes);
-            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isConstant());
+            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isStateless());
         } else if (rhs instanceof RowValueConstructorExpression) {
             List<Expression> coercedNodes = Lists.newArrayListWithExpectedSize(Math.max(rhs.getChildren().size(), lhs.getChildren().size()));
             coercedNodes.add(coerce(lhs, rhs.getChildren().get(0), wrapper));
@@ -169,13 +169,11 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
                 coercedNodes.add(coerce(null, rhs.getChildren().get(i), wrapper));
             }
             trimTrailingNulls(coercedNodes);
-            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isConstant());
-        } else if (lhs == null && rhs == null) {
-            return LiteralExpression.newConstant(null);
+            return coercedNodes.equals(rhs.getChildren()) ? rhs : new RowValueConstructorExpression(coercedNodes, rhs.isStateless());
         } else if (lhs == null) { 
             return rhs;
         } else if (rhs == null) {
-            return LiteralExpression.newConstant(null, lhs.getDataType());
+            return LiteralExpression.newConstant(null, lhs.getDataType(), lhs.isDeterministic());
         } else {
             if (rhs.getDataType() != null && lhs.getDataType() != null && !rhs.getDataType().isCastableTo(lhs.getDataType())) {
                 throw TypeMismatchException.newException(lhs.getDataType(), rhs.getDataType());
@@ -211,7 +209,7 @@ public class RowValueConstructorExpression extends BaseCompoundExpression {
     }
     
     @Override
-    public boolean isConstant() {
+    public boolean isStateless() {
         return literalExprPtr != null;
     }
     

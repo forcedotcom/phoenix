@@ -65,7 +65,7 @@ public class LiteralParseNode extends TerminalParseNode {
     }
 
     @Override
-    public boolean isConstant() {
+    public boolean isStateless() {
         return true;
     }
     

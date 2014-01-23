@@ -122,7 +122,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
             if (selectNodes == normSelectNodes) {
                 normSelectNodes = Lists.newArrayList(selectNodes.subList(0, i));
             }
-            AliasedNode normAliasedNode = NODE_FACTORY.aliasedNode(aliasedNode.getAlias(), normSelectNode);
+            AliasedNode normAliasedNode = NODE_FACTORY.aliasedNode(aliasedNode.isCaseSensitve() ? '"' + aliasedNode.getAlias() + '"' : aliasedNode.getAlias(), normSelectNode);
             normSelectNodes.add(normAliasedNode);
         }
         // Add to map in separate pass so that we don't try to use aliases
@@ -474,11 +474,6 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     @Override
-    public ParseNode visit(ArrayConstructorNode node) throws SQLException {
-        return node;
-    }
-
-    @Override
     public ParseNode visit(BindParseNode node) throws SQLException {
         return node;
     }
@@ -550,7 +545,7 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
 
 	@Override
-	public ParseNode visit(SequenceOpParseNode node) throws SQLException {		
+	public ParseNode visit(SequenceValueParseNode node) throws SQLException {		
 		return node;
 	}
 

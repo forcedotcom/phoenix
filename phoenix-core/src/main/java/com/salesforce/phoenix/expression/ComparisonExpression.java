@@ -65,7 +65,7 @@ public class ComparisonExpression extends BaseCompoundExpression {
     public ComparisonExpression() {
     }
 
-    public ComparisonExpression(CompareOp op, List<? extends Expression> children) {
+    public ComparisonExpression(CompareOp op, List<Expression> children) {
         super(children);
         if (op == null) {
             throw new NullPointerException();

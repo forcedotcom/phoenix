@@ -27,7 +27,13 @@
  ******************************************************************************/
 package com.salesforce.phoenix.end2end.index;
 
-import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.*;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_CAT_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SCHEM_NAME;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
+import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -44,6 +50,7 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.collect.Lists;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -87,15 +94,19 @@ public class IndexTestUtil {
         indexType.coerceBytes(ptr, dataType, dataModifier, indexModifier);
     }
     
-    public static List<Mutation> generateIndexData(PTable index, PTable table, List<Mutation> dataMutations, ImmutableBytesWritable ptr) throws SQLException {
+    public static List<Mutation> generateIndexData(PTable index, PTable table,
+            List<Mutation> dataMutations, ImmutableBytesWritable ptr, KeyValueBuilder builder)
+            throws SQLException {
         List<Mutation> indexMutations = Lists.newArrayListWithExpectedSize(dataMutations.size());
         for (Mutation dataMutation : dataMutations) {
-            indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr));
+            indexMutations.addAll(generateIndexData(index, table, dataMutation, ptr, builder));
         }
         return indexMutations;
     }
 
-    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable, Mutation dataMutation, ImmutableBytesWritable ptr) throws SQLException {
+    public static List<Mutation> generateIndexData(PTable indexTable, PTable dataTable,
+            Mutation dataMutation, ImmutableBytesWritable ptr, KeyValueBuilder builder)
+            throws SQLException {
         byte[] dataRowKey = dataMutation.getRow();
         RowKeySchema dataRowKeySchema = dataTable.getRowKeySchema();
         List<PColumn> dataPKColumns = dataTable.getPKColumns();
@@ -124,7 +135,7 @@ public class IndexTestUtil {
         long ts = MetaDataUtil.getClientTimeStamp(dataMutation);
         if (dataMutation instanceof Delete && dataMutation.getFamilyMap().values().isEmpty()) {
             indexTable.newKey(ptr, indexValues);
-            row = indexTable.newRow(ts, ptr);
+            row = indexTable.newRow(builder, ts, ptr);
             row.delete();
         } else {
             // If no column families in table, then nothing to look for 
@@ -151,7 +162,7 @@ public class IndexTestUtil {
                 }
             }
             indexTable.newKey(ptr, indexValues);
-            row = indexTable.newRow(ts, ptr);
+            row = indexTable.newRow(builder, ts, ptr);
             int pos = 0;
             while ((pos = indexValuesSet.nextSetBit(pos)) >= 0) {
                 int index = nIndexColumns + indexOffset + pos++;

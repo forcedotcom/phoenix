@@ -29,12 +29,15 @@ package com.salesforce.phoenix.client;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
+import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
 import static com.salesforce.hbase.index.util.ImmutableBytesPtr.copyBytesIfNecessary;
 
 /**
- * {@link KeyValueBuilder} that does simple byte[] copies to build the underlying key-value.
+ * {@link KeyValueBuilder} that does simple byte[] copies to build the underlying key-value. This is
+ * exactly the same behavior as currently used in {@link Delete} and {@link Put}.
  */
 public class GenericKeyValueBuilder extends KeyValueBuilder {
 
@@ -52,25 +55,25 @@ public class GenericKeyValueBuilder extends KeyValueBuilder {
 
   @Override
   public KeyValue buildDeleteFamily(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return build(row, family, qualifier, ts, Type.DeleteFamily, value);
+      ImmutableBytesWritable qualifier, long ts) {
+    return build(row, family, qualifier, ts, Type.DeleteFamily, null);
   }
 
   @Override
   public KeyValue buildDeleteColumns(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return build(row, family, qualifier, ts, Type.DeleteColumn, value);
+      ImmutableBytesWritable qualifier, long ts) {
+    return build(row, family, qualifier, ts, Type.DeleteColumn, null);
   }
 
   @Override
   public KeyValue buildDeleteColumn(ImmutableBytesWritable row, ImmutableBytesWritable family,
-      ImmutableBytesWritable qualifier, long ts, ImmutableBytesWritable value) {
-    return build(row, family, qualifier, ts, Type.Delete, value);
+            ImmutableBytesWritable qualifier, long ts) {
+    return build(row, family, qualifier, ts, Type.Delete, null);
   }
 
   private KeyValue build(ImmutableBytesWritable row, ImmutableBytesWritable family,
       ImmutableBytesWritable qualifier, long ts, KeyValue.Type type, ImmutableBytesWritable value) {
     return new KeyValue(copyBytesIfNecessary(row), copyBytesIfNecessary(family),
-        copyBytesIfNecessary(qualifier), ts, type, copyBytesIfNecessary(value));
+        copyBytesIfNecessary(qualifier), ts, type, value == null? null: copyBytesIfNecessary(value));
   }
 }

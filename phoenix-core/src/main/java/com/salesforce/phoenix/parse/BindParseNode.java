@@ -57,7 +57,7 @@ public class BindParseNode extends NamedParseNode {
 
     
     @Override
-    public boolean isConstant() {
+    public boolean isStateless() {
         return true;
     }
     

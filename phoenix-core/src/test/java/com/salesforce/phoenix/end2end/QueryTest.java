@@ -1216,7 +1216,7 @@ public class QueryTest extends BaseClientManagedTimeTest {
 
     @Test
     public void testDistinctLimitedGroupedAggregation() throws Exception {
-        String query = "SELECT DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY count(1) desc,a_string LIMIT 2";
+        String query = "SELECT /*+ NO_INDEX */ DISTINCT a_string, count(1), 'foo' FROM atable WHERE organization_id=? GROUP BY a_string, b_string ORDER BY count(1) desc,a_string LIMIT 2";
         Properties props = new Properties(TEST_PROPERTIES);
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
         Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
@@ -1224,7 +1224,18 @@ public class QueryTest extends BaseClientManagedTimeTest {
             PreparedStatement statement = conn.prepareStatement(query);
             statement.setString(1, tenantId);
             ResultSet rs = statement.executeQuery();
-            
+
+            /*
+            List<List<Object>> expectedResultsA = Lists.newArrayList(
+                    Arrays.<Object>asList(A_VALUE, 2L, "foo"),
+                    Arrays.<Object>asList(B_VALUE, 2L, "foo"));
+            List<List<Object>> expectedResultsB = Lists.newArrayList(expectedResultsA);
+            Collections.reverse(expectedResultsB);
+            // Since we're not ordering and we may be using a descending index, we don't
+            // know which rows we'll get back.
+            assertOneOfValuesEqualsResultSet(rs, expectedResultsA,expectedResultsB);
+            */
+
             assertTrue(rs.next());
             assertEquals(rs.getString(1), A_VALUE);
             assertEquals(rs.getLong(2), 2L);
@@ -2784,6 +2795,25 @@ public class QueryTest extends BaseClientManagedTimeTest {
             
         } finally {
             admin.close();
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testColumnAliasMapping() throws Exception {
+        String query = "SELECT a.a_string, aTable.b_string FROM aTable a WHERE ?=organization_id and 5=a_integer ORDER BY a_string, b_string";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.setString(1, tenantId);
+            ResultSet rs = statement.executeQuery();
+            assertTrue (rs.next());
+            assertEquals(rs.getString(1), B_VALUE);
+            assertEquals(rs.getString("B_string"), C_VALUE);
+            assertFalse(rs.next());
+        } finally {
             conn.close();
         }
     }

@@ -25,37 +25,28 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.schema;
+package com.salesforce.phoenix.expression;
 
-import org.apache.http.annotation.Immutable;
+import java.util.List;
 
-import com.salesforce.phoenix.util.SchemaUtil;
+import com.salesforce.phoenix.expression.function.ScalarFunction;
 
+public abstract class CurrentDateTimeFunction extends ScalarFunction {
 
-@Immutable
-public class PNormalizedName extends PNameImpl {
+    public CurrentDateTimeFunction() {
+    }
+
+    public CurrentDateTimeFunction(List<Expression> children) {
+        super(children);
+    }
     
-    public PNormalizedName(String nonNormalizedName) {
-        super(SchemaUtil.normalizeIdentifier(nonNormalizedName));
-    }
-
     @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + getString().hashCode();
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        PNormalizedName other = (PNormalizedName)obj;
-        // Compare normalized stringName for equality, since bytesName
-        // may differ since it remains case sensitive.
-        if (!getString().equals(other.getString())) return false;
+    public boolean isStateless() {
         return true;
+    }
+
+    @Override
+    public boolean isDeterministic() {
+        return false;
     }
 }

@@ -52,6 +52,12 @@ public class SQLParser {
 
     private final PhoenixSQLParser parser;
 
+    public static ParseNode parseCondition(String expression) throws SQLException {
+        if (expression == null) return null;
+        SQLParser parser = new SQLParser(expression);
+        return parser.parseCondition();
+    }
+    
     public SQLParser(String query) {
         this(query,DEFAULT_NODE_FACTORY);
     }

@@ -63,6 +63,7 @@ import javax.annotation.Nullable;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.execute.MutationState;
@@ -129,7 +130,11 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     }
     
     public PhoenixConnection(PhoenixConnection connection, long scn) throws SQLException {
-        this(connection.getQueryServices(), connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
+        this(connection.getQueryServices(), connection, scn);
+    }
+    
+    public PhoenixConnection(ConnectionQueryServices services, PhoenixConnection connection, long scn) throws SQLException {
+        this(services, connection.getURL(), newPropsWithSCN(scn,connection.getClientInfo()), PMetaDataImpl.pruneNewerTables(scn, connection.getPMetaData()));
         this.isAutoCommit = connection.isAutoCommit;
     }
     
@@ -667,5 +672,8 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
     protected boolean removeStatement(PhoenixStatement statement) throws SQLException {
         return statements.remove(statement);
    }
-   
+
+    public KeyValueBuilder getKeyValueBuilder() {
+        return this.services.getKeyValueBuilder();
+    }
 }

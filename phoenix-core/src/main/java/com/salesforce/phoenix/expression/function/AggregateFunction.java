@@ -49,4 +49,14 @@ abstract public class AggregateFunction extends FunctionExpression {
     public AggregateFunction(List<Expression> children) {
         super(children);
     }
+    
+    @Override
+    public boolean isStateless() {
+        return false;
+    }
+
+    @Override
+    public boolean isDeterministic() {
+        return false;
+    }
 }

@@ -57,6 +57,7 @@ import com.salesforce.phoenix.join.HashJoinInfo;
 import com.salesforce.phoenix.join.ScanProjector;
 import com.salesforce.phoenix.parse.JoinTableNode.JoinType;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.AmbiguousColumnException;
@@ -257,7 +258,7 @@ public class QueryCompiler {
             return new DegenerateQueryPlan(context, select, tableRef);
         }
         PTable table = tableRef.getTable();
-        ParseNode viewNode = table.getViewNode();
+        ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
         // Push VIEW expression into select
         select = SelectStatement.create(select, viewNode);
         Integer limit = LimitCompiler.compile(context, select);

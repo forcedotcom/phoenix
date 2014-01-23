@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.hadoop.hbase.CoprocessorEnvironment;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
@@ -64,6 +65,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.exception.ValueTypeIncompatibleException;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.ExpressionType;
@@ -105,7 +107,14 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
     public static final String DELETE_CQ = "DeleteCQ";
     public static final String DELETE_CF = "DeleteCF";
     public static final String EMPTY_CF = "EmptyCF";
+    private KeyValueBuilder kvBuilder;
     
+    @Override
+    public void start(CoprocessorEnvironment e) throws IOException {
+        super.start(e);
+        this.kvBuilder = KeyValueBuilder.get(e.getHBaseVersion());
+    }
+
     private static void commitBatch(HRegion region, List<Pair<Mutation,Integer>> mutations, byte[] indexUUID) throws IOException {
         if (indexUUID != null) {
             for (Pair<Mutation,Integer> pair : mutations) {
@@ -219,7 +228,7 @@ public class UngroupedAggregateRegionObserver extends BaseScannerRegionObserver 
                                 }
                             }
                             projectedTable.newKey(ptr, values);
-                            PRow row = projectedTable.newRow(ts, ptr);
+                            PRow row = projectedTable.newRow(kvBuilder, ts, ptr);
                             for (; i < projectedColumns.size(); i++) {
                                 Expression expression = selectExpressions.get(i);
                                 if (expression.evaluate(result, ptr)) {

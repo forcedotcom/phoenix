@@ -27,8 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.expression.LiteralExpression.TRUE_EXPRESSION;
-
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Iterator;
@@ -102,7 +100,7 @@ public class WhereCompiler {
             Set<Expression> extractedNodes) throws SQLException {
         WhereExpressionCompiler whereCompiler = new WhereExpressionCompiler(context);
         ParseNode where = statement.getWhere();
-        Expression expression = where == null ? TRUE_EXPRESSION : where.accept(whereCompiler);
+        Expression expression = where == null ? LiteralExpression.newConstant(true,PDataType.BOOLEAN,true) : where.accept(whereCompiler);
         if (whereCompiler.isAggregate()) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
         }
@@ -175,9 +173,9 @@ public class WhereCompiler {
         Scan scan = context.getScan();
         assert scan.getFilter() == null;
 
-        if (LiteralExpression.FALSE_EXPRESSION == whereClause) {
+        if (LiteralExpression.isFalse(whereClause)) {
             context.setScanRanges(ScanRanges.NOTHING);
-        } else if (whereClause != null && whereClause != LiteralExpression.TRUE_EXPRESSION) {
+        } else if (whereClause != null && !LiteralExpression.isTrue(whereClause)) {
             final Counter counter = new Counter();
             whereClause.accept(new KeyValueExpressionVisitor() {
 

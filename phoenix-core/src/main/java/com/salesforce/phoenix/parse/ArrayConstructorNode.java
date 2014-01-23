@@ -42,11 +42,6 @@ public class ArrayConstructorNode extends CompoundParseNode {
 	}
 
 	@Override
-	public boolean isConstant() {
-		return true;
-	}
-	
-	@Override
 	public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
 		List<T> l = Collections.emptyList();
         if (visitor.visitEnter(this)) {

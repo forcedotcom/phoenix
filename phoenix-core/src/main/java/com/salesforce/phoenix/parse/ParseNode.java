@@ -44,7 +44,7 @@ public abstract class ParseNode {
     public abstract List<ParseNode> getChildren();
     public abstract <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException;
     
-    public boolean isConstant() {
+    public boolean isStateless() {
         return false;
     }
     

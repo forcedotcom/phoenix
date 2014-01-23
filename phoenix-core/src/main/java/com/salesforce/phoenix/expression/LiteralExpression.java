@@ -33,7 +33,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.exception.SQLExceptionCode;
@@ -57,39 +56,59 @@ import com.salesforce.phoenix.util.StringUtil;
  * @since 0.1
  */
 public class LiteralExpression extends BaseTerminalExpression {
-    public static final LiteralExpression NULL_EXPRESSION = new LiteralExpression(null);
-    private static final LiteralExpression[] TYPED_NULL_EXPRESSIONS = new LiteralExpression[PDataType.values().length];
+    public static final LiteralExpression NULL_EXPRESSION = new LiteralExpression(null, false);
+    private static final LiteralExpression ND_NULL_EXPRESSION = new LiteralExpression(null, true);
+    private static final LiteralExpression[] TYPED_NULL_EXPRESSIONS = new LiteralExpression[PDataType.values().length * 2];
     static {
-        for (int i = 0; i < TYPED_NULL_EXPRESSIONS.length; i++) {
-            TYPED_NULL_EXPRESSIONS[i] = new LiteralExpression(PDataType.values()[i]);
+        for (int i = 0; i < PDataType.values().length; i++) {
+            TYPED_NULL_EXPRESSIONS[i] = new LiteralExpression(PDataType.values()[i], true);
+        }
+        for (int i = 0; i < PDataType.values().length; i++) {
+            TYPED_NULL_EXPRESSIONS[i+PDataType.values().length] = new LiteralExpression(PDataType.values()[i], false);
         }
     }
-    public static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.FALSE));
-    public static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.TRUE));
+    private static final LiteralExpression FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.FALSE), true);
+    private static final LiteralExpression TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.TRUE), true);
+    private static final LiteralExpression ND_FALSE_EXPRESSION = new LiteralExpression(Boolean.FALSE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.FALSE), false);
+    private static final LiteralExpression ND_TRUE_EXPRESSION = new LiteralExpression(Boolean.TRUE, PDataType.BOOLEAN, PDataType.BOOLEAN.toBytes(Boolean.TRUE), false);
 
     private Object value;
     private PDataType type;
+    private boolean isDeterministic;
     private byte[] byteValue;
     private Integer byteSize;
     private Integer maxLength;
     private Integer scale;
     private ColumnModifier columnModifier;
 
-    // TODO: cache?
+
+    public static boolean isFalse(Expression child) {
+        return child == FALSE_EXPRESSION || child == ND_FALSE_EXPRESSION;
+    }
+    
+    public static boolean isTrue(Expression child) {
+        return child == TRUE_EXPRESSION || child == ND_TRUE_EXPRESSION;
+    }
+    
     public static LiteralExpression newConstant(Object value) {
+        return newConstant(value, true);
+    }
+    
+    // TODO: cache?
+    public static LiteralExpression newConstant(Object value, boolean isDeterministic) {
         if (Boolean.FALSE.equals(value)) {
-            return FALSE_EXPRESSION;
+            return isDeterministic ? FALSE_EXPRESSION : ND_FALSE_EXPRESSION;
         }
         if (Boolean.TRUE.equals(value)) {
-            return TRUE_EXPRESSION;
+            return isDeterministic ? TRUE_EXPRESSION : ND_TRUE_EXPRESSION;
         }
         if (value == null) {
-            return NULL_EXPRESSION;
+            return isDeterministic ? NULL_EXPRESSION : ND_NULL_EXPRESSION;
         }
         PDataType type = PDataType.fromLiteral(value);
         byte[] b = type.toBytes(value);
         if (b.length == 0) {
-            return TYPED_NULL_EXPRESSIONS[type.ordinal()];
+            return TYPED_NULL_EXPRESSIONS[type.ordinal() + ( isDeterministic ? 0 : TYPED_NULL_EXPRESSIONS.length/2)];
         }
         if (type == PDataType.VARCHAR) {
             String s = (String) value;
@@ -97,30 +116,47 @@ public class LiteralExpression extends BaseTerminalExpression {
                 type = PDataType.CHAR;
             }
         }
-        return new LiteralExpression(value, type, b);
+        return new LiteralExpression(value, type, b, isDeterministic);
     }
 
     public static LiteralExpression newConstant(Object value, PDataType type) throws SQLException {
-        return newConstant(value, type, null);
+        return newConstant(value, type, true);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, boolean isDeterministic) throws SQLException {
+        return newConstant(value, type, null, isDeterministic);
     }
     
     public static LiteralExpression newConstant(Object value, PDataType type, ColumnModifier columnModifier) throws SQLException {
-        return newConstant(value, type, null, null, columnModifier);
+        return newConstant(value, type, null, null, columnModifier, true);
     }
     
+    public static LiteralExpression newConstant(Object value, PDataType type, ColumnModifier columnModifier, boolean isDeterministic) throws SQLException {
+        return newConstant(value, type, null, null, columnModifier, isDeterministic);
+    }
     
-    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException { // remove?
-        return newConstant(value, type, maxLength, scale, null);
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale) throws SQLException {
+        return newConstant(value, type, maxLength, scale, null, true);
+    }
+    
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale, boolean isDeterministic) throws SQLException { // remove?
+        return newConstant(value, type, maxLength, scale, null, isDeterministic);
     }
 
     // TODO: cache?
-    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale, ColumnModifier columnModifier)
+    public static LiteralExpression newConstant(Object value, PDataType type, Integer maxLength, Integer scale, ColumnModifier columnModifier, boolean isDeterministic)
             throws SQLException {
         if (value == null) {
             if (type == null) {
                 return NULL_EXPRESSION;
             }
             return TYPED_NULL_EXPRESSIONS[type.ordinal()];
+        }
+        if (Boolean.FALSE.equals(value)) {
+            return isDeterministic ? FALSE_EXPRESSION : ND_FALSE_EXPRESSION;
+        }
+        if (Boolean.TRUE.equals(value)) {
+            return isDeterministic ? TRUE_EXPRESSION : ND_TRUE_EXPRESSION;
         }
         PDataType actualType = PDataType.fromLiteral(value);
         // For array we should check individual element in it?
@@ -141,7 +177,7 @@ public class LiteralExpression extends BaseTerminalExpression {
             if (b.length == 0) {
                 return TYPED_NULL_EXPRESSIONS[type.ordinal()];
             }
-            return new LiteralExpression(value, type, b, maxLength, scale, columnModifier);
+            return new LiteralExpression(value, type, b, maxLength, scale, columnModifier, isDeterministic);
         } catch (IllegalDataException e) {
             throw new SQLExceptionInfo.Builder(SQLExceptionCode.ILLEGAL_DATA).setRootCause(e).build().buildException();
         }
@@ -150,16 +186,16 @@ public class LiteralExpression extends BaseTerminalExpression {
     public LiteralExpression() {
     }
 
-    private LiteralExpression(PDataType type) {
-        this(null, type, ByteUtil.EMPTY_BYTE_ARRAY);
+    private LiteralExpression(PDataType type, boolean isDeterministic) {
+        this(null, type, ByteUtil.EMPTY_BYTE_ARRAY, isDeterministic);
     }
 
-    private LiteralExpression(Object value, PDataType type, byte[] byteValue) {
-        this(value, type, byteValue, type == null? null : type.getMaxLength(value), type == null? null : type.getScale(value), null);
+    private LiteralExpression(Object value, PDataType type, byte[] byteValue, boolean isDeterministic) {
+        this(value, type, byteValue, type == null? null : type.getMaxLength(value), type == null? null : type.getScale(value), null, isDeterministic);
     }
 
     private LiteralExpression(Object value, PDataType type, byte[] byteValue,
-            Integer maxLength, Integer scale, ColumnModifier columnModifier) {
+            Integer maxLength, Integer scale, ColumnModifier columnModifier, boolean isDeterministic) {
         this.value = value;
         this.type = type;
         this.byteValue = byteValue;
@@ -167,8 +203,14 @@ public class LiteralExpression extends BaseTerminalExpression {
         this.maxLength = maxLength;
         this.scale = scale;
         this.columnModifier = columnModifier;
+        this.isDeterministic = isDeterministic;
     }
 
+    @Override
+    public boolean isDeterministic() {
+        return isDeterministic;
+    }
+    
     @Override
     public String toString() {
         return type != null && type.isCoercibleTo(PDataType.VARCHAR) ? "'" + value + "'" : "" + value;
@@ -196,22 +238,33 @@ public class LiteralExpression extends BaseTerminalExpression {
 
     @Override
     public void readFields(DataInput input) throws IOException {
-        this.byteValue = Bytes.readByteArray(input);
+        int encodedByteLengthAndBool = WritableUtils.readVInt(input);
+        this.isDeterministic = encodedByteLengthAndBool > 0;
+        int byteLength = Math.abs(encodedByteLengthAndBool)-1;
+        this.byteValue = new byte[byteLength];
+        input.readFully(byteValue, 0, byteLength);
         columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
-        if (this.byteValue.length > 0) {
-            this.type = PDataType.values()[WritableUtils.readVInt(input)];
+        int typeOrdinal = WritableUtils.readVInt(input);
+        if (typeOrdinal < 0) {
+            this.type = null;
+        } else {
+            this.type = PDataType.values()[typeOrdinal];
+        }
+        if (this.byteValue.length == 0) {
+            this.value = null;
+        } else {
             this.value = this.type.toObject(byteValue, 0, byteValue.length, this.type, columnModifier);
         }
-        byteSize = this.byteValue.length;
+        // Only to prevent continual reallocations of Integer
+        this.byteSize = this.byteValue.length;
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
-        Bytes.writeByteArray(output, byteValue);
+        WritableUtils.writeVInt(output, (byteValue.length + 1) * (this.isDeterministic ? 1 : -1));
+        output.write(byteValue);
         WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
-        if (this.byteValue.length > 0) {
-            WritableUtils.writeVInt(output, this.type.ordinal());
-        }
+        WritableUtils.writeVInt(output, type == null ? -1 : this.type.ordinal());
     }
 
     @Override
@@ -265,7 +318,7 @@ public class LiteralExpression extends BaseTerminalExpression {
     }
     
     @Override
-    public boolean isConstant() {
+    public boolean isStateless() {
         return true;
     }
 }

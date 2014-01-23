@@ -86,6 +86,7 @@ import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.schema.MetaDataSplitPolicy;
 import com.salesforce.phoenix.schema.PName;
@@ -138,6 +139,8 @@ public interface QueryConstants {
 
     public static final String EMPTY_COLUMN_NAME = "_0";
     public static final byte[] EMPTY_COLUMN_BYTES = Bytes.toBytes(EMPTY_COLUMN_NAME);
+    public static final ImmutableBytesPtr EMPTY_COLUMN_BYTES_PTR = new ImmutableBytesPtr(
+            EMPTY_COLUMN_BYTES);
     public static final String DEFAULT_COLUMN_FAMILY = EMPTY_COLUMN_NAME;
     public static final byte[] DEFAULT_COLUMN_FAMILY_BYTES = EMPTY_COLUMN_BYTES;
     public static final String ALL_FAMILY_PROPERTIES_KEY = "";

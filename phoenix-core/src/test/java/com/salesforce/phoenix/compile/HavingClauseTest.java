@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.compile;
 
-import static com.salesforce.phoenix.expression.LiteralExpression.TRUE_EXPRESSION;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static com.salesforce.phoenix.util.TestUtil.and;
 import static com.salesforce.phoenix.util.TestUtil.constantComparison;
@@ -155,7 +154,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Expressions expressions = compileStatement(query,binds);
         Expression h = constantComparison(CompareOp.GREATER_OR_EQUAL, new CountAggregateFunction(Arrays.asList(kvColumn(BaseConnectionlessQueryTest.A_STRING))),1L);
-        assertEquals(TRUE_EXPRESSION, expressions.whereClause);
+        assertTrue(LiteralExpression.isTrue(expressions.whereClause));
         assertEquals(h, expressions.havingClause);
     }
     
@@ -165,7 +164,7 @@ public class HavingClauseTest extends BaseConnectionlessQueryTest {
         List<Object> binds = Collections.emptyList();
         Expressions expressions = compileStatement(query,binds);
         Expression h = or(constantComparison(CompareOp.GREATER_OR_EQUAL, new CountAggregateFunction(),1L),constantComparison(CompareOp.EQUAL, pkColumn(BaseConnectionlessQueryTest.A_STRING,Arrays.asList(BaseConnectionlessQueryTest.A_STRING)),"foo"));
-        assertEquals(TRUE_EXPRESSION, expressions.whereClause);
+        assertTrue(LiteralExpression.isTrue(expressions.whereClause));
         assertEquals(h, expressions.havingClause);
     }
     

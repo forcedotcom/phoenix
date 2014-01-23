@@ -51,7 +51,10 @@ public class CoerceExpression extends BaseSingleExpression {
     }
 
     public static Expression create(Expression expression, PDataType toType) throws SQLException {
-        return toType == expression.getDataType() ? expression : expression instanceof LiteralExpression ? LiteralExpression.newConstant(((LiteralExpression)expression).getValue(), toType) : new CoerceExpression(expression, toType);
+        if (toType == expression.getDataType()) {
+            return expression;
+        }
+        return new CoerceExpression(expression, toType);
     }
     
     //Package protected for tests

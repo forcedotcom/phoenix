@@ -80,14 +80,14 @@ public class InListExpression extends BaseSingleExpression {
                 if (ptr.getLength() == 0) {
                     if (!addedNull) {
                         addedNull = true;
-                        keys.add(LiteralExpression.newConstant(null, PDataType.VARBINARY));
-                        coercedKeyExpressions.add(LiteralExpression.newConstant(null, firstChildType));
+                        keys.add(LiteralExpression.newConstant(null, PDataType.VARBINARY, true));
+                        coercedKeyExpressions.add(LiteralExpression.newConstant(null, firstChildType, true));
                     }
                 } else {
                     // Don't specify the firstChild column modifier here, as we specify it in the LiteralExpression creation below
                     try {
                         firstChildType.coerceBytes(ptr, rhs.getDataType(), rhs.getColumnModifier(), null);
-                        keys.add(LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier()));
+                        keys.add(LiteralExpression.newConstant(ByteUtil.copyKeyBytesIfNecessary(ptr), PDataType.VARBINARY, firstChild.getColumnModifier(), true));
                         if(rhs.getDataType() == firstChildType) {
                             coercedKeyExpressions.add(rhs);
                         } else {
@@ -100,10 +100,10 @@ public class InListExpression extends BaseSingleExpression {
             
         }
         if (keys.size() == 1) {
-            return LiteralExpression.FALSE_EXPRESSION;
+            return LiteralExpression.newConstant(false, PDataType.BOOLEAN, true);
         }
         if (keys.size() == 2 && addedNull) {
-            return LiteralExpression.newConstant(null, PDataType.BOOLEAN);
+            return LiteralExpression.newConstant(null, PDataType.BOOLEAN, true);
         }
         Expression expression;
         // TODO: if inChildren.isEmpty() then Oracle throws a type mismatch exception. This means

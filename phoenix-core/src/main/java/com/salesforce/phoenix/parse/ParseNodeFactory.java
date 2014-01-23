@@ -282,12 +282,12 @@ public class ParseNodeFactory {
         return new DropSequenceStatement(tableName, ifExits, bindCount);
     }
     
-	public SequenceOpParseNode currentValueFor(TableName tableName) {
-		return new SequenceOpParseNode(tableName, SequenceOpParseNode.Op.CURRENT_VALUE);
+	public SequenceValueParseNode currentValueFor(TableName tableName) {
+		return new SequenceValueParseNode(tableName, SequenceValueParseNode.Op.CURRENT_VALUE);
 	}
     
-    public SequenceOpParseNode nextValueFor(TableName tableName) {
-        return new SequenceOpParseNode(tableName, SequenceOpParseNode.Op.NEXT_VALUE);
+    public SequenceValueParseNode nextValueFor(TableName tableName) {
+        return new SequenceValueParseNode(tableName, SequenceValueParseNode.Op.NEXT_VALUE);
     }
     
     public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {

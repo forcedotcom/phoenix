@@ -72,7 +72,7 @@ public class IndexStatementRewriter extends ParseNodeRewriter {
         }
         String indexColName = IndexUtil.getIndexColumnName(dataColRef.getColumn());
         // Same alias as before, but use the index column name instead of the data column name
-        ParseNode indexColNode = new ColumnParseNode(tName, indexColName, node.toString());
+        ParseNode indexColNode = new ColumnParseNode(tName, indexColName, node.getAlias());
         PDataType indexColType = IndexUtil.getIndexColumnDataType(dataColRef.getColumn());
         PDataType dataColType = dataColRef.getColumn().getDataType();
 

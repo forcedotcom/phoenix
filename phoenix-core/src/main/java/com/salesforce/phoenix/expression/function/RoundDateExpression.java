@@ -101,11 +101,11 @@ public class RoundDateExpression extends ScalarFunction {
     }
     
     static Expression getTimeUnitExpr(TimeUnit timeUnit) throws SQLException {
-        return LiteralExpression.newConstant(timeUnit.name(), PDataType.VARCHAR);
+        return LiteralExpression.newConstant(timeUnit.name(), PDataType.VARCHAR, true);
     }
     
     static Expression getMultiplierExpr(int multiplier) throws SQLException {
-        return LiteralExpression.newConstant(multiplier, PDataType.INTEGER);
+        return LiteralExpression.newConstant(multiplier, PDataType.INTEGER, true);
     }
     
     RoundDateExpression(List<Expression> children) {

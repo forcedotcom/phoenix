@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.sql.SQLException;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -35,8 +34,8 @@ import javax.annotation.Nullable;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.Writable;
 
+import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
-import com.salesforce.phoenix.parse.ParseNode;
 import com.salesforce.phoenix.schema.stat.PTableStats;
 
 
@@ -167,7 +166,7 @@ public interface PTable extends Writable {
      * @throws ConstraintViolationException if row data violates schema
      * constraint
      */
-    PRow newRow(long ts, ImmutableBytesWritable key, byte[]... values);
+    PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key, byte[]... values);
 
     /**
      * Creates a new row for the PK values (from {@link #newKey(ImmutableBytesWritable, byte[][])}
@@ -180,7 +179,7 @@ public interface PTable extends Writable {
      * @throws ConstraintViolationException if row data violates schema
      * constraint
      */
-    PRow newRow(ImmutableBytesWritable key, byte[]... values);
+    PRow newRow(KeyValueBuilder builder, ImmutableBytesWritable key, byte[]... values);
 
     /**
      * Formulates a row key using the values provided. The values must be in
@@ -243,11 +242,11 @@ public interface PTable extends Writable {
 
     PName getPhysicalName();
     boolean isImmutableRows();
+
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     PName getDefaultFamilyName();
     String getViewExpression();
-    ParseNode getViewNode() throws SQLException;
     
     boolean isWALDisabled();
     boolean isMultiTenant();

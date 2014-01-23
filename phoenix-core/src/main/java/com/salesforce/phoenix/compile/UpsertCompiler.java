@@ -74,8 +74,9 @@ import com.salesforce.phoenix.parse.HintNode.Hint;
 import com.salesforce.phoenix.parse.IsNullParseNode;
 import com.salesforce.phoenix.parse.LiteralParseNode;
 import com.salesforce.phoenix.parse.ParseNode;
+import com.salesforce.phoenix.parse.SQLParser;
 import com.salesforce.phoenix.parse.SelectStatement;
-import com.salesforce.phoenix.parse.SequenceOpParseNode;
+import com.salesforce.phoenix.parse.SequenceValueParseNode;
 import com.salesforce.phoenix.parse.UpsertStatement;
 import com.salesforce.phoenix.query.ConnectionQueryServices;
 import com.salesforce.phoenix.query.QueryServices;
@@ -239,7 +240,8 @@ public class UpsertCompiler {
         if (table.getViewType() == ViewType.UPDATABLE) {
             StatementContext context = new StatementContext(statement, resolver, this.statement.getParameters(), new Scan());
             ViewValuesMapBuilder builder = new ViewValuesMapBuilder(context);
-            table.getViewNode().accept(builder);
+            ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
+            viewNode.accept(builder);
             addViewColumns = builder.getViewColumns();
         }
         // Allow full row upsert if no columns or only dynamic ones are specified and values count match
@@ -438,7 +440,7 @@ public class UpsertCompiler {
                         }
                         // Add literal null for missing PK columns
                         pos = projectedExpressions.size();
-                        Expression literalNull = LiteralExpression.newConstant(null, column.getDataType());
+                        Expression literalNull = LiteralExpression.newConstant(null, column.getDataType(), true);
                         projectedExpressions.add(literalNull);
                         allColumnsIndexes[pos] = column.getPosition();
                     } 
@@ -609,7 +611,7 @@ public class UpsertCompiler {
         // First build all the expressions, as with sequences we want to collect them all first
         // and initialize them in one batch
         for (ParseNode valueNode : valueNodes) {
-            if (!valueNode.isConstant()) {
+            if (!valueNode.isStateless()) {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.VALUE_IN_UPSERT_NOT_CONSTANT).build().buildException();
             }
             PColumn column = allColumns.get(columnIndexes[nodeIndex]);
@@ -721,7 +723,7 @@ public class UpsertCompiler {
             if (isTopLevel()) {
                 context.getBindManager().addParamMetaData(node, column);
                 Object value = context.getBindManager().getBindValue(node);
-                return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier());
+                return LiteralExpression.newConstant(value, column.getDataType(), column.getColumnModifier(), true);
             }
             return super.visit(node);
         }    
@@ -729,14 +731,14 @@ public class UpsertCompiler {
         @Override
         public Expression visit(LiteralParseNode node) throws SQLException {
             if (isTopLevel()) {
-                return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier());
+                return LiteralExpression.newConstant(node.getValue(), column.getDataType(), column.getColumnModifier(), true);
             }
             return super.visit(node);
         }
         
-
+        
         @Override
-        public Expression visit(SequenceOpParseNode node) throws SQLException {
+        public Expression visit(SequenceValueParseNode node) throws SQLException {
             return context.getSequenceManager().newSequenceReference(node);
         }
     }
@@ -817,7 +819,7 @@ public class UpsertCompiler {
                 if (value != null) {
                     Expression source = projector.getColumnProjector(i).getExpression();
                     if (source == null) { // FIXME: is this possible?
-                    } else if (source.isConstant()) {
+                    } else if (source.isStateless()) {
                         source.evaluate(null, ptr);
                         if (Bytes.compareTo(ptr.get(), ptr.getOffset(), ptr.getLength(), value, 0, value.length) == 0) {
                             continue;
