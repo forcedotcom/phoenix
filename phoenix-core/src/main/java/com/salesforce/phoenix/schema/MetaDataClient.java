@@ -777,7 +777,7 @@ public class MetaDataClient {
                     }
                     // disallow array type usage in primary key constraint
                     if (colDef.isArray()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT)
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.ARRAY_NOT_ALLOWED_IN_PRIMARY_KEY)
                         .setSchemaName(schemaName)
                         .setTableName(tableName)
                         .setColumnName(colDef.getColumnDefName().getColumnName())

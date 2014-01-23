@@ -1193,6 +1193,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.TYPE_MISMATCH.getErrorCode(), e.getErrorCode());
         }
     }
+    
     @Test
     public void testInvalidArrayTypeAsPK () throws Exception {
         Connection conn = DriverManager.getConnection(getUrl());
@@ -1202,7 +1203,7 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-                assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): Array type not allowed as primary key constraint"));
+                assertEquals(SQLExceptionCode.ARRAY_NOT_ALLOWED_IN_PRIMARY_KEY.getErrorCode(), e.getErrorCode());
         } finally {
                 conn.close();
         }
@@ -1214,10 +1215,29 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             statement.execute();
             fail();
         } catch (SQLException e) {
-            assertTrue(e.getMessage(), e.getMessage().contains("ERROR 513 (42892): Array type not allowed as primary key constraint"));
+            assertEquals(SQLExceptionCode.ARRAY_NOT_ALLOWED_IN_PRIMARY_KEY.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
         }
+    }
+
+    @Test
+    public void testInvalidArrayInQuery () throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("CREATE TABLE t (k VARCHAR PRIMARY KEY, a INTEGER[10], B INTEGER[10])");
+        try {
+            conn.createStatement().execute("SELECT * FROM t ORDER BY a");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.ORDER_BY_ARRAY_NOT_SUPPORTED.getErrorCode(), e.getErrorCode());
+        }
+        try {
+            conn.createStatement().execute("SELECT * FROM t WHERE a < b");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.NON_EQUALITY_ARRAY_COMPARISON.getErrorCode(), e.getErrorCode());
+        }
+        conn.close();
     }
 
     @Test

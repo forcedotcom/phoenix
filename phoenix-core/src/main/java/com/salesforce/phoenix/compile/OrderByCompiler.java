@@ -108,6 +108,10 @@ public class OrderByCompiler {
                         ExpressionCompiler.throwNonAggExpressionInAggException(expression.toString());
                     }
                 }
+                if (expression.getDataType().isArrayType()) {
+                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.ORDER_BY_ARRAY_NOT_SUPPORTED)
+                    .setMessage(expression.toString()).build().buildException();
+                }
                 if (expression.getColumnModifier() == ColumnModifier.SORT_DESC) {
                     isAscending = !isAscending;
                 }
