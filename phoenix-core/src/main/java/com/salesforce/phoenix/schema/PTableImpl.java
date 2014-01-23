@@ -27,10 +27,10 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
-import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 import static com.salesforce.phoenix.client.KeyValueBuilder.addQuietly;
 import static com.salesforce.phoenix.client.KeyValueBuilder.deleteQuietly;
+import static com.salesforce.phoenix.query.QueryConstants.SEPARATOR_BYTE;
+import static com.salesforce.phoenix.schema.SaltingUtil.SALTING_COLUMN;
 
 import java.io.DataInput;
 import java.io.DataOutput;
@@ -61,7 +61,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
-import com.salesforce.phoenix.client.GenericKeyValueBuilder;
 import com.salesforce.phoenix.client.KeyValueBuilder;
 import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.parse.ParseNode;
@@ -125,8 +124,6 @@ public class PTableImpl implements PTable {
     private ViewType viewType;
     
     private ParseNode viewNode;
-    // default to the generic builder, and only override when we know on the client
-    private KeyValueBuilder kvBuilder = GenericKeyValueBuilder.INSTANCE;
     
     public PTableImpl() {
     }
@@ -451,8 +448,8 @@ public class PTableImpl implements PTable {
         }
     }
 
-    private PRow newRow(long ts, ImmutableBytesWritable key, int i, byte[]... values) {
-        PRow row = new PRowImpl(key, ts, getBucketNum());
+    private PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key, int i, byte[]... values) {
+        PRow row = new PRowImpl(builder, key, ts, getBucketNum());
         if (i < values.length) {
             for (PColumnFamily family : getColumnFamilies()) {
                 for (PColumn column : family.getColumns()) {
@@ -468,7 +465,7 @@ public class PTableImpl implements PTable {
     @Override
     public PRow newRow(KeyValueBuilder builder, long ts, ImmutableBytesWritable key,
             byte[]... values) {
-        return newRow(ts, key, 0, values);
+        return newRow(builder, ts, key, 0, values);
     }
 
     @Override
@@ -505,19 +502,23 @@ public class PTableImpl implements PTable {
      */
     private class PRowImpl implements PRow {
         private final byte[] key;
+        private final ImmutableBytesWritable keyPtr;
+        // default to the generic builder, and only override when we know on the client
+        private final KeyValueBuilder kvBuilder;
+
         private Put setValues;
         private Delete unsetValues;
         private Delete deleteRow;
         private final long ts;
-        private ImmutableBytesWritable keyPtr;
 
-        public PRowImpl(ImmutableBytesWritable key, long ts, Integer bucketNum) {
+        public PRowImpl(KeyValueBuilder kvBuilder, ImmutableBytesWritable key, long ts, Integer bucketNum) {
+            this.kvBuilder = kvBuilder;
             this.ts = ts;
             if (bucketNum != null) {
                 this.key = SaltingUtil.getSaltedKey(key, bucketNum);
                 this.keyPtr = new ImmutableBytesPtr(this.key);
             } else {
-                this.keyPtr = key;
+                this.keyPtr =  new ImmutableBytesPtr(key);
                 this.key = ByteUtil.copyKeyBytesIfNecessary(key);
             }
 
