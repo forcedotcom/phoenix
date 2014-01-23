@@ -270,6 +270,7 @@ public class UpsertCompiler {
                     PColumn column = ref.getColumn();
                     overlapViewColumns.put(column, entry.getValue());
                 }
+                addViewColumns.clear();
             }
         } else {
             // Size for worse case
@@ -334,6 +335,7 @@ public class UpsertCompiler {
         QueryPlan plan = null;
         RowProjector rowProjectorToBe = null;
         int nValuesToSet;
+        boolean sameTable = false;
         boolean runOnServer = false;
         UpsertingParallelIteratorFactory upsertParallelIteratorFactoryToBe = null;
         final boolean isAutoCommit = connection.getAutoCommit();
@@ -342,7 +344,7 @@ public class UpsertCompiler {
             assert(select != null);
             select = addTenantAndViewConstants(table, select, tenantId, addViewColumns);
             TableRef selectTableRef = FromCompiler.getResolver(select, connection).getTables().get(0);
-            boolean sameTable = tableRef.equals(selectTableRef);
+            sameTable = tableRef.equals(selectTableRef);
             /* We can run the upsert in a coprocessor if:
              * 1) the into table matches from table
              * 2) the select query isn't doing aggregation
@@ -411,7 +413,7 @@ public class UpsertCompiler {
             // Before we re-order, check that for updatable view columns
             // the projected expression either matches the column name or
             // is a constant with the same required value.
-            throwIfNotUpdatable(tableRef, overlapViewColumns, targetColumns, projector);
+            throwIfNotUpdatable(tableRef, overlapViewColumns, targetColumns, projector, sameTable);
             
             ////////////////////////////////////////////////////////////////////
             // UPSERT SELECT run server-side (maybe)
@@ -825,7 +827,8 @@ public class UpsertCompiler {
      * @param projector
      * @throws SQLException
      */
-    private static void throwIfNotUpdatable(TableRef tableRef, Map<PColumn, byte[]> overlapViewColumns, List<PColumn> targetColumns, RowProjector projector) throws SQLException {
+    private static void throwIfNotUpdatable(TableRef tableRef, Map<PColumn, byte[]> overlapViewColumns,
+            List<PColumn> targetColumns, RowProjector projector, boolean sameTable) throws SQLException {
         PTable table = tableRef.getTable();
         if (table.getViewType() == ViewType.UPDATABLE && !overlapViewColumns.isEmpty()) {
             ImmutableBytesWritable ptr = new ImmutableBytesWritable();
@@ -842,7 +845,7 @@ public class UpsertCompiler {
                             continue;
                         }
                     // TODO: we had a ColumnRef already in our map before
-                    } else if (source.equals(new ColumnRef(tableRef, targetColumn.getPosition()).newColumnExpression())) {
+                    } else if (sameTable && source.equals(new ColumnRef(tableRef, targetColumn.getPosition()).newColumnExpression())) {
                         continue;
                     }
                     // TODO: one other check we could do is if the source is an updatable VIEW,
