@@ -782,7 +782,7 @@ public class UpsertCompiler {
         @Override
         public Expression visitLeave(IsNullParseNode node, List<Expression> children) throws SQLException {
             viewColumns.put(columnRef, ByteUtil.EMPTY_BYTE_ARRAY);
-            return null;
+            return super.visitLeave(node, children);
         }
         
         @Override
@@ -793,7 +793,7 @@ public class UpsertCompiler {
             PColumn column = columnRef.getColumn();
             column.getDataType().coerceBytes(ptr, literal.getDataType(), literal.getColumnModifier(), column.getColumnModifier());
             viewColumns.put(columnRef, ByteUtil.copyKeyBytesIfNecessary(ptr));
-            return null;
+            return super.visitLeave(node, children);
         }
     }
     
