@@ -34,7 +34,7 @@ import com.google.common.collect.Maps;
 
 public enum PTableType {
     SYSTEM("s", "SYSTEM TABLE"), 
-    USER("u", "TABLE"),
+    TABLE("u", "TABLE"),
     VIEW("v", "VIEW"),
     INDEX("i", "INDEX"),
     JOIN("j", "JOIN"); 

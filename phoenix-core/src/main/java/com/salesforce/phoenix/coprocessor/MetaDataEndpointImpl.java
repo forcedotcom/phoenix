@@ -838,9 +838,16 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
                 if (type == PTableType.INDEX) { 
                     // Disallow mutation of an index table
                     return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
-                } else if (hasViews(region, tenantId, table)) {
-                    // Disallow any column mutations for parents of tenant tables
-                    return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                } else {
+                    PTableType expectedType = MetaDataUtil.getTableType(tableMetadata);
+                    // We said to drop a table, but found a view or visa versa
+                    if (type != expectedType) {
+                        return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
+                    if (hasViews(region, tenantId, table)) {
+                        // Disallow any column mutations for parents of tenant tables
+                        return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
+                    }
                 }
                 result = mutator.updateMutation(table, rowKeyMetaData, tableMetadata, region, invalidateList, lids);
                 if (result != null) {

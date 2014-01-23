@@ -27,10 +27,17 @@
  ******************************************************************************/
 package com.salesforce.phoenix.parse;
 
-public abstract class AlterTableStatement extends SingleTableSQLStatement {
+import com.salesforce.phoenix.schema.PTableType;
 
-    AlterTableStatement(NamedTableNode table) {
+public abstract class AlterTableStatement extends SingleTableSQLStatement {
+    private final PTableType tableType;
+
+    AlterTableStatement(NamedTableNode table, PTableType tableType) {
         super(table, 0);
+        this.tableType = tableType;
     }
 
+    public PTableType getTableType() {
+        return tableType;
+    }
 }

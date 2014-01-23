@@ -104,9 +104,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_NAME"),aTableName);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertEquals(rs.getString(3),aTableName);
-        assertEquals(PTableType.USER.toString(), rs.getString(4));
+        assertEquals(PTableType.TABLE.toString(), rs.getString(4));
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
@@ -121,21 +121,21 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
         assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
 
         rs = dbmd.getTables(null, CUSTOM_ENTITY_DATA_SCHEMA_NAME, CUSTOM_ENTITY_DATA_NAME, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),CUSTOM_ENTITY_DATA_SCHEMA_NAME);
         assertEquals(rs.getString("TABLE_NAME"),CUSTOM_ENTITY_DATA_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
         
         try {
@@ -146,15 +146,15 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         }
         assertFalse(rs.next());
         
-        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.toString()});
+        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.TABLE.toString()});
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
     }
 

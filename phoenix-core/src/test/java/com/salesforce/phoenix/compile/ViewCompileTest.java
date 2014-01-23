@@ -93,7 +93,7 @@ public class ViewCompileTest extends BaseConnectionlessQueryTest {
         
         // TODO: should it be an error to remove columns from a VIEW that we're defined there?
         // TOOD: should we require an ALTER VIEW instead of ALTER TABLE?
-        conn.createStatement().execute("ALTER TABLE v3 DROP COLUMN v");
+        conn.createStatement().execute("ALTER VIEW v3 DROP COLUMN v");
         try {
             conn.createStatement().executeQuery("SELECT * FROM v3");
             fail();

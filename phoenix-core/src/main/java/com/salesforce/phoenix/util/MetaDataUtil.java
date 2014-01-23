@@ -41,6 +41,7 @@ import com.salesforce.phoenix.coprocessor.MetaDataProtocol;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTableType;
 
 
 public class MetaDataUtil {
@@ -170,10 +171,6 @@ public class MetaDataUtil {
         throw new IllegalStateException();
     }
 
-    public static byte[] getTypeId(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.VIEW_EXPRESSION_BYTES);
-    }
-    
     public static byte[] getBaseTableName(List<Mutation> tableMutations) {
         return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES);
     }
@@ -186,6 +183,11 @@ public class MetaDataUtil {
         return getSequenceNumber(getTableHeaderRow(tableMetaData));
     }
     
+    public static PTableType getTableType(List<Mutation> tableMetaData) {
+        KeyValue kv = getMutationKeyValue(getPutOnlyTableHeaderRow(tableMetaData), PhoenixDatabaseMetaData.TABLE_TYPE_BYTES);
+        return kv == null ? null : PTableType.fromSerializedValue(kv.getBuffer()[kv.getValueOffset()]);
+    }
+    
     public static long getParentSequenceNumber(List<Mutation> tableMetaData) {
         return getSequenceNumber(getParentTableHeaderRow(tableMetaData));
     }
@@ -195,14 +197,20 @@ public class MetaDataUtil {
     }
 
     private static byte[] getMutationKVByteValue(Mutation headerRow, byte[] key) {
+        KeyValue kv = getMutationKeyValue(headerRow, key);
+        // FIXME: byte copy
+        return kv == null ? ByteUtil.EMPTY_BYTE_ARRAY : kv.getValue();
+    }
+
+    private static KeyValue getMutationKeyValue(Mutation headerRow, byte[] key) {
         List<KeyValue> kvs = headerRow.getFamilyMap().get(PhoenixDatabaseMetaData.TABLE_FAMILY_BYTES);
         if (kvs != null) {
             for (KeyValue kv : kvs) {
                 if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), key, 0,
-                        key.length) == 0) { return kv.getValue(); }
+                        key.length) == 0) { return kv; }
             }
         }
-        return ByteUtil.EMPTY_BYTE_ARRAY;
+        return null;
     }
 
     /**

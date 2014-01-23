@@ -145,7 +145,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         }
     }
     
-    private static final String[] TYPES_TO_DELETE = new String[] {PTableType.USER.toString(), PTableType.VIEW.toString()};
+    private static final String[] TYPES_TO_DELETE = new String[] {PTableType.TABLE.toString(), PTableType.VIEW.toString()};
     
     private static void deletePriorTables(long ts, Connection conn) throws Exception {
         DatabaseMetaData dbmd = conn.getMetaData();

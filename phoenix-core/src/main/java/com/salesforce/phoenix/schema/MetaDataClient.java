@@ -1144,11 +1144,11 @@ public class MetaDataClient {
         return mutationCode;
     }
 
-    private  long incrementTableSeqNum(PTable table, int columnCountDelta) throws SQLException {
-        return incrementTableSeqNum(table, table.isImmutableRows(), table.isWALDisabled(), table.isMultiTenant(), columnCountDelta);
+    private  long incrementTableSeqNum(PTable table, PTableType expectedType, int columnCountDelta) throws SQLException {
+        return incrementTableSeqNum(table, expectedType, table.isImmutableRows(), table.isWALDisabled(), table.isMultiTenant(), columnCountDelta);
     }
     
-    private long incrementTableSeqNum(PTable table, boolean isImmutableRows, boolean disableWAL, boolean isMultiTenant, int columnCountDelta) throws SQLException {
+    private long incrementTableSeqNum(PTable table, PTableType expectedType, boolean isImmutableRows, boolean disableWAL, boolean isMultiTenant, int columnCountDelta) throws SQLException {
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         // Ordinal position is 1-based and we don't count SALT column in ordinal position
@@ -1159,7 +1159,7 @@ public class MetaDataClient {
             tableUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
             tableUpsert.setString(2, schemaName);
             tableUpsert.setString(3, tableName);
-            tableUpsert.setString(4, table.getType().getSerializedValue());
+            tableUpsert.setString(4, expectedType.getSerializedValue());
             tableUpsert.setLong(5, seqNum);
             tableUpsert.setInt(6, totalColumnCount + columnCountDelta);
             tableUpsert.setBoolean(7, isImmutableRows);
@@ -1291,12 +1291,12 @@ public class MetaDataClient {
                 
                 if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
                     for (PTable index : table.getIndexes()) {
-                        incrementTableSeqNum(index, 1);
+                        incrementTableSeqNum(index, index.getType(), 1);
                     }
                     tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                     connection.rollback();
                 }
-                long seqNum = incrementTableSeqNum(table, isImmutableRows, disableWAL, multiTenant, 1);
+                long seqNum = incrementTableSeqNum(table, statement.getTableType(), isImmutableRows, disableWAL, multiTenant, 1);
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
@@ -1321,7 +1321,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType(), families);
+                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, statement.getTableType(), families);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_ALREADY_EXISTS) {
@@ -1506,7 +1506,7 @@ public class MetaDataClient {
                         }
                     }
                     if(!indexColumnsToDrop.isEmpty()) {
-                        incrementTableSeqNum(index, -1);
+                        incrementTableSeqNum(index, index.getType(), -1);
                         dropColumnMutations(index, indexColumnsToDrop, tableMetaData);
                     }
                     
@@ -1514,7 +1514,7 @@ public class MetaDataClient {
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 
-                long seqNum = incrementTableSeqNum(table, -1);
+                long seqNum = incrementTableSeqNum(table, statement.getTableType(), -1);
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 // Force table header to be first in list
@@ -1551,7 +1551,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, table.getType());
+                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, statement.getTableType());
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_NOT_FOUND) {

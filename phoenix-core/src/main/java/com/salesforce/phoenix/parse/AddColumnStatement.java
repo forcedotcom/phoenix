@@ -31,13 +31,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import com.salesforce.phoenix.schema.PTableType;
+
 public class AddColumnStatement extends AlterTableStatement {
     private final List<ColumnDef> columnDefs;
     private final boolean ifNotExists;
     private final Map<String,Object> props;
     
-    protected AddColumnStatement(NamedTableNode table, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
-        super(table);
+    protected AddColumnStatement(NamedTableNode table, PTableType tableType, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
+        super(table, tableType);
         this.columnDefs = columnDefs;
         this.props = props == null ? Collections.<String,Object>emptyMap() : props;
         this.ifNotExists = ifNotExists;
