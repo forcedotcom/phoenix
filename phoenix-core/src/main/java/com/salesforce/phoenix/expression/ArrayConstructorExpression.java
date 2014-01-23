@@ -20,6 +20,7 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
+import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 /**
@@ -65,5 +66,15 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
             baseType = elementType;
         }
         return PDataType.fromTypeId(baseType.getSqlType() + Types.ARRAY);
+    }
+    
+    @Override
+    public final <T> T accept(ExpressionVisitor<T> visitor) {
+        List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
+        T t = visitor.visitLeave(this, l);
+        if (t == null) {
+            t = visitor.defaultReturn(this, l);
+        }
+        return t;
     }
 }

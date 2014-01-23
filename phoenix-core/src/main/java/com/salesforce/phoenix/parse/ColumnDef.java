@@ -71,11 +71,6 @@ public class ColumnDef {
          // Also add what is the limit that we would support.  Are we going to support a
          //  fixed size or like postgre allow infinite.  May be the datatypes max limit can 
          // be used for the array size (May be too big)
-         /*if(this.isArray) {
-        	this.arrSize = 1; 
-         } else {
-           this.arrSize = arrSize;
-         }*/
          if(this.isArray) {
              this.arrSize = arrSize;
          } else {
