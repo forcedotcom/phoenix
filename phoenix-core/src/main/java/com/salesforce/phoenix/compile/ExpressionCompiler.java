@@ -542,7 +542,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     @Override
     public Expression visit(BindParseNode node) throws SQLException {
         Object value = context.getBindManager().getBindValue(node);
-        return LiteralExpression.newConstant(value);
+        return LiteralExpression.newConstant(value, true);
     }
 
     @Override
@@ -1330,6 +1330,7 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     @Override
     public Expression visitLeave(ArrayConstructorNode node, List<Expression> children) throws SQLException {
         boolean isChildTypeUnknown = false;
+        Expression arrayElemChild = null;
         PDataType arrayElemDataType = children.get(0).getDataType();
         for (int i = 0; i < children.size(); i++) {
             Expression child = children.get(i);
@@ -1339,9 +1340,11 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             } else if (arrayElemDataType == null) {
                 arrayElemDataType = childType;
                 isChildTypeUnknown = true;
+                arrayElemChild = child;
             } else if (arrayElemDataType == childType || childType.isCoercibleTo(arrayElemDataType)) {
                 continue;
             } else if (arrayElemDataType.isCoercibleTo(childType)) {
+                arrayElemChild = child;
                 arrayElemDataType = childType;
             } else {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
@@ -1355,28 +1358,38 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         if (isChildTypeUnknown && arrayElemDataType != null && arrayElemDataType.isCoercibleTo(PDataType.DECIMAL)) {
             arrayElemDataType = PDataType.DECIMAL;
         }
+        final PDataType theArrayElemDataType = arrayElemDataType;
+        for (int i = 0; i < node.getChildren().size(); i++) {
+            ParseNode childNode = node.getChildren().get(i);
+            if (childNode instanceof BindParseNode) {
+                context.getBindManager().addParamMetaData((BindParseNode)childNode,
+                        arrayElemDataType == arrayElemChild.getDataType() ? arrayElemChild :
+                            new DelegateDatum(arrayElemChild) {
+                    @Override
+                    public PDataType getDataType() {
+                        return theArrayElemDataType;
+                    }
+                });
+            }
+        }
         ImmutableBytesWritable ptr = context.getTempPtr();
         Object[] elements = new Object[children.size()];
         if (node.isStateless()) {
+            boolean isDeterministic = true;
             for (int i = 0; i < children.size(); i++) {
                 Expression child = children.get(i);
+                isDeterministic &= child.isDeterministic();
                 child.evaluate(null, ptr);
                 Object value = arrayElemDataType.toObject(ptr, child.getDataType(), child.getColumnModifier());
-                elements[i] = LiteralExpression.newConstant(value, child.getDataType()).getValue();
+                elements[i] = LiteralExpression.newConstant(value, child.getDataType(), child.isDeterministic()).getValue();
             }
             Object value = PArrayDataType.instantiatePhoenixArray(arrayElemDataType, elements);
             return LiteralExpression.newConstant(value,
-                    PDataType.fromTypeId(arrayElemDataType.getSqlType() + Types.ARRAY));
-        } else {
-            ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(children, arrayElemDataType);
-            for (int i = 0; i < children.size(); i++) {
-                ParseNode childNode = node.getChildren().get(i);
-                if (childNode instanceof BindParseNode) {
-                    context.getBindManager().addParamMetaData((BindParseNode)childNode, arrayExpression);
-                }
-            }
-            return arrayExpression;
+                    PDataType.fromTypeId(arrayElemDataType.getSqlType() + Types.ARRAY), isDeterministic);
         }
+        
+        ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(children, arrayElemDataType);
+        return wrapGroupByExpression(arrayExpression);
     }
 
     @Override

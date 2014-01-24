@@ -54,7 +54,6 @@ import static com.salesforce.phoenix.util.TestUtil.PARENTID6;
 import static com.salesforce.phoenix.util.TestUtil.PARENTID7;
 import static com.salesforce.phoenix.util.TestUtil.PARENTID8;
 import static com.salesforce.phoenix.util.TestUtil.PARENTID9;
-import static com.salesforce.phoenix.util.TestUtil.PHOENIX_JDBC_URL;
 import static com.salesforce.phoenix.util.TestUtil.ROW1;
 import static com.salesforce.phoenix.util.TestUtil.ROW2;
 import static com.salesforce.phoenix.util.TestUtil.ROW3;

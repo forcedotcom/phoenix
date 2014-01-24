@@ -445,8 +445,8 @@ public class ArrayTest extends BaseClientManagedTimeTest {
         }
     }
 
-    @Ignore
-    // This testcase does not pass
+    @Ignore //TODO: Ram to fix
+    @Test
     public void testUpsertSelectWithSelectAsSubQuery3() throws Exception {
         long ts = nextTimestamp();
         String tenantId = getOrganizationId();
@@ -462,6 +462,7 @@ public class ArrayTest extends BaseClientManagedTimeTest {
                     Long.toString(ts + 2)); // Execute at timestamp 2
             Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL,
                     props);
+            // TODO: this is invalid, as you can't have an array reference in upsert
             String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array[3]) values('"
                 + tenantId + "','00A123122312312',2.0d)";
             PreparedStatement statement = conn.prepareStatement(query);
