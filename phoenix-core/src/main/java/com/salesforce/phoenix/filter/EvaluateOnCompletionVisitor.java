@@ -29,6 +29,7 @@ package com.salesforce.phoenix.filter;
 
 import java.util.Iterator;
 
+import com.salesforce.phoenix.expression.ArrayConstructorExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
 import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.IsNullExpression;
@@ -77,6 +78,12 @@ public class EvaluateOnCompletionVisitor extends TraverseAllExpressionVisitor<Vo
     }
     @Override
     public Iterator<Expression> visitEnter(RowValueConstructorExpression node) {
+        evaluateOnCompletion = true;
+        return null;
+    }
+    
+    @Override
+    public Iterator<Expression> visitEnter(ArrayConstructorExpression node) {
         evaluateOnCompletion = true;
         return null;
     }
