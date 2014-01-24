@@ -15,10 +15,14 @@
  ******************************************************************************/
 package com.salesforce.phoenix.expression;
 
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 import java.sql.Types;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.io.WritableUtils;
 
 import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
@@ -46,7 +50,11 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
         for (int i = 0; i < children.size(); i++) {
             Expression child = children.get(i);
             if (!child.evaluate(tuple, ptr)) {
-                return false;
+                // TODO: if we're fixed width, we have no representation for null,
+                // so for now we'll just return false. Once we do, we should remove that.
+                if ((tuple != null && !tuple.isImmutable()) || baseType.isFixedWidth()) {
+                    return false;
+                }
             } else {
                 elements[i] = baseType.toObject(ptr, child.getDataType(), child.getColumnModifier());
             }
@@ -56,4 +64,18 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
         ptr.set(getDataType().toBytes(array));
         return true;
     }
+    
+    @Override
+    public void readFields(DataInput input) throws IOException {
+        super.readFields(input);
+        int baseTypeOrdinal = WritableUtils.readVInt(input);
+        baseType = PDataType.values()[baseTypeOrdinal];
+    }
+
+    @Override
+    public void write(DataOutput output) throws IOException {
+        super.write(output);
+        WritableUtils.writeVInt(output, baseType.ordinal());
+    }
+
 }
