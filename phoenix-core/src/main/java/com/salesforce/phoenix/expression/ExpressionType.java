@@ -61,7 +61,8 @@ import com.salesforce.phoenix.expression.function.RoundDateExpression;
 import com.salesforce.phoenix.expression.function.RoundDecimalExpression;
 import com.salesforce.phoenix.expression.function.RoundFunction;
 import com.salesforce.phoenix.expression.function.RoundTimestampExpression;
-import com.salesforce.phoenix.expression.function.SqlTableType;
+import com.salesforce.phoenix.expression.function.SQLTableTypeFunction;
+import com.salesforce.phoenix.expression.function.SQLViewTypeFunction;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.expression.function.StddevPopFunction;
 import com.salesforce.phoenix.expression.function.StddevSampFunction;
@@ -150,7 +151,7 @@ public enum ExpressionType {
     DoubleDivideExpression(DoubleDivideExpression.class),
     RowValueConstructorExpression(RowValueConstructorExpression.class),
     MD5Function(MD5Function.class),
-    SqlTableType(SqlTableType.class),
+    SQLTableTypeFunction(SQLTableTypeFunction.class),
     IndexKeyValue(IndexKeyValueColumnExpression.class),
     IndexStateName(IndexStateNameFunction.class),
     InvertFunction(InvertFunction.class),
@@ -158,7 +159,8 @@ public enum ExpressionType {
     TimestampAddExpression(TimestampAddExpression.class),
     TimestampSubtractExpression(TimestampSubtractExpression.class),
     ArrayIndexFunction(ArrayIndexFunction.class),
-    ArrayLengthFunction(ArrayLengthFunction.class);
+    ArrayLengthFunction(ArrayLengthFunction.class),
+    SQLViewTypeFunction(SQLViewTypeFunction.class);
     
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;

@@ -77,6 +77,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -682,6 +683,12 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
                  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
         PhoenixConnection conn2 = DriverManager.getConnection(PHOENIX_JDBC_URL, props).unwrap(PhoenixConnection.class);
+        
+        ResultSet rs = conn2.getMetaData().getTables(null, null, MDTEST_NAME, null);
+        assertTrue(rs.next());
+        assertEquals(ViewType.MAPPED.name(), rs.getString(PhoenixDatabaseMetaData.VIEW_TYPE));
+        assertFalse(rs.next());
+
         String deleteStmt = "DELETE FROM " + MDTEST_NAME;
         PreparedStatement ps = conn2.prepareStatement(deleteStmt);
         try {
@@ -718,7 +725,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
             String select = "SELECT col1 FROM " + MDTEST_NAME + " WHERE col2=?";
             ps = conn7.prepareStatement(select);
             ps.setInt(1, 2);
-            ResultSet rs = ps.executeQuery();
+            rs = ps.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
             assertFalse(rs.next());
