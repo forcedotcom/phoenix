@@ -35,12 +35,14 @@ import static org.junit.Assert.fail;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Test;
 
 import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
+import com.salesforce.phoenix.util.TestUtil;
 
 /**
  * TODO: derived from BaseClientMangedTimeTest, but not setting SCN
@@ -68,13 +70,23 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
         }
     }
     
+    private Connection nextConnection(String url) throws SQLException {
+        Properties props = new Properties(TestUtil.TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
+        return DriverManager.getConnection(getUrl(), props);
+    }
+    
     @Test
     public void testJoinWithGlobalTable() throws Exception {
-        Connection conn = DriverManager.getConnection(getUrl());
+        Connection conn = nextConnection(getUrl());
         conn.createStatement().execute("create table foo (k INTEGER NOT NULL PRIMARY KEY)");
+        conn.close();
+
+        conn = nextConnection(getUrl());
         conn.createStatement().execute("upsert into foo(k) values(1)");
         conn.commit();
         conn.close();
+
         conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
         try {
             conn.setAutoCommit(false);

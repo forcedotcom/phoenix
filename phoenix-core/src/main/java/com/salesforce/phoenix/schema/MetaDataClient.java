@@ -248,7 +248,7 @@ public class MetaDataClient {
     private MetaDataMutationResult updateCache(String schemaName, String tableName, boolean alwaysHitServer) throws SQLException { // TODO: pass byte[] here
         Long scn = connection.getSCN();
         long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
-        if (TYPE_SCHEMA.equals(schemaName)) {
+        if (TYPE_SCHEMA.equals(schemaName) && !alwaysHitServer) {
             return SYSTEM_TABLE_RESULT;
         }
         PTable table = null;
@@ -280,6 +280,9 @@ public class MetaDataClient {
             final byte[] tableBytes = PDataType.VARCHAR.toBytes(tableName);
             result = connection.getQueryServices().getTable(tenantId, schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
             
+            if (TYPE_SCHEMA.equals(schemaName)) {
+                return result;
+            }
             MutationCode code = result.getMutationCode();
             PTable resultTable = result.getTable();
             // We found an updated table, so update our cache

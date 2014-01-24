@@ -55,6 +55,7 @@ import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PColumn;
@@ -285,22 +286,25 @@ public class MutationState implements SQLCloseable {
             PTable table = tableRef.getTable();
             if (!connection.getAutoCommit()) {
                 MetaDataMutationResult result = client.updateCache(table.getSchemaName().getString(), table.getTableName().getString());
-                serverTimeStamp = result.getMutationTime();
-                if (result.wasUpdated()) {
-                    // TODO: use bitset?
-                    PColumn[] columns = new PColumn[table.getColumns().size()];
-                    for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {
-                        Map<PColumn,byte[]> valueEntry = rowEntry.getValue();
-                        if (valueEntry != PRow.DELETE_MARKER) {
-                            for (PColumn column : valueEntry.keySet()) {
-                                columns[column.getPosition()] = column;
+                long timestamp = result.getMutationTime();
+                if (timestamp != QueryConstants.UNSET_TIMESTAMP) {
+                    serverTimeStamp = timestamp;
+                    if (result.wasUpdated()) {
+                        // TODO: use bitset?
+                        PColumn[] columns = new PColumn[table.getColumns().size()];
+                        for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {
+                            Map<PColumn,byte[]> valueEntry = rowEntry.getValue();
+                            if (valueEntry != PRow.DELETE_MARKER) {
+                                for (PColumn column : valueEntry.keySet()) {
+                                    columns[column.getPosition()] = column;
+                                }
                             }
                         }
-                    }
-                    table = connection.getPMetaData().getTable(tableRef.getTable().getName().getString());
-                    for (PColumn column : columns) {
-                        if (column != null) {
-                            table.getColumnFamily(column.getFamilyName().getString()).getColumn(column.getName().getString());
+                        table = connection.getPMetaData().getTable(tableRef.getTable().getName().getString());
+                        for (PColumn column : columns) {
+                            if (column != null) {
+                                table.getColumnFamily(column.getFamilyName().getString()).getColumn(column.getName().getString());
+                            }
                         }
                     }
                 }
