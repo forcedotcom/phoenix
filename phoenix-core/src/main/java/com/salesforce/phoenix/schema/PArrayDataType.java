@@ -42,36 +42,22 @@ public class PArrayDataType {
 
     private static final int MAX_POSSIBLE_VINT_LENGTH = 2;
     private static final byte ARRAY_SERIALIZATION_VERSION = 1;
-    // This would be set when toObject is called
-	private Integer byteSize;
 	public PArrayDataType() {
-	}
-
-	public Integer getByteSize() {
-		return byteSize;
-	}
-	
-	private void setByteSize(Integer byteSize) {
-	    this.byteSize = byteSize;
 	}
 
 	public byte[] toBytes(Object object, PDataType baseType) {
 		if(object == null) {
 			throw new ConstraintViolationException(this + " may not be null");
 		}
-	    int size;
-        if (byteSize == null) {
-            size = PDataType.fromTypeId((baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
-        } else {
-            size = byteSize;
-        }
+	    int size = PDataType.fromTypeId((baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
+	    
         int noOfElements = ((PhoenixArray)object).numElements;
         if(noOfElements == 0) {
         	return ByteUtil.EMPTY_BYTE_ARRAY;
         }
         ByteBuffer buffer;
         int capacity = 0;
-		if (byteSize == null) {
+		if (!baseType.isFixedWidth()) {
 			// variable
 			if (calculateMaxOffset(size)) {
 				// Use Short to represent the offset
@@ -85,7 +71,7 @@ public class PArrayDataType {
 		} else {
 			buffer = ByteBuffer.allocate(size);
 		}
-		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, byteSize, capacity);
+		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, baseType.isFixedWidth(), capacity);
 	}
 
 	private boolean calculateMaxOffset(int size) {
@@ -97,10 +83,8 @@ public class PArrayDataType {
 	}
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
-		if(byteSize == null) {
-			return 0;
-		}
-		return byteSize;
+	    PhoenixArray array = (PhoenixArray)object;
+	    return PDataType.fromTypeId((array.baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
 	}
 
 	public boolean isCoercibleTo(PDataType targetType, Object value) {
@@ -144,7 +128,7 @@ public class PArrayDataType {
 	public Object toObject(byte[] bytes, int offset, int length, PDataType baseType, 
 			ColumnModifier columnModifier) {
 		return createPhoenixArray(bytes, offset, length, columnModifier,
-				byteSize, baseType);
+				baseType);
 	}
 	
 	public static void positionAtArrayElement(ImmutableBytesWritable ptr, int arrayIndex, PDataType baseDataType) {
@@ -229,13 +213,6 @@ public class PArrayDataType {
 	}
 	
 	public Object toObject(Object object, PDataType actualType) {
-		// the object that is passed here is the actual array set in the params
-	    PDataType baseType = PDataType.fromTypeId(actualType.getSqlType() - Types.ARRAY);
-	    if(!baseType.isFixedWidth()) {
-	        setByteSize(null);
-        } else {
-            setByteSize(PDataType.fromTypeId((actualType.getSqlType())).estimateByteSize(object));
-        }
 		return object;
 	}
 
@@ -243,7 +220,7 @@ public class PArrayDataType {
 		// How to use the sortOrder ? Just reverse the elements
 		return toObject(object, actualType);
 	}
-
+	
 	// Making this private
 	/**
 	 * The format of the byte buffer looks like this for variable length array elements
@@ -261,12 +238,12 @@ public class PArrayDataType {
 	 * @return
 	 */
 	private byte[] bytesFromByteBuffer(PhoenixArray array, ByteBuffer buffer,
-			int noOfElements, Integer byteSize, int capacity) {
+			int noOfElements, boolean fixedWidth, int capacity) {
 		int temp = noOfElements;
         if (buffer == null) return null;
         buffer.put(ARRAY_SERIALIZATION_VERSION);
         buffer.putInt(noOfElements);
-        if (byteSize == null) {
+        if (!fixedWidth) {
             int fillerForOffsetByteArray = buffer.position();
             buffer.position(fillerForOffsetByteArray + Bytes.SIZEOF_INT);
             ByteBuffer offsetArray = ByteBuffer.allocate(capacity);
@@ -302,8 +279,7 @@ public class PArrayDataType {
     }
 
 	private Object createPhoenixArray(byte[] bytes, int offset, int length,
-			ColumnModifier columnModifier, Integer byteSize,
-			PDataType baseDataType) {
+			ColumnModifier columnModifier, PDataType baseDataType) {
 		if(bytes == null || bytes.length == 0) {
 			return null;
 		}
@@ -320,7 +296,7 @@ public class PArrayDataType {
 		}
 		Object[] elements = (Object[]) java.lang.reflect.Array.newInstance(
 				baseDataType.getJavaClass(), noOfElements);
-		if (byteSize == null) {
+		if (!baseDataType.isFixedWidth()) {
 			int indexOffset = buffer.getInt();
 			int valArrayPostion = buffer.position();
 			buffer.position(indexOffset + initPos);
@@ -374,7 +350,6 @@ public class PArrayDataType {
 				buffer.get(val);
 				elements[i++] = baseDataType.toObject(val, columnModifier);
 			}
-
 		} else {
 			for (int i = 0; i < noOfElements; i++) {
 				byte[] val;

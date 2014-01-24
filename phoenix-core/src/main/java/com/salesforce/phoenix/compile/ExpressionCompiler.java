@@ -1320,9 +1320,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         .setTableName(node.getTableName().getTableName()).build().buildException();
 	}
 
-	@Override
-	public Expression visitLeave(ArrayConstructorNode node, List<Expression> children)
-			throws SQLException {
+    @Override
+    public Expression visitLeave(ArrayConstructorNode node, List<Expression> children) throws SQLException {
         boolean isChildTypeUnknown = false;
         PDataType arrayElemDataType = children.get(0).getDataType();
         for (int i = 0; i < children.size(); i++) {
@@ -1340,8 +1339,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             } else {
                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
                         .setMessage(
-                                "Case expressions must have common type: " + arrayElemDataType + " cannot be coerced to "
-                                        + childType).build().buildException();
+                                "Case expressions must have common type: " + arrayElemDataType
+                                        + " cannot be coerced to " + childType).build().buildException();
             }
         }
         // If we found an "unknown" child type and the return type is a number
@@ -1351,8 +1350,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         }
         ImmutableBytesWritable ptr = context.getTempPtr();
         Object[] elements = new Object[children.size()];
-        if(node.isStateless()) {
-            for(int i = 0; i < children.size(); i++) {
+        if (node.isStateless()) {
+            for (int i = 0; i < children.size(); i++) {
                 Expression child = children.get(i);
                 child.evaluate(null, ptr);
                 Object value = arrayElemDataType.toObject(ptr, child.getDataType(), child.getColumnModifier());
@@ -1362,23 +1361,19 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
             return LiteralExpression.newConstant(value,
                     PDataType.fromTypeId(arrayElemDataType.getSqlType() + Types.ARRAY));
         } else {
-            ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(
-                    children, arrayElemDataType);
-            /*for(int i = 0; i < children.size(); i++) {
-                Expression child = children.get(i);
-                if(child.isStateless()) {
-                    child.evaluate(null, ptr);
-                } else {
-                    child.evaluate(null, ptr);
+            ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(children, arrayElemDataType);
+            for (int i = 0; i < children.size(); i++) {
+                ParseNode childNode = node.getChildren().get(i);
+                if (childNode instanceof BindParseNode) {
+                    context.getBindManager().addParamMetaData((BindParseNode)childNode, arrayExpression);
                 }
-                arrayElemDataType.toObject(ptr, child.getDataType(), child.getColumnModifier());
-            }*/
-            return (arrayExpression);
+            }
+            return arrayExpression;
         }
-	}
+    }
 
-	@Override
-	public boolean visitEnter(ArrayConstructorNode node) throws SQLException {
-		return true;
-	}
+    @Override
+    public boolean visitEnter(ArrayConstructorNode node) throws SQLException {
+        return true;
+    }
 }

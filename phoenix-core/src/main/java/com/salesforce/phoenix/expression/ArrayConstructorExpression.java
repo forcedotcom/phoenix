@@ -20,7 +20,6 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
-import com.salesforce.phoenix.expression.visitor.ExpressionVisitor;
 import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PhoenixArray;
@@ -42,16 +41,6 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
     }
 
     @Override
-    public final <T> T accept(ExpressionVisitor<T> visitor) {
-        List<T> l = acceptChildren(visitor, visitor.visitEnter(this));
-        T t = visitor.visitLeave(this, l);
-        if (t == null) {
-            t = visitor.defaultReturn(this, l);
-        }
-        return t;
-    }
-
-    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
         Object[] elements = new Object[children.size()];
         for (int i = 0; i < children.size(); i++) {
@@ -63,6 +52,8 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
             }
         }
         PhoenixArray array = PArrayDataType.instantiatePhoenixArray(baseType, elements);
+        // FIXME: Need to see if this creation of an array and again back to byte[] can be avoided
+        ptr.set(getDataType().toBytes(array));
         return true;
     }
 }

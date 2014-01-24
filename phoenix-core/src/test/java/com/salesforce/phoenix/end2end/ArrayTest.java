@@ -290,116 +290,18 @@ public class ArrayTest extends BaseClientManagedTimeTest {
         }
     }
     
-	@Test
-	public void testUpsertValuesWithArray() throws Exception {
-		long ts = nextTimestamp();
-		String tenantId = getOrganizationId();
-		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
-		String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array) values('"
-				+ tenantId + "','00A123122312312',ARRAY[2.0d,345.8d])";
-		Properties props = new Properties(TEST_PROPERTIES);
-		props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts)); // Execute
-																					// at
-																					// timestamp
-		Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-		try {
-			PreparedStatement statement = conn.prepareStatement(query);
-			int executeUpdate = statement.executeUpdate();
-			assertEquals(1, executeUpdate);
-			conn.commit();
-			statement.close();
-			conn.close();
-			// create another connection
-			props = new Properties(TEST_PROPERTIES);
-			props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-					Long.toString(ts + 2)); // Execute at timestamp 2
-			conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-			query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
-			statement = conn.prepareStatement(query);
-			ResultSet rs = statement.executeQuery();
-			assertTrue(rs.next());
-			// Need to support primitive
-			Double[] doubleArr = new Double[1];
-			doubleArr[0] = 345.8d;
-			conn.createArrayOf("DOUBLE", doubleArr);
-			Double result = rs.getDouble(1);
-			assertEquals(result, doubleArr[0]);
-			assertFalse(rs.next());
-		} finally {
-			conn.close();
-		}
-	}
-	
-	@Test
-	public void testUpsertSelectWithSelectAsSubQuery1() throws Exception {
-		long ts = nextTimestamp();
-		String tenantId = getOrganizationId();
-		createTableWithArray(BaseConnectedQueryTest.getUrl(),
-				getDefaultSplits(tenantId), null, ts - 2);
-		//initTablesWithArrays(tenantId, null, ts, false);
-		try {
-			createSimpleTableWithArray(BaseConnectedQueryTest.getUrl(),
-					getDefaultSplits(tenantId), null, ts - 2);
-			initSimpleArrayTable(tenantId, null, ts, false);
-			Properties props = new Properties(TEST_PROPERTIES);
-			props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-					Long.toString(ts + 2)); // Execute at timestamp 2
-			Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL,
-					props);
-			String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array) "
-					+ "SELECT organization_id, entity_id, a_double_array  FROM "
-					+ SIMPLE_TABLE_WITH_ARRAY
-					+ " WHERE a_double_array[1] = 89.96d";
-			PreparedStatement statement = conn.prepareStatement(query);
-			int executeUpdate = statement.executeUpdate();
-			assertEquals(1, executeUpdate);
-			conn.commit();
-			statement.close();
-			conn.close();
-			// create another connection
-			props = new Properties(TEST_PROPERTIES);
-			props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-					Long.toString(ts + 4));
-			conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-			query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
-			statement = conn.prepareStatement(query);
-			ResultSet rs = statement.executeQuery();
-			assertTrue(rs.next());
-			// Need to support primitive
-			Double[] doubleArr = new Double[1];
-			doubleArr[0] = 89.96d;
-			Double result = rs.getDouble(1);
-			assertEquals(result, doubleArr[0]);
-			assertFalse(rs.next());
-
-		} finally {
-		}
-	}
-	
-	@Test
-    public void testUpsertSelectWithSelectAsSubQuery2() throws Exception {
-        /*long ts = nextTimestamp();
+    @Test
+    public void testUpsertValuesWithArray() throws Exception {
+        long ts = nextTimestamp();
         String tenantId = getOrganizationId();
-        createTableWithArray(BaseConnectedQueryTest.getUrl(),
-                getDefaultSplits(tenantId), null, ts - 2);
-        //initTablesWithArrays(tenantId, null, ts, false);
+        createTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+        String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array) values('" + tenantId
+                + "','00A123122312312',ARRAY[2.0d,345.8d])";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts)); // Execute
+                                                                                 // at
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
         try {
-            createSimpleTableWithArray(BaseConnectedQueryTest.getUrl(),
-                    getDefaultSplits(tenantId), null, ts - 2);
-            initSimpleArrayTable(tenantId, null, ts, false);
-            Properties props = new Properties(TEST_PROPERTIES);
-            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-                    Long.toString(ts + 2)); // Execute at timestamp 2
-            Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL,
-                    props);
-            String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,x_integer, a_double_array) "
-                    + "SELECT organization_id, entity_id, x_integer, ARRAY[1, 2.2, x_integer]  FROM "
-                    + SIMPLE_TABLE_WITH_ARRAY
-                    + " WHERE ORGANIZATION_ID = '1'";
-            String query = "SELECT organization_id, entity_id, x_integer, ARRAY[1, 2.2, x_integer]  FROM "
-                    + SIMPLE_TABLE_WITH_ARRAY
-                    + " WHERE ORGANIZATION_ID = '1' and x_integer = 1";
             PreparedStatement statement = conn.prepareStatement(query);
             int executeUpdate = statement.executeUpdate();
             assertEquals(1, executeUpdate);
@@ -408,8 +310,48 @@ public class ArrayTest extends BaseClientManagedTimeTest {
             conn.close();
             // create another connection
             props = new Properties(TEST_PROPERTIES);
-            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-                    Long.toString(ts + 4));
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+            conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
+            statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            // Need to support primitive
+            Double[] doubleArr = new Double[1];
+            doubleArr[0] = 345.8d;
+            conn.createArrayOf("DOUBLE", doubleArr);
+            Double result = rs.getDouble(1);
+            assertEquals(result, doubleArr[0]);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    @Test
+    public void testUpsertSelectWithSelectAsSubQuery1() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        createTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+        Connection conn = null;
+        try {
+            createSimpleTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+            initSimpleArrayTable(tenantId, null, ts, false);
+            Properties props = new Properties(TEST_PROPERTIES);
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+            conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID,a_double_array) "
+                    + "SELECT organization_id, entity_id, a_double_array  FROM " + SIMPLE_TABLE_WITH_ARRAY
+                    + " WHERE a_double_array[1] = 89.96d";
+            PreparedStatement statement = conn.prepareStatement(query);
+            int executeUpdate = statement.executeUpdate();
+            assertEquals(1, executeUpdate);
+            conn.commit();
+            statement.close();
+            conn.close();
+            // create another connection
+            props = new Properties(TEST_PROPERTIES);
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
             conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
             query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
             statement = conn.prepareStatement(query);
@@ -421,42 +363,88 @@ public class ArrayTest extends BaseClientManagedTimeTest {
             Double result = rs.getDouble(1);
             assertEquals(result, doubleArr[0]);
             assertFalse(rs.next());
+
+        } finally {
+            if (conn != null) {
+                conn.close();
+            }
+        }
+    }
+
+    @Test
+    public void testSelectWithArrayWithColumnRef() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        createTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+        initTablesWithArrays(tenantId, null, ts, false);
+        String query = "SELECT a_integer,ARRAY[1,2,a_integer] FROM table_with_array where organization_id =  '"
+                + tenantId + "'";
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
             PreparedStatement statement = conn.prepareStatement(query);
             ResultSet rs = statement.executeQuery();
             assertTrue(rs.next());
+            int val = rs.getInt(1);
+            assertEquals(val, 1);
+            Array array = rs.getArray(2);
+            // Need to support primitive
+            Integer[] intArr = new Integer[3];
+            intArr[0] = 1;
+            intArr[1] = 2;
+            intArr[2] = 1;
+            Array resultArr = conn.createArrayOf("INTEGER", intArr);
+            assertEquals(resultArr, array);
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testUpsertSelectWithColumnRef() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        createTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+        Connection conn = null;
+        try {
+            createSimpleTableWithArray(BaseConnectedQueryTest.getUrl(), getDefaultSplits(tenantId), null, ts - 2);
+            initSimpleArrayTable(tenantId, null, ts, false);
+            Properties props = new Properties(TEST_PROPERTIES);
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 2)); // Execute at timestamp 2
+            conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            String query = "upsert into table_with_array(ORGANIZATION_ID,ENTITY_ID, a_unsigned_double, a_double_array) "
+                    + "SELECT organization_id, entity_id, x_double, ARRAY[23.4d, 22.1d, x_double]  FROM " + SIMPLE_TABLE_WITH_ARRAY
+                    + " WHERE a_double_array[1] = 89.96d";
+            PreparedStatement statement = conn.prepareStatement(query);
+            int executeUpdate = statement.executeUpdate();
+            assertEquals(1, executeUpdate);
+            conn.commit();
+            statement.close();
+            conn.close();
+            // create another connection
+            props = new Properties(TEST_PROPERTIES);
+            props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 4));
+            conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+            query = "SELECT ARRAY_ELEM(a_double_array,1) FROM table_with_array";
+            statement = conn.prepareStatement(query);
+            ResultSet rs = statement.executeQuery();
+            assertTrue(rs.next());
+            // Need to support primitive
+            Double[] doubleArr = new Double[1];
+            doubleArr[0] = 22.1d;
+            Double result = rs.getDouble(1);
+            assertEquals(result, doubleArr[0]);
+            assertFalse(rs.next());
 
         } finally {
-        }*/
-	   
-	        long ts = nextTimestamp();
-	        String tenantId = getOrganizationId();
-	        createTableWithArray(BaseConnectedQueryTest.getUrl(),
-	                getDefaultSplits(tenantId), null, ts - 2);
-	        initTablesWithArrays(tenantId, null, ts, false);
-	        String query = "SELECT a_integer,ARRAY[1,2,a_integer] FROM table_with_array where organization_id =  '"+tenantId+"'";
-	        Properties props = new Properties(TEST_PROPERTIES);
-	        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
-	                Long.toString(ts + 2)); // Execute at timestamp 2
-	        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
-	        try {
-	            PreparedStatement statement = conn.prepareStatement(query);
-	            ResultSet rs = statement.executeQuery();
-	            assertTrue(rs.next());
-	            int val = rs.getInt(1);
-	            assertEquals(val, 1);
-	            Array array = rs.getArray(2);
-	            // Need to support primitive
-	            Integer[] intArr = new Integer[3];
-	            intArr[0] = 1;
-	            intArr[1] = 2;
-	            intArr[2] = 1;
-	            Array resultArr = conn.createArrayOf("INTEGER", intArr);
-	            assertEquals(resultArr, array);
-	            assertFalse(rs.next());
-	        } finally {
-	            conn.close();
-	        }
-	    }
+            if (conn != null) {
+                conn.close();
+            }
+        }
+    }
+
     @Ignore
     // This testcase does not pass
     public void testUpsertSelectWithSelectAsSubQuery3() throws Exception {
@@ -753,7 +741,7 @@ public class ArrayTest extends BaseClientManagedTimeTest {
 				+ SIMPLE_TABLE_WITH_ARRAY
 				+ "   (organization_id char(15) not null, \n"
 				+ "    entity_id char(15) not null,\n"
-				+ "    x_integer integer,\n"
+				+ "    x_double double,\n"
 				+ "    a_double_array double array[],\n"
 				+ "    CONSTRAINT pk PRIMARY KEY (organization_id, entity_id)\n"
 				+ ")";
@@ -773,16 +761,17 @@ public class ArrayTest extends BaseClientManagedTimeTest {
                     "(" +
                     "    ORGANIZATION_ID, " +
                     "    ENTITY_ID, " +
-                    "    X_INTEGER, " +
+                    "    x_double, " +
                     "    a_double_array)" +
                     "VALUES (?, ?, ?, ?)");
             stmt.setString(1, tenantId);
             stmt.setString(2, ROW1);
-            stmt.setInt(3, 1);
+            stmt.setDouble(3, 1.2d);
             // Need to support primitive
             Double[] doubleArr =  new Double[2];
             doubleArr[0] = 64.87;
             doubleArr[1] = 89.96;
+            //doubleArr[2] = 9.9;
             Array array = conn.createArrayOf("DOUBLE", doubleArr);
             stmt.setArray(4, array);
             stmt.execute();
