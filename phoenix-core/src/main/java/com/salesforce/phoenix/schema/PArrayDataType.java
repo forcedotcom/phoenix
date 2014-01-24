@@ -57,7 +57,7 @@ public class PArrayDataType {
         }
         ByteBuffer buffer;
         int capacity = 0;
-		if (!baseType.isFixedWidth()) {
+		if (!baseType.isFixedWidth() || baseType.isCoercibleTo(PDataType.VARCHAR)) {
 			// variable
 			if (calculateMaxOffset(size)) {
 				// Use Short to represent the offset
@@ -71,7 +71,7 @@ public class PArrayDataType {
 		} else {
 			buffer = ByteBuffer.allocate(size);
 		}
-		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, baseType.isFixedWidth(), capacity);
+		return bytesFromByteBuffer((PhoenixArray)object, buffer, noOfElements, baseType, capacity);
 	}
 
 	private boolean calculateMaxOffset(int size) {
@@ -238,12 +238,12 @@ public class PArrayDataType {
 	 * @return
 	 */
 	private byte[] bytesFromByteBuffer(PhoenixArray array, ByteBuffer buffer,
-			int noOfElements, boolean fixedWidth, int capacity) {
+			int noOfElements, PDataType baseType, int capacity) {
 		int temp = noOfElements;
         if (buffer == null) return null;
         buffer.put(ARRAY_SERIALIZATION_VERSION);
         buffer.putInt(noOfElements);
-        if (!fixedWidth) {
+        if (!baseType.isFixedWidth() || baseType.isCoercibleTo(PDataType.VARCHAR)) {
             int fillerForOffsetByteArray = buffer.position();
             buffer.position(fillerForOffsetByteArray + Bytes.SIZEOF_INT);
             ByteBuffer offsetArray = ByteBuffer.allocate(capacity);
@@ -296,7 +296,7 @@ public class PArrayDataType {
 		}
 		Object[] elements = (Object[]) java.lang.reflect.Array.newInstance(
 				baseDataType.getJavaClass(), noOfElements);
-		if (!baseDataType.isFixedWidth()) {
+		if (!baseDataType.isFixedWidth() || baseDataType.isCoercibleTo(PDataType.VARCHAR)) {
 			int indexOffset = buffer.getInt();
 			int valArrayPostion = buffer.position();
 			buffer.position(indexOffset + initPos);

@@ -83,8 +83,8 @@ public class PDataTypeForArraysTest {
 	@Test
 	public void testForCharArray() {
 		String[] strArr = new String[2];
-		strArr[0] = "abd";
-		strArr[1] = "deftg";
+		strArr[0] = "a";
+		strArr[1] = "d";
 		PhoenixArray arr = PArrayDataType.instantiatePhoenixArray(
 				PDataType.CHAR, strArr);
 		byte[] bytes = PDataType.CHAR_ARRAY.toBytes(arr);
