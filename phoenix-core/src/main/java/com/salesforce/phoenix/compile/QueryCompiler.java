@@ -137,6 +137,8 @@ public class QueryCompiler {
             SelectStatement optimized = JoinCompiler.optimize(context, select, statement);
             if (optimized != select) {
                 select = optimized;
+                // TODO: this is a relatively expensive operation that shouldn't be
+                // done multiple times
                 resolver = FromCompiler.getMultiTableResolver(select, connection);
                 context.setResolver(resolver);
             }

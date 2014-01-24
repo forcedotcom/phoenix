@@ -45,8 +45,13 @@ public class ImmutableBytesPtr extends ImmutableBytesWritable {
     }
 
     public ImmutableBytesPtr(ImmutableBytesWritable ibw) {
-        super(ibw);
+        super(ibw.get(), ibw.getOffset(), ibw.getLength());
         hashCode = super.hashCode();
+    }
+
+    public ImmutableBytesPtr(ImmutableBytesPtr ibp) {
+        super(ibp.get(), ibp.getOffset(), ibp.getLength());
+        hashCode = ibp.hashCode;
     }
 
     public ImmutableBytesPtr(byte[] bytes, int offset, int length) {

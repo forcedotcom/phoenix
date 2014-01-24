@@ -27,6 +27,8 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
+import org.apache.hadoop.hbase.HConstants;
+
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 
@@ -43,16 +45,26 @@ public class TableNotFoundException extends MetaDataEntityNotFoundException {
     private static SQLExceptionCode code = SQLExceptionCode.TABLE_UNDEFINED;
     private final String schemaName;
     private final String tableName;
+    private final long timestamp;
+
+    public TableNotFoundException(TableNotFoundException e, long timestamp) {
+        this(e.schemaName,e.tableName, timestamp);
+    }
 
     public TableNotFoundException(String tableName) {
         this(null, tableName);
     }
 
     public TableNotFoundException(String schemaName, String tableName) {
+        this(schemaName, tableName, HConstants.LATEST_TIMESTAMP);
+    }
+    
+    public TableNotFoundException(String schemaName, String tableName, long timestamp) {
         super(new SQLExceptionInfo.Builder(code).setSchemaName(schemaName).setTableName(tableName).build().toString(),
                 code.getSQLState(), code.getErrorCode(), null);
         this.tableName = tableName;
         this.schemaName = schemaName;
+        this.timestamp = timestamp;
     }
 
     public String getTableName() {
@@ -61,5 +73,9 @@ public class TableNotFoundException extends MetaDataEntityNotFoundException {
 
     public String getSchemaName() {
         return schemaName;
+    }
+
+    public long getTimeStamp() {
+        return timestamp;
     }
 }

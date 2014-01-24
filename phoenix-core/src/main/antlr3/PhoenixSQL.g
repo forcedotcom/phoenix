@@ -386,7 +386,7 @@ create_table_node returns [CreateTableStatement ret]
         (LPAREN c=column_defs (pk=pk_constraint)? RPAREN)
         (p=fam_properties)?
         (SPLIT ON s=list_expressions)?
-        {ret = factory.createTable(t, p, c, pk, s, PTableType.USER, ex!=null, null, null, getBindCount()); }
+        {ret = factory.createTable(t, p, c, pk, s, PTableType.TABLE, ex!=null, null, null, getBindCount()); }
     ;
 
 // Parse a create view statement.
@@ -484,7 +484,7 @@ column_names returns [List<ColumnName> ret]
 // Parse a drop table statement.
 drop_table_node returns [DropTableStatement ret]
     :   DROP (v=VIEW | TABLE) (IF ex=EXISTS)? t=from_table_name
-        {ret = factory.dropTable(t, v==null ? PTableType.USER : PTableType.VIEW, ex!=null); }
+        {ret = factory.dropTable(t, v==null ? PTableType.TABLE : PTableType.VIEW, ex!=null); }
     ;
 
 // Parse a drop index statement
@@ -501,9 +501,9 @@ alter_index_node returns [AlterIndexStatement ret]
 
 // Parse an alter table statement.
 alter_table_node returns [AlterTableStatement ret]
-    :   ALTER TABLE t=from_table_name
+    :   ALTER (TABLE | v=VIEW) t=from_table_name
         ( (DROP COLUMN (IF ex=EXISTS)? c=column_names) | (ADD (IF NOT ex=EXISTS)? (d=column_defs) (p=properties)?) | (SET (p=properties)) )
-        {ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), c, ex!=null) ); }
+        { PTableType tt = v==null ? PTableType.TABLE : PTableType.VIEW; ret = ( c == null ? factory.addColumn(factory.namedTable(null,t), tt, d, ex!=null, p) : factory.dropColumn(factory.namedTable(null,t), tt, c, ex!=null) ); }
     ;
 
 prop_name returns [String ret]

@@ -210,6 +210,13 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         PDataType lhsExprDataType = lhsExpr.getDataType();
         PDataType rhsExprDataType = rhsExpr.getDataType();
         checkComparability(node, lhsNode, rhsNode, lhsExpr, rhsExpr);
+        // We don't yet support comparison between entire arrays
+        if ( ( (lhsExprDataType != null && lhsExprDataType.isArrayType()) || 
+               (rhsExprDataType != null && rhsExprDataType.isArrayType()) ) &&
+             ( node.getFilterOp() != CompareOp.EQUAL && node.getFilterOp() != CompareOp.NOT_EQUAL ) ) {
+            throw new SQLExceptionInfo.Builder(SQLExceptionCode.NON_EQUALITY_ARRAY_COMPARISON)
+            .setMessage(ComparisonExpression.toString(node.getFilterOp(), children)).build().buildException();
+        }
         
         if (lhsExpr instanceof RowValueConstructorExpression || rhsExpr instanceof RowValueConstructorExpression) {
             rhsExpr = RowValueConstructorExpression.coerce(lhsExpr, rhsExpr, node.getFilterOp());

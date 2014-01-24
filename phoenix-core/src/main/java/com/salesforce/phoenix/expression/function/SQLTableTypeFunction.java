@@ -25,27 +25,64 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ******************************************************************************/
-package com.salesforce.phoenix.parse;
+package com.salesforce.phoenix.expression.function;
 
+import java.sql.SQLException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+
+import com.salesforce.phoenix.expression.Expression;
+import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
+import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
+import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.tuple.Tuple;
 
-public class DropColumnStatement extends AlterTableStatement {
-    private final List<ColumnName> columnRefs;
-    private final boolean ifExists;
+
+/**
+ * 
+ * Function used to get the SQL table type name from the serialized table type.
+ * Usage:
+ * SqlTableType('v') will return 'VIEW' based on
+ * {@link java.sql.DatabaseMetaData#getTableTypes()}
+ * 
+ * @author jtaylor
+ * @since 2.2
+ */
+@BuiltInFunction(name=SQLTableTypeFunction.NAME, args= {
+    @Argument(allowedTypes=PDataType.CHAR)} )
+public class SQLTableTypeFunction extends ScalarFunction {
+    public static final String NAME = "SQLTableType";
+
+    public SQLTableTypeFunction() {
+    }
     
-    protected DropColumnStatement(NamedTableNode table, PTableType tableType, List<ColumnName> columnRefs, boolean ifExists) {
-        super(table, tableType);
-        this.columnRefs = columnRefs;
-        this.ifExists = ifExists;
+    public SQLTableTypeFunction(List<Expression> children) throws SQLException {
+        super(children);
+    }
+    
+    @Override
+    public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
+        Expression child = children.get(0);
+        if (!child.evaluate(tuple, ptr)) {
+            return false;
+        }
+        if (ptr.getLength() == 0) {
+            return true;
+        }
+        PTableType tableType = PTableType.fromSerializedValue(ptr.get()[ptr.getOffset()]);
+        ptr.set(tableType.getValue().getBytes());
+        return true;
     }
 
-    public List<ColumnName> getColumnRefs() {
-        return columnRefs;
+    @Override
+    public PDataType getDataType() {
+        return PDataType.VARCHAR;
     }
-
-    public boolean ifExists() {
-        return ifExists;
+    
+    @Override
+    public String getName() {
+        return NAME;
     }
 }

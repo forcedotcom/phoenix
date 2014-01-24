@@ -77,6 +77,7 @@ import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
 import com.salesforce.phoenix.schema.TableNotFoundException;
@@ -104,9 +105,9 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         ResultSet rs = dbmd.getTables(null, aSchemaName, aTableName, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_NAME"),aTableName);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertEquals(rs.getString(3),aTableName);
-        assertEquals(PTableType.USER.toString(), rs.getString(4));
+        assertEquals(PTableType.TABLE.toString(), rs.getString(4));
         assertFalse(rs.next());
         
         rs = dbmd.getTables(null, null, null, null);
@@ -121,21 +122,21 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(CUSTOM_ENTITY_DATA_SCHEMA_NAME, rs.getString("TABLE_SCHEM"));
         assertEquals(CUSTOM_ENTITY_DATA_NAME, rs.getString("TABLE_NAME"));
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
 
         rs = dbmd.getTables(null, CUSTOM_ENTITY_DATA_SCHEMA_NAME, CUSTOM_ENTITY_DATA_NAME, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),CUSTOM_ENTITY_DATA_SCHEMA_NAME);
         assertEquals(rs.getString("TABLE_NAME"),CUSTOM_ENTITY_DATA_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
         
         try {
@@ -146,15 +147,15 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         }
         assertFalse(rs.next());
         
-        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.USER.toString()});
+        rs = dbmd.getTables(null, "", "_TABLE", new String[] {PTableType.TABLE.toString()});
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),ATABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);
         assertEquals(rs.getString("TABLE_NAME"),STABLE_NAME);
-        assertEquals(PTableType.USER.toString(), rs.getString("TABLE_TYPE"));
+        assertEquals(PTableType.TABLE.toString(), rs.getString("TABLE_TYPE"));
         assertFalse(rs.next());
     }
 
@@ -682,6 +683,12 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
                  
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(ts + 6));
         PhoenixConnection conn2 = DriverManager.getConnection(PHOENIX_JDBC_URL, props).unwrap(PhoenixConnection.class);
+        
+        ResultSet rs = conn2.getMetaData().getTables(null, null, MDTEST_NAME, null);
+        assertTrue(rs.next());
+        assertEquals(ViewType.MAPPED.name(), rs.getString(PhoenixDatabaseMetaData.VIEW_TYPE));
+        assertFalse(rs.next());
+
         String deleteStmt = "DELETE FROM " + MDTEST_NAME;
         PreparedStatement ps = conn2.prepareStatement(deleteStmt);
         try {
@@ -702,7 +709,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
             } catch (ReadOnlyTableException e) {
                 // expected to fail b/c table is read-only
             }
-            conn2.createStatement().execute("ALTER TABLE " + MDTEST_NAME + " SET IMMUTABLE_ROWS=TRUE");
+            conn2.createStatement().execute("ALTER VIEW " + MDTEST_NAME + " SET IMMUTABLE_ROWS=TRUE");
             
             HTableInterface htable = conn2.getQueryServices().getTable(SchemaUtil.getTableNameAsBytes(MDTEST_SCHEMA_NAME,MDTEST_NAME));
             Put put = new Put(Bytes.toBytes("0"));
@@ -718,7 +725,7 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
             String select = "SELECT col1 FROM " + MDTEST_NAME + " WHERE col2=?";
             ps = conn7.prepareStatement(select);
             ps.setInt(1, 2);
-            ResultSet rs = ps.executeQuery();
+            rs = ps.executeQuery();
             assertTrue(rs.next());
             assertEquals(1, rs.getInt(1));
             assertFalse(rs.next());

@@ -290,12 +290,12 @@ public class ParseNodeFactory {
         return new SequenceValueParseNode(tableName, SequenceValueParseNode.Op.NEXT_VALUE);
     }
     
-    public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
-        return new AddColumnStatement(table, columnDefs, ifNotExists, props);
+    public AddColumnStatement addColumn(NamedTableNode table,  PTableType tableType, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
+        return new AddColumnStatement(table, tableType, columnDefs, ifNotExists, props);
     }
     
-    public DropColumnStatement dropColumn(NamedTableNode table,  List<ColumnName> columnNodes, boolean ifExists) {
-        return new DropColumnStatement(table, columnNodes, ifExists);
+    public DropColumnStatement dropColumn(NamedTableNode table,  PTableType tableType, List<ColumnName> columnNodes, boolean ifExists) {
+        return new DropColumnStatement(table, tableType, columnNodes, ifExists);
     }
     
     public DropTableStatement dropTable(TableName tableName, PTableType tableType, boolean ifExists) {

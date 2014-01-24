@@ -36,7 +36,6 @@ import java.util.Map;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.salesforce.phoenix.query.ConnectionQueryServicesImpl;
 
 public class PMetaDataImpl implements PMetaData {
     public static final PMetaData EMPTY_META_DATA = new PMetaDataImpl(Collections.<String,PTable>emptyMap());
@@ -153,7 +152,7 @@ public class PMetaDataImpl implements PMetaData {
     }
 
     public static PMetaData pruneNewerTables(long scn, PMetaData metaData) {
-        if (!ConnectionQueryServicesImpl.hasMetaDataToPrune(scn, metaData)) {
+        if (!hasNewerMetaData(scn, metaData)) {
             return metaData;
         }
         Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
@@ -171,5 +170,39 @@ public class PMetaDataImpl implements PMetaData {
             return new PMetaDataImpl(newTables);
         }
         return metaData;
+    }
+
+    private static boolean hasNewerMetaData(long scn, PMetaData metaData) {
+        for (PTable table : metaData.getTables().values()) {
+            if (table.getTimeStamp() >= scn) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private static boolean hasMultiTenantMetaData(PMetaData metaData) {
+        for (PTable table : metaData.getTables().values()) {
+            if (table.isMultiTenant()) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    public static PMetaData pruneMultiTenant(PMetaData metaData) {
+        if (!hasMultiTenantMetaData(metaData)) {
+            return metaData;
+        }
+        Map<String,PTable> newTables = Maps.newHashMap(metaData.getTables());
+        Iterator<Map.Entry<String, PTable>> tableIterator = newTables.entrySet().iterator();
+        while (tableIterator.hasNext()) {
+            PTable table = tableIterator.next().getValue();
+            if (table.isMultiTenant()) {
+                tableIterator.remove();
+            }
+        }
+    
+        return new PMetaDataImpl(newTables);
     }
 }

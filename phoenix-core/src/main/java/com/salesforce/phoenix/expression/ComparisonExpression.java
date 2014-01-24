@@ -156,8 +156,12 @@ public class ComparisonExpression extends BaseCompoundExpression {
         return op;
     }
     
+    public static String toString(CompareOp op, List<Expression> children) {
+        return (children.get(0) + CompareOpString[op.ordinal()] + children.get(1));
+    }
+    
     @Override
     public String toString() {
-        return (children.get(0) + CompareOpString[getFilterOp().ordinal()] + children.get(1));
+        return toString(getFilterOp(), children);
     }    
 }

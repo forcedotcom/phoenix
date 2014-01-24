@@ -227,19 +227,29 @@ public class MetaDataClient {
         return connection;
     }
 
+    public long getCurrentTime(String schemaName, String tableName) throws SQLException {
+        MetaDataMutationResult result = updateCache(schemaName, tableName, true);
+        return result.getMutationTime();
+    }
+    
     /**
      * Update the cache with the latest as of the connection scn.
-     * @param tenantId TODO
      * @param schemaName
      * @param tableName
-     * @return the timestamp from the server, negative if the cache was updated and positive otherwise
+     * @return the timestamp from the server, negative if the table was added to the cache and positive otherwise
      * @throws SQLException
      */
-    public long updateCache(byte[] tenantId, String schemaName, String tableName) throws SQLException { // TODO: pass byte[] here
+    public MetaDataMutationResult updateCache(String schemaName, String tableName) throws SQLException {
+        return updateCache(schemaName, tableName, false);
+    }
+    
+    private static final MetaDataMutationResult SYSTEM_TABLE_RESULT = new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS,QueryConstants.UNSET_TIMESTAMP,null);
+    
+    private MetaDataMutationResult updateCache(String schemaName, String tableName, boolean alwaysHitServer) throws SQLException { // TODO: pass byte[] here
         Long scn = connection.getSCN();
         long clientTimeStamp = scn == null ? HConstants.LATEST_TIMESTAMP : scn;
-        if (TYPE_SCHEMA.equals(schemaName)) {
-            return clientTimeStamp;
+        if (TYPE_SCHEMA.equals(schemaName) && !alwaysHitServer) {
+            return SYSTEM_TABLE_RESULT;
         }
         PTable table = null;
         String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
@@ -248,37 +258,63 @@ public class MetaDataClient {
             table = connection.getPMetaData().getTable(fullTableName);
             tableTimestamp = table.getTimeStamp();
         } catch (TableNotFoundException e) {
-            
+            // Ignore, as we'll try to load from cache next
         }
+        PName tenantIdName = connection.getTenantId();
         // Don't bother with server call: we can't possibly find a newer table
-        // TODO: review - this seems weird
-        if (tableTimestamp == clientTimeStamp - 1) {
-            return clientTimeStamp;
+        if (table != null && tableTimestamp == clientTimeStamp - 1 && !alwaysHitServer) {
+            return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS,QueryConstants.UNSET_TIMESTAMP,table);
         }
-        final byte[] schemaBytes = PDataType.VARCHAR.toBytes(schemaName);
-        final byte[] tableBytes = PDataType.VARCHAR.toBytes(tableName);
-        MetaDataMutationResult result = connection.getQueryServices().getTable(tenantId, schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
         
-        MutationCode code = result.getMutationCode();
-        PTable resultTable = result.getTable();
-        // We found an updated table, so update our cache
-        if (resultTable != null) {
-            connection.addTable(resultTable);
-            return -result.getMutationTime();
-        } else {
-            // if (result.getMutationCode() == MutationCode.NEWER_TABLE_FOUND) {
-            // TODO: No table exists at the clientTimestamp, but a newer one exists.
-            // Since we disallow creation or modification of a table earlier than the latest
-            // timestamp, we can handle this such that we don't ask the
-            // server again.
-            // If table was not found at the current time stamp and we have one cached, remove it.
-            // Otherwise, we're up to date, so there's nothing to do.
-            if (code == MutationCode.TABLE_NOT_FOUND && table != null) {
-                connection.removeTable(fullTableName);
-                return -result.getMutationTime();
-            }
+        byte[] tenantId = null;
+        int maxTryCount = 1;
+        if (tenantIdName != null) {
+            tenantId = tenantIdName.getBytes();
+            maxTryCount = 2;
         }
-        return result.getMutationTime();
+        int tryCount = 0;
+        MetaDataMutationResult result;
+        
+        do {
+            final byte[] schemaBytes = PDataType.VARCHAR.toBytes(schemaName);
+            final byte[] tableBytes = PDataType.VARCHAR.toBytes(tableName);
+            result = connection.getQueryServices().getTable(tenantId, schemaBytes, tableBytes, tableTimestamp, clientTimeStamp);
+            
+            if (TYPE_SCHEMA.equals(schemaName)) {
+                return result;
+            }
+            MutationCode code = result.getMutationCode();
+            PTable resultTable = result.getTable();
+            // We found an updated table, so update our cache
+            if (resultTable != null) {
+                // Don't cache the table unless it has the same tenantId
+                // as the connection or it's not multi-tenant.
+                if (tryCount == 0 || !resultTable.isMultiTenant()) {
+                    connection.addTable(resultTable);
+                    return result;
+                }
+            } else {
+                // if (result.getMutationCode() == MutationCode.NEWER_TABLE_FOUND) {
+                // TODO: No table exists at the clientTimestamp, but a newer one exists.
+                // Since we disallow creation or modification of a table earlier than the latest
+                // timestamp, we can handle this such that we don't ask the
+                // server again.
+                // If table was not found at the current time stamp and we have one cached, remove it.
+                // Otherwise, we're up to date, so there's nothing to do.
+                if (table != null) {
+                    result.setTable(table);
+                    if (code == MutationCode.TABLE_ALREADY_EXISTS) {
+                        return result;
+                    }
+                    if (code == MutationCode.TABLE_NOT_FOUND && tryCount + 1 == maxTryCount) {
+                        connection.removeTable(fullTableName);
+                    }
+                }
+            }
+            tenantId = null;
+        } while (++tryCount < maxTryCount);
+        
+        return result;
     }
 
 
@@ -777,7 +813,7 @@ public class MetaDataClient {
                     }
                     // disallow array type usage in primary key constraint
                     if (colDef.isArray()) {
-                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.INVALID_ARRAY_TYPE_AS_PRIMARY_KEY_CONSTRAINT)
+                        throw new SQLExceptionInfo.Builder(SQLExceptionCode.ARRAY_NOT_ALLOWED_IN_PRIMARY_KEY)
                         .setSchemaName(schemaName)
                         .setTableName(tableName)
                         .setColumnName(colDef.getColumnDefName().getColumnName())
@@ -1144,11 +1180,11 @@ public class MetaDataClient {
         return mutationCode;
     }
 
-    private  long incrementTableSeqNum(PTable table, int columnCountDelta) throws SQLException {
-        return incrementTableSeqNum(table, table.isImmutableRows(), table.isWALDisabled(), table.isMultiTenant(), columnCountDelta);
+    private  long incrementTableSeqNum(PTable table, PTableType expectedType, int columnCountDelta) throws SQLException {
+        return incrementTableSeqNum(table, expectedType, table.isImmutableRows(), table.isWALDisabled(), table.isMultiTenant(), columnCountDelta);
     }
     
-    private long incrementTableSeqNum(PTable table, boolean isImmutableRows, boolean disableWAL, boolean isMultiTenant, int columnCountDelta) throws SQLException {
+    private long incrementTableSeqNum(PTable table, PTableType expectedType, boolean isImmutableRows, boolean disableWAL, boolean isMultiTenant, int columnCountDelta) throws SQLException {
         String schemaName = table.getSchemaName().getString();
         String tableName = table.getTableName().getString();
         // Ordinal position is 1-based and we don't count SALT column in ordinal position
@@ -1159,7 +1195,7 @@ public class MetaDataClient {
             tableUpsert.setString(1, connection.getTenantId() == null ? null : connection.getTenantId().getString());
             tableUpsert.setString(2, schemaName);
             tableUpsert.setString(3, tableName);
-            tableUpsert.setString(4, table.getType().getSerializedValue());
+            tableUpsert.setString(4, expectedType.getSerializedValue());
             tableUpsert.setLong(5, seqNum);
             tableUpsert.setInt(6, totalColumnCount + columnCountDelta);
             tableUpsert.setBoolean(7, isImmutableRows);
@@ -1210,8 +1246,11 @@ public class MetaDataClient {
                 if (isImmutableRowsProp != null) {
                     isImmutableRows = isImmutableRowsProp;
                 }
+                boolean multiTenant = table.isMultiTenant();
                 Boolean multiTenantProp = (Boolean) statement.getProps().remove(PhoenixDatabaseMetaData.MULTI_TENANT);
-                boolean multiTenant = Boolean.TRUE.equals(multiTenantProp);
+                if (multiTenantProp != null) {
+                    multiTenant = Boolean.TRUE.equals(multiTenantProp);
+                }
                 
                 boolean disableWAL = Boolean.TRUE.equals(statement.getProps().remove(DISABLE_WAL));
                 if (statement.getProps().get(PhoenixDatabaseMetaData.SALT_BUCKETS) != null) {
@@ -1291,12 +1330,12 @@ public class MetaDataClient {
                 
                 if (isAddingPKColumn && !table.getIndexes().isEmpty()) {
                     for (PTable index : table.getIndexes()) {
-                        incrementTableSeqNum(index, 1);
+                        incrementTableSeqNum(index, index.getType(), 1);
                     }
                     tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                     connection.rollback();
                 }
-                long seqNum = incrementTableSeqNum(table, isImmutableRows, disableWAL, multiTenant, 1);
+                long seqNum = incrementTableSeqNum(table, statement.getTableType(), isImmutableRows, disableWAL, multiTenant, 1);
                 
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
@@ -1321,7 +1360,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, table.getType(), families);
+                MetaDataMutationResult result = connection.getQueryServices().addColumn(tableMetaData, statement.getTableType(), families);
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_ALREADY_EXISTS) {
@@ -1506,7 +1545,7 @@ public class MetaDataClient {
                         }
                     }
                     if(!indexColumnsToDrop.isEmpty()) {
-                        incrementTableSeqNum(index, -1);
+                        incrementTableSeqNum(index, index.getType(), -1);
                         dropColumnMutations(index, indexColumnsToDrop, tableMetaData);
                     }
                     
@@ -1514,7 +1553,7 @@ public class MetaDataClient {
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 
-                long seqNum = incrementTableSeqNum(table, -1);
+                long seqNum = incrementTableSeqNum(table, statement.getTableType(), -1);
                 tableMetaData.addAll(connection.getMutationState().toMutations().next().getSecond());
                 connection.rollback();
                 // Force table header to be first in list
@@ -1551,7 +1590,7 @@ public class MetaDataClient {
                         }
                     }
                 }
-                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, table.getType());
+                MetaDataMutationResult result = connection.getQueryServices().dropColumn(tableMetaData, statement.getTableType());
                 try {
                     MutationCode code = processMutationResult(schemaName, tableName, result);
                     if (code == MutationCode.COLUMN_NOT_FOUND) {

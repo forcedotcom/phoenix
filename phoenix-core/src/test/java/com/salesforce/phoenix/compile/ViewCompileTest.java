@@ -31,10 +31,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import org.junit.Test;
 
+import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.query.BaseConnectionlessQueryTest;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
@@ -91,7 +93,7 @@ public class ViewCompileTest extends BaseConnectionlessQueryTest {
         
         // TODO: should it be an error to remove columns from a VIEW that we're defined there?
         // TOOD: should we require an ALTER VIEW instead of ALTER TABLE?
-        conn.createStatement().execute("ALTER TABLE v3 DROP COLUMN v");
+        conn.createStatement().execute("ALTER VIEW v3 DROP COLUMN v");
         try {
             conn.createStatement().executeQuery("SELECT * FROM v3");
             fail();
@@ -106,4 +108,20 @@ public class ViewCompileTest extends BaseConnectionlessQueryTest {
         conn.createStatement().execute("DROP VIEW v3");
     }
 
+
+    @Test
+    public void testInvalidUpsertSelect() throws Exception {
+        Properties props = new Properties(TestUtil.TEST_PROPERTIES);
+        PhoenixConnection conn = DriverManager.getConnection(getUrl(), props).unwrap(PhoenixConnection.class);
+        conn.createStatement().execute("CREATE TABLE t1 (k1 INTEGER NOT NULL, k2 VARCHAR, v VARCHAR, CONSTRAINT pk PRIMARY KEY (k1,k2))");
+        conn.createStatement().execute("CREATE TABLE t2 (k3 INTEGER NOT NULL, v VARCHAR, CONSTRAINT pk PRIMARY KEY (k3))");
+        conn.createStatement().execute("CREATE VIEW v1 AS SELECT * FROM t1 WHERE k1 = 1");
+        
+        try {
+            conn.createStatement().executeUpdate("UPSERT INTO v1 SELECT k3,'foo',v FROM t2");
+            fail();
+        } catch (SQLException e) {
+            assertEquals(SQLExceptionCode.CANNOT_UPDATE_VIEW_COLUMN.getErrorCode(), e.getErrorCode());
+        }
+    }
 }

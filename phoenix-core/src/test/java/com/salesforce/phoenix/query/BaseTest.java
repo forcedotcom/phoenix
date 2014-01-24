@@ -70,6 +70,7 @@ import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.junit.AfterClass;
 
 import com.google.common.collect.ImmutableMap;
+import com.salesforce.phoenix.jdbc.PhoenixEmbeddedDriver;
 import com.salesforce.phoenix.jdbc.PhoenixTestDriver;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -415,8 +416,12 @@ public abstract class BaseTest {
 
     protected static void startServer(String url, ReadOnlyProps props) throws Exception {
         assertNull(BaseTest.driver);
-        PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl(props));
-        assertTrue(DriverManager.getDriver(url) == driver);
+        // only load the test driver if we are testing locally - for integration tests, we want to
+        // test on a wider scale
+        if (PhoenixEmbeddedDriver.isTestUrl(url)) {
+            PhoenixTestDriver driver = initDriver(new QueryServicesTestImpl(props));
+            assertTrue(DriverManager.getDriver(url) == driver);
+        }
     }
     
     protected static void startServer(String url) throws Exception {

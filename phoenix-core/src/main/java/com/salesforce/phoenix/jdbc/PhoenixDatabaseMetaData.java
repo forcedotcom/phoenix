@@ -53,7 +53,8 @@ import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.BaseTerminalExpression;
 import com.salesforce.phoenix.expression.RowKeyColumnExpression;
 import com.salesforce.phoenix.expression.function.IndexStateNameFunction;
-import com.salesforce.phoenix.expression.function.SqlTableType;
+import com.salesforce.phoenix.expression.function.SQLTableTypeFunction;
+import com.salesforce.phoenix.expression.function.SQLViewTypeFunction;
 import com.salesforce.phoenix.expression.function.SqlTypeNameFunction;
 import com.salesforce.phoenix.iterate.DelegateResultIterator;
 import com.salesforce.phoenix.iterate.MaterializedResultIterator;
@@ -63,6 +64,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
@@ -289,9 +291,11 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     }
     
     private String getTenantIdWhereClause() {
-        return TENANT_ID + (connection.getTenantId() == null ? 
-            " IS NULL " : 
-            " = '" + StringEscapeUtils.escapeSql(connection.getTenantId().getString()) + "' ");
+        PName tenantId = connection.getTenantId();
+        return "(" + TENANT_ID + " IS NULL " + 
+                (tenantId == null
+                   ? ") "
+                   : " OR " + TENANT_ID + " = '" + StringEscapeUtils.escapeSql(tenantId.getString()) + "') ");
     }
 
     @Override
@@ -775,7 +779,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TABLE_CAT_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
-                SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
+                SQLTableTypeFunction.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
                 REMARKS_NAME + " ," +
                 TYPE_NAME + "," +
                 SELF_REFERENCING_COL_NAME_NAME + "," +
@@ -798,7 +802,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
             buf.append(" and " + TABLE_NAME_NAME + " like '" + SchemaUtil.normalizeIdentifier(tableNamePattern) + "'" );
         }
         if (typeNamePattern != null) {
-            buf.append(" and " + SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") like '" + SchemaUtil.normalizeIdentifier(typeNamePattern) + "'" );
+            buf.append(" and " + SQLTableTypeFunction.NAME + "(" + TABLE_TYPE_NAME + ") like '" + SchemaUtil.normalizeIdentifier(typeNamePattern) + "'" );
         }
         buf.append(" order by " + TENANT_ID + "," + TYPE_SCHEMA_AND_TABLE + "." +TABLE_TYPE_NAME + "," + TABLE_SCHEM_NAME + "," + TABLE_NAME_NAME);
         Statement stmt = connection.createStatement();
@@ -892,7 +896,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 TABLE_CAT_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME + "," +
                 TABLE_NAME_NAME + " ," +
-                SqlTableType.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
+                SQLTableTypeFunction.NAME + "(" + TABLE_TYPE_NAME + ") AS " + TABLE_TYPE_NAME + "," +
                 REMARKS_NAME + " ," +
                 TYPE_NAME + "," +
                 SELF_REFERENCING_COL_NAME_NAME + "," +
@@ -904,7 +908,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
                 BASE_TABLE_NAME + "," +
                 VIEW_EXPRESSION + "," +
                 MULTI_TENANT + "," +
-                VIEW_TYPE +
+                SQLViewTypeFunction.NAME + "(" + VIEW_TYPE + ") AS " + VIEW_TYPE +
                 " from " + TYPE_SCHEMA_AND_TABLE + 
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");

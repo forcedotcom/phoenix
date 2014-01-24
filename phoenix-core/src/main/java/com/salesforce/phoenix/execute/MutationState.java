@@ -49,11 +49,13 @@ import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
 import com.salesforce.phoenix.index.PhoenixIndexCodec;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
+import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.IllegalDataException;
 import com.salesforce.phoenix.schema.MetaDataClient;
 import com.salesforce.phoenix.schema.PColumn;
@@ -81,7 +83,7 @@ public class MutationState implements SQLCloseable {
     private final ImmutableBytesPtr tempPtr = new ImmutableBytesPtr();
     private final Map<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> mutations = Maps.newHashMapWithExpectedSize(3); // TODO: Sizing?
     private final long sizeOffset;
-    private int numEntries = 0;
+    private int numRows = 0;
 
     public MutationState(int maxSize, PhoenixConnection connection) {
         this(maxSize,connection,0);
@@ -98,7 +100,7 @@ public class MutationState implements SQLCloseable {
         this.connection = connection;
         this.mutations.put(table, mutations);
         this.sizeOffset = sizeOffset;
-        this.numEntries = mutations.size();
+        this.numRows = mutations.size();
         throwIfTooBig();
     }
     
@@ -107,21 +109,21 @@ public class MutationState implements SQLCloseable {
         this.connection = connection;
         this.sizeOffset = sizeOffset;
         for (Map.Entry<TableRef, Map<ImmutableBytesPtr,Map<PColumn,byte[]>>> entry : entries) {
-            numEntries += entry.getValue().size();
+            numRows += entry.getValue().size();
             this.mutations.put(entry.getKey(), entry.getValue());
         }
         throwIfTooBig();
     }
     
     private void throwIfTooBig() {
-        if (numEntries > maxSize) {
+        if (numRows > maxSize) {
             // TODO: throw SQLException ?
-            throw new IllegalArgumentException("MutationState size of " + numEntries + " is bigger than max allowed size of " + maxSize);
+            throw new IllegalArgumentException("MutationState size of " + numRows + " is bigger than max allowed size of " + maxSize);
         }
     }
     
     public long getUpdateCount() {
-        return sizeOffset + numEntries;
+        return sizeOffset + numRows;
     }
     /**
      * Combine a newer mutation with this one, where in the event of overlaps,
@@ -142,25 +144,27 @@ public class MutationState implements SQLCloseable {
                     // Replace existing row with new row
                     Map<PColumn,byte[]> existingValues = existingRows.put(rowEntry.getKey(), rowEntry.getValue());
                     if (existingValues != null) {
-                        Map<PColumn,byte[]> newRow = rowEntry.getValue();
-                        // if new row is null, it means delete, and we don't need to merge it with existing row. 
-                        if (newRow != null) {
-                            // Replace existing column values with new column values
-                            for (Map.Entry<PColumn,byte[]> valueEntry : newRow.entrySet()) {
-                                existingValues.put(valueEntry.getKey(), valueEntry.getValue());
+                        if (existingValues != PRow.DELETE_MARKER) {
+                            Map<PColumn,byte[]> newRow = rowEntry.getValue();
+                            // if new row is PRow.DELETE_MARKER, it means delete, and we don't need to merge it with existing row. 
+                            if (newRow != PRow.DELETE_MARKER) {
+                                // Replace existing column values with new column values
+                                for (Map.Entry<PColumn,byte[]> valueEntry : newRow.entrySet()) {
+                                    existingValues.put(valueEntry.getKey(), valueEntry.getValue());
+                                }
+                                // Now that the existing row has been merged with the new row, replace it back
+                                // again (since it was replaced with the new one above).
+                                existingRows.put(rowEntry.getKey(), existingValues);
                             }
-                            // Now that the existing row has been merged with the new row, replace it back
-                            // again (since it was replaced with the new one above).
-                            existingRows.put(rowEntry.getKey(), existingValues);
                         }
                     } else {
-                        numEntries++;
+                        numRows++;
                     }
                 }
                 // Put the existing one back now that it's merged
                 this.mutations.put(entry.getKey(), existingRows);
             } else {
-                numEntries += entry.getValue().size();
+                numRows += entry.getValue().size();
             }
         }
         throwIfTooBig();
@@ -173,7 +177,7 @@ public class MutationState implements SQLCloseable {
             Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry = iterator.next();
             ImmutableBytesPtr key = rowEntry.getKey();
             PRow row = tableRef.getTable().newRow(connection.getKeyValueBuilder(), timestamp, key);
-            if (rowEntry.getValue() == null) { // means delete
+            if (rowEntry.getValue() == PRow.DELETE_MARKER) { // means delete
                 row.delete();
             } else {
                 for (Map.Entry<PColumn,byte[]> valueEntry : rowEntry.getValue().entrySet()) {
@@ -281,24 +285,26 @@ public class MutationState implements SQLCloseable {
             long serverTimeStamp = tableRef.getTimeStamp();
             PTable table = tableRef.getTable();
             if (!connection.getAutoCommit()) {
-                byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
-                serverTimeStamp = client.updateCache(tenantId, table.getSchemaName().getString(), table.getTableName().getString());
-                if (serverTimeStamp < 0) {
-                    serverTimeStamp *= -1;
-                    // TODO: use bitset?
-                    PColumn[] columns = new PColumn[table.getColumns().size()];
-                    for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {
-                        Map<PColumn,byte[]> valueEntry = rowEntry.getValue();
-                        if (valueEntry != null) {
-                            for (PColumn column : valueEntry.keySet()) {
-                                columns[column.getPosition()] = column;
+                MetaDataMutationResult result = client.updateCache(table.getSchemaName().getString(), table.getTableName().getString());
+                long timestamp = result.getMutationTime();
+                if (timestamp != QueryConstants.UNSET_TIMESTAMP) {
+                    serverTimeStamp = timestamp;
+                    if (result.wasUpdated()) {
+                        // TODO: use bitset?
+                        PColumn[] columns = new PColumn[table.getColumns().size()];
+                        for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {
+                            Map<PColumn,byte[]> valueEntry = rowEntry.getValue();
+                            if (valueEntry != PRow.DELETE_MARKER) {
+                                for (PColumn column : valueEntry.keySet()) {
+                                    columns[column.getPosition()] = column;
+                                }
                             }
                         }
-                    }
-                    table = connection.getPMetaData().getTable(tableRef.getTable().getName().getString());
-                    for (PColumn column : columns) {
-                        if (column != null) {
-                            table.getColumnFamily(column.getFamilyName().getString()).getColumn(column.getName().getString());
+                        table = connection.getPMetaData().getTable(tableRef.getTable().getName().getString());
+                        for (PColumn column : columns) {
+                            if (column != null) {
+                                table.getColumnFamily(column.getFamilyName().getString()).getColumn(column.getName().getString());
+                            }
                         }
                     }
                 }
@@ -428,16 +434,16 @@ public class MutationState implements SQLCloseable {
                 } while (shouldRetry && retryCount++ < 1);
                 isDataTable = false;
             }
-            numEntries -= entry.getValue().size();
+            numRows -= entry.getValue().size();
             iterator.remove(); // Remove batches as we process them
         }
-        assert(numEntries==0);
+        assert(numRows==0);
         assert(this.mutations.isEmpty());
     }
     
     public void rollback(PhoenixConnection connection) throws SQLException {
         this.mutations.clear();
-        numEntries = 0;
+        numRows = 0;
     }
     
     @Override

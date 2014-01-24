@@ -32,6 +32,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
 
 import com.salesforce.phoenix.client.KeyValueBuilder;
@@ -55,10 +56,16 @@ public interface PTable extends Writable {
         READ_ONLY((byte)2),
         UPDATABLE((byte)3);
 
+        private final byte[] byteValue;
         private final byte serializedValue;
         
         ViewType(byte serializedValue) {
             this.serializedValue = serializedValue;
+            this.byteValue = Bytes.toBytes(this.name());
+        }
+        
+        public byte[] getBytes() {
+            return byteValue;
         }
         
         public boolean isReadOnly() {

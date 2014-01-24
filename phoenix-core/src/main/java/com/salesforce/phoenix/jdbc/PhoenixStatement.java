@@ -684,8 +684,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableAddColumnStatement extends AddColumnStatement implements ExecutableStatement {
 
-        ExecutableAddColumnStatement(NamedTableNode table, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
-            super(table, columnDefs, ifNotExists, props);
+        ExecutableAddColumnStatement(NamedTableNode table, PTableType tableType, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String, Object> props) {
+            super(table, tableType, columnDefs, ifNotExists, props);
         }
 
         @Override
@@ -726,7 +726,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("ALTER TABLE ADD COLUMN"));
+                    return new ExplainPlan(Collections.singletonList("ALTER " + getTableType() + " ADD COLUMN"));
                 }
             };
         }
@@ -739,8 +739,8 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
     private class ExecutableDropColumnStatement extends DropColumnStatement implements ExecutableStatement {
 
-        ExecutableDropColumnStatement(NamedTableNode table, List<ColumnName> columnRefs, boolean ifExists) {
-            super(table, columnRefs, ifExists);
+        ExecutableDropColumnStatement(NamedTableNode table, PTableType tableType, List<ColumnName> columnRefs, boolean ifExists) {
+            super(table, tableType, columnRefs, ifExists);
         }
 
         @Override
@@ -781,7 +781,7 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
 
                 @Override
                 public ExplainPlan getExplainPlan() throws SQLException {
-                    return new ExplainPlan(Collections.singletonList("ALTER TABLE DROP COLUMN"));
+                    return new ExplainPlan(Collections.singletonList("ALTER " + getTableType() + " DROP COLUMN"));
                 }
             };
         }
@@ -926,13 +926,13 @@ public class PhoenixStatement implements Statement, SQLCloseable, com.salesforce
         }
         
         @Override
-        public AddColumnStatement addColumn(NamedTableNode table,  List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
-            return new ExecutableAddColumnStatement(table, columnDefs, ifNotExists, props);
+        public AddColumnStatement addColumn(NamedTableNode table,  PTableType tableType, List<ColumnDef> columnDefs, boolean ifNotExists, Map<String,Object> props) {
+            return new ExecutableAddColumnStatement(table, tableType, columnDefs, ifNotExists, props);
         }
         
         @Override
-        public DropColumnStatement dropColumn(NamedTableNode table,  List<ColumnName> columnNodes, boolean ifExists) {
-            return new ExecutableDropColumnStatement(table, columnNodes, ifExists);
+        public DropColumnStatement dropColumn(NamedTableNode table,  PTableType tableType, List<ColumnName> columnNodes, boolean ifExists) {
+            return new ExecutableDropColumnStatement(table, tableType, columnNodes, ifExists);
         }
         
         @Override

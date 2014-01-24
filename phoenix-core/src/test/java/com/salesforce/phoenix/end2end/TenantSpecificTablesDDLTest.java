@@ -36,7 +36,7 @@ import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SCHEMA;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_SEQUENCE;
 import static com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE;
 import static com.salesforce.phoenix.schema.PTableType.SYSTEM;
-import static com.salesforce.phoenix.schema.PTableType.USER;
+import static com.salesforce.phoenix.schema.PTableType.TABLE;
 import static com.salesforce.phoenix.util.TestUtil.TEST_PROPERTIES;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -215,7 +215,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
         try {
             conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Viva Las Vegas')");
             
-            conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
+            conn.createStatement().execute("alter view " + TENANT_TABLE_NAME + " add tenant_col2 char(1) null");
             
             conn.close();
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
@@ -241,7 +241,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
             conn.setAutoCommit(true);
             
-            conn.createStatement().execute("alter table " + TENANT_TABLE_NAME + " drop column tenant_col");
+            conn.createStatement().execute("alter view " + TENANT_TABLE_NAME + " drop column tenant_col");
             
             conn.close();
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
@@ -368,9 +368,9 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertTrue(rs.next());
             assertTableMetaData(rs, TYPE_SCHEMA, TYPE_TABLE, SYSTEM);
             assertTrue(rs.next());
-            assertTableMetaData(rs, null, PARENT_TABLE_NAME, USER);
+            assertTableMetaData(rs, null, PARENT_TABLE_NAME, TABLE);
             assertTrue(rs.next());
-            assertTableMetaData(rs, null, PARENT_TABLE_NAME_NO_TENANT_TYPE_ID, USER);
+            assertTableMetaData(rs, null, PARENT_TABLE_NAME_NO_TENANT_TYPE_ID, TABLE);
             assertFalse(rs.next());
             
             // make sure connections w/o tenant id only see non-tenant-specific columns

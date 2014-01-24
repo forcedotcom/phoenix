@@ -19,6 +19,7 @@ import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
+import org.apache.hadoop.hbase.util.VersionInfo;
 import org.junit.Test;
 
 import com.google.common.collect.Maps;
@@ -67,8 +68,12 @@ public class IndexMaintainerTest  extends BaseConnectionlessQueryTest {
         testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
 
         //do the same, but with the client key-value builder, to ensure that works the same
-        builder = ClientKeyValueBuilder.INSTANCE;
-        testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
+        
+        String hbaseVersion = VersionInfo.getVersion();
+        if (KeyValueBuilder.get(hbaseVersion) == ClientKeyValueBuilder.INSTANCE) {
+            builder = ClientKeyValueBuilder.INSTANCE;
+            testIndexRowKeyBuilding(schemaName, tableName, dataColumns, pk, indexColumns, values, includeColumns, dataProps, indexProps, builder);
+        }
     }
 
     private void testIndexRowKeyBuilding(String schemaName, String tableName, String dataColumns,

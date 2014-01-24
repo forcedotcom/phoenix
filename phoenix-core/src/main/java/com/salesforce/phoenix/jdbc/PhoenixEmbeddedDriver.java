@@ -326,4 +326,8 @@ public abstract class PhoenixEmbeddedDriver implements Driver, com.salesforce.ph
             return zookeeperQuorum + (port == null ? "" : ":" + port) + (rootNode == null ? "" : ":" + rootNode);
         }
     }
+
+    public static boolean isTestUrl(String url) {
+        return url.endsWith(";test=true") || url.contains(";test=true;");
+    }
 }

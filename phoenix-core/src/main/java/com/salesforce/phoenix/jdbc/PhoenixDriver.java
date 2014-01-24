@@ -70,7 +70,7 @@ public final class PhoenixDriver extends PhoenixEmbeddedDriver {
     @Override
     public boolean acceptsURL(String url) throws SQLException {
         // Accept the url only if test=true attribute not set
-        return super.acceptsURL(url) && !(url.endsWith(";test=true") || url.contains(";test=true;"));
+        return super.acceptsURL(url) && !isTestUrl(url);
     }
 
     @Override

@@ -156,7 +156,7 @@ public class PTableImpl implements PTable {
             this.type = PTableType.INDEX;
             this.state = PIndexState.INACTIVE;
         } else {
-            this.type = PTableType.USER;
+            this.type = PTableType.TABLE;
         }
         this.timeStamp = timeStamp;
         this.pkColumns = this.allColumns = Collections.emptyList();

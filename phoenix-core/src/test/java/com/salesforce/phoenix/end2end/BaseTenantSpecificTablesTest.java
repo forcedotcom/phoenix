@@ -51,7 +51,7 @@ public abstract class BaseTenantSpecificTablesTest extends BaseClientManagedTime
             "                tenant_id VARCHAR(5) NOT NULL,\n" + 
             "                tenant_type_id VARCHAR(3) NOT NULL, \n" + 
             "                id INTEGER NOT NULL\n" + 
-            "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true,MULTI_TYPE=true";
+            "                CONSTRAINT pk PRIMARY KEY (tenant_id, tenant_type_id, id)) MULTI_TENANT=true";
     
     protected static final String TENANT_TABLE_NAME = "TENANT_TABLE";
     protected static final String TENANT_TABLE_DDL = "CREATE VIEW " + TENANT_TABLE_NAME + " ( \n" + 

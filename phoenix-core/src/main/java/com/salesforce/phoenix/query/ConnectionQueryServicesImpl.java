@@ -62,6 +62,9 @@ import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.VersionInfo;
+import org.apache.hadoop.hbase.zookeeper.ZKAssign;
+import org.apache.hadoop.hbase.zookeeper.ZKConfig;
+import org.apache.hadoop.hbase.zookeeper.ZKUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -404,15 +407,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
 
-    public static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
-        for (PTable table : metaData.getTables().values()) {
-            if (table.getTimeStamp() >= scn) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
     @Override
     public PhoenixConnection connect(String url, Properties info) throws SQLException {
         Long scn = JDBCUtil.getCurrentSCN(url, info);
@@ -603,6 +597,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         boolean isMetaTable = SchemaUtil.isMetaTable(tableName);
         boolean tableExist = true;
         try {
+            System.out.println("Found quorum: " + ZKConfig.getZKQuorumServersString(config));
             admin = new HBaseAdmin(config);
             try {
                 existingDesc = admin.getTableDescriptor(tableName);

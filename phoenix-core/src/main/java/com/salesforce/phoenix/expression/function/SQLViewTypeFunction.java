@@ -36,29 +36,29 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.parse.FunctionParseNode.Argument;
 import com.salesforce.phoenix.parse.FunctionParseNode.BuiltInFunction;
 import com.salesforce.phoenix.schema.PDataType;
-import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.PTable.ViewType;
 import com.salesforce.phoenix.schema.tuple.Tuple;
 
 
 /**
  * 
- * Function used to get the SQL table type name from the serialized table type.
+ * Function used to get the SQL view type name from the serialized view type.
  * Usage:
- * SqlTableType('v') will return 'VIEW' based on
+ * SQLViewType('v') will return 'VIEW' based on
  * {@link java.sql.DatabaseMetaData#getTableTypes()}
  * 
  * @author jtaylor
  * @since 2.2
  */
-@BuiltInFunction(name=SqlTableType.NAME, args= {
-    @Argument(allowedTypes=PDataType.CHAR)} )
-public class SqlTableType extends ScalarFunction {
-    public static final String NAME = "SqlTableType";
+@BuiltInFunction(name=SQLViewTypeFunction.NAME, args= {
+    @Argument(allowedTypes=PDataType.UNSIGNED_TINYINT)} )
+public class SQLViewTypeFunction extends ScalarFunction {
+    public static final String NAME = "SQLViewType";
 
-    public SqlTableType() {
+    public SQLViewTypeFunction() {
     }
     
-    public SqlTableType(List<Expression> children) throws SQLException {
+    public SQLViewTypeFunction(List<Expression> children) throws SQLException {
         super(children);
     }
     
@@ -71,8 +71,8 @@ public class SqlTableType extends ScalarFunction {
         if (ptr.getLength() == 0) {
             return true;
         }
-        PTableType tableType = PTableType.fromSerializedValue(ptr.get()[ptr.getOffset()]);
-        ptr.set(tableType.getValue().getBytes());
+        ViewType viewType = ViewType.fromSerializedValue(ptr.get()[ptr.getOffset()]);
+        ptr.set(viewType.getBytes());
         return true;
     }
 

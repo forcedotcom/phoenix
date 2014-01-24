@@ -28,8 +28,11 @@
 package com.salesforce.phoenix.schema;
 
 import java.util.List;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.client.Mutation;
+
+import com.google.common.collect.ImmutableMap;
 
 /**
  * 
@@ -42,6 +45,8 @@ import org.apache.hadoop.hbase.client.Mutation;
  * @since 0.1
  */
 public interface PRow {
+    Map<PColumn, byte[]> DELETE_MARKER = ImmutableMap.of();
+
     /**
      * Get the list of {@link org.apache.hadoop.hbase.client.Mutation} used to
      * update an HTable after all mutations through calls to

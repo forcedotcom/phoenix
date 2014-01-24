@@ -167,7 +167,7 @@ public class PhoenixConnection implements Connection, com.salesforce.phoenix.jdb
         Format dateTimeFormat = DateUtil.getDateFormatter(datePattern);
         formatters[PDataType.DATE.ordinal()] = dateTimeFormat;
         formatters[PDataType.TIME.ordinal()] = dateTimeFormat;
-        this.metaData = metaData;
+        this.metaData = PMetaDataImpl.pruneMultiTenant(metaData);
         this.mutationState = new MutationState(maxSize, this);
         services.addConnection(this);
     }

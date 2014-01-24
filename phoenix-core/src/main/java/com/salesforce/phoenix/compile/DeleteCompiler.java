@@ -71,6 +71,7 @@ import com.salesforce.phoenix.query.QueryServicesOptions;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PDataType;
+import com.salesforce.phoenix.schema.PRow;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.ReadOnlyTableException;
@@ -114,7 +115,7 @@ public class DeleteCompiler {
                 }
                 ImmutableBytesPtr ptr = new ImmutableBytesPtr();
                 table.newKey(ptr, values);
-                mutations.put(ptr, null);
+                mutations.put(ptr, PRow.DELETE_MARKER);
                 if (mutations.size() > maxSize) {
                     throw new IllegalArgumentException("MutationState size of " + mutations.size() + " is bigger than max allowed size of " + maxSize);
                 }
@@ -234,7 +235,7 @@ public class DeleteCompiler {
                 @Override
                 public MutationState execute() {
                     Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation = Maps.newHashMapWithExpectedSize(1);
-                    mutation.put(key, null);
+                    mutation.put(key, PRow.DELETE_MARKER);
                     return new MutationState(tableRef, mutation, 0, maxSize, connection);
                 }
 
