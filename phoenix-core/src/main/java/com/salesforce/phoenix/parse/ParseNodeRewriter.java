@@ -474,11 +474,6 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
     }
     
     @Override
-    public ParseNode visit(UpsertStmtArrayNode node) throws SQLException {
-        return node;
-    }
-
-    @Override
     public ParseNode visit(BindParseNode node) throws SQLException {
         return node;
     }
@@ -552,5 +547,15 @@ public class ParseNodeRewriter extends TraverseAllParseNodeVisitor<ParseNode> {
 	@Override
 	public ParseNode visit(SequenceValueParseNode node) throws SQLException {		
 		return node;
+	}
+
+	@Override
+	public ParseNode visitLeave(ArrayConstructorNode node, List<ParseNode> nodes) throws SQLException {
+	    return leaveCompoundNode(node, nodes, new CompoundNodeFactory() {
+            @Override
+            public ParseNode createNode(List<ParseNode> children) {
+                return NODE_FACTORY.upsertStmtArrayNode(children);
+            }
+        });
 	}
 }

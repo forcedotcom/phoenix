@@ -160,8 +160,8 @@ public enum ExpressionType {
     TimestampSubtractExpression(TimestampSubtractExpression.class),
     ArrayIndexFunction(ArrayIndexFunction.class),
     ArrayLengthFunction(ArrayLengthFunction.class),
+    ArrayConstructorExpression(ArrayConstructorExpression.class),
     SQLViewTypeFunction(SQLViewTypeFunction.class);
-    
     ExpressionType(Class<? extends Expression> clazz) {
         this.clazz = clazz;
     }

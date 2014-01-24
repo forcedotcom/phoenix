@@ -30,6 +30,7 @@ package com.salesforce.phoenix.compile;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -43,6 +44,7 @@ import com.salesforce.phoenix.compile.GroupByCompiler.GroupBy;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.exception.SQLExceptionInfo;
 import com.salesforce.phoenix.expression.AndExpression;
+import com.salesforce.phoenix.expression.ArrayConstructorExpression;
 import com.salesforce.phoenix.expression.CaseExpression;
 import com.salesforce.phoenix.expression.CoerceExpression;
 import com.salesforce.phoenix.expression.ComparisonExpression;
@@ -75,6 +77,7 @@ import com.salesforce.phoenix.expression.TimestampSubtractExpression;
 import com.salesforce.phoenix.parse.AddParseNode;
 import com.salesforce.phoenix.parse.AndParseNode;
 import com.salesforce.phoenix.parse.ArithmeticParseNode;
+import com.salesforce.phoenix.parse.ArrayConstructorNode;
 import com.salesforce.phoenix.parse.BindParseNode;
 import com.salesforce.phoenix.parse.CaseParseNode;
 import com.salesforce.phoenix.parse.CastParseNode;
@@ -100,6 +103,7 @@ import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.ColumnNotFoundException;
 import com.salesforce.phoenix.schema.ColumnRef;
 import com.salesforce.phoenix.schema.DelegateDatum;
+import com.salesforce.phoenix.schema.PArrayDataType;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
 import com.salesforce.phoenix.schema.PTable;
@@ -538,8 +542,8 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
     @Override
     public Expression visit(BindParseNode node) throws SQLException {
         Object value = context.getBindManager().getBindValue(node);
-        return LiteralExpression.newConstant(value, true);
-    }    
+        return LiteralExpression.newConstant(value);
+    }
 
     @Override
     public Expression visit(LiteralParseNode node) throws SQLException {
@@ -1322,4 +1326,61 @@ public class ExpressionCompiler extends UnsupportedAllParseNodeVisitor<Expressio
         .setSchemaName(node.getTableName().getSchemaName())
         .setTableName(node.getTableName().getTableName()).build().buildException();
 	}
+
+    @Override
+    public Expression visitLeave(ArrayConstructorNode node, List<Expression> children) throws SQLException {
+        boolean isChildTypeUnknown = false;
+        PDataType arrayElemDataType = children.get(0).getDataType();
+        for (int i = 0; i < children.size(); i++) {
+            Expression child = children.get(i);
+            PDataType childType = child.getDataType();
+            if (childType == null) {
+                isChildTypeUnknown = true;
+            } else if (arrayElemDataType == null) {
+                arrayElemDataType = childType;
+                isChildTypeUnknown = true;
+            } else if (arrayElemDataType == childType || childType.isCoercibleTo(arrayElemDataType)) {
+                continue;
+            } else if (arrayElemDataType.isCoercibleTo(childType)) {
+                arrayElemDataType = childType;
+            } else {
+                throw new SQLExceptionInfo.Builder(SQLExceptionCode.CANNOT_CONVERT_TYPE)
+                        .setMessage(
+                                "Case expressions must have common type: " + arrayElemDataType
+                                        + " cannot be coerced to " + childType).build().buildException();
+            }
+        }
+        // If we found an "unknown" child type and the return type is a number
+        // make the return type be the most general number type of DECIMAL.
+        if (isChildTypeUnknown && arrayElemDataType != null && arrayElemDataType.isCoercibleTo(PDataType.DECIMAL)) {
+            arrayElemDataType = PDataType.DECIMAL;
+        }
+        ImmutableBytesWritable ptr = context.getTempPtr();
+        Object[] elements = new Object[children.size()];
+        if (node.isStateless()) {
+            for (int i = 0; i < children.size(); i++) {
+                Expression child = children.get(i);
+                child.evaluate(null, ptr);
+                Object value = arrayElemDataType.toObject(ptr, child.getDataType(), child.getColumnModifier());
+                elements[i] = LiteralExpression.newConstant(value, child.getDataType()).getValue();
+            }
+            Object value = PArrayDataType.instantiatePhoenixArray(arrayElemDataType, elements);
+            return LiteralExpression.newConstant(value,
+                    PDataType.fromTypeId(arrayElemDataType.getSqlType() + Types.ARRAY));
+        } else {
+            ArrayConstructorExpression arrayExpression = new ArrayConstructorExpression(children, arrayElemDataType);
+            for (int i = 0; i < children.size(); i++) {
+                ParseNode childNode = node.getChildren().get(i);
+                if (childNode instanceof BindParseNode) {
+                    context.getBindManager().addParamMetaData((BindParseNode)childNode, arrayExpression);
+                }
+            }
+            return arrayExpression;
+        }
+    }
+
+    @Override
+    public boolean visitEnter(ArrayConstructorNode node) throws SQLException {
+        return true;
+    }
 }

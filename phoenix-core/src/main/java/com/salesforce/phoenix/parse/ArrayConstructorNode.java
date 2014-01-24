@@ -28,31 +28,25 @@
 package com.salesforce.phoenix.parse;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * Holds the list of array elements that will be used by the upsert stmt with ARRAY column 
  *
  */
-public class UpsertStmtArrayNode extends TerminalParseNode {
-	private List<ParseNode> arrayValues;
+public class ArrayConstructorNode extends CompoundParseNode {
 
-	public UpsertStmtArrayNode(List<ParseNode> arrayValues) {
-		this.arrayValues = arrayValues;
+	public ArrayConstructorNode(List<ParseNode> children) {
+		super(children);
 	}
 
-	@Override
-	public boolean isStateless() {
-		return true;
-	}
-	
-	public List<ParseNode> getArrayValues() {
-		return this.arrayValues;
-	}
-	
 	@Override
 	public <T> T accept(ParseNodeVisitor<T> visitor) throws SQLException {
-		return visitor.visit(this);
+		List<T> l = Collections.emptyList();
+        if (visitor.visitEnter(this)) {
+            l = acceptChildren(visitor);
+        }
+        return visitor.visitLeave(this, l);
 	}
-
 }

@@ -72,9 +72,9 @@ public class ColumnDef {
          //  fixed size or like postgre allow infinite.  May be the datatypes max limit can 
          // be used for the array size (May be too big)
          if(this.isArray) {
-        	this.arrSize = 1; 
+             this.arrSize = arrSize;
          } else {
-           this.arrSize = arrSize;
+             this.arrSize = 0;
          }
          this.isNull = isNull;
          if (this.dataType == PDataType.CHAR) {

@@ -3462,7 +3462,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3479,12 +3479,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -3537,7 +3531,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3554,12 +3548,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -3612,7 +3600,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3629,12 +3617,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -3693,7 +3675,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3710,12 +3692,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -3775,7 +3751,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3792,12 +3768,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -3858,7 +3828,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3875,13 +3845,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		/*
-		@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
-		
+	
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -3940,7 +3904,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -3957,12 +3921,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4014,7 +3972,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4031,12 +3989,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4088,7 +4040,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4105,13 +4057,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
-		
+
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -4163,7 +4109,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4180,13 +4126,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
-		
+
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -4222,6 +4162,7 @@ public enum PDataType {
 		
 	},
 	DOUBLE_ARRAY("DOUBLE_ARRAY", Types.ARRAY + PDataType.DOUBLE.getSqlType(), PhoenixArray.class, null) {
+	    final PArrayDataType pDataTypeForArray = new PArrayDataType();
 		@Override
     	public boolean isArrayType() {
     		return true;
@@ -4237,7 +4178,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4254,13 +4195,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
-		
+
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -4295,7 +4230,7 @@ public enum PDataType {
         }
 
 	},
-	// How to deal with this?? Is this ARRAY type valid?
+	
 	DECIMAL_ARRAY("DECIMAL_ARRAY", Types.ARRAY + PDataType.DECIMAL.getSqlType(), PhoenixArray.class, null) {
 		@Override
     	public boolean isArrayType() {
@@ -4312,7 +4247,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4329,12 +4264,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4395,7 +4324,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4412,12 +4341,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4470,7 +4393,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4487,13 +4410,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
-		}*/
-		
+	
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -4544,7 +4461,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4561,12 +4478,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4618,7 +4529,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4635,12 +4546,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4692,7 +4597,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4709,13 +4614,7 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
-		
+
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
 			return pDataTypeForArray.toObject(object, actualType);
@@ -4766,7 +4665,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4783,12 +4682,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4840,7 +4733,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4857,12 +4750,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType,  sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4914,7 +4801,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -4931,12 +4818,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -4989,7 +4870,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -5006,12 +4887,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -5064,7 +4939,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -5081,12 +4956,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -5137,7 +5006,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -5154,12 +5023,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -5212,7 +5075,7 @@ public enum PDataType {
 
 		@Override
 		public Integer getByteSize() {
-			return pDataTypeForArray.getByteSize();
+			return null;
 		}
 
 		@Override
@@ -5229,12 +5092,6 @@ public enum PDataType {
 		public Object toObject(String value) {
 			return pDataTypeForArray.toObject(value);
 		}
-		
-		/*@Override
-		public Object toObject(Object object, PDataType actualType,
-				ColumnModifier sortOrder) {
-			return pDataTypeForArray.toObject(object, actualType, sortOrder);
-		}*/
 		
 		@Override
 		public Object toObject(Object object, PDataType actualType) {
@@ -5343,6 +5200,9 @@ public enum PDataType {
     public Integer estimateByteSizeFromLength(Integer length) {
         if (isFixedWidth()) {
             return getByteSize();
+        }
+        if(isArrayType()) {
+            return null;
         }
         // If not fixed width, default to say the byte size is the same as length.
         return length;

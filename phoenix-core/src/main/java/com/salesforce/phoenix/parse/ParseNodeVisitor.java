@@ -93,7 +93,6 @@ public interface ParseNodeVisitor<E> {
     
     public E visit(ColumnParseNode node) throws SQLException;
     public E visit(LiteralParseNode node) throws SQLException;
-    public E visit(UpsertStmtArrayNode node) throws SQLException;
     public E visit(BindParseNode node) throws SQLException;
     public E visit(WildcardParseNode node) throws SQLException;  
     public E visit(FamilyWildcardParseNode node) throws SQLException;  
@@ -111,5 +110,7 @@ public interface ParseNodeVisitor<E> {
     public boolean visitEnter(RowValueConstructorParseNode node) throws SQLException;
     public E visitLeave(RowValueConstructorParseNode node, List<E> l) throws SQLException;
     
+    public boolean visitEnter(ArrayConstructorNode node) throws SQLException;
+    public E visitLeave(ArrayConstructorNode node, List<E> l) throws SQLException;
     public E visit(SequenceValueParseNode node) throws SQLException;
 }

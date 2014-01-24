@@ -128,11 +128,6 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     public T visit(LiteralParseNode node) throws SQLException {
         return null;
     }
-    
-    @Override
-    public T visit(UpsertStmtArrayNode node) throws SQLException {
-        return null;
-    }
 
     @Override
     public T visit(BindParseNode node) throws SQLException {
@@ -242,4 +237,14 @@ public abstract class TraverseNoParseNodeVisitor<T> extends BaseParseNodeVisitor
     public T visit(SequenceValueParseNode node) throws SQLException {			
 		return null;
 	}
+
+    @Override
+    public boolean visitEnter(ArrayConstructorNode node) throws SQLException {
+        return false;
+    }
+
+    @Override
+    public T visitLeave(ArrayConstructorNode node, List<T> l) throws SQLException {
+        return null;
+    }
 }
