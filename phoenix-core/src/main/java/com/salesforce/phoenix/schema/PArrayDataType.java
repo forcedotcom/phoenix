@@ -84,6 +84,9 @@ public class PArrayDataType {
 
 	public int toBytes(Object object, byte[] bytes, int offset) {
 	    PhoenixArray array = (PhoenixArray)object;
+        if (array == null || array.baseType == null) {
+            return 0;
+        }
 	    return PDataType.fromTypeId((array.baseType.getSqlType() + Types.ARRAY)).estimateByteSize(object);
 	}
 

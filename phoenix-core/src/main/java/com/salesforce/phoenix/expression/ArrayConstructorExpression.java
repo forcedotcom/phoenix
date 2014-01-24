@@ -19,6 +19,7 @@ import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -34,31 +35,46 @@ import com.salesforce.phoenix.schema.tuple.Tuple;
  */
 public class ArrayConstructorExpression extends BaseCompoundExpression {
     private PDataType baseType;
+    private int position = -1;
+    private Object[] elements;
+    
+    
     public ArrayConstructorExpression(List<Expression> children, PDataType baseType) {
         super(children);
-        this.baseType = baseType;
+        init(baseType);
     }
 
+    private void init(PDataType baseType) {
+        this.baseType = baseType;
+        elements = new Object[getChildren().size()];
+    }
+    
     @Override
     public PDataType getDataType() {
         return PDataType.fromTypeId(baseType.getSqlType() + Types.ARRAY);
     }
 
     @Override
+    public void reset() {
+        super.reset();
+        position = 0;
+        Arrays.fill(elements, null);
+    }
+    
+    @Override
     public boolean evaluate(Tuple tuple, ImmutableBytesWritable ptr) {
-        Object[] elements = new Object[children.size()];
-        for (int i = 0; i < children.size(); i++) {
+        for (int i = position >= 0 ? position : 0; i < elements.length; i++) {
             Expression child = children.get(i);
             if (!child.evaluate(tuple, ptr)) {
-                // TODO: if we're fixed width, we have no representation for null,
-                // so for now we'll just return false. Once we do, we should remove that.
-                if ((tuple != null && !tuple.isImmutable()) || baseType.isFixedWidth()) {
+                if (tuple != null && !tuple.isImmutable()) {
+                    if (position >= 0) position = i;
                     return false;
                 }
             } else {
                 elements[i] = baseType.toObject(ptr, child.getDataType(), child.getColumnModifier());
             }
         }
+        if (position >= 0) position = elements.length;
         PhoenixArray array = PArrayDataType.instantiatePhoenixArray(baseType, elements);
         // FIXME: Need to see if this creation of an array and again back to byte[] can be avoided
         ptr.set(getDataType().toBytes(array));
@@ -69,7 +85,7 @@ public class ArrayConstructorExpression extends BaseCompoundExpression {
     public void readFields(DataInput input) throws IOException {
         super.readFields(input);
         int baseTypeOrdinal = WritableUtils.readVInt(input);
-        baseType = PDataType.values()[baseTypeOrdinal];
+        init(PDataType.values()[baseTypeOrdinal]);
     }
 
     @Override

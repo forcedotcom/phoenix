@@ -187,7 +187,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			intArr = (int[]) object;
 			int i = 0;
 			for(Object o : elements) {
-			    intArr[i++] = (Integer)o;
+			    if (o != null) {
+			        intArr[i] = (Integer)o;
+			    }
+			    i++;
 			}
 			return intArr;
 		}
@@ -227,7 +230,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			shortArr = (short[]) object;
 			int i = 0;
             for(Object o : elements) {
-                shortArr[i++] = (Short)o;
+                if (o != null) {
+                    shortArr[i] = (Short)o;
+                }
+                i++;
             }
 			return shortArr;
 		}
@@ -267,7 +273,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			longArr = (long[]) object;
 			int i = 0;
             for(Object o : elements) {
-                longArr[i++] = (Long)o;
+                if (o != null) {
+                    longArr[i] = (Long)o;
+                }
+                i++;
             }
 			return longArr;
 		}
@@ -307,7 +316,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			doubleArr = (double[]) object;
 			int i = 0;
 			for (Object o : elements) {
-				doubleArr[i++] = (Double) o;
+			    if (o != null) {
+			        doubleArr[i] = (Double) o;
+			    }
+			    i++;
 			}
 			return doubleArr;
 		}
@@ -347,7 +359,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			floatArr = (float[]) object;
 			int i = 0;
             for(Object o : elements) {
-                floatArr[i++] = (Float)o;
+                if (o != null) {
+                    floatArr[i] = (Float)o;
+                }
+                i++;
             }
 			return floatArr;
 		}
@@ -387,7 +402,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			byteArr = (byte[]) object;
 			int i = 0;
             for(Object o : elements) {
-                byteArr[i++] = (Byte)o;
+                if (o != null) {
+                    byteArr[i] = (Byte)o;
+                }
+                i++;
             }
 			return byteArr;
 		}
@@ -427,7 +445,10 @@ public class PhoenixArray implements Array,SQLCloseable {
 			booleanArr = (boolean[]) object;
 			int i = 0;
             for(Object o : elements) {
-                booleanArr[i++] = (Boolean)o;
+                if (o != null) {
+                    booleanArr[i] = (Boolean)o;
+                }
+                i++;
             }
 			return booleanArr;
 		}
@@ -454,46 +475,4 @@ public class PhoenixArray implements Array,SQLCloseable {
 					(boolean[]) ((PhoenixArray) obj).array);
 		}
 	}
-	
-	public static class PrimitiveCharPhoenixArray extends PhoenixArray {
-		private char[] charArr;
-		public PrimitiveCharPhoenixArray(PDataType dataType, Object[] elements) {
-			super(dataType, elements);
-		}
-		@Override
-		public Object convertObjectArrayToPrimitiveArray(Object[] elements) {
-			Object object = java.lang.reflect.Array.newInstance(char.class,
-					elements.length);
-			charArr = (char[]) object;
-			int i = 0;
-            for(Object o : elements) {
-                charArr[i++] = (Character)o;
-            }
-			return charArr;
-		}
-		
-		@Override
-        public int estimateByteSize(int pos) {
-			return this.baseType.estimateByteSize(charArr[pos]);
-		}
-		
-		@Override
-        public byte[] toBytes(int pos) {
-			return this.baseType.toBytes(charArr[pos]);
-		}
-		
-		@Override
-		public boolean equals(Object obj) {
-			if (this.numElements != ((PhoenixArray) obj).numElements) {
-				return false;
-			}
-			if (this.baseType != ((PhoenixArray) obj).baseType) {
-				return false;
-			}
-			return Arrays.equals((char[]) this.array,
-					(char[]) ((PhoenixArray) obj).array);
-		}
-	}
-
-	
 }
