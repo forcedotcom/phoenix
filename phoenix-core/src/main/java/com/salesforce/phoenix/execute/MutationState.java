@@ -49,6 +49,7 @@ import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
 import com.salesforce.phoenix.cache.ServerCacheClient;
 import com.salesforce.phoenix.cache.ServerCacheClient.ServerCache;
+import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.exception.SQLExceptionCode;
 import com.salesforce.phoenix.index.IndexMaintainer;
 import com.salesforce.phoenix.index.IndexMetaDataCacheClient;
@@ -283,10 +284,9 @@ public class MutationState implements SQLCloseable {
             long serverTimeStamp = tableRef.getTimeStamp();
             PTable table = tableRef.getTable();
             if (!connection.getAutoCommit()) {
-                byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
-                serverTimeStamp = client.updateCache(tenantId, table.getSchemaName().getString(), table.getTableName().getString());
-                if (serverTimeStamp < 0) {
-                    serverTimeStamp *= -1;
+                MetaDataMutationResult result = client.updateCache(table.getSchemaName().getString(), table.getTableName().getString());
+                serverTimeStamp = result.getMutationTime();
+                if (result.wasUpdated()) {
                     // TODO: use bitset?
                     PColumn[] columns = new PColumn[table.getColumns().size()];
                     for (Map.Entry<ImmutableBytesPtr,Map<PColumn,byte[]>> rowEntry : entry.getValue().entrySet()) {

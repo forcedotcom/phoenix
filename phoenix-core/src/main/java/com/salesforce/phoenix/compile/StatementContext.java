@@ -213,8 +213,7 @@ public class StatementContext {
         PTable table = this.getCurrentTable().getTable();
         PhoenixConnection connection = getConnection();
         MetaDataClient client = new MetaDataClient(connection);
-        byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
-        currentTime = Math.abs(client.updateCache(tenantId, table.getSchemaName().getString(), table.getTableName().getString()));
+        currentTime = client.getCurrentTime(table.getSchemaName().getString(), table.getTableName().getString());
         return currentTime;
     }
 

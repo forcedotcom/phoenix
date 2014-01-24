@@ -404,15 +404,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     }
 
 
-    public static boolean hasMetaDataToPrune(long scn, PMetaData metaData) {
-        for (PTable table : metaData.getTables().values()) {
-            if (table.getTimeStamp() >= scn) {
-                return true;
-            }
-        }
-        return false;
-    }
-    
     @Override
     public PhoenixConnection connect(String url, Properties info) throws SQLException {
         Long scn = JDBCUtil.getCurrentSCN(url, info);

@@ -63,6 +63,7 @@ import com.salesforce.phoenix.query.QueryConstants;
 import com.salesforce.phoenix.schema.ColumnModifier;
 import com.salesforce.phoenix.schema.PDataType;
 import com.salesforce.phoenix.schema.PDatum;
+import com.salesforce.phoenix.schema.PName;
 import com.salesforce.phoenix.schema.PTableType;
 import com.salesforce.phoenix.schema.RowKeyValueAccessor;
 import com.salesforce.phoenix.schema.tuple.SingleKeyValueTuple;
@@ -289,9 +290,11 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, com.salesforce
     }
     
     private String getTenantIdWhereClause() {
-        return TENANT_ID + (connection.getTenantId() == null ? 
-            " IS NULL " : 
-            " = '" + StringEscapeUtils.escapeSql(connection.getTenantId().getString()) + "' ");
+        PName tenantId = connection.getTenantId();
+        return "(" + TENANT_ID + " IS NULL " + 
+                (tenantId == null
+                   ? ") "
+                   : " OR " + TENANT_ID + " = '" + StringEscapeUtils.escapeSql(tenantId.getString()) + "') ");
     }
 
     @Override

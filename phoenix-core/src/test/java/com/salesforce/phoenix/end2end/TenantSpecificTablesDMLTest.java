@@ -43,6 +43,7 @@ import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 
 /**
+ * TODO: derived from BaseClientMangedTimeTest, but not setting SCN
  * @author elilevine
  * @since 2.0
  */
@@ -58,6 +59,30 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             conn.commit();
             
             ResultSet rs = conn.createStatement().executeQuery("select tenant_col from " + TENANT_TABLE_NAME + " where id = 1");
+            assertTrue("Expected 1 row in result set", rs.next());
+            assertEquals("Cheap Sunglasses", rs.getString(1));
+            assertFalse("Expected 1 row in result set", rs.next());
+        }
+        finally {
+            conn.close();
+        }
+    }
+    
+    @Test
+    public void testJoinWithGlobalTable() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        conn.createStatement().execute("create table foo (k INTEGER NOT NULL PRIMARY KEY)");
+        conn.createStatement().execute("upsert into foo(k) values(1)");
+        conn.commit();
+        conn.close();
+        conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL);
+        try {
+            conn.setAutoCommit(false);
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (1, 'Cheap Sunglasses')");
+            conn.createStatement().executeUpdate("upsert into " + TENANT_TABLE_NAME + " (id, tenant_col) values (2, 'Viva Las Vegas')");
+            conn.commit();
+            
+            ResultSet rs = conn.createStatement().executeQuery("select tenant_col from " + TENANT_TABLE_NAME + " join foo on k=id");
             assertTrue("Expected 1 row in result set", rs.next());
             assertEquals("Cheap Sunglasses", rs.getString(1));
             assertFalse("Expected 1 row in result set", rs.next());

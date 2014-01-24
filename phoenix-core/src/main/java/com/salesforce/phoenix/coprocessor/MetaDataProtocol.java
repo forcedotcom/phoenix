@@ -107,6 +107,7 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         private List<byte[]> tableNamesToDelete;
         private byte[] columnName;
         private byte[] familyName;
+        private boolean wasUpdated;
         
         public MetaDataMutationResult() {
         }
@@ -139,6 +140,10 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
             return mutationTime;
         }
         
+        public boolean wasUpdated() {
+            return wasUpdated;
+        }
+        
         public PTable getTable() {
             return table;
         }
@@ -163,8 +168,8 @@ public interface MetaDataProtocol extends CoprocessorProtocol {
         public void readFields(DataInput input) throws IOException {
             this.returnCode = MutationCode.values()[WritableUtils.readVInt(input)];
             this.mutationTime = input.readLong();
-            boolean hasTable = input.readBoolean();
-            if (hasTable) {
+            wasUpdated = input.readBoolean();
+            if (wasUpdated) {
                 this.table = new PTableImpl();
                 this.table.readFields(input);
             }
