@@ -96,6 +96,13 @@ import com.salesforce.phoenix.util.TestUtil;
  * @since 0.1
  */
 public abstract class BaseConnectedQueryTest extends BaseTest {
+
+    private static String TEST_URL = TestUtil.PHOENIX_JDBC_URL;
+
+    public static void setUrl(String url) {
+        BaseConnectedQueryTest.TEST_URL = url;
+    }
+
     protected static byte[][] getDefaultSplits(String tenantId) {
         return new byte[][] { 
             Bytes.toBytes(tenantId + "00A"),
@@ -105,7 +112,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
     }
     
     protected static String getUrl() {
-        return TestUtil.PHOENIX_JDBC_URL;
+        return TEST_URL;
     }
 
     @BeforeClass
@@ -126,7 +133,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         if (tenantId != null) {
             props.setProperty(TENANT_ID_ATTRIB, tenantId);
             try {
-                conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+                conn = DriverManager.getConnection(getUrl(), props);
                 deletePriorTables(ts, conn);
                 deletePriorSequences(ts, conn);
             }
@@ -135,7 +142,7 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
             }
             props.remove(TENANT_ID_ATTRIB);
         }
-        conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        conn = DriverManager.getConnection(getUrl(), props);
         try {
             deletePriorTables(ts, conn);
             deletePriorSequences(ts, conn);
