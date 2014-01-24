@@ -780,7 +780,6 @@ public class WhereClauseCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    @Ignore // FIXME: broken because we prune multi-tenant tables from PMetaData on tenant-specific connection
     public void testTenantConstraintsAddedToScan() throws SQLException {
         String tenantTypeId = "5678";
         String tenantId = "000000000000123";
@@ -815,7 +814,6 @@ public class WhereClauseCompileTest extends BaseConnectionlessQueryTest {
     }
     
     @Test
-    @Ignore // FIXME: broken because we prune multi-tenant tables from PMetaData on tenant-specific connection
     public void testTenantConstraintsAddedToScanWithNullTenantTypeId() throws SQLException {
         String tenantId = "000000000000123";
         createTestTable(getUrl(), "create table base_table_for_tenant_filter_test (tenant_id char(15) not null, " +

@@ -254,13 +254,14 @@ public class MetaDataClient {
         PTable table = null;
         String fullTableName = SchemaUtil.getTableName(schemaName, tableName);
         long tableTimestamp = HConstants.LATEST_TIMESTAMP;
+        PName tenantIdName = connection.getTenantId();
         try {
             table = connection.getPMetaData().getTable(fullTableName);
             tableTimestamp = table.getTimeStamp();
         } catch (TableNotFoundException e) {
-            // Ignore, as we'll try to load from cache next
+            // TODO: Try again on services cache, as we may be looking for
+            // a global multi-tenant table
         }
-        PName tenantIdName = connection.getTenantId();
         // Don't bother with server call: we can't possibly find a newer table
         if (table != null && tableTimestamp == clientTimeStamp - 1 && !alwaysHitServer) {
             return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS,QueryConstants.UNSET_TIMESTAMP,table);

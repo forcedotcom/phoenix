@@ -71,6 +71,7 @@ import com.salesforce.phoenix.schema.SequenceAlreadyExistsException;
 import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.SequenceNotFoundException;
 import com.salesforce.phoenix.schema.TableAlreadyExistsException;
+import com.salesforce.phoenix.schema.TableNotFoundException;
 import com.salesforce.phoenix.schema.TableRef;
 import com.salesforce.phoenix.util.PhoenixRuntime;
 import com.salesforce.phoenix.util.SchemaUtil;
@@ -165,7 +166,13 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public MetaDataMutationResult getTable(byte[] tenantId, byte[] schemaBytes, byte[] tableBytes, long tableTimestamp, long clientTimestamp) throws SQLException {
         // Return result that will cause client to use it's own metadata instead of needing
         // to get anything from the server (since we don't have a connection)
-        return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
+        try {
+            PTable table = metaData.getTable(SchemaUtil.getTableName(schemaBytes, tableBytes));
+            return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, table);
+        } catch (TableNotFoundException e) {
+            return new MetaDataMutationResult(MutationCode.TABLE_NOT_FOUND, 0, null);
+        }
+        //return new MetaDataMutationResult(MutationCode.TABLE_ALREADY_EXISTS, 0, null);
     }
 
     @Override
