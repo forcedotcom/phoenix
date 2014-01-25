@@ -27,7 +27,6 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.covered.data;
 
-import java.io.IOException;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedSet;
@@ -322,6 +321,7 @@ public class IndexMemStore implements KeyValueStore {
           + " doesn't support checking to see if it should use a scanner!");
     }
 
+    /*
     @Override
     public boolean backwardSeek(KeyValue arg0) throws IOException {
         throw new UnsupportedOperationException();
@@ -336,5 +336,6 @@ public class IndexMemStore implements KeyValueStore {
     public boolean seekToPreviousRow(KeyValue arg0) throws IOException {
         throw new UnsupportedOperationException();
     }
+    */
   }
 }

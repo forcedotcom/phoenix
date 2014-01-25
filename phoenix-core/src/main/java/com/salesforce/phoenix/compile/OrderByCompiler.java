@@ -44,6 +44,7 @@ import com.salesforce.phoenix.expression.Expression;
 import com.salesforce.phoenix.expression.OrderByExpression;
 import com.salesforce.phoenix.parse.FilterableStatement;
 import com.salesforce.phoenix.parse.OrderByNode;
+import com.salesforce.phoenix.query.ConnectionQueryServices.Feature;
 import com.salesforce.phoenix.schema.ColumnModifier;
 
 /**
@@ -127,7 +128,13 @@ public class OrderByCompiler {
         }
         // If we're ordering by the order returned by the scan, we don't need an order by
         if (visitor.isOrderPreserving()) {
-            return visitor.isReverse() ? OrderBy.REV_ROW_KEY_ORDER_BY : OrderBy.FWD_ROW_KEY_ORDER_BY;
+            if (visitor.isReverse()) {
+                if (context.getConnection().getQueryServices().supportsFeature(Feature.REVERSE_SCAN)) {
+                    return OrderBy.REV_ROW_KEY_ORDER_BY;
+                }
+            } else {
+                return OrderBy.FWD_ROW_KEY_ORDER_BY;
+            }
         }
 
         return new OrderBy(Lists.newArrayList(orderByExpressions.iterator()));

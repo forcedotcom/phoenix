@@ -360,4 +360,9 @@ public class ConnectionlessQueryServicesImpl extends DelegateQueryServices imple
     public KeyValueBuilder getKeyValueBuilder() {
         return this.kvBuilder;
     }
+
+    @Override
+    public boolean supportsFeature(Feature feature) {
+        return false;
+    }
 }

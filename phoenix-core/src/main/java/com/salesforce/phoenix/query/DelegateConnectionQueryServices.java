@@ -47,9 +47,9 @@ import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
 import com.salesforce.phoenix.schema.PColumn;
 import com.salesforce.phoenix.schema.PMetaData;
-import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.PTable;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceKey;
 
 
 public class DelegateConnectionQueryServices extends DelegateQueryServices implements ConnectionQueryServices {
@@ -227,5 +227,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     @Override
     public KeyValueBuilder getKeyValueBuilder() {
         return getDelegate().getKeyValueBuilder();
+    }
+
+    @Override
+    public boolean supportsFeature(Feature feature) {
+        return getDelegate().supportsFeature(feature);
     }
 }

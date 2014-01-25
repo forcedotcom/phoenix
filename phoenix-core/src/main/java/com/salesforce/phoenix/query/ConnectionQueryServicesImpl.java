@@ -1436,4 +1436,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
     public KeyValueBuilder getKeyValueBuilder() {
         return this.kvBuilder;
     }
+
+    @Override
+    public boolean supportsFeature(Feature feature) {
+        // TODO: Keep map of Feature -> min HBase version
+        // For now, only Feature is REVERSE_SCAN and it's not supported in any version yet
+        return false;
+    }
 }

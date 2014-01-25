@@ -45,8 +45,8 @@ import com.salesforce.phoenix.compile.MutationPlan;
 import com.salesforce.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
 import com.salesforce.phoenix.execute.MutationState;
 import com.salesforce.phoenix.jdbc.PhoenixConnection;
-import com.salesforce.phoenix.schema.SequenceKey;
 import com.salesforce.phoenix.schema.PTableType;
+import com.salesforce.phoenix.schema.SequenceKey;
 
 
 public interface ConnectionQueryServices extends QueryServices, MetaDataMutated {
@@ -105,4 +105,7 @@ public interface ConnectionQueryServices extends QueryServices, MetaDataMutated 
      * @return the {@link KeyValueBuilder} that is valid for the locally installed version of HBase.
      */
     public KeyValueBuilder getKeyValueBuilder();
+    
+    public enum Feature {REVERSE_SCAN};
+    public boolean supportsFeature(Feature feature);
 }

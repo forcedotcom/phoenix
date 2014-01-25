@@ -48,6 +48,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Properties;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.salesforce.phoenix.util.PhoenixRuntime;
@@ -130,6 +131,7 @@ public class OrderByTest extends BaseClientManagedTimeTest {
     }
         
 
+    @Ignore("When reverse scan is in HBase re-enable this test")
     @Test
     public void testReverseScan() throws Exception {
         long ts = nextTimestamp();
