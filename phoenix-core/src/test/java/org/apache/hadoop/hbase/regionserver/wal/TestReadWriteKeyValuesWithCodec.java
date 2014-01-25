@@ -20,8 +20,8 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.salesforce.hbase.index.IndexTestingUtils;
-import com.salesforce.hbase.index.wal.IndexedKeyValue;
+import org.apache.hadoop.hbase.index.IndexTestingUtils;
+import org.apache.hadoop.hbase.index.wal.IndexedKeyValue;
 
 /**
  * Simple test to read/write simple files via our custom {@link WALEditCodec} to ensure properly

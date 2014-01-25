@@ -1,12 +1,27 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>com.salesforce</groupId>
+  <groupId>org.apache</groupId>
   <artifactId>phoenix</artifactId>
   <version>3.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>Phoenix</name>
+  <name>Apache Phoenix</name>
   <description>A SQL layer over HBase</description>
+
+  <licenses>
+      <license>
+          <name>The Apache Software License, Version 2.0</name>
+          <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+          <distribution>repo</distribution>
+          <comments />
+      </license>
+  </licenses>
+
+  <organization>
+      <name>Apache Software Foundation</name>
+      <url>http://www.apache.org</url>
+  </organization>
+
   <modules>
     <module>phoenix-core</module>
     <module>phoenix-hadoop-compat</module>
@@ -36,31 +51,6 @@
       <url>http://conjars.org/repo</url>
     </repository>
   </repositories>
-
-
-  <!-- Deploy to own hacked maven repo in github -->
-  <!-- Based on the directions here: http://cemerick.com/2010/08/24/hosting-maven-repos-on-github/ -->
-  <!-- this isn't the best, but until we get into the 'real' maven repos, 
-    this is good enough. We really ought to use the release plugin and push to 
-    maven, but meh... -->
-  <!-- To publish a snapshot, have a checked out version of phoenix (in a 
-    folder called 'phoenix-maven') in the same directory as phoenix. For instance... 
-    ~/dev/ phoenix/ phoenix-maven/ Then switch to the 'maven-artifacts' branch 
-    in the other checkout. Then from the root of this directory, run: $ mvn -DaltDeploymentRepository=snapshot-repo::default::file:../phoenix-maven/snapshots 
-    clean deploy -DskipTests And then, similarly, to do a release: 1. change 
-    the verion to the next version (remove the -SNAPSHOT identifier) 2. run: 
-    $ mvn -DaltDeploymentRepository=release-repo::default::file:../phoenix-maven/releases 
-    clean deploy -DskipTests -->
-  <distributionManagement>
-    <repository>
-      <id>repo</id>
-      <url>https://github.com/forcedotcom/phoenix/tree/maven-artifacts/raw/master/releases</url>
-    </repository>
-    <snapshotRepository>
-      <id>snapshot-repo</id>
-      <url>https://github.com/forcedotcom/phoenix/tree/maven-artifacts/raw/master/snapshots</url>
-    </snapshotRepository>
-  </distributionManagement>
 
   <properties>
     <!-- General Properties -->
@@ -206,20 +196,6 @@
           <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-site-plugin</artifactId>
-        <version>3.2</version>
-        <configuration>
-          <reportPlugins>
-            <plugin>
-              <groupId>org.codehaus.mojo</groupId>
-              <artifactId>findbugs-maven-plugin</artifactId>
-              <version>2.5.2</version>
-            </plugin>
-          </reportPlugins>
-        </configuration>
-      </plugin>
       <!-- All projects create a test jar -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -256,43 +232,43 @@
     <dependencies>
       <!-- Intra-project dependencies -->
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-core</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-core</artifactId>
         <version>${project.version}</version>
         <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-hadoop-compat</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-hadoop-compat</artifactId>
         <version>${project.version}</version>
         <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>${compat.module}</artifactId>
         <version>${project.version}</version>
         <classifier>tests</classifier>
         <scope>test</scope>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-flume</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.salesforce</groupId>
+        <groupId>org.apache</groupId>
         <artifactId>phoenix-pig</artifactId>
         <version>${project.version}</version>
       </dependency>
@@ -438,7 +414,7 @@
         <dependencies>
           <!-- Intra-project dependency -->
           <dependency>
-            <groupId>com.salesforce</groupId>
+            <groupId>org.apache</groupId>
             <artifactId>${compat.module}</artifactId>
             <version>${project.version}</version>
           </dependency>
@@ -504,7 +480,7 @@
         <dependencies>
           <!-- Intra-project dependency -->
           <dependency>
-            <groupId>com.salesforce</groupId>
+            <groupId>org.apache</groupId>
             <artifactId>${compat.module}</artifactId>
             <version>${project.version}</version>
           </dependency>

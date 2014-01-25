@@ -2,13 +2,27 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <groupId>com.salesforce</groupId>
+    <groupId>org.apache</groupId>
     <artifactId>phoenix</artifactId>
     <version>3.0.0-SNAPSHOT</version>
   </parent>
   <artifactId>phoenix-core</artifactId>
   <name>Phoenix Core</name>
   <description>Core Phoenix codebase</description>
+
+  <licenses>
+      <license>
+          <name>The Apache Software License, Version 2.0</name>
+          <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+          <distribution>repo</distribution>
+          <comments />
+      </license>
+  </licenses>
+
+  <organization>
+      <name>Apache Software Foundation</name>
+      <url>http://www.apache.org</url>
+  </organization>
 
   <build>
     <resources>
@@ -23,6 +37,54 @@
 
     <plugins>
       <!-- Add the ant-generated sources to the source path -->
+     <plugin>
+       <groupId>org.apache.maven.plugins</groupId>
+       <artifactId>maven-site-plugin</artifactId>
+       <version>3.2</version>
+       <dependencies>
+        <dependency>
+           <groupId>org.apache.maven.doxia</groupId>
+           <artifactId>doxia-module-markdown</artifactId>
+           <version>1.3</version>
+         </dependency>
+         <dependency>
+           <groupId>lt.velykis.maven.skins</groupId>
+           <artifactId>reflow-velocity-tools</artifactId>
+           <version>1.0.0</version>
+         </dependency>
+         <dependency>
+           <groupId>org.apache.velocity</groupId>
+           <artifactId>velocity</artifactId>
+           <version>1.7</version>
+         </dependency>
+       </dependencies>
+       <configuration>
+         <reportPlugins>
+           <plugin>
+             <groupId>org.codehaus.mojo</groupId>
+             <artifactId>findbugs-maven-plugin</artifactId>
+	         <version>2.5.2</version>
+           </plugin>
+         </reportPlugins>
+       </configuration>
+     </plugin>
+     <plugin>
+       <artifactId>exec-maven-plugin</artifactId>
+       <groupId>org.codehaus.mojo</groupId>
+       <version>1.2.1</version>
+       <executions>
+        <execution><!-- Run our version calculation script -->
+          <id>Merge Language Reference</id>
+           <phase>site</phase>
+           <goals>
+             <goal>exec</goal>
+           </goals>
+           <configuration>
+             <executable>${basedir}/src/site/bin/merge.sh</executable>
+           </configuration>
+         </execution>
+       </executions>
+      </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
@@ -56,7 +118,7 @@
           </execution>
         </executions>
         <configuration>
-          <outputDirectory>${antlr-output.dir}/com/salesforce/phoenix/parse</outputDirectory>
+          <outputDirectory>${antlr-output.dir}/org/apache/phoenix/parse</outputDirectory>
         </configuration>
       </plugin>
       <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running 
@@ -75,7 +137,7 @@
             <configuration>
               <archive>
                 <manifest>
-                  <mainClass>com.salesforce.phoenix.util.GeneratePerformanceData</mainClass>
+                  <mainClass>org.apache.phoenix.util.GeneratePerformanceData</mainClass>
                 </manifest>
               </archive>
             </configuration>
@@ -117,11 +179,11 @@
   <dependencies>
     <!-- Intra project dependencies -->
     <dependency>
-      <groupId>com.salesforce</groupId>
+      <groupId>org.apache</groupId>
       <artifactId>phoenix-hadoop-compat</artifactId>
     </dependency>
     <dependency>
-      <groupId>com.salesforce</groupId>
+      <groupId>org.apache</groupId>
       <artifactId>phoenix-hadoop-compat</artifactId>
       <classifier>tests</classifier>
       <scope>test</scope>
