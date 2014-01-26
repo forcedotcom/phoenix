@@ -34,8 +34,6 @@ import java.util.List;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
-
-import com.google.common.collect.Lists;
 import org.apache.phoenix.compile.ColumnProjector;
 import org.apache.phoenix.compile.ExpressionProjector;
 import org.apache.phoenix.compile.RowProjector;
@@ -65,6 +63,8 @@ import org.apache.phoenix.util.ByteUtil;
 import org.apache.phoenix.util.KeyValueUtil;
 import org.apache.phoenix.util.MetaDataUtil;
 import org.apache.phoenix.util.SchemaUtil;
+
+import com.google.common.collect.Lists;
 
 
 /**
@@ -101,13 +101,17 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
     public static final int TENANT_ID_INDEX = 0;
 
     public static final String TYPE_SCHEMA = "SYSTEM";
-    public static final String TYPE_TABLE = "TABLE";
+    public static final String TYPE_TABLE = "CATALOG";
     public static final String TYPE_SCHEMA_AND_TABLE = TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\"";
     public static final byte[] TYPE_TABLE_BYTES = TYPE_TABLE.getBytes();
     public static final byte[] TYPE_SCHEMA_BYTES = TYPE_SCHEMA.getBytes();
     public static final String TYPE_TABLE_NAME = SchemaUtil.getTableName(TYPE_SCHEMA, TYPE_TABLE);
     public static final byte[] TYPE_TABLE_NAME_BYTES = SchemaUtil.getTableNameAsBytes(TYPE_SCHEMA_BYTES, TYPE_TABLE_BYTES);
     
+    public static final String TYPE_SCHEMA_ALIAS = "SYSTEM";
+    public static final String TYPE_TABLE_ALIAS = "TABLE";
+    public static final String TYPE_SCHEMA_AND_TABLE_ALIAS = "\"" + TYPE_SCHEMA_ALIAS + "." + TYPE_TABLE_ALIAS + "\"";
+
     public static final String TABLE_NAME_NAME = "TABLE_NAME";
     public static final String TABLE_TYPE_NAME = "TABLE_TYPE";
     public static final byte[] TABLE_TYPE_BYTES = Bytes.toBytes(TABLE_TYPE_NAME);
@@ -316,7 +320,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
                 SCOPE_TABLE + "," +
                 SOURCE_DATA_TYPE + "," +
                 IS_AUTOINCREMENT +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where ");
         buf.append(getTenantIdWhereClause());
         if (schemaPattern != null) {
@@ -603,7 +607,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
                 "CASE WHEN " + COLUMN_MODIFIER + " = " + ColumnModifier.toSystemValue(ColumnModifier.SORT_DESC) + " THEN 'D' ELSE 'A' END ASC_OR_DESC," +
                 DATA_TYPE + "," + // include type info, though not in spec
                 SqlTypeNameFunction.NAME + "(" + DATA_TYPE + ") AS " + TYPE_NAME +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where ");
         buf.append(getTenantIdWhereClause());
         buf.append(" and " + TABLE_SCHEM_NAME + (schema == null || schema.length() == 0 ? " is null" : " = '" + SchemaUtil.normalizeIdentifier(schema) + "'" ));
@@ -742,7 +746,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
         StringBuilder buf = new StringBuilder("select /*+" + Hint.NO_INTRA_REGION_PARALLELIZATION + "*/ distinct " +
                 "null " + TABLE_CATALOG_NAME + "," + // no catalog for tables
                 TABLE_SCHEM_NAME +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where " + COLUMN_NAME + " is null");
         if (schemaPattern != null) {
             buf.append(" and " + TABLE_SCHEM_NAME + " like '" + SchemaUtil.normalizeIdentifier(schemaPattern) + "'");
@@ -783,7 +787,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
                 BASE_TABLE_NAME + "," +
                 VIEW_EXPRESSION + "," +
                 TENANT_ID +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");
         buf.append(" and " + TENANT_ID + " IS NOT NULL ");
@@ -901,7 +905,7 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
                 VIEW_EXPRESSION + "," +
                 MULTI_TENANT + "," +
                 SQLViewTypeFunction.NAME + "(" + VIEW_TYPE + ") AS " + VIEW_TYPE +
-                " from " + TYPE_SCHEMA_AND_TABLE + 
+                " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where " + COLUMN_NAME + " is null" +
                 " and " + TABLE_CAT_NAME + " is null");
         buf.append(" and " + getTenantIdWhereClause());

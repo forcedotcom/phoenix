@@ -60,8 +60,6 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Test;
-
 import org.apache.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import org.apache.phoenix.coprocessor.ServerCachingEndpointImpl;
 import org.apache.phoenix.coprocessor.UngroupedAggregateRegionObserver;
@@ -77,6 +75,7 @@ import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.StringUtil;
 import org.apache.phoenix.util.TestUtil;
+import org.junit.Test;
 
 
 public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
@@ -105,11 +104,11 @@ public class QueryDatabaseMetaDataTest extends BaseClientManagedTimeTest {
         rs = dbmd.getTables(null, null, null, null);
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
-        assertEquals(rs.getString("TABLE_NAME"),TYPE_SEQUENCE);
+        assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);
         assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),TYPE_SCHEMA);
-        assertEquals(rs.getString("TABLE_NAME"),TYPE_TABLE);
+        assertEquals(rs.getString("TABLE_NAME"),TYPE_SEQUENCE);
         assertEquals(PTableType.SYSTEM.toString(), rs.getString("TABLE_TYPE"));
         assertTrue(rs.next());
         assertEquals(rs.getString("TABLE_SCHEM"),null);

@@ -46,8 +46,6 @@ import java.util.Properties;
 
 import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Test;
-
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.jdbc.PhoenixDatabaseMetaData;
 import org.apache.phoenix.schema.ColumnAlreadyExistsException;
@@ -58,6 +56,7 @@ import org.apache.phoenix.schema.TableNotFoundException;
 import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.StringUtil;
+import org.junit.Test;
 
 public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
     
@@ -356,9 +355,9 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             DatabaseMetaData meta = conn.getMetaData();
             ResultSet rs = meta.getTables(null, null, null, null);
             assertTrue(rs.next());
-            assertTableMetaData(rs, TYPE_SCHEMA, TYPE_SEQUENCE, SYSTEM);
-            assertTrue(rs.next());
             assertTableMetaData(rs, TYPE_SCHEMA, TYPE_TABLE, SYSTEM);
+            assertTrue(rs.next());
+            assertTableMetaData(rs, TYPE_SCHEMA, TYPE_SEQUENCE, SYSTEM);
             assertTrue(rs.next());
             assertTableMetaData(rs, null, PARENT_TABLE_NAME, TABLE);
             assertTrue(rs.next());
