@@ -317,7 +317,7 @@ public class JoinCompiler {
             columnNameMap.put(colName.getString(), name.getString());
     		PColumnImpl column = new PColumnImpl(name, familyName, sourceColumn.getDataType(), 
     				sourceColumn.getMaxLength(), sourceColumn.getScale(), sourceColumn.isNullable(), 
-    				position, sourceColumn.getColumnModifier());
+    				position, sourceColumn.getColumnModifier(), sourceColumn.getArraySize());
         	Expression sourceExpression = new ColumnRef(sourceTable, sourceColumn.getPosition()).newColumnExpression();
         	projectedColumns.add(column);
         	sourceExpressions.add(sourceExpression);
@@ -1016,7 +1016,7 @@ public class JoinCompiler {
     			PColumnImpl column = new PColumnImpl(c.getName(), 
     					PNameFactory.newName(ScanProjector.VALUE_COLUMN_FAMILY), c.getDataType(), 
     					c.getMaxLength(), c.getScale(), innerJoin ? c.isNullable() : true, position++, 
-    					c.getColumnModifier());
+    					c.getColumnModifier(), c.getArraySize());
     			merged.add(column);
     		}
     	}

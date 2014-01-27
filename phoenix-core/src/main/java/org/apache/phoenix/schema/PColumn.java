@@ -43,4 +43,9 @@ public interface PColumn extends PDatum, Writable {
      * @return the zero-based ordinal position of the column
      */
     int getPosition();
+    
+    /**
+     * @return the declared array size or zero if this is not an array
+     */
+    Integer getArraySize();
 }

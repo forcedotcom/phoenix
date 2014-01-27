@@ -25,10 +25,10 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
-
-import com.google.common.base.Preconditions;
 import org.apache.phoenix.query.QueryConstants;
 import org.apache.phoenix.util.ByteUtil;
+
+import com.google.common.base.Preconditions;
 
 
 public class PColumnImpl implements PColumn {
@@ -43,6 +43,7 @@ public class PColumnImpl implements PColumn {
     private boolean nullable;
     private int position;
     private ColumnModifier columnModifier;
+    private Integer arraySize;
 
     public PColumnImpl() {
     }
@@ -54,13 +55,13 @@ public class PColumnImpl implements PColumn {
                        Integer scale,
                        boolean nullable,
                        int position,
-                       ColumnModifier sortOrder) {
-        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder);
+                       ColumnModifier sortOrder, Integer arrSize) {
+        init(name, familyName, dataType, maxLength, scale, nullable, position, sortOrder, arrSize);
     }
 
     public PColumnImpl(PColumn column, int position) {
         this(column.getName(), column.getFamilyName(), column.getDataType(), column.getMaxLength(),
-                column.getScale(), column.isNullable(), position, column.getColumnModifier());
+                column.getScale(), column.isNullable(), position, column.getColumnModifier(), column.getArraySize());
     }
 
     private void init(PName name,
@@ -70,7 +71,8 @@ public class PColumnImpl implements PColumn {
             Integer scale,
             boolean nullable,
             int position,
-            ColumnModifier columnModifier) {
+            ColumnModifier columnModifier,
+            Integer arrSize) {
         this.dataType = dataType;
         if (familyName == null) {
             // Allow nullable columns in PK, but only if they're variable length.
@@ -88,6 +90,7 @@ public class PColumnImpl implements PColumn {
         this.nullable = nullable;
         this.position = position;
         this.columnModifier = columnModifier;
+        this.arraySize = arrSize;
     }
 
     @Override
@@ -155,8 +158,9 @@ public class PColumnImpl implements PColumn {
         boolean nullable = input.readBoolean();
         int position = WritableUtils.readVInt(input);
         ColumnModifier columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
+        int arrSize = WritableUtils.readVInt(input);
         init(columnName, familyName, dataType, maxLength == NO_MAXLENGTH ? null : maxLength,
-                scale == NO_SCALE ? null : scale, nullable, position, columnModifier);
+                scale == NO_SCALE ? null : scale, nullable, position, columnModifier, arrSize == -1 ? null : arrSize);
     }
 
     @Override
@@ -169,6 +173,7 @@ public class PColumnImpl implements PColumn {
         output.writeBoolean(nullable);
         WritableUtils.writeVInt(output, position);
         WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
+        WritableUtils.writeVInt(output, arraySize == null ? -1 : arraySize);
     }
     
     @Override
@@ -193,5 +198,10 @@ public class PColumnImpl implements PColumn {
             if (other.name != null) return false;
         } else if (!name.equals(other.name)) return false;
         return true;
+    }
+
+    @Override
+    public Integer getArraySize() {
+        return arraySize;
     }
 }

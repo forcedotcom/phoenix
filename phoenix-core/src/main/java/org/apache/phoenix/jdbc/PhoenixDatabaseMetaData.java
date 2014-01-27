@@ -177,6 +177,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
     public static final byte[] VIEW_TYPE_BYTES = Bytes.toBytes(VIEW_TYPE);
     public static final String LINK_TYPE = "LINK_TYPE";
     public static final byte[] LINK_TYPE_BYTES = Bytes.toBytes(LINK_TYPE);
+    public static final String ARRAY_SIZE = "ARRAY_SIZE";
+    public static final byte[] ARRAY_SIZE_BYTES = Bytes.toBytes(ARRAY_SIZE);
 
     public static final String TABLE_FAMILY = QueryConstants.DEFAULT_COLUMN_FAMILY;
     public static final byte[] TABLE_FAMILY_BYTES = QueryConstants.DEFAULT_COLUMN_FAMILY_BYTES;
@@ -317,7 +319,8 @@ public class PhoenixDatabaseMetaData implements DatabaseMetaData, org.apache.pho
                 SCOPE_SCHEMA + "," +
                 SCOPE_TABLE + "," +
                 SOURCE_DATA_TYPE + "," +
-                IS_AUTOINCREMENT +
+                IS_AUTOINCREMENT + "," + 
+                ARRAY_SIZE +
                 " from " + TYPE_SCHEMA_AND_TABLE + " " + TYPE_SCHEMA_AND_TABLE_ALIAS +
                 " where ");
         buf.append(getTenantIdWhereClause());

@@ -23,6 +23,7 @@ import static com.google.common.collect.Lists.newArrayListWithExpectedSize;
 import static com.google.common.collect.Sets.newLinkedHashSet;
 import static com.google.common.collect.Sets.newLinkedHashSetWithExpectedSize;
 import static org.apache.phoenix.exception.SQLExceptionCode.INSUFFICIENT_MULTI_TENANT_COLUMNS;
+import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.ARRAY_SIZE;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME;
@@ -194,8 +195,9 @@ public class MetaDataClient {
         DECIMAL_DIGITS + "," +
         ORDINAL_POSITION + "," + 
         COLUMN_MODIFIER + "," +
-        DATA_TABLE_NAME + // write this both in the column and table rows for access by metadata APIs
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        DATA_TABLE_NAME + "," + // write this both in the column and table rows for access by metadata APIs
+        ARRAY_SIZE +
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     private static final String UPDATE_COLUMN_POSITION =
         "UPSERT INTO " + TYPE_SCHEMA + ".\"" + TYPE_TABLE + "\" ( " + 
         TENANT_ID + "," +
@@ -329,6 +331,11 @@ public class MetaDataClient {
         colUpsert.setInt(10, column.getPosition() + 1);
         colUpsert.setInt(11, ColumnModifier.toSystemValue(column.getColumnModifier()));
         colUpsert.setString(12, parentTableName);
+        if (column.getArraySize() == null) {
+            colUpsert.setNull(13, Types.INTEGER);
+        } else {
+            colUpsert.setInt(13, column.getArraySize());
+        }
         colUpsert.execute();
     }
 
@@ -366,7 +373,7 @@ public class MetaDataClient {
             }
             
             PColumn column = new PColumnImpl(PNameFactory.newName(columnName), familyName, def.getDataType(),
-                    def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier);
+                    def.getMaxLength(), def.getScale(), def.isNull(), position, columnModifier, def.getArraySize());
             return column;
         } catch (IllegalArgumentException e) { // Based on precondition check in constructor
             throw new SQLException(e);

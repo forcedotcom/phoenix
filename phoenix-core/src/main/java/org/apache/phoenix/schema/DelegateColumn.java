@@ -19,7 +19,9 @@
  */
 package org.apache.phoenix.schema;
 
-import java.io.*;
+import java.io.DataInput;
+import java.io.DataOutput;
+import java.io.IOException;
 
 public class DelegateColumn extends DelegateDatum implements PColumn {
     
@@ -60,5 +62,10 @@ public class DelegateColumn extends DelegateDatum implements PColumn {
     @Override
     public int getPosition() {
         return getDelegate().getPosition();
+    }
+
+    @Override
+    public Integer getArraySize() {
+        return getDelegate().getArraySize();
     }
 }

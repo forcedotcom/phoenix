@@ -38,8 +38,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Test;
-
 import org.apache.phoenix.compile.AggregationManager;
 import org.apache.phoenix.compile.StatementContext;
 import org.apache.phoenix.expression.Expression;
@@ -57,6 +55,7 @@ import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.tuple.SingleKeyValueTuple;
 import org.apache.phoenix.schema.tuple.Tuple;
 import org.apache.phoenix.util.AssertResults;
+import org.junit.Test;
 
 
 
@@ -117,6 +116,11 @@ public class AggregateResultScannerTest extends BaseConnectionlessQueryTest {
             }
             @Override
             public void write(DataOutput arg0) throws IOException {
+            }
+            
+            @Override
+            public Integer getArraySize() {
+                return 0;
             }
         })), null);
         aggregationManager.setAggregators(new ClientAggregators(Collections.<SingleAggregateFunction>singletonList(func), 1));

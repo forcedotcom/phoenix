@@ -38,14 +38,15 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
+import org.apache.phoenix.query.BaseTest;
+import org.apache.phoenix.schema.PhoenixArray;
+import org.apache.phoenix.util.PhoenixRuntime;
+import org.apache.phoenix.util.StringUtil;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.primitives.Floats;
-import org.apache.phoenix.query.BaseTest;
-import org.apache.phoenix.schema.PhoenixArray;
-import org.apache.phoenix.util.PhoenixRuntime;
 
 public class ArrayTest extends BaseClientManagedTimeTest {
 
@@ -702,20 +703,52 @@ public class ArrayTest extends BaseClientManagedTimeTest {
 			conn.close();
 		}
 	}
-	static void createTableWithArray(String url, byte[][] bs, Object object,
+	
+    @Test
+    public void testArraySizeRoundtrip() throws Exception {
+        long ts = nextTimestamp();
+        String tenantId = getOrganizationId();
+        createTableWithArray(BaseConnectedQueryTest.getUrl(),
+                getDefaultSplits(tenantId), null, ts - 2);
+        Properties props = new Properties(TEST_PROPERTIES);
+        props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB,
+                Long.toString(ts + 2)); // Execute at timestamp 2
+        Connection conn = DriverManager.getConnection(PHOENIX_JDBC_URL, props);
+        try {
+            ResultSet rs = conn.getMetaData().getColumns(null, null, StringUtil.escapeLike(TABLE_WITH_ARRAY), StringUtil.escapeLike("x_long_array"));
+            assertTrue(rs.next());          
+            assertEquals(5, rs.getInt("ARRAY_SIZE"));
+            assertFalse(rs.next());
+
+            rs = conn.getMetaData().getColumns(null, null, StringUtil.escapeLike(TABLE_WITH_ARRAY), StringUtil.escapeLike("a_string_array"));
+            assertTrue(rs.next());          
+            assertEquals(3, rs.getInt("ARRAY_SIZE"));
+            assertFalse(rs.next());
+
+            rs = conn.getMetaData().getColumns(null, null, StringUtil.escapeLike(TABLE_WITH_ARRAY), StringUtil.escapeLike("a_double_array"));
+            assertTrue(rs.next());          
+            assertEquals(0, rs.getInt("ARRAY_SIZE"));
+            assertTrue(rs.wasNull());
+            assertFalse(rs.next());
+        } finally {
+            conn.close();
+        }
+    }
+
+    static void createTableWithArray(String url, byte[][] bs, Object object,
 			long ts) throws SQLException {
 		String ddlStmt = "create table "
 				+ TABLE_WITH_ARRAY
 				+ "   (organization_id char(15) not null, \n"
 				+ "    entity_id char(15) not null,\n"
-				+ "    a_string_array varchar(100) array[],\n"
+				+ "    a_string_array varchar(100) array[3],\n"
 				+ "    b_string varchar(100),\n"
 				+ "    a_integer integer,\n"
 				+ "    a_date date,\n"
 				+ "    a_time time,\n"
 				+ "    a_timestamp timestamp,\n"
 				+ "    x_decimal decimal(31,10),\n"
-				+ "    x_long_array bigint[],\n"
+				+ "    x_long_array bigint[5],\n"
 				+ "    x_integer integer,\n"
 				+ "    a_byte_array tinyint array,\n"
 				+ "    a_short smallint,\n"
