@@ -31,9 +31,11 @@ import java.sql.SQLException;
  * @since 0.1
  */
 public class WildcardParseNode extends TerminalParseNode {
-    private final boolean isRewrite;    
+    public static final String NAME = "*";
     public static final WildcardParseNode INSTANCE = new WildcardParseNode(false);
     public static final WildcardParseNode REWRITE_INSTANCE = new WildcardParseNode(true);
+
+    private final boolean isRewrite;
 
     private WildcardParseNode(boolean isRewrite) {
         this.isRewrite = isRewrite;
@@ -46,7 +48,7 @@ public class WildcardParseNode extends TerminalParseNode {
 
     @Override
     public String toString() {
-        return "*";
+        return NAME;
     }
 
     public boolean isRewrite() {

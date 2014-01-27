@@ -204,7 +204,7 @@ public enum SQLExceptionCode {
             +  IndexManagementUtil.INDEX_WAL_EDIT_CODEC_CLASS_NAME + " in the hbase-sites.xml of every region server"),
             
             
-    CANNOT_CREATE_TENANT_SPECIFIC_BASE_TABLE(1030, "42Y89", "Cannot create table for tenant-specific connection"),
+    CANNOT_CREATE_TENANT_SPECIFIC_TABLE(1030, "42Y89", "Cannot create table for tenant-specific connection"),
     CANNOT_DEFINE_PK_FOR_VIEW(1031, "42Y90", "Defining PK columns for a VIEW is not allowed."),
     DEFAULT_COLUMN_FAMILY_ONLY_ON_CREATE_TABLE(1034, "42Y93", "Default column family may only be specified when creating a table."),
     INSUFFICIENT_MULTI_TENANT_COLUMNS(1040, "42Y96", "A MULTI_TENANT table must have 2 or more PK columns with the first column being VARCHAR or CHAR."),

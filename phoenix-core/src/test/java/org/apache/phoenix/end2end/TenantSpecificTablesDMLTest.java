@@ -30,11 +30,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
-import org.junit.Test;
-
 import org.apache.phoenix.schema.TableNotFoundException;
 import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.TestUtil;
+import org.junit.Test;
 
 /**
  * TODO: derived from BaseClientMangedTimeTest, but not setting SCN
@@ -184,7 +183,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
     }
     
     @Test
-    public void testDropTenantTableOnlyDeletesTenantData() throws Exception {
+    public void testDeleteAllTenantTableData() throws Exception {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -200,7 +199,8 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             props = new Properties();
             props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
             conn = DriverManager.getConnection(PHOENIX_JDBC_TENANT_SPECIFIC_URL, props);
-            conn.createStatement().execute("drop view " + TENANT_TABLE_NAME);
+            conn.createStatement().execute("delete from " + TENANT_TABLE_NAME);
+            conn.commit();
             conn.close();
             
             props = new Properties();
@@ -216,7 +216,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
     }
     
     @Test
-    public void testDropTenantTableWithoutTenantTypeIdOnlyDeletesTenantData() throws Exception {
+    public void testDropTenantTableDeletesNoData() throws Exception {
         Properties props = new Properties();
         props.setProperty(PhoenixRuntime.CURRENT_SCN_ATTRIB, Long.toString(nextTimestamp()));
         Connection conn = DriverManager.getConnection(getUrl(), props);
@@ -240,7 +240,7 @@ public class TenantSpecificTablesDMLTest extends BaseTenantSpecificTablesTest {
             conn = DriverManager.getConnection(getUrl(), props);
             ResultSet rs = conn.createStatement().executeQuery("select count(*) from " + PARENT_TABLE_NAME_NO_TENANT_TYPE_ID);
             rs.next();
-            assertEquals(1, rs.getInt(1));
+            assertEquals(3, rs.getInt(1));
         }
         finally {
             conn.close();

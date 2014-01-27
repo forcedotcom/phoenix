@@ -62,17 +62,19 @@ public class SelectStatement implements FilterableStatement {
                 select.getSelect(), select.getWhere(), select.getGroupBy(), select.getHaving(), 
                 select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
     }
-    public static SelectStatement create(SelectStatement select, ParseNode where) {
+    
+    public SelectStatement combine(ParseNode where) {
         if (where == null) {
-            return select;
+            return this;
         }
-        if (select.getWhere() != null) {
-            where = new AndParseNode(Arrays.asList(select.getWhere(), where));
+        if (this.getWhere() != null) {
+            where = new AndParseNode(Arrays.asList(this.getWhere(), where));
         }
-        return new SelectStatement(select.getFrom(), select.getHint(), select.isDistinct(), 
-                select.getSelect(), where, select.getGroupBy(), select.getHaving(), 
-                select.getOrderBy(), select.getLimit(), select.getBindCount(), select.isAggregate());
+        return new SelectStatement(this.getFrom(), this.getHint(), this.isDistinct(), 
+                this.getSelect(), where, this.getGroupBy(), this.getHaving(), 
+                this.getOrderBy(), this.getLimit(), this.getBindCount(), this.isAggregate());
     }
+    
     public static SelectStatement create(SelectStatement select, List<AliasedNode> selects) {
         return new SelectStatement(select.getFrom(), select.getHint(), select.isDistinct(), 
                 selects, select.getWhere(), select.getGroupBy(), select.getHaving(), 

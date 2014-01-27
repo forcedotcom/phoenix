@@ -31,7 +31,6 @@ import org.apache.hadoop.hbase.client.HTableInterface;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Pair;
-
 import org.apache.phoenix.client.KeyValueBuilder;
 import org.apache.phoenix.compile.MutationPlan;
 import org.apache.phoenix.coprocessor.MetaDataProtocol.MetaDataMutationResult;
@@ -109,10 +108,10 @@ public class DelegateConnectionQueryServices extends DelegateQueryServices imple
     }
 
     @Override
-    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, byte[] tableName,
+    public MetaDataMutationResult createTable(List<Mutation> tableMetaData, byte[] physicalName,
             PTableType tableType, Map<String, Object> tableProps, List<Pair<byte[], Map<String, Object>>> families, byte[][] splits)
             throws SQLException {
-        return getDelegate().createTable(tableMetaData, tableName, tableType, tableProps, families, splits);
+        return getDelegate().createTable(tableMetaData, physicalName, tableType, tableProps, families, splits);
     }
 
     @Override

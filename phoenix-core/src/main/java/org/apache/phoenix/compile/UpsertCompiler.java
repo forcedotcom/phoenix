@@ -32,12 +32,9 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
 import org.apache.phoenix.cache.ServerCacheClient.ServerCache;
 import org.apache.phoenix.compile.GroupByCompiler.GroupBy;
 import org.apache.phoenix.compile.OrderByCompiler.OrderBy;
@@ -89,6 +86,9 @@ import org.apache.phoenix.schema.TypeMismatchException;
 import org.apache.phoenix.schema.tuple.Tuple;
 import org.apache.phoenix.util.ByteUtil;
 import org.apache.phoenix.util.SchemaUtil;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class UpsertCompiler {
     private static void setValues(byte[][] values, int[] pkSlotIndex, int[] columnIndexes, PTable table, Map<ImmutableBytesPtr,Map<PColumn,byte[]>> mutation) {
@@ -232,7 +232,7 @@ public class UpsertCompiler {
         if (table.getViewType() == ViewType.UPDATABLE) {
             StatementContext context = new StatementContext(statement, resolver, this.statement.getParameters(), new Scan());
             ViewValuesMapBuilder builder = new ViewValuesMapBuilder(context);
-            ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
+            ParseNode viewNode = new SQLParser(table.getViewStatement()).parseQuery().getWhere();
             viewNode.accept(builder);
             addViewColumns = builder.getViewColumns();
         }

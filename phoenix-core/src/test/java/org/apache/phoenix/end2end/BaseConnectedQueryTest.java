@@ -69,14 +69,13 @@ import java.util.Properties;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.BeforeClass;
-
 import org.apache.phoenix.jdbc.PhoenixDatabaseMetaData;
 import org.apache.phoenix.query.BaseTest;
 import org.apache.phoenix.schema.PTableType;
 import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.TestUtil;
+import org.junit.BeforeClass;
 
 
 /**
@@ -143,29 +142,24 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
         }
     }
     
-    private static final String[] TYPES_TO_DELETE = new String[] {PTableType.TABLE.toString(), PTableType.VIEW.toString()};
-    
     private static void deletePriorTables(long ts, Connection conn) throws Exception {
         DatabaseMetaData dbmd = conn.getMetaData();
-        ResultSet rs = dbmd.getTables(null, null, null, TYPES_TO_DELETE);
+        // Drop VIEWs first, as we don't allow a TABLE with views to be dropped.
+        ResultSet rs = dbmd.getTables(null, null, null, new String[] {PTableType.VIEW.toString()});
         while (rs.next()) {
-            if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) != null) {
-                String fullTableName = SchemaUtil.getTableName(
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
-                conn.createStatement().executeUpdate(ddl);
-            }
+            String fullTableName = SchemaUtil.getTableName(
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+            String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
+            conn.createStatement().executeUpdate(ddl);
         }
-        rs = dbmd.getTables(null, null, null, TYPES_TO_DELETE);
+        rs = dbmd.getTables(null, null, null, new String[] {PTableType.TABLE.toString()});
         while (rs.next()) {
-            if (rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME) == null) {
-                String fullTableName = SchemaUtil.getTableName(
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
-                        rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-                String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
-                conn.createStatement().executeUpdate(ddl);
-            }
+            String fullTableName = SchemaUtil.getTableName(
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
+                    rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+            String ddl = "DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName;
+            conn.createStatement().executeUpdate(ddl);
         }
     }
     

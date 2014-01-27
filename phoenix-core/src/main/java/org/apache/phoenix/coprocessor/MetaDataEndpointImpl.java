@@ -20,8 +20,7 @@
 package org.apache.phoenix.coprocessor;
 
 import static com.google.common.collect.Lists.newArrayList;
-import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_SCHEMA_NAME_BYTES;
-import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES;
+import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_MODIFIER;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.COLUMN_NAME_INDEX;
@@ -34,6 +33,7 @@ import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.DISABLE_WAL_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.FAMILY_NAME_INDEX;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.IMMUTABLE_ROWS_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.INDEX_STATE_BYTES;
+import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.LINK_TYPE_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.MULTI_TENANT_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.NULLABLE;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.ORDINAL_POSITION;
@@ -45,13 +45,14 @@ import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_NAME_INDEX;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_SEQ_NUM_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.TABLE_TYPE_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.TENANT_ID_INDEX;
-import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_EXPRESSION_BYTES;
+import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_STATEMENT_BYTES;
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.VIEW_TYPE_BYTES;
 import static org.apache.phoenix.schema.PTableType.INDEX;
 import static org.apache.phoenix.util.SchemaUtil.getVarCharLength;
 import static org.apache.phoenix.util.SchemaUtil.getVarChars;
-import static org.apache.hadoop.hbase.filter.CompareFilter.CompareOp.EQUAL;
 
+import java.io.DataInput;
+import java.io.DataOutput;
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -70,23 +71,17 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.coprocessor.BaseEndpointCoprocessor;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
-import org.apache.hadoop.hbase.filter.BinaryComparator;
-import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.FirstKeyOnlyFilter;
-import org.apache.hadoop.hbase.filter.RowFilter;
 import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
+import org.apache.hadoop.hbase.index.util.IndexManagementUtil;
 import org.apache.hadoop.hbase.regionserver.HRegion;
 import org.apache.hadoop.hbase.regionserver.RegionScanner;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.EnvironmentEdgeManager;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
-import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
-import org.apache.hadoop.hbase.index.util.IndexManagementUtil;
 import org.apache.phoenix.cache.GlobalCache;
 import org.apache.phoenix.jdbc.PhoenixDatabaseMetaData;
 import org.apache.phoenix.query.QueryConstants;
@@ -102,6 +97,7 @@ import org.apache.phoenix.schema.PIndexState;
 import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.PNameFactory;
 import org.apache.phoenix.schema.PTable;
+import org.apache.phoenix.schema.PTable.LinkType;
 import org.apache.phoenix.schema.PTable.ViewType;
 import org.apache.phoenix.schema.PTableImpl;
 import org.apache.phoenix.schema.PTableType;
@@ -112,6 +108,10 @@ import org.apache.phoenix.util.KeyValueUtil;
 import org.apache.phoenix.util.MetaDataUtil;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.ServerUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
 
 /**
  * 
@@ -140,13 +140,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final KeyValue DATA_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DATA_TABLE_NAME_BYTES);
     private static final KeyValue INDEX_STATE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, INDEX_STATE_BYTES);
     private static final KeyValue IMMUTABLE_ROWS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, IMMUTABLE_ROWS_BYTES);
-    private static final KeyValue VIEW_EXPRESSION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, VIEW_EXPRESSION_BYTES);
+    private static final KeyValue VIEW_EXPRESSION_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, VIEW_STATEMENT_BYTES);
     private static final KeyValue DEFAULT_COLUMN_FAMILY_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DEFAULT_COLUMN_FAMILY_NAME_BYTES);
     private static final KeyValue DISABLE_WAL_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, DISABLE_WAL_BYTES);
     private static final KeyValue MULTI_TENANT_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, MULTI_TENANT_BYTES);
     private static final KeyValue VIEW_TYPE_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, VIEW_TYPE_BYTES);
-    private static final KeyValue BASE_SCHEMA_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES);
-    private static final KeyValue BASE_TABLE_NAME_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES);
     private static final List<KeyValue> TABLE_KV_COLUMNS = Arrays.<KeyValue>asList(
             TABLE_TYPE_KV,
             TABLE_SEQ_NUM_KV,
@@ -160,9 +158,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             DEFAULT_COLUMN_FAMILY_KV,
             DISABLE_WAL_KV,
             MULTI_TENANT_KV,
-            VIEW_TYPE_KV,
-            BASE_SCHEMA_NAME_KV,
-            BASE_TABLE_NAME_KV
+            VIEW_TYPE_KV
             );
     static {
         Collections.sort(TABLE_KV_COLUMNS, KeyValue.COMPARATOR);
@@ -175,13 +171,11 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int DATA_TABLE_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(DATA_TABLE_NAME_KV);
     private static final int INDEX_STATE_INDEX = TABLE_KV_COLUMNS.indexOf(INDEX_STATE_KV);
     private static final int IMMUTABLE_ROWS_INDEX = TABLE_KV_COLUMNS.indexOf(IMMUTABLE_ROWS_KV);
-    private static final int VIEW_EXPRESSION_INDEX = TABLE_KV_COLUMNS.indexOf(VIEW_EXPRESSION_KV);
+    private static final int VIEW_STATEMENT_INDEX = TABLE_KV_COLUMNS.indexOf(VIEW_EXPRESSION_KV);
     private static final int DEFAULT_COLUMN_FAMILY_INDEX = TABLE_KV_COLUMNS.indexOf(DEFAULT_COLUMN_FAMILY_KV);
     private static final int DISABLE_WAL_INDEX = TABLE_KV_COLUMNS.indexOf(DISABLE_WAL_KV);
     private static final int MULTI_TENANT_INDEX = TABLE_KV_COLUMNS.indexOf(MULTI_TENANT_KV);
     private static final int VIEW_TYPE_INDEX = TABLE_KV_COLUMNS.indexOf(VIEW_TYPE_KV);
-    private static final int BASE_SCHEMA_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(BASE_SCHEMA_NAME_KV);
-    private static final int BASE_TABLE_NAME_INDEX = TABLE_KV_COLUMNS.indexOf(BASE_TABLE_NAME_KV);
     
     // KeyValues for Column
     private static final KeyValue DECIMAL_DIGITS_KV = KeyValue.createFirstOnRow(ByteUtil.EMPTY_BYTE_ARRAY, TABLE_FAMILY_BYTES, Bytes.toBytes(DECIMAL_DIGITS));
@@ -208,6 +202,8 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
     private static final int SQL_DATA_TYPE_INDEX = COLUMN_KV_COLUMNS.indexOf(DATA_TYPE_KV);
     private static final int ORDINAL_POSITION_INDEX = COLUMN_KV_COLUMNS.indexOf(ORDINAL_POSITION_KV);
     private static final int COLUMN_MODIFIER_INDEX = COLUMN_KV_COLUMNS.indexOf(COLUMN_MODIFIER_KV);
+    
+    private static final int LINK_TYPE_INDEX = 0;
 
     private static PName newPName(byte[] keyBuffer, int keyOffset, int keyLength) {
         if (keyLength <= 0) {
@@ -392,41 +388,45 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         boolean isImmutableRows = immutableRowsKv == null ? false : (Boolean)PDataType.BOOLEAN.toObject(immutableRowsKv.getBuffer(), immutableRowsKv.getValueOffset(), immutableRowsKv.getValueLength());
         KeyValue defaultFamilyNameKv = tableKeyValues[DEFAULT_COLUMN_FAMILY_INDEX];
         PName defaultFamilyName = defaultFamilyNameKv != null ? newPName(defaultFamilyNameKv.getBuffer(), defaultFamilyNameKv.getValueOffset(), defaultFamilyNameKv.getValueLength()) : null;
-        KeyValue viewExpressionKv = tableKeyValues[VIEW_EXPRESSION_INDEX];
-        String viewExpression = viewExpressionKv != null ? (String)PDataType.VARCHAR.toObject(viewExpressionKv.getBuffer(), viewExpressionKv.getValueOffset(), viewExpressionKv.getValueLength()) : null;
+        KeyValue viewStatementKv = tableKeyValues[VIEW_STATEMENT_INDEX];
+        String viewStatement = viewStatementKv != null ? (String)PDataType.VARCHAR.toObject(viewStatementKv.getBuffer(), viewStatementKv.getValueOffset(), viewStatementKv.getValueLength()) : null;
         KeyValue disableWALKv = tableKeyValues[DISABLE_WAL_INDEX];
         boolean disableWAL = disableWALKv == null ? PTable.DEFAULT_DISABLE_WAL : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(disableWALKv.getBuffer(), disableWALKv.getValueOffset(), disableWALKv.getValueLength()));
         KeyValue multiTenantKv = tableKeyValues[MULTI_TENANT_INDEX];
         boolean multiTenant = multiTenantKv == null ? false : Boolean.TRUE.equals(PDataType.BOOLEAN.toObject(multiTenantKv.getBuffer(), multiTenantKv.getValueOffset(), multiTenantKv.getValueLength()));
         KeyValue viewTypeKv = tableKeyValues[VIEW_TYPE_INDEX];
         ViewType viewType = viewTypeKv == null ? null : ViewType.fromSerializedValue(viewTypeKv.getBuffer()[viewTypeKv.getValueOffset()]);
-        KeyValue baseSchemaNameKv = tableKeyValues[BASE_SCHEMA_NAME_INDEX];
-        PName baseSchemaName = baseSchemaNameKv != null ? newPName(baseSchemaNameKv.getBuffer(), baseSchemaNameKv.getValueOffset(), baseSchemaNameKv.getValueLength()) : null;
-        KeyValue baseTableNameKv = tableKeyValues[BASE_TABLE_NAME_INDEX];
-        PName baseTableName = baseTableNameKv != null ? newPName(baseTableNameKv.getBuffer(), baseTableNameKv.getValueOffset(), baseTableNameKv.getValueLength()) : null;
         
         List<PColumn> columns = Lists.newArrayListWithExpectedSize(columnCount);
         List<PTable> indexes = new ArrayList<PTable>();
+        List<PName> physicalTables = new ArrayList<PName>();
         while (true) {
             results.clear();
             scanner.next(results);
             if (results.isEmpty()) {
                 break;
             }
-            KeyValue colKv = results.get(0);
+            KeyValue colKv = results.get(LINK_TYPE_INDEX);
             int colKeyLength = colKv.getRowLength();
             PName colName = newPName(colKv.getBuffer(), colKv.getRowOffset() + offset, colKeyLength-offset);
             int colKeyOffset = offset + colName.getBytes().length + 1;
             PName famName = newPName(colKv.getBuffer(), colKv.getRowOffset() + colKeyOffset, colKeyLength-colKeyOffset);
-            if (colName.getString().isEmpty() && famName != null) {              
-                addIndexToTable(tenantId, schemaName, famName, tableName, clientTimeStamp, indexes);                              
+            if (colName.getString().isEmpty() && famName != null) {
+                LinkType linkType = LinkType.fromSerializedValue(colKv.getBuffer()[colKv.getValueOffset()]);
+                if (linkType == LinkType.INDEX_TABLE) {
+                    addIndexToTable(tenantId, schemaName, famName, tableName, clientTimeStamp, indexes);
+                } else if (linkType == LinkType.PHYSICAL_TABLE) {
+                    physicalTables.add(famName);
+                } else {
+                    logger.warn("Unknown link type: " + colKv.getBuffer()[colKv.getValueOffset()] + " for " + SchemaUtil.getTableName(schemaName.getString(), tableName.getString()));
+                }
             } else {
                 addColumnToTable(results, colName, famName, colKeyValues, columns);
             }
         }
         
         return PTableImpl.makePTable(schemaName, tableName, tableType, indexState, timeStamp, tableSeqNum, pkName, saltBucketNum, columns, tableType == INDEX ? dataTableName : null, 
-                indexes, isImmutableRows, baseSchemaName, baseTableName, defaultFamilyName, viewExpression, disableWAL, multiTenant, viewType);
+                indexes, isImmutableRows, physicalTables, defaultFamilyName, viewStatement, disableWAL, multiTenant, viewType);
     }
 
     private PTable buildDeletedTable(byte[] key, ImmutableBytesPtr cacheKey, HRegion region, long clientTimeStamp) throws IOException {
@@ -584,6 +584,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
     }
     
+    private static final byte[] PHYSICAL_TABLE_BYTES = new byte[] {PTable.LinkType.PHYSICAL_TABLE.getSerializedValue()};
     /**
      * @param tableName parent table's name
      * @return true if there exist a table that use this table as their base table.
@@ -602,14 +603,13 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
             scan.setStartRow(startRow);
             scan.setStopRow(stopRow);
         }
-        SingleColumnValueFilter filter1 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_SCHEMA_NAME_BYTES, EQUAL, schemaName);
-        filter1.setFilterIfMissing(schemaName.length > 0);
-        SingleColumnValueFilter filter2 = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, BASE_TABLE_NAME_BYTES, EQUAL, tableName);
-        filter2.setFilterIfMissing(true);
-        BinaryComparator comparator = new BinaryComparator(ByteUtil.concat(tenantId, QueryConstants.SEPARATOR_BYTE_ARRAY, schemaName, QueryConstants.SEPARATOR_BYTE_ARRAY, tableName));
-        RowFilter filter3 = new RowFilter(CompareOp.NOT_EQUAL,comparator);
-        Filter filter = new FilterList(filter1,filter2,filter3);
+        SingleColumnValueFilter linkFilter = new SingleColumnValueFilter(TABLE_FAMILY_BYTES, LINK_TYPE_BYTES, EQUAL, PHYSICAL_TABLE_BYTES);
+        linkFilter.setFilterIfMissing(true);
+        byte[] suffix = ByteUtil.concat(QueryConstants.SEPARATOR_BYTE_ARRAY, SchemaUtil.getTableNameAsBytes(schemaName, tableName));
+        SuffixFilter rowFilter = new SuffixFilter(suffix);
+        Filter filter = new FilterList(linkFilter, rowFilter);
         scan.setFilter(filter);
+        scan.addColumn(TABLE_FAMILY_BYTES, LINK_TYPE_BYTES);
         RegionScanner scanner = region.getScanner(scan);
         try {
             List<KeyValue> results = newArrayList();
@@ -722,7 +722,7 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         }
         // Don't allow a table with views to be deleted
         // TODO: support CASCADE with DROP
-        if (hasViews(region, tenantId, table)) {
+        if (tableType == PTableType.TABLE && hasViews(region, tenantId, table)) {
             return new MetaDataMutationResult(MutationCode.UNALLOWED_TABLE_MUTATION, EnvironmentEdgeManager.currentTimeMillis(), null);
         }
         if (table.getType() != PTableType.VIEW) { // Add to list of HTables to delete, unless it's a view
@@ -733,9 +733,12 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         byte[][] rowKeyMetaData = new byte[5][];
         byte[] rowKey;
         do {
-            rowKey = results.get(0).getRow();
+            KeyValue kv = results.get(LINK_TYPE_INDEX);
+            rowKey = kv.getRow();
             int nColumns = getVarChars(rowKey, rowKeyMetaData);
-            if (nColumns == 5 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0) {
+            if (nColumns == 5 && rowKeyMetaData[PhoenixDatabaseMetaData.COLUMN_NAME_INDEX].length == 0 && rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX].length > 0
+                    && Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(), LINK_TYPE_BYTES, 0, LINK_TYPE_BYTES.length) == 0
+                    && LinkType.fromSerializedValue(kv.getBuffer()[kv.getValueOffset()]) == LinkType.INDEX_TABLE) {
                 indexNames.add(rowKeyMetaData[PhoenixDatabaseMetaData.INDEX_NAME_INDEX]);
             }
             @SuppressWarnings("deprecation") // FIXME: Remove when unintentionally deprecated method is fixed (HBASE-7870).
@@ -1177,6 +1180,43 @@ public class MetaDataEndpointImpl extends BaseEndpointCoprocessor implements Met
         } catch (Throwable t) {
             ServerUtil.throwIOException(SchemaUtil.getTableName(schemaName, tableName), t);
             return null; // impossible
+        }
+    }
+    
+    /**
+     * 
+     * Matches rows that end with a given byte array suffix
+     *
+     * @author jtaylor
+     * @since 3.0
+     */
+    private static class SuffixFilter extends FilterBase {
+        protected byte[] suffix = null;
+
+        public SuffixFilter(final byte[] suffix) {
+            this.suffix = suffix;
+        }
+
+        @Override
+        public boolean filterRowKey(byte[] buffer, int offset, int length) {
+            if (buffer == null || this.suffix == null) return true;
+            if (length < suffix.length) return true;
+            // if they are equal, return false => pass row
+            // else return true, filter row
+            // if we are passed the suffix, set flag
+            int cmp = Bytes.compareTo(buffer, offset + (length - this.suffix.length),
+                    this.suffix.length, this.suffix, 0, this.suffix.length);
+            return cmp != 0;
+        }
+
+        @Override
+        public void readFields(DataInput arg0) throws IOException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void write(DataOutput arg0) throws IOException {
+            throw new UnsupportedOperationException();
         }
     }
 }

@@ -28,7 +28,6 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
-
 import org.apache.phoenix.coprocessor.MetaDataProtocol;
 import org.apache.phoenix.jdbc.PhoenixDatabaseMetaData;
 import org.apache.phoenix.query.QueryConstants;
@@ -163,14 +162,6 @@ public class MetaDataUtil {
         throw new IllegalStateException();
     }
 
-    public static byte[] getBaseTableName(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_TABLE_NAME_BYTES);
-    }
-    
-    public static byte[] getBaseSchemaName(List<Mutation> tableMutations) {
-        return getMutationKVByteValue(getPutOnlyTableHeaderRow(tableMutations), PhoenixDatabaseMetaData.BASE_SCHEMA_NAME_BYTES);
-    }
-    
     public static long getSequenceNumber(List<Mutation> tableMetaData) {
         return getSequenceNumber(getTableHeaderRow(tableMetaData));
     }
@@ -188,7 +179,7 @@ public class MetaDataUtil {
         return tableMetaData.get(0);
     }
 
-    private static byte[] getMutationKVByteValue(Mutation headerRow, byte[] key) {
+    public static byte[] getMutationKVByteValue(Mutation headerRow, byte[] key) {
         KeyValue kv = getMutationKeyValue(headerRow, key);
         // FIXME: byte copy
         return kv == null ? ByteUtil.EMPTY_BYTE_ARRAY : kv.getValue();

@@ -26,8 +26,6 @@ import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.google.common.collect.Lists;
 import org.apache.phoenix.cache.ServerCacheClient.ServerCache;
 import org.apache.phoenix.compile.GroupByCompiler.GroupBy;
 import org.apache.phoenix.compile.OrderByCompiler.OrderBy;
@@ -38,21 +36,17 @@ import org.apache.phoenix.iterate.ResultIterator;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixParameterMetaData;
 import org.apache.phoenix.jdbc.PhoenixStatement;
-import org.apache.phoenix.parse.ParseNode;
-import org.apache.phoenix.parse.SQLParser;
 import org.apache.phoenix.parse.SelectStatement;
 import org.apache.phoenix.query.QueryConstants;
-import org.apache.phoenix.schema.AmbiguousColumnException;
-import org.apache.phoenix.schema.ColumnFamilyNotFoundException;
-import org.apache.phoenix.schema.ColumnNotFoundException;
 import org.apache.phoenix.schema.ColumnRef;
 import org.apache.phoenix.schema.PColumn;
 import org.apache.phoenix.schema.PColumnFamily;
 import org.apache.phoenix.schema.PDataType;
-import org.apache.phoenix.schema.PTable;
 import org.apache.phoenix.schema.TableRef;
 import org.apache.phoenix.schema.tuple.Tuple;
 import org.apache.phoenix.util.ScanUtil;
+
+import com.google.common.collect.Lists;
 
 
 /**
@@ -116,9 +110,7 @@ public class PostDDLCompiler {
                     for (final TableRef tableRef : tableRefs) {
                         Scan scan = new Scan();
                         scan.setAttribute(UngroupedAggregateRegionObserver.UNGROUPED_AGG, QueryConstants.TRUE);
-                        PTable table = tableRef.getTable();
-                        ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
-                        SelectStatement select = SelectStatement.create(SelectStatement.COUNT_ONE, viewNode);
+                        SelectStatement select = SelectStatement.COUNT_ONE;
                         // We need to use this tableRef
                         ColumnResolver resolver = new ColumnResolver() {
                             @Override
@@ -186,18 +178,7 @@ public class PostDDLCompiler {
                                 }
                                 projector = new RowProjector(projector,false);
                             }
-                            // Ignore exceptions due to not being able to resolve any view columns,
-                            // as this just means the view is invalid. Continue on and try to perform
-                            // any other Post DDL operations.
-                            try {
-                                WhereCompiler.compile(context, select); // Push where clause into scan
-                            } catch (ColumnFamilyNotFoundException e) {
-                                continue;
-                            } catch (ColumnNotFoundException e) {
-                                continue;
-                            } catch (AmbiguousColumnException e) {
-                                continue;
-                            }
+                            WhereCompiler.compile(context, select); // Push where clause into scan
                             QueryPlan plan = new AggregatePlan(context, select, tableRef, projector, null, OrderBy.EMPTY_ORDER_BY, null, GroupBy.EMPTY_GROUP_BY, null);
                             ResultIterator iterator = plan.iterator();
                             try {

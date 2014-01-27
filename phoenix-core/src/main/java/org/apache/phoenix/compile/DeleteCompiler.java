@@ -29,11 +29,8 @@ import java.util.Map;
 
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
+import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.phoenix.cache.ServerCacheClient.ServerCache;
 import org.apache.phoenix.compile.GroupByCompiler.GroupBy;
 import org.apache.phoenix.compile.OrderByCompiler.OrderBy;
@@ -71,6 +68,9 @@ import org.apache.phoenix.schema.TableRef;
 import org.apache.phoenix.schema.tuple.Tuple;
 import org.apache.phoenix.util.IndexUtil;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
 public class DeleteCompiler {
     private static ParseNodeFactory FACTORY = new ParseNodeFactory();
     
@@ -82,6 +82,7 @@ public class DeleteCompiler {
     
     private static MutationState deleteRows(PhoenixStatement statement, TableRef tableRef, ResultIterator iterator, RowProjector projector) throws SQLException {
         PhoenixConnection connection = statement.getConnection();
+        byte[] tenantId = connection.getTenantId() == null ? null : connection.getTenantId().getBytes();
         final boolean isAutoCommit = connection.getAutoCommit();
         ConnectionQueryServices services = connection.getQueryServices();
         final int maxSize = services.getProps().getInt(QueryServices.MAX_MUTATION_SIZE_ATTRIB,QueryServicesOptions.DEFAULT_MAX_MUTATION_SIZE);
@@ -90,8 +91,12 @@ public class DeleteCompiler {
         try {
             PTable table = tableRef.getTable();
             List<PColumn> pkColumns = table.getPKColumns();
-            int offset = table.getBucketNum() == null ? 0 : 1; // Take into account salting
+            boolean isMultiTenant = table.isMultiTenant() && tenantId != null;
+            int offset = (table.getBucketNum() == null ? 0 : 1) + (isMultiTenant ? 1 : 0); // Take into account salting and multi-tenant
             byte[][] values = new byte[pkColumns.size()][];
+            if (isMultiTenant) {
+                values[offset-1] = tenantId;
+            }
             ResultSet rs = new PhoenixResultSet(iterator, projector, statement);
             int rowCount = 0;
             while (rs.next()) {

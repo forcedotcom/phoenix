@@ -25,9 +25,8 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Pair;
-
 import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
+import org.apache.hadoop.hbase.util.Pair;
 import org.apache.phoenix.compile.GroupByCompiler.GroupBy;
 import org.apache.phoenix.compile.JoinCompiler.JoinSpec;
 import org.apache.phoenix.compile.JoinCompiler.JoinTable;
@@ -252,9 +251,11 @@ public class QueryCompiler {
             return new DegenerateQueryPlan(context, select, tableRef);
         }
         PTable table = tableRef.getTable();
-        ParseNode viewNode = SQLParser.parseCondition(table.getViewExpression());
-        // Push VIEW expression into select
-        select = SelectStatement.create(select, viewNode);
+        if (table.getViewStatement() != null) {
+            ParseNode viewNode = new SQLParser(table.getViewStatement()).parseQuery().getWhere();
+            // Push VIEW expression into select
+            select = select.combine(viewNode);
+        }
         Integer limit = LimitCompiler.compile(context, select);
 
         GroupBy groupBy = GroupByCompiler.compile(context, select);

@@ -122,7 +122,7 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
                     "                ) ", null, nextTimestamp());
             fail();
         } catch (SQLException e) {
-            assertEquals(SQLExceptionCode.CANNOT_CREATE_TENANT_SPECIFIC_BASE_TABLE.getErrorCode(), e.getErrorCode());
+            assertEquals(SQLExceptionCode.CANNOT_CREATE_TENANT_SPECIFIC_TABLE.getErrorCode(), e.getErrorCode());
         }
     }
     
@@ -374,23 +374,17 @@ public class TenantSpecificTablesDDLTest extends BaseTenantSpecificTablesTest {
             assertTrue(rs.next());
             assertEquals(TENANT_ID, rs.getString(PhoenixDatabaseMetaData.TENANT_ID));
             assertEquals(TENANT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-            assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
-            assertEquals(PARENT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertEquals("TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_EXPRESSION)));
+            assertEquals("SELECT * FROM \"" + PARENT_TABLE_NAME + "\" WHERE " + "TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_STATEMENT)));
             assertFalse(rs.next());
             rs = meta.getSuperTables(null, null, null);
             assertTrue(rs.next());
             assertEquals(TENANT_ID, rs.getString(PhoenixDatabaseMetaData.TENANT_ID));
             assertEquals(TENANT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-            assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
-            assertEquals(PARENT_TABLE_NAME, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertEquals("TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_EXPRESSION)));
+            assertEquals("SELECT * FROM \"" + PARENT_TABLE_NAME + "\" WHERE " + "TENANT_TYPE_ID = 'abc'", Bytes.toString(rs.getBytes(PhoenixDatabaseMetaData.VIEW_STATEMENT)));
             assertTrue(rs.next());
             assertEquals(TENANT_ID, rs.getString(PhoenixDatabaseMetaData.TENANT_ID));
             assertEquals(TENANT_TABLE_NAME_NO_TENANT_TYPE_ID, rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
-            assertNull(rs.getString(PhoenixDatabaseMetaData.BASE_SCHEMA_NAME));
-            assertEquals(PARENT_TABLE_NAME_NO_TENANT_TYPE_ID, rs.getString(PhoenixDatabaseMetaData.BASE_TABLE_NAME));
-            assertNull(rs.getString(PhoenixDatabaseMetaData.VIEW_EXPRESSION));
+            assertNull(rs.getString(PhoenixDatabaseMetaData.VIEW_STATEMENT));
             assertFalse(rs.next());
         }
         finally {

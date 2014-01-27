@@ -50,19 +50,13 @@ import org.apache.hadoop.hbase.client.Increment;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.coprocessor.Batch;
+import org.apache.hadoop.hbase.index.Indexer;
+import org.apache.hadoop.hbase.index.covered.CoveredColumnsIndexBuilder;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.Pair;
 import org.apache.hadoop.hbase.util.VersionInfo;
 import org.apache.hadoop.hbase.zookeeper.ZKConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import org.apache.hadoop.hbase.index.Indexer;
-import org.apache.hadoop.hbase.index.covered.CoveredColumnsIndexBuilder;
 import org.apache.phoenix.client.KeyValueBuilder;
 import org.apache.phoenix.compile.MutationPlan;
 import org.apache.phoenix.coprocessor.GroupedAggregateRegionObserver;
@@ -103,6 +97,12 @@ import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.ReadOnlyProps;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.ServerUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 public class ConnectionQueryServicesImpl extends DelegateQueryServices implements ConnectionQueryServices {
     private static final Logger logger = LoggerFactory.getLogger(ConnectionQueryServicesImpl.class);
@@ -801,7 +801,7 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
 
 
     @Override
-    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, byte[] tableName, PTableType tableType,
+    public MetaDataMutationResult createTable(final List<Mutation> tableMetaData, byte[] physicalTableName, PTableType tableType,
             Map<String,Object> tableProps, final List<Pair<byte[],Map<String,Object>>> families, byte[][] splits) throws SQLException {
         byte[][] rowKeyMetadata = new byte[3][];
         Mutation m = tableMetaData.get(0);
@@ -810,9 +810,11 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
         byte[] tenantIdBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TENANT_ID_INDEX];
         byte[] schemaBytes = rowKeyMetadata[PhoenixDatabaseMetaData.SCHEMA_NAME_INDEX];
         byte[] tableBytes = rowKeyMetadata[PhoenixDatabaseMetaData.TABLE_NAME_INDEX];
-        if (tableType != PTableType.VIEW || tableName != null) {
-            tableName = tableName == null ? SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes) : tableName;
-            ensureTableCreated(tableName, tableType, tableProps, families, splits);
+        if (tableType != PTableType.VIEW || physicalTableName != null) {
+            if (physicalTableName == null) {
+                physicalTableName = SchemaUtil.getTableNameAsBytes(schemaBytes, tableBytes);
+            }
+            ensureTableCreated(physicalTableName, tableType, tableProps, families, splits);
         }
         
         byte[] tableKey = SchemaUtil.getTableKey(tenantIdBytes, schemaBytes, tableBytes);

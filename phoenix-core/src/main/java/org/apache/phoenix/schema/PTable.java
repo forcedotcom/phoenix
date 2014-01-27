@@ -21,12 +21,9 @@ package org.apache.phoenix.schema;
 
 import java.util.List;
 
-import javax.annotation.Nullable;
-
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.Writable;
-
 import org.apache.phoenix.client.KeyValueBuilder;
 import org.apache.phoenix.index.IndexMaintainer;
 import org.apache.phoenix.schema.stat.PTableStats;
@@ -75,17 +72,48 @@ public interface PTable extends Writable {
             return ViewType.values()[serializedValue-1];
         }
         
-        public static ViewType combine(ViewType type1, ViewType type2) {
-            if (type1 == null) {
-                return type2;
+        public ViewType combine(ViewType otherType) {
+            if (otherType == null) {
+                return this;
             }
-            if (type2 == null) {
-                return type1;
-            }
-            if (type1 == UPDATABLE && type2 == UPDATABLE) {
+            if (this == UPDATABLE && otherType == UPDATABLE) {
                 return UPDATABLE;
             }
             return READ_ONLY;
+        }
+    }
+
+    public enum LinkType {
+        /**
+         * Link from a table to its index table
+         */
+        INDEX_TABLE((byte)1),
+        /**
+         * Link from a view to its physical table
+         */
+        PHYSICAL_TABLE((byte)2);
+
+        private final byte[] byteValue;
+        private final byte serializedValue;
+        
+        LinkType(byte serializedValue) {
+            this.serializedValue = serializedValue;
+            this.byteValue = Bytes.toBytes(this.name());
+        }
+        
+        public byte[] getBytes() {
+            return byteValue;
+        }
+        
+        public byte getSerializedValue() {
+            return this.serializedValue;
+        }
+        
+        public static LinkType fromSerializedValue(byte serializedValue) {
+            if (serializedValue < 1 || serializedValue > LinkType.values().length) {
+                return null;
+            }
+            return LinkType.values()[serializedValue-1];
         }
     }
 
@@ -231,13 +259,11 @@ public interface PTable extends Writable {
     PName getParentTableName();
     
     /**
-     * For a tenant-specific table, return the name of table in Phoenix that physically stores data.
-     * @return the name of the data table that tenant-specific table points to or null if this table is not tenant-specifidc.
-     * @see #isDerivedTable()
+     * For a view, return the name of table in Phoenix that physically stores data.
+     * Currently a single name, but when views are allowed over multiple tables, will become multi-valued.
+     * @return the name of the physical table storing the data.
      */
-    @Nullable PName getBaseName();
-    @Nullable PName getBaseSchemaName();
-    @Nullable PName getBaseTableName();
+    public List<PName> getPhysicalNames();
 
     PName getPhysicalName();
     boolean isImmutableRows();
@@ -245,9 +271,10 @@ public interface PTable extends Writable {
     void getIndexMaintainers(ImmutableBytesWritable ptr);
     IndexMaintainer getIndexMaintainer(PTable dataTable);
     PName getDefaultFamilyName();
-    String getViewExpression();
     
     boolean isWALDisabled();
     boolean isMultiTenant();
+
     ViewType getViewType();
+    String getViewStatement();
 }

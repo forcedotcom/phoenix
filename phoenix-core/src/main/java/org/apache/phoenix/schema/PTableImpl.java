@@ -40,19 +40,10 @@ import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.io.WritableUtils;
-
-import com.google.common.base.Objects;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
 import org.apache.phoenix.client.KeyValueBuilder;
 import org.apache.phoenix.index.IndexMaintainer;
 import org.apache.phoenix.query.QueryConstants;
@@ -63,6 +54,15 @@ import org.apache.phoenix.util.ByteUtil;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.StringUtil;
 import org.apache.phoenix.util.TrustedByteArrayOutputStream;
+
+import com.google.common.base.Objects;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 
 /**
@@ -101,14 +101,12 @@ public class PTableImpl implements PTable {
     // Data table name that the index is created on.
     private PName parentName;
     private PName parentTableName;
-    private PName baseSchemaName;
-    private PName baseTableName;
-    private PName baseName;
+    private List<PName> physicalNames;
     private boolean isImmutableRows;
     private IndexMaintainer indexMaintainer;
     private ImmutableBytesWritable indexMaintainersPtr;
     private PName defaultFamilyName;
-    private String viewExpression;
+    private String viewStatement;
     private boolean disableWAL;
     private boolean multiTenant;
     private ViewType viewType;
@@ -168,48 +166,50 @@ public class PTableImpl implements PTable {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, table.getSequenceNumber() + 1, 
                 table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), indexes, table.isImmutableRows(),
-                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getViewExpression(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
+                table.getPhysicalNames(), table.getDefaultFamilyName(), table.getViewStatement(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
     }
 
     public static PTableImpl makePTable(PTable table, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), table.getTimeStamp(), table.getSequenceNumber(), 
-                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getViewExpression(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getPhysicalNames(),
+                table.getDefaultFamilyName(), table.getViewStatement(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
-                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getViewExpression(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
+                table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), table.isImmutableRows(), table.getPhysicalNames(),
+                table.getDefaultFamilyName(), table.getViewStatement(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
     }
 
     public static PTableImpl makePTable(PTable table, long timeStamp, long sequenceNumber, List<PColumn> columns, boolean isImmutableRows) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), table.getIndexState(), timeStamp, sequenceNumber, 
                 table.getPKName(), table.getBucketNum(), columns, table.getParentTableName(), table.getIndexes(), isImmutableRows,
-                table.getBaseSchemaName(), table.getBaseTableName(), table.getDefaultFamilyName(), table.getViewExpression(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
+                table.getPhysicalNames(), table.getDefaultFamilyName(), table.getViewStatement(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
     }
 
     public static PTableImpl makePTable(PTable table, PIndexState state) throws SQLException {
         return new PTableImpl(
                 table.getSchemaName(), table.getTableName(), table.getType(), state, table.getTimeStamp(), table.getSequenceNumber(), 
                 table.getPKName(), table.getBucketNum(), getColumnsToClone(table), table.getParentTableName(), 
-                table.getIndexes(), table.isImmutableRows(), table.getBaseSchemaName(), table.getBaseTableName(),
-                table.getDefaultFamilyName(), table.getViewExpression(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
+                table.getIndexes(), table.isImmutableRows(), table.getPhysicalNames(),
+                table.getDefaultFamilyName(), table.getViewStatement(), table.isWALDisabled(), table.isMultiTenant(), table.getViewType());
     }
 
     public static PTableImpl makePTable(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows, PName baseSchemaName,
-            PName baseTableName, PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
+            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows, List<PName> physicalNames,
+            PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
         return new PTableImpl(schemaName, tableName, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, dataTableName, indexes,
-                isImmutableRows, baseSchemaName, baseTableName, defaultFamilyName, viewExpression, disableWAL, multiTenant, viewType);
+                isImmutableRows, physicalNames, defaultFamilyName, viewExpression, disableWAL, multiTenant, viewType);
     }
 
     private PTableImpl(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
-            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows, PName baseSchemaName,
-            PName baseTableName, PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
+            Integer bucketNum, List<PColumn> columns, PName dataTableName, List<PTable> indexes, boolean isImmutableRows, List<PName> physicalNames,
+            PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
         init(schemaName, tableName, type, state, timeStamp, sequenceNumber, pkName, bucketNum, columns, new PTableStatsImpl(),
-                dataTableName, indexes, isImmutableRows, baseSchemaName, baseTableName, defaultFamilyName, viewExpression, disableWAL, multiTenant, viewType);
+                dataTableName, indexes, isImmutableRows, physicalNames, defaultFamilyName, viewExpression, disableWAL, multiTenant, viewType);
     }
 
     @Override
@@ -224,7 +224,7 @@ public class PTableImpl implements PTable {
     
     private void init(PName schemaName, PName tableName, PTableType type, PIndexState state, long timeStamp, long sequenceNumber, PName pkName,
             Integer bucketNum, List<PColumn> columns, PTableStats stats, PName parentTableName, List<PTable> indexes, boolean isImmutableRows,
-            PName baseSchemaName, PName baseTableName, PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
+            List<PName> physicalNames, PName defaultFamilyName, String viewExpression, boolean disableWAL, boolean multiTenant, ViewType viewType) throws SQLException {
         if (schemaName == null) {
             throw new NullPointerException();
         }
@@ -238,7 +238,7 @@ public class PTableImpl implements PTable {
         this.pkName = pkName;
         this.isImmutableRows = isImmutableRows;
         this.defaultFamilyName = defaultFamilyName;
-        this.viewExpression = viewExpression;
+        this.viewStatement = viewExpression;
         this.disableWAL = disableWAL;
         this.multiTenant = multiTenant;
         this.viewType = viewType;
@@ -320,9 +320,7 @@ public class PTableImpl implements PTable {
         this.indexes = indexes;
         this.parentTableName = parentTableName;
         this.parentName = parentTableName == null ? null : PNameFactory.newName(SchemaUtil.getTableName(schemaName.getString(), parentTableName.getString()));
-        this.baseSchemaName = baseSchemaName;
-        this.baseTableName = baseTableName;
-        this.baseName = baseTableName == null ? null : PNameFactory.newName(SchemaUtil.getTableName(baseSchemaName == null ? null : baseSchemaName.getString(), baseTableName.getString()));
+        this.physicalNames = physicalNames == null ? ImmutableList.<PName>of() : ImmutableList.copyOf(physicalNames);
     }
 
     @Override
@@ -695,24 +693,25 @@ public class PTableImpl implements PTable {
         boolean disableWAL = input.readBoolean();
         boolean multiTenant = input.readBoolean();
         ViewType viewType = null;
-        String viewExpression = null;
-        PName baseSchemaName = null;
-        PName baseTableName = null;
+        String viewStatement = null;
+        List<PName> physicalNames = Collections.emptyList();
         if (tableType == PTableType.VIEW) {
             viewType = ViewType.fromSerializedValue(input.readByte());
-            byte[] viewExpressionBytes = Bytes.readByteArray(input);
-            viewExpression = viewExpressionBytes.length == 0 ? null : (String)PDataType.VARCHAR.toObject(viewExpressionBytes);
-            byte[] baseSchemaNameBytes = Bytes.readByteArray(input);
-            baseSchemaName = baseSchemaNameBytes.length == 0 ? null : PNameFactory.newName(baseSchemaNameBytes);
-            byte[] baseTableNameBytes = Bytes.readByteArray(input);
-            baseTableName = baseTableNameBytes.length == 0 ? null : PNameFactory.newName(baseTableNameBytes);
+            byte[] viewStatementBytes = Bytes.readByteArray(input);
+            viewStatement = viewStatementBytes.length == 0 ? null : (String)PDataType.VARCHAR.toObject(viewStatementBytes);
+            int nPhysicalNames = WritableUtils.readVInt(input);
+            physicalNames = Lists.newArrayListWithExpectedSize(nPhysicalNames);
+            for (int i = 0; i < nPhysicalNames; i++) {
+                byte[] physicalNameBytes = Bytes.readByteArray(input);
+                physicalNames.add(PNameFactory.newName(physicalNameBytes));
+            }
         }
         PTableStats stats = new PTableStatsImpl(guidePosts);
         try {
             init(schemaName, tableName, tableType, indexState, timeStamp, sequenceNumber, pkName,
                  bucketNum.equals(NO_SALTING) ? null : bucketNum, columns, stats, dataTableName,
-                 indexes, isImmutableRows, baseSchemaName, baseTableName, defaultFamilyName,
-                 viewExpression, disableWAL, multiTenant, viewType);
+                 indexes, isImmutableRows, physicalNames, defaultFamilyName,
+                 viewStatement, disableWAL, multiTenant, viewType);
         } catch (SQLException e) {
             throw new RuntimeException(e); // Impossible
         }
@@ -754,9 +753,11 @@ public class PTableImpl implements PTable {
         output.writeBoolean(multiTenant);
         if (type == PTableType.VIEW) {
             output.writeByte(viewType.getSerializedValue());
-            Bytes.writeByteArray(output, viewExpression == null ? ByteUtil.EMPTY_BYTE_ARRAY : PDataType.VARCHAR.toBytes(viewExpression));
-            Bytes.writeByteArray(output, baseSchemaName == null ? ByteUtil.EMPTY_BYTE_ARRAY : baseSchemaName.getBytes());
-            Bytes.writeByteArray(output, baseTableName.getBytes());
+            Bytes.writeByteArray(output, viewStatement == null ? ByteUtil.EMPTY_BYTE_ARRAY : PDataType.VARCHAR.toBytes(viewStatement));
+            WritableUtils.writeVInt(output, physicalNames.size());
+            for (int i = 0; i < physicalNames.size(); i++) {
+                Bytes.writeByteArray(output, physicalNames.get(i).getBytes());
+            }
         }
     }
 
@@ -837,22 +838,12 @@ public class PTableImpl implements PTable {
     
     @Override
     public PName getPhysicalName() {
-        return type == PTableType.VIEW ? getBaseName() : getName();
+        return physicalNames.isEmpty() ? getName() : physicalNames.get(0);
     }
     
     @Override
-    public PName getBaseName() {
-        return baseName;
-    }
-
-    @Override
-    public PName getBaseSchemaName() {
-        return baseSchemaName;
-    }
-
-    @Override
-    public PName getBaseTableName() {
-        return baseTableName;
+    public List<PName> getPhysicalNames() {
+        return physicalNames;
     }
 
     @Override
@@ -861,8 +852,8 @@ public class PTableImpl implements PTable {
     }
 
     @Override
-    public String getViewExpression() {
-        return viewExpression;
+    public String getViewStatement() {
+        return viewStatement;
     }
 
     @Override

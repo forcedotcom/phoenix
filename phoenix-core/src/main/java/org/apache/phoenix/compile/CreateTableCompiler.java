@@ -28,8 +28,6 @@ import java.util.List;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
-
-import com.google.common.collect.Iterators;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.exception.SQLExceptionInfo;
 import org.apache.phoenix.execute.MutationState;
@@ -38,12 +36,17 @@ import org.apache.phoenix.expression.ComparisonExpression;
 import org.apache.phoenix.expression.Expression;
 import org.apache.phoenix.expression.IsNullExpression;
 import org.apache.phoenix.expression.KeyValueColumnExpression;
+import org.apache.phoenix.expression.LiteralExpression;
 import org.apache.phoenix.expression.RowKeyColumnExpression;
 import org.apache.phoenix.expression.visitor.TraverseNoExpressionVisitor;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixStatement;
 import org.apache.phoenix.parse.CreateTableStatement;
 import org.apache.phoenix.parse.ParseNode;
+import org.apache.phoenix.parse.SQLParser;
+import org.apache.phoenix.parse.SelectStatement;
+import org.apache.phoenix.parse.TableName;
+import org.apache.phoenix.parse.WildcardParseNode;
 import org.apache.phoenix.query.DelegateConnectionQueryServices;
 import org.apache.phoenix.schema.MetaDataClient;
 import org.apache.phoenix.schema.PMetaData;
@@ -53,8 +56,14 @@ import org.apache.phoenix.schema.PTableType;
 import org.apache.phoenix.schema.TableRef;
 import org.apache.phoenix.util.ByteUtil;
 
+import com.google.common.collect.Iterators;
+
 
 public class CreateTableCompiler {
+    private static final String SELECT = "SELECT";
+    private static final String FROM = "FROM";
+    private static final String WHERE = "WHERE";
+    
     private final PhoenixStatement statement;
     
     public CreateTableCompiler(PhoenixStatement statement) {
@@ -71,21 +80,35 @@ public class CreateTableCompiler {
         Scan scan = new Scan();
         final StatementContext context = new StatementContext(statement, resolver, statement.getParameters(), scan);
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(context);
+        // TODO: support any statement for a VIEW instead of just a WHERE clause
         ParseNode whereNode = create.getWhereClause();
-        Expression where = null;
+        String viewStatementToBe = null;
         if (type == PTableType.VIEW) {
             TableRef tableRef = resolver.getTables().get(0);
             parentToBe = tableRef.getTable();
             viewTypeToBe = parentToBe.getViewType() == ViewType.MAPPED ? ViewType.MAPPED : ViewType.UPDATABLE;
-            if (whereNode != null) {
+            if (whereNode == null) {
+                viewStatementToBe = parentToBe.getViewStatement();
+            } else {
+                whereNode = StatementNormalizer.normalize(whereNode, resolver);
                 if (whereNode.isStateless()) {
                     throw new SQLExceptionInfo.Builder(SQLExceptionCode.VIEW_WHERE_IS_CONSTANT)
                         .build().buildException();
                 }
-                whereNode = StatementNormalizer.normalize(whereNode, resolver);
-                where = whereNode.accept(expressionCompiler);
-                if (expressionCompiler.isAggregate()) {
-                    throw new SQLExceptionInfo.Builder(SQLExceptionCode.AGGREGATE_IN_WHERE).build().buildException();
+                // If our parent has a VIEW statement, combine it with this one
+                if (parentToBe.getViewStatement() != null) {
+                    SelectStatement select = new SQLParser(parentToBe.getViewStatement()).parseQuery().combine(whereNode);
+                    whereNode = select.getWhere();
+                }
+                Expression where = whereNode.accept(expressionCompiler);
+                if (where != null && !LiteralExpression.isTrue(where)) {
+                    TableName baseTableName = create.getBaseTableName();
+                    String schemaName = baseTableName.getSchemaName();
+                    // Only form we currently support for VIEWs: SELECT * FROM t WHERE ...
+                    viewStatementToBe = SELECT + " " + WildcardParseNode.NAME + " " + FROM +
+                            (schemaName == null ? "" : "\"" + schemaName + "\".") +
+                            (" \"" + baseTableName.getTableName() + "\" ") +
+                            (WHERE + " " + where.toString());
                 }
                 if (viewTypeToBe != ViewType.MAPPED) {
                     Long scn = connection.getSCN();
@@ -112,8 +135,8 @@ public class CreateTableCompiler {
                 }
             }
         }
-        final Expression viewExpression = where;
         final ViewType viewType = viewTypeToBe;
+        final String viewStatement = viewStatementToBe;
         List<ParseNode> splitNodes = create.getSplitNodes();
         final byte[][] splits = new byte[splitNodes.size()][];
         ImmutableBytesWritable ptr = context.getTempPtr();
@@ -142,7 +165,7 @@ public class CreateTableCompiler {
             @Override
             public MutationState execute() throws SQLException {
                 try {
-                    return client.createTable(create, splits, parent, viewExpression, viewType);
+                    return client.createTable(create, splits, parent, viewStatement, viewType);
                 } finally {
                     if (client.getConnection() != connection) {
                         client.getConnection().close();
