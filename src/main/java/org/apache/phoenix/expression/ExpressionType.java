@@ -21,7 +21,6 @@ package org.apache.phoenix.expression;
 
 import java.util.Map;
 
-import com.google.common.collect.Maps;
 import org.apache.phoenix.expression.function.CoalesceFunction;
 import org.apache.phoenix.expression.function.CountAggregateFunction;
 import org.apache.phoenix.expression.function.DistinctCountAggregateFunction;
@@ -29,8 +28,6 @@ import org.apache.phoenix.expression.function.IndexStateNameFunction;
 import org.apache.phoenix.expression.function.InvertFunction;
 import org.apache.phoenix.expression.function.LTrimFunction;
 import org.apache.phoenix.expression.function.LengthFunction;
-import org.apache.phoenix.expression.function.LowerFunction;
-import org.apache.phoenix.expression.function.MD5Function;
 import org.apache.phoenix.expression.function.MaxAggregateFunction;
 import org.apache.phoenix.expression.function.MinAggregateFunction;
 import org.apache.phoenix.expression.function.PercentRankAggregateFunction;
@@ -52,7 +49,8 @@ import org.apache.phoenix.expression.function.ToDateFunction;
 import org.apache.phoenix.expression.function.ToNumberFunction;
 import org.apache.phoenix.expression.function.TrimFunction;
 import org.apache.phoenix.expression.function.TruncFunction;
-import org.apache.phoenix.expression.function.UpperFunction;
+
+import com.google.common.collect.Maps;
 
 /**
  * 
@@ -105,8 +103,6 @@ public enum ExpressionType {
     LengthFunction(LengthFunction.class),
     LTrimFunction(LTrimFunction.class),
     RTrimFunction(RTrimFunction.class),
-    UpperFunction(UpperFunction.class),
-    LowerFunction(LowerFunction.class),
     TrimFunction(TrimFunction.class),
     DistinctCountAggregateFunction(DistinctCountAggregateFunction.class),
     PercentileContAggregateFunction(PercentileContAggregateFunction.class),
@@ -119,7 +115,6 @@ public enum ExpressionType {
     DoubleMultiplyExpression(DoubleMultiplyExpression.class),
     DoubleDivideExpression(DoubleDivideExpression.class),
     RowValueConstructorExpression(RowValueConstructorExpression.class),
-    MD5Function(MD5Function.class),
     SqlTableType(SqlTableType.class),
     CeilingDecimalExpression(CeilingDecimalExpression.class),
     CeilingTimestampExpression(CeilingTimestampExpression.class),

@@ -26,11 +26,11 @@ import java.io.IOException;
 import org.apache.hadoop.hbase.filter.FilterBase;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.io.WritableUtils;
-
 import org.apache.phoenix.expression.Expression;
 import org.apache.phoenix.expression.ExpressionType;
 import org.apache.phoenix.schema.IllegalDataException;
 import org.apache.phoenix.schema.tuple.Tuple;
+import org.apache.phoenix.util.ServerUtil;
 
 
 /**
@@ -100,14 +100,22 @@ abstract public class BooleanExpressionFilter extends FilterBase {
 
     @Override
     public void readFields(DataInput input) throws IOException {
-        expression = ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
-        expression.readFields(input);
+        try {
+            expression = ExpressionType.values()[WritableUtils.readVInt(input)].newInstance();
+            expression.readFields(input);
+        } catch (Throwable t) {
+            ServerUtil.throwIOException("BooleanExpressionFilter failed to read fields. Ensure client and server are compatible", t);
+        }
     }
 
     @Override
     public void write(DataOutput output) throws IOException {
-        WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
-        expression.write(output);
+        try {
+            WritableUtils.writeVInt(output, ExpressionType.valueOf(expression).ordinal());
+            expression.write(output);
+        } catch (Throwable t) {
+            ServerUtil.throwIOException("BooleanExpressionFilter failed to write fields. Ensure client and server are compatible", t);
+        }
     }
     
     @Override
