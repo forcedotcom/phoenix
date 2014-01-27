@@ -66,65 +66,87 @@ public class ColumnDef {
          }
          
          this.isNull = isNull;
-         if (this.dataType == PDataType.CHAR) {
-             if (maxLength == null) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_CHAR_LENGTH)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException();
-             }
-             if (maxLength < 1) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException();
-             }
-             scale = null;
-         } else if (this.dataType == PDataType.VARCHAR) {
-             if (maxLength != null && maxLength < 1) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException(); 
-             }
-             scale = null;
-         } else if (this.dataType == PDataType.DECIMAL) {
-         	Integer origMaxLength = maxLength;
-             maxLength = maxLength == null ? PDataType.MAX_PRECISION : maxLength;
-             // for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
-             if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException();
-             }
-             // When a precision is specified and a scale is not specified, it is set to 0. 
-             // 
-             // This is the standard as specified in
-             // http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
-             // and 
-             // http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
-             // Otherwise, if scale is bigger than maxLength, just set it to the maxLength;
-             //
-             // When neither a precision nor a scale is specified, the precision and scale is
-             // ignored. All decimal are stored with as much decimal points as possible.
-             scale = scale == null ? 
-             		origMaxLength == null ? null : PDataType.DEFAULT_SCALE : 
-             		scale > maxLength ? maxLength : scale; 
-         } else if (this.dataType == PDataType.BINARY) {
-             if (maxLength == null) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.MISSING_BINARY_LENGTH)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException();
-             }
-             if (maxLength < 1) {
-                 throw new SQLExceptionInfo.Builder(SQLExceptionCode.NONPOSITIVE_BINARY_LENGTH)
-                     .setColumnName(columnDefName.getColumnName()).build().buildException();
-             }
-             scale = null;
-         } else if (this.dataType == PDataType.INTEGER) {
-             maxLength = PDataType.INT_PRECISION;
-             scale = PDataType.ZERO;
-         } else if (this.dataType == PDataType.LONG) {
-             maxLength = PDataType.LONG_PRECISION;
-             scale = PDataType.ZERO;
-         } else {
-             // ignore maxLength and scale for other types.
-             maxLength = null;
-             scale = null;
-         }
-         this.maxLength = maxLength;
+		 if (!this.isArray) {
+				if (this.dataType == PDataType.CHAR) {
+					if (maxLength == null) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.MISSING_CHAR_LENGTH)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					if (maxLength < 1) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					scale = null;
+				} else if (this.dataType == PDataType.VARCHAR) {
+					if (maxLength != null && maxLength < 1) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.NONPOSITIVE_CHAR_LENGTH)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					scale = null;
+				} else if (this.dataType == PDataType.DECIMAL) {
+					Integer origMaxLength = maxLength;
+					maxLength = maxLength == null ? PDataType.MAX_PRECISION
+							: maxLength;
+					// for deciaml, 1 <= maxLength <= PDataType.MAX_PRECISION;
+					if (maxLength < 1 || maxLength > PDataType.MAX_PRECISION) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.DECIMAL_PRECISION_OUT_OF_RANGE)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					// When a precision is specified and a scale is not
+					// specified, it is set to 0.
+					//
+					// This is the standard as specified in
+					// http://docs.oracle.com/cd/B28359_01/server.111/b28318/datatype.htm#CNCPT1832
+					// and
+					// http://docs.oracle.com/javadb/10.6.2.1/ref/rrefsqlj15260.html.
+					// Otherwise, if scale is bigger than maxLength, just set it
+					// to the maxLength;
+					//
+					// When neither a precision nor a scale is specified, the
+					// precision and scale is
+					// ignored. All decimal are stored with as much decimal
+					// points as possible.
+					scale = scale == null ? origMaxLength == null ? null
+							: PDataType.DEFAULT_SCALE
+							: scale > maxLength ? maxLength : scale;
+				} else if (this.dataType == PDataType.BINARY) {
+					if (maxLength == null) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.MISSING_BINARY_LENGTH)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					if (maxLength < 1) {
+						throw new SQLExceptionInfo.Builder(
+								SQLExceptionCode.NONPOSITIVE_BINARY_LENGTH)
+								.setColumnName(columnDefName.getColumnName())
+								.build().buildException();
+					}
+					scale = null;
+				} else if (this.dataType == PDataType.INTEGER) {
+					maxLength = PDataType.INT_PRECISION;
+					scale = PDataType.ZERO;
+				} else if (this.dataType == PDataType.LONG) {
+					maxLength = PDataType.LONG_PRECISION;
+					scale = PDataType.ZERO;
+				} else {
+					// ignore maxLength and scale for other types.
+					maxLength = null;
+					scale = null;
+				}
+			} else {
+				maxLength = null;
+				scale = null;
+		}
+		 this.maxLength = maxLength;
          this.scale = scale;
          this.isPK = isPK;
          this.columnModifier = columnModifier;

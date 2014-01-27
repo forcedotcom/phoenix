@@ -19,32 +19,21 @@
  */
 package org.apache.phoenix.schema;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.math.MathContext;
-import java.math.RoundingMode;
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
+import java.math.*;
+import java.sql.*;
 import java.text.Format;
 import java.util.Map;
 
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 import org.apache.hadoop.hbase.util.Base64;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.phoenix.query.KeyRange;
+import org.apache.phoenix.query.QueryConstants;
+import org.apache.phoenix.util.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
-import com.google.common.primitives.Booleans;
-import com.google.common.primitives.Doubles;
-import com.google.common.primitives.Longs;
-import org.apache.phoenix.query.KeyRange;
-import org.apache.phoenix.query.QueryConstants;
-import org.apache.phoenix.util.ByteUtil;
-import org.apache.phoenix.util.DateUtil;
-import org.apache.phoenix.util.NumberUtil;
-import org.apache.phoenix.util.StringUtil;
+import com.google.common.primitives.*;
 
 
 /**
@@ -5192,9 +5181,6 @@ public enum PDataType {
     public Integer estimateByteSizeFromLength(Integer length) {
         if (isFixedWidth()) {
             return getByteSize();
-        }
-        if(isArrayType()) {
-            return null;
         }
         // If not fixed width, default to say the byte size is the same as length.
         return length;
