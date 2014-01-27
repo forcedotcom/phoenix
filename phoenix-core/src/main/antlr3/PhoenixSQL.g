@@ -521,11 +521,19 @@ dyn_column_def returns [ColumnDef ret]
 
 dyn_column_name_or_def returns [ColumnDef ret]
     :   c=column_name (dt=identifier (LPAREN l=NUMBER (COMMA s=NUMBER)? RPAREN)? )? (lsq=LSQUARE (a=NUMBER)? RSQUARE)?
-        {$ret = factory.columnDef(c, dt, true,
-            l == null ? null : Integer.parseInt( l.getText() ),
-            s == null ? null : Integer.parseInt( s.getText() ),
-            false, 
-            null); }
+        {
+        	if(lsq != null) 
+        	{
+        		throwRecognitionException(lsq);
+        	} else 
+        	{
+        		$ret = factory.columnDef(c, dt, true,
+            	l == null ? null : Integer.parseInt( l.getText() ),
+            	s == null ? null : Integer.parseInt( s.getText() ),
+            	false, 
+            	null);
+            } 
+         }
     ;
 
 select_expression returns [SelectStatement ret]
