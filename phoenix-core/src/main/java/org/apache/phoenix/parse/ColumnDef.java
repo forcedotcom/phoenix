@@ -52,22 +52,19 @@ public class ColumnDef {
    	     PDataType localType = null;
          this.columnDefName = columnDefName;
          this.isArray = isArray;
+         // TODO : Add correctness check for arrSize.  Should this be ignored as in postgres
+         // Also add what is the limit that we would support.  Are we going to support a
+         //  fixed size or like postgres allow infinite.  May be the data types max limit can 
+         // be used for the array size (May be too big)
          if(this.isArray) {
         	 localType = sqlTypeName == null ? null : PDataType.fromTypeId(PDataType.sqlArrayType(SchemaUtil.normalizeIdentifier(sqlTypeName)));
         	 this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
+             this.arrSize = arrSize; // Can only be non negative based on parsing
          } else {
              this.dataType = sqlTypeName == null ? null : PDataType.fromSqlTypeName(SchemaUtil.normalizeIdentifier(sqlTypeName));
+             this.arrSize = null;
          }
          
-         // TODO : Add correctness check for arrSize.  Should this be ignored as in postgresql
-         // Also add what is the limit that we would support.  Are we going to support a
-         //  fixed size or like postgre allow infinite.  May be the datatypes max limit can 
-         // be used for the array size (May be too big)
-         if(this.isArray) {
-             this.arrSize = arrSize;
-         } else {
-             this.arrSize = 0;
-         }
          this.isNull = isNull;
          if (this.dataType == PDataType.CHAR) {
              if (maxLength == null) {
@@ -175,7 +172,7 @@ public class ColumnDef {
 		return isArray;
 	}
 
-	public int getArraySize() {
+	public Integer getArraySize() {
 		return arrSize;
 	}
 }

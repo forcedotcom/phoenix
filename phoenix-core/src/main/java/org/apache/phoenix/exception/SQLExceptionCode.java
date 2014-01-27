@@ -22,7 +22,6 @@ package org.apache.phoenix.exception;
 import java.sql.SQLException;
 import java.util.Map;
 
-import com.google.common.collect.Maps;
 import org.apache.hadoop.hbase.index.util.IndexManagementUtil;
 import org.apache.phoenix.jdbc.PhoenixDatabaseMetaData;
 import org.apache.phoenix.schema.AmbiguousColumnException;
@@ -39,6 +38,8 @@ import org.apache.phoenix.schema.TableAlreadyExistsException;
 import org.apache.phoenix.schema.TableNotFoundException;
 import org.apache.phoenix.schema.TypeMismatchException;
 import org.apache.phoenix.util.MetaDataUtil;
+
+import com.google.common.collect.Maps;
 
 
 /**

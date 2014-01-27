@@ -21,7 +21,6 @@ package org.apache.phoenix.util;
 
 import static org.apache.phoenix.jdbc.PhoenixDatabaseMetaData.TYPE_TABLE_NAME_BYTES;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -30,22 +29,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.KeyValue.Type;
-import org.apache.hadoop.hbase.client.Delete;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
-import org.apache.hadoop.hbase.regionserver.HRegion;
-import org.apache.hadoop.hbase.regionserver.MultiVersionConsistencyControl;
-import org.apache.hadoop.hbase.regionserver.RegionScanner;
-import org.apache.hadoop.hbase.util.Bytes;
-
-import com.google.common.collect.Lists;
 import org.apache.hadoop.hbase.index.util.ImmutableBytesPtr;
-import org.apache.phoenix.coprocessor.MetaDataProtocol;
+import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
+import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.exception.SQLExceptionInfo;
 import org.apache.phoenix.jdbc.PhoenixConnection;
@@ -447,128 +433,7 @@ public class SchemaUtil {
     }
     
     public static final String UPGRADE_TO_2_0 = "UpgradeTo20";
-    public static final Integer SYSTEM_TABLE_NULLABLE_VAR_LENGTH_COLUMNS = 3;
     public static final String UPGRADE_TO_2_1 = "UpgradeTo21";
-    public static final String UPGRADE_TO_3_0 = "UpgradeTo30";
-
-    private static final byte[] ORIG_DEF_CF_NAME = Bytes.toBytes("_0");
-
-    public static void upgradeTo3(HRegion region, List<Mutation> mutations) throws IOException {
-        Scan scan = new Scan();
-        scan.setTimeRange(MetaDataProtocol.MIN_TABLE_TIMESTAMP, HConstants.LATEST_TIMESTAMP);
-        scan.setRaw(true);
-        scan.setMaxVersions(MetaDataProtocol.DEFAULT_MAX_META_DATA_VERSIONS);
-        RegionScanner scanner = region.getScanner(scan);
-        MultiVersionConsistencyControl.setThreadReadPoint(scanner.getMvccReadPoint());
-        List<KeyValue> result;
-        region.startRegionOperation();
-        try {
-            byte[] systemTableKeyPrefix = ByteUtil.concat(PhoenixDatabaseMetaData.TYPE_SCHEMA_BYTES, QueryConstants.SEPARATOR_BYTE_ARRAY, PhoenixDatabaseMetaData.TYPE_TABLE_BYTES);
-            do {
-                result = Lists.newArrayList();
-                scanner.nextRaw(result, null);
-                for (KeyValue keyValue : result) {
-                    byte[] buf = keyValue.getBuffer();
-                    int rowOffset = keyValue.getRowOffset();
-                    int rowLength = keyValue.getRowLength();
-                    if (Type.codeToType(keyValue.getType()) == Type.Put) {
-                        // Delete old value
-                        Delete delete = new Delete(keyValue.getRow());
-                        KeyValue deleteKeyValue = new KeyValue(buf, keyValue.getRowOffset(), keyValue.getRowLength(),
-                                buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                                keyValue.getTimestamp(), Type.Delete,
-                                ByteUtil.EMPTY_BYTE_ARRAY,0,0);
-                        delete.addDeleteMarker(deleteKeyValue);
-                        mutations.add(delete);
-                        
-                        // If not a row in our system.table, then add a new key value prefixed with a null byte for the empty tenant_id.
-                        // Otherwise, we already have the mutations for the new system.table in the mutation list, so we don't add them here.
-                        if (! ( Bytes.compareTo(buf, rowOffset, rowLength, systemTableKeyPrefix, 0, systemTableKeyPrefix.length) == 0 &&
-                                ( rowLength == systemTableKeyPrefix.length ||
-                                  buf[rowOffset + systemTableKeyPrefix.length] == QueryConstants.SEPARATOR_BYTE)) ) {
-                            KeyValue newKeyValue = SchemaUtil.upgradeTo3(keyValue);
-                            // Put new value
-                            Put put = new Put(newKeyValue.getRow());
-                            put.add(newKeyValue);
-                            mutations.add(put);
-                            
-                            // Add a new DEFAULT_COLUMN_FAMILY_NAME key value as a table header column.
-                            // We can match here on any table column header we know will occur for any
-                            // table row.
-                            if (Bytes.compareTo(
-                                    newKeyValue.getBuffer(), newKeyValue.getQualifierOffset(), newKeyValue.getQualifierLength(),
-                                    PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES, 0, PhoenixDatabaseMetaData.COLUMN_COUNT_BYTES.length) == 0) {
-                                KeyValue defCFNameKeyValue = new KeyValue(newKeyValue.getBuffer(), newKeyValue.getRowOffset(), newKeyValue.getRowLength(),
-                                        buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                                        PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES, 0, PhoenixDatabaseMetaData.DEFAULT_COLUMN_FAMILY_NAME_BYTES.length,
-                                        newKeyValue.getTimestamp(), Type.Put,
-                                        ORIG_DEF_CF_NAME,0,ORIG_DEF_CF_NAME.length);
-                                Put defCFNamePut = new Put(defCFNameKeyValue.getRow());
-                                defCFNamePut.add(defCFNameKeyValue);
-                                mutations.add(defCFNamePut);
-                            }
-                        }
-                    } else if (Type.codeToType(keyValue.getType()) == Type.Delete){
-                        KeyValue newKeyValue = SchemaUtil.upgradeTo3(keyValue);
-                        // Copy delete marker using new key so that it continues
-                        // to delete the key value preceding it that will be updated
-                        // as well.
-                        Delete delete = new Delete(newKeyValue.getRow());
-                        // What timestamp will be used?
-                        // delete.setTimestamp(keyValue.getTimestamp());
-                        delete.addDeleteMarker(newKeyValue);
-                        mutations.add(delete);
-                    }
-                }
-            } while (!result.isEmpty());
-        } finally {
-            region.closeRegionOperation();
-        }
-    }
-    
-    private static final byte[][] OLD_TO_NEW_DATA_TYPE_3_0 = new byte[PDataType.TIMESTAMP.getSqlType() + 1][];
-    static {
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIMESTAMP.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIMESTAMP.getSqlType());
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.TIME.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_TIME.getSqlType());
-        OLD_TO_NEW_DATA_TYPE_3_0[PDataType.DATE.getSqlType()] = PDataType.INTEGER.toBytes(PDataType.UNSIGNED_DATE.getSqlType());
-    }
-    
-    
-    private static byte[] updateValueIfNecessary(KeyValue keyValue) {
-        byte[] buf = keyValue.getBuffer();
-        if (Bytes.compareTo(
-                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(), 
-                PhoenixDatabaseMetaData.DATA_TYPE_BYTES, 0, PhoenixDatabaseMetaData.DATA_TYPE_BYTES.length) == 0) {
-            int sqlType = PDataType.INTEGER.getCodec().decodeInt(buf, keyValue.getValueOffset(), null);
-            // Switch the DATA_TYPE index for TIME types, as they currently don't support negative values
-            // In 3.0, we'll switch them to our serialized LONG type instead, as that way we can easily
-            // support negative types going forward.
-            if (sqlType >= 0 && sqlType < OLD_TO_NEW_DATA_TYPE_3_0.length && OLD_TO_NEW_DATA_TYPE_3_0[sqlType] != null) {
-                return OLD_TO_NEW_DATA_TYPE_3_0[sqlType];
-            }
-        }
-        return buf;
-    }
-    private static KeyValue upgradeTo3(KeyValue keyValue) {
-        byte[] buf = keyValue.getBuffer();
-        int newLength = keyValue.getRowLength() + 1;
-        byte[] newKey = new byte[newLength];
-        newKey[0] = QueryConstants.SEPARATOR_BYTE;
-        System.arraycopy(buf, keyValue.getRowOffset(), newKey, 1, keyValue.getRowLength());
-        byte[] valueBuf = updateValueIfNecessary(keyValue);
-        int valueOffset = keyValue.getValueOffset();
-        int valueLength = keyValue.getValueLength();
-        if (valueBuf != buf) {
-            valueOffset = 0;
-            valueLength = valueBuf.length;
-        }
-        return new KeyValue(newKey, 0, newLength,
-                buf, keyValue.getFamilyOffset(), keyValue.getFamilyLength(),
-                buf, keyValue.getQualifierOffset(), keyValue.getQualifierLength(),
-                keyValue.getTimestamp(), Type.codeToType(keyValue.getType()),
-                valueBuf, valueOffset, valueLength);
-    }
 
     public static String getEscapedTableName(String schemaName, String tableName) {
         if (schemaName == null || schemaName.length() == 0) {

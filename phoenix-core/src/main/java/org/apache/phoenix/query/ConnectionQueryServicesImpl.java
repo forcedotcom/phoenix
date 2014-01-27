@@ -492,7 +492,6 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
             if (SchemaUtil.isMetaTable(tableName)) {
                 descriptor.setValue(SchemaUtil.UPGRADE_TO_2_0, Boolean.TRUE.toString());
                 descriptor.setValue(SchemaUtil.UPGRADE_TO_2_1, Boolean.TRUE.toString());
-                descriptor.setValue(SchemaUtil.UPGRADE_TO_3_0, Boolean.TRUE.toString());
                 if (!descriptor.hasCoprocessor(MetaDataEndpointImpl.class.getName())) {
                     descriptor.addCoprocessor(MetaDataEndpointImpl.class.getName(), null, 1, null);
                 }
@@ -645,19 +644,8 @@ public class ConnectionQueryServicesImpl extends DelegateQueryServices implement
                     return false;
                 }
 
-                boolean updateTo3_0 = false;
                 if (isMetaTable) {
                     checkClientServerCompatibility();
-                    
-                    updateTo3_0 = existingDesc.getValue(SchemaUtil.UPGRADE_TO_3_0) == null;
-                    if (updateTo3_0) {
-                        // Check if SYSTEM.TABLE has multiple regions which is problematic, as
-                        // we can't update it atomically. It's unlikely that this is the case
-                        // but we'll find out if it is.
-                        if (this.getAllTableRegions(tableName).size() > 1) {
-                            throw new SQLException("Unable to convert SYSTEM.TABLE automatically as it is too big. Please contact customer support.");
-                        }
-                    }
                 }
                 
                 // We'll do this alter at the end of the upgrade

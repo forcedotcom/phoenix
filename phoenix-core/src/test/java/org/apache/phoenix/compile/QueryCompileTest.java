@@ -38,8 +38,6 @@ import java.util.Properties;
 
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.junit.Test;
-
 import org.apache.phoenix.coprocessor.GroupedAggregateRegionObserver;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.expression.aggregator.Aggregator;
@@ -56,6 +54,7 @@ import org.apache.phoenix.util.ByteUtil;
 import org.apache.phoenix.util.PhoenixRuntime;
 import org.apache.phoenix.util.SchemaUtil;
 import org.apache.phoenix.util.TestUtil;
+import org.junit.Test;
 
 
 
@@ -1210,6 +1209,21 @@ public class QueryCompileTest extends BaseConnectionlessQueryTest {
             assertEquals(SQLExceptionCode.ARRAY_NOT_ALLOWED_IN_PRIMARY_KEY.getErrorCode(), e.getErrorCode());
         } finally {
             conn.close();
+        }
+    }
+
+    @Test
+    public void testInvalidArraySize() throws Exception {
+        Connection conn = DriverManager.getConnection(getUrl());
+        try {
+            String query = "CREATE TABLE foo (col1 INTEGER[-1] NOT NULL PRIMARY KEY)";
+            PreparedStatement statement = conn.prepareStatement(query);
+            statement.execute();
+            fail();
+        } catch (SQLException e) {
+                assertEquals(SQLExceptionCode.MISMATCHED_TOKEN.getErrorCode(), e.getErrorCode());
+        } finally {
+                conn.close();
         }
     }
 
