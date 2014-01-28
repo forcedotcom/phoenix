@@ -1,5 +1,3 @@
-We've moved to 
-
 ![logo](http://forcedotcom.github.com/phoenix/images/logo.jpg)
 
 Phoenix is a SQL skin over HBase, delivered as a client-embedded JDBC driver, powering the HBase use cases at Salesforce.com. Phoenix targets low-latency queries (milliseconds), as opposed to batch operation via map/reduce.
