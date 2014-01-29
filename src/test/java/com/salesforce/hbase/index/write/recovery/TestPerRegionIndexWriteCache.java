@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.HColumnDescriptor;
+import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.TableName;
@@ -50,6 +51,7 @@ import org.apache.hadoop.hbase.regionserver.wal.HLog;
 import org.apache.hadoop.hbase.regionserver.wal.HLogFactory;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.hbase.util.FSUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -80,8 +82,9 @@ public class TestPerRegionIndexWriteCache {
   @Before
   public void setUp() throws Exception {
       FileSystem newFS = FileSystem.get(TEST_UTIL.getConfiguration());
+      Path hbaseRootDir = TEST_UTIL.getDataTestDir();
+      
       HRegionInfo hri = new HRegionInfo(tableName, null, null, false);
-      Path hbaseRootDir = FSUtils.getRootDir(TEST_UTIL.getConfiguration());
       Path basedir = FSUtils.getTableDir(hbaseRootDir, tableName); 
       HLog wal = HLogFactory.createHLog(newFS, 
           hbaseRootDir, "logs", TEST_UTIL.getConfiguration());
@@ -112,7 +115,11 @@ public class TestPerRegionIndexWriteCache {
             return "testRegion1";
           }
         };
-        
+  }
+  
+  @After
+  public void cleanUp() throws Exception {
+	  TEST_UTIL.cleanupTestDir();
   }
   
   

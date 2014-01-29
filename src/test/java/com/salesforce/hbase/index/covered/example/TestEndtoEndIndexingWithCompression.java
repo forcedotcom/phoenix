@@ -52,7 +52,8 @@ public class TestEndtoEndIndexingWithCompression extends TestEndToEndCoveredInde
     conf.set(WALCellCodec.WAL_CELL_CODEC_CLASS_KEY,
     IndexedWALEditCodec.class.getName());
     conf.setBoolean(HConstants.ENABLE_WAL_COMPRESSION, true);
-    
+    // disable replication
+    conf.setBoolean(HConstants.REPLICATION_ENABLE_KEY, false);
     //start the mini-cluster
     UTIL.startMiniCluster();
   }

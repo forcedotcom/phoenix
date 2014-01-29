@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.Test;
 
 import com.salesforce.hbase.index.util.ImmutableBytesPtr;
+import com.salesforce.phoenix.util.ByteUtil;
 
 /**
  * Test filter to ensure that it correctly handles KVs of different types correctly

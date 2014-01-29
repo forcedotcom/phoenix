@@ -58,6 +58,14 @@ public class IndexedKeyValue extends KeyValue {
     public boolean matchingFamily(final byte[] family) {
         return Bytes.equals(family, WALEdit.METAFAMILY);
     }
+    
+    /**
+     * Not a real KeyValue
+     */
+    @Override
+    public boolean matchingRow(final byte [] row) {
+        return false;
+    }
 
     @Override
     public String toString() {
@@ -137,7 +145,7 @@ public class IndexedKeyValue extends KeyValue {
         if(mutation instanceof Put){
             m = org.apache.hadoop.hbase.protobuf.ProtobufUtil.toMutation(MutationType.PUT, 
                 mutation);
-        } else if(this.mutation instanceof Delete) {
+        } else if(mutation instanceof Delete) {
             m = org.apache.hadoop.hbase.protobuf.ProtobufUtil.toMutation(MutationType.DELETE, 
                 mutation);
         } else {

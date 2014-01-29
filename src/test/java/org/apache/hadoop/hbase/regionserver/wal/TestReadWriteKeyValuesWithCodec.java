@@ -2,6 +2,7 @@ package org.apache.hadoop.hbase.regionserver.wal;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.DataOutput;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.apache.hadoop.hbase.KeyValueUtil;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Mutation;
 import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.codec.Codec;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -61,6 +63,7 @@ public class TestReadWriteKeyValuesWithCodec {
     FileSystem fs = UTIL.getTestFileSystem();
 
     List<WALEdit> edits = getEdits();
+
     CompressionContext compression = new CompressionContext(LRUDictionary.class, false);
     writeReadAndVerify(compression, fs, edits, testFile);
   }
@@ -115,17 +118,28 @@ public class TestReadWriteKeyValuesWithCodec {
     }
   }
 
+  
+  private void writeWALEdit(WALCellCodec codec, List<KeyValue> kvs, FSDataOutputStream out) throws IOException {
+    out.writeInt(kvs.size());
+    Codec.Encoder cellEncoder = codec.getEncoder(out);
+    // We interleave the two lists for code simplicity
+    for (KeyValue kv : kvs) {
+        cellEncoder.write(kv);
+    }
+  }
+  
   /**
    * Write the edits to the specified path on the {@link FileSystem} using the given codec and then
    * read them back in and ensure that we read the same thing we wrote.
    */
   private void writeReadAndVerify(final CompressionContext compressionContext, FileSystem fs, List<WALEdit> edits,
       Path testFile) throws IOException {
+	  
+	WALCellCodec codec = WALCellCodec.create(UTIL.getConfiguration(), compressionContext);  
     // write the edits out
     FSDataOutputStream out = fs.create(testFile);
     for (WALEdit edit : edits) {
-      edit.setCompressionContext(compressionContext);
-      edit.write(out);
+      writeWALEdit(codec, edit.getKeyValues(), out);
     }
     out.close();
 
@@ -134,8 +148,8 @@ public class TestReadWriteKeyValuesWithCodec {
     List<WALEdit> read = new ArrayList<WALEdit>();
     for (int i = 0; i < edits.size(); i++) {
       WALEdit edit = new WALEdit();
-      edit.setCompressionContext(compressionContext);
-      edit.readFields(in);
+      int numEdits = in.readInt();
+      edit.readFromCells(codec.getDecoder(in), numEdits);
       read.add(edit);
     }
     in.close();

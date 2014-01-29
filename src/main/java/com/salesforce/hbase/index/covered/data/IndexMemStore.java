@@ -27,10 +27,12 @@
  ******************************************************************************/
 package com.salesforce.hbase.index.covered.data;
 
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.SortedSet;
 
+import org.apache.commons.lang.NotImplementedException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.hbase.KeyValue;
@@ -167,7 +169,7 @@ public class IndexMemStore implements KeyValueStore {
   public KeyValueScanner getScanner() {
     return new MemStoreScanner();
   }
-
+  
   /*
    * MemStoreScanner implements the KeyValueScanner. It lets the caller scan the contents of a
    * memstore -- both current map and snapshot. This behaves as if it were a real scanner but does
@@ -314,7 +316,7 @@ public class IndexMemStore implements KeyValueStore {
     public long getSequenceID() {
       return Long.MAX_VALUE;
     }
-
+    
     @Override
     public boolean shouldUseScanner(Scan scan, SortedSet<byte[]> columns, long oldestUnexpiredTS) {
       throw new UnsupportedOperationException(this.getClass().getName()

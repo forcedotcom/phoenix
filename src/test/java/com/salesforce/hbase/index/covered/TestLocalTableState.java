@@ -84,7 +84,7 @@ public class TestLocalTableState {
       public Boolean answer(InvocationOnMock invocation) throws Throwable {
         List<KeyValue> list = (List<KeyValue>) invocation.getArguments()[0];
         KeyValue kv = new KeyValue(row, fam, qual, ts, Type.Put, stored);
-        kv.setMemstoreTS(0);
+        kv.setMvccVersion(0);
         list.add(kv);
         return false;
       }

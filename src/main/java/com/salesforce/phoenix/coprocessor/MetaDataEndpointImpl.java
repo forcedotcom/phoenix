@@ -1340,10 +1340,10 @@ public class MetaDataEndpointImpl extends MetaDataProtocol implements Coprocesso
             }
             long timeStamp = MetaDataUtil.getClientTimeStamp(tableMetadata);
             ImmutableBytesPtr cacheKey = new ImmutableBytesPtr(key);
-            List<KeyValue> newKVs = tableMetadata.get(0).getFamilyMap().get(TABLE_FAMILY_BYTES);
-            KeyValue newKV = newKVs.get(0);
+            List<Cell> newKVs = tableMetadata.get(0).getFamilyCellMap().get(TABLE_FAMILY_BYTES);
+            Cell newKV = newKVs.get(0);
             PIndexState newState =
-                    PIndexState.fromSerializedValue(newKV.getBuffer()[newKV.getValueOffset()]);
+                    PIndexState.fromSerializedValue(newKV.getValueArray()[newKV.getValueOffset()]);
             RowLock rowLock = region.getRowLock(key);
             if (rowLock == null) {
                 throw new IOException("Failed to acquire lock on " + Bytes.toStringBinary(key));

@@ -298,8 +298,11 @@ public class Indexer extends BaseRegionObserver {
       // we could check is indexing is enable for the mutation in prePut and then just skip this
       // after checking here, but this saves us the checking again.
       if (edit != null) {
-        KeyValue kv = edit.getKeyValues().remove(0);
-        assert kv == BATCH_MARKER : "Expected batch marker from the WALEdit, but got: " + kv;
+        KeyValue kv = edit.getKeyValues().get(0);
+        if(kv == BATCH_MARKER){
+    	  // remove batch marker from the WALEdit
+    	  edit.getKeyValues().remove(0);
+        }
       }
       Mutation m =  miniBatchOp.getOperation(i);
       // skip this mutation if we aren't enabling indexing
