@@ -34,8 +34,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.HRegionInfo;
 import org.apache.hadoop.hbase.KeyValue;
+import org.apache.hadoop.hbase.KeyValueUtil;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.coprocessor.RegionCoprocessorEnvironment;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -62,7 +64,7 @@ public class HashJoinRegionScanner implements RegionScanner {
     private final RegionScanner scanner;
     private final ScanProjector projector;
     private final HashJoinInfo joinInfo;
-    private Queue<List<KeyValue>> resultQueue;
+    private Queue<List<Cell>> resultQueue;
     private boolean hasMore;
     private TenantCache cache;
     
@@ -70,7 +72,7 @@ public class HashJoinRegionScanner implements RegionScanner {
         this.scanner = scanner;
         this.projector = projector;
         this.joinInfo = joinInfo;
-        this.resultQueue = new LinkedList<List<KeyValue>>();
+        this.resultQueue = new LinkedList<List<Cell>>();
         this.hasMore = true;
         if (joinInfo != null) {
             for (JoinType type : joinInfo.getJoinTypes()) {
@@ -82,12 +84,12 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
     
     @SuppressWarnings("unchecked")
-    private void processResults(List<KeyValue> result, boolean hasLimit) throws IOException {
+    private void processResults(List<Cell> result, boolean hasLimit) throws IOException {
         if (result.isEmpty())
             return;
         
         if (projector != null) {
-            List<KeyValue> kvs = projector.projectResults(new ResultTuple(new Result(result)));
+            List<Cell> kvs = projector.projectResults(new ResultTuple(Result.create(result)));
             if (joinInfo != null) {
                 result = kvs;
             } else {
@@ -101,7 +103,7 @@ public class HashJoinRegionScanner implements RegionScanner {
             
             int count = joinInfo.getJoinIds().length;
             List<Tuple>[] tuples = new List[count];
-            Tuple tuple = new ResultTuple(new Result(result));
+            Tuple tuple = new ResultTuple(Result.create(result));
             boolean cont = true;
             for (int i = 0; i < count; i++) {
             	if (!(joinInfo.earlyEvaluation()[i]))
@@ -128,9 +130,9 @@ public class HashJoinRegionScanner implements RegionScanner {
                         continue;
                     int j = resultQueue.size();
                     while (j-- > 0) {
-                        List<KeyValue> lhs = resultQueue.poll();
+                        List<Cell> lhs = resultQueue.poll();
                         if (!earlyEvaluation) {
-                        	Tuple t = new ResultTuple(new Result(lhs));
+                        	Tuple t = new ResultTuple(Result.create(lhs));
                             ImmutableBytesPtr key = TupleUtil.getConcatenatedValue(t, joinInfo.getJoinExpressions()[i]);
                             ImmutableBytesPtr joinId = joinInfo.getJoinIds()[i];
                             HashCache hashCache = (HashCache)cache.getServerCache(joinId);
@@ -145,8 +147,8 @@ public class HashJoinRegionScanner implements RegionScanner {
                             }
                         }
                         for (Tuple t : tuples[i]) {
-                            List<KeyValue> joined = ScanProjector.mergeProjectedValue(
-                            		new SingleKeyValueTuple(lhs.get(0)), schema, 
+                            List<Cell> joined = ScanProjector.mergeProjectedValue(
+                            		new SingleKeyValueTuple(KeyValueUtil.ensureKeyValue(lhs.get(0))), schema, 
                             		t, joinInfo.getSchemas()[i], joinInfo.getFieldPositions()[i]);
                             resultQueue.offer(joined);
                         }
@@ -154,10 +156,10 @@ public class HashJoinRegionScanner implements RegionScanner {
                 }
                 // apply post-join filter
                 Expression postFilter = joinInfo.getPostJoinFilterExpression();
-                for (Iterator<List<KeyValue>> iter = resultQueue.iterator(); iter.hasNext();) {
-                    List<KeyValue> kvs = iter.next();
+                for (Iterator<List<Cell>> iter = resultQueue.iterator(); iter.hasNext();) {
+                    List<Cell> kvs = iter.next();
                     if (postFilter != null) {
-                        Tuple t = new ResultTuple(new Result(kvs));
+                        Tuple t = new ResultTuple(Result.create(kvs));
                         ImmutableBytesWritable tempPtr = new ImmutableBytesWritable();
                         try {
                             if (!postFilter.evaluate(t, tempPtr)) {
@@ -186,7 +188,7 @@ public class HashJoinRegionScanner implements RegionScanner {
         return hasMore;
     }
     
-    private boolean nextInQueue(List<KeyValue> results) {
+    private boolean nextInQueue(List<Cell> results) {
         if (resultQueue.isEmpty())
             return false;
         
@@ -205,15 +207,15 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
 
     @Override
-    public boolean isFilterDone() {
+    public boolean isFilterDone() throws IOException {
         return scanner.isFilterDone() && resultQueue.isEmpty();
     }
 
     @Override
-    public boolean nextRaw(List<KeyValue> result, String metric) throws IOException {
+    public boolean nextRaw(List<Cell> result) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.nextRaw(tempResult, metric);
+            List<Cell> tempResult = new ArrayList<Cell>();
+            hasMore = scanner.nextRaw(tempResult);
             processResults(tempResult, false);
         }
         
@@ -221,11 +223,11 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
 
     @Override
-    public boolean nextRaw(List<KeyValue> result, int limit, String metric)
+    public boolean nextRaw(List<Cell> result, int limit)
             throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.nextRaw(tempResult, limit, metric);
+            List<Cell> tempResult = new ArrayList<Cell>();
+            hasMore = scanner.nextRaw(tempResult, limit);
             processResults(tempResult, true);
         }
         
@@ -243,9 +245,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
 
     @Override
-    public boolean next(List<KeyValue> result) throws IOException {
+    public boolean next(List<Cell> result) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
+            List<Cell> tempResult = new ArrayList<Cell>();
             hasMore = scanner.next(tempResult);
             processResults(tempResult, false);
         }
@@ -254,20 +256,9 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
 
     @Override
-    public boolean next(List<KeyValue> result, String metric) throws IOException {
+    public boolean next(List<Cell> result, int limit) throws IOException {
         while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult, metric);
-            processResults(tempResult, false);
-        }
-        
-        return nextInQueue(result);
-    }
-
-    @Override
-    public boolean next(List<KeyValue> result, int limit) throws IOException {
-        while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
+            List<Cell> tempResult = new ArrayList<Cell>();
             hasMore = scanner.next(tempResult, limit);
             processResults(tempResult, true);
         }
@@ -276,15 +267,8 @@ public class HashJoinRegionScanner implements RegionScanner {
     }
 
     @Override
-    public boolean next(List<KeyValue> result, int limit, String metric)
-            throws IOException {
-        while (shouldAdvance()) {
-            List<KeyValue> tempResult = new ArrayList<KeyValue>();
-            hasMore = scanner.next(tempResult, limit, metric);
-            processResults(tempResult, true);
-        }
-        
-        return nextInQueue(result);
+    public long getMaxResultSize() {
+        return this.scanner.getMaxResultSize();
     }
 
 }

@@ -83,7 +83,6 @@ public class PhoenixOutputFormat extends OutputFormat<NullWritable, PhoenixRecor
 	 * and passed around for re-use.
 	 * 
 	 * @param configuration
-	 * @return
 	 * @throws IOException
 	 */
 	synchronized Connection getConnection(Configuration configuration) throws IOException {

@@ -136,7 +136,6 @@ public class CoveredColumnIndexer extends CoveredColumnsIndexBuilder {
 
   /**
    * @param filtered
-   * @return
    */
   private Collection<Batch>  batchByRow(Collection<KeyValue> filtered) {
     Map<Long, Batch> batches = new HashMap<Long, Batch>();

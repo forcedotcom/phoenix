@@ -34,6 +34,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
@@ -138,48 +139,48 @@ public class ScanProjector {
         }
     }
     
-    public List<KeyValue> projectResults(Tuple tuple) {
+    public List<Cell> projectResults(Tuple tuple) {
     	byte[] bytesValue = schema.toBytes(tuple, expressions, valueSet, ptr);
     	return encodeProjectedValue(bytesValue, valueSet, tuple.getValue(0));
     }
     
-    public static List<KeyValue> encodeProjectedValue(byte[] value, ValueBitSet bitSet, KeyValue base) {
+    public static List<Cell> encodeProjectedValue(byte[] value, ValueBitSet bitSet, Cell base) {
     	byte[] buf = new byte[bitSet.getEstimatedLength()];
     	int len = bitSet.toBytes(buf, 0);
     	return encodeProjectedValue(value, len, base);
     }
     
-    private static List<KeyValue> encodeProjectedValue(byte[] value, int bitSetLen, KeyValue base) {
+    private static List<Cell> encodeProjectedValue(byte[] value, int bitSetLen, Cell base) {
     	byte[] encoded = new byte[value.length + Bytes.SIZEOF_INT];
     	int offset = Bytes.putBytes(encoded, 0, value, 0, value.length);
     	Bytes.putInt(encoded, offset, bitSetLen);
-        KeyValue kv = KeyValueUtil.newKeyValue(base.getBuffer(), base.getRowOffset(), base.getRowLength(), 
+        Cell kv = KeyValueUtil.newKeyValue(base.getRowArray(), base.getRowOffset(), base.getRowLength(), 
         		VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER, base.getTimestamp(), encoded, 0, encoded.length);
         return ImmutableList.of(kv);
     }
     
     public static ImmutableBytesWritable decodeProjectedValue(Tuple tuple) throws IOException {
-    	KeyValue kv = tuple.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	Cell kv = tuple.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
     	if (kv == null)
     		throw new IOException("Trying to decode a non-projected value.");
     	
-    	return new ImmutableBytesWritable(kv.getBuffer(), kv.getValueOffset(), kv.getValueLength() - Bytes.SIZEOF_INT);
+    	return new ImmutableBytesWritable(kv.getValueArray(), kv.getValueOffset(), kv.getValueLength() - Bytes.SIZEOF_INT);
     }
     
-    public static List<KeyValue> mergeProjectedValue(Tuple dest, KeyValueSchema destSchema, 
+    public static List<Cell> mergeProjectedValue(Tuple dest, KeyValueSchema destSchema, 
     		Tuple src, KeyValueSchema srcSchema, int offset) throws IOException {
-    	KeyValue destKv = dest.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	Cell destKv = dest.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
     	if (destKv == null)
     		throw new IOException("Trying to decode a non-projected value.");
-    	ImmutableBytesWritable destValue = new ImmutableBytesWritable(destKv.getBuffer(), destKv.getValueOffset(), destKv.getValueLength() - Bytes.SIZEOF_INT);
-    	int destBitSetLen = Bytes.toInt(destKv.getBuffer(), destKv.getValueOffset() + destKv.getValueLength() - Bytes.SIZEOF_INT);
+    	ImmutableBytesWritable destValue = new ImmutableBytesWritable(destKv.getValueArray(), destKv.getValueOffset(), destKv.getValueLength() - Bytes.SIZEOF_INT);
+    	int destBitSetLen = Bytes.toInt(destKv.getValueArray(), destKv.getValueOffset() + destKv.getValueLength() - Bytes.SIZEOF_INT);
     	ValueBitSet destBitSet = ValueBitSet.newInstance(destSchema);
     	destBitSet.or(destValue);
-    	KeyValue srcKv = src.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
+    	Cell srcKv = src.getValue(VALUE_COLUMN_FAMILY, VALUE_COLUMN_QUALIFIER);
     	if (srcKv == null)
     		throw new IOException("Trying to decode a non-projected value.");
-    	ImmutableBytesWritable srcValue = new ImmutableBytesWritable(srcKv.getBuffer(), srcKv.getValueOffset(), srcKv.getValueLength() - Bytes.SIZEOF_INT);
-    	int srcBitSetLen = Bytes.toInt(srcKv.getBuffer(), srcKv.getValueOffset() + srcKv.getValueLength() - Bytes.SIZEOF_INT);
+    	ImmutableBytesWritable srcValue = new ImmutableBytesWritable(srcKv.getValueArray(), srcKv.getValueOffset(), srcKv.getValueLength() - Bytes.SIZEOF_INT);
+    	int srcBitSetLen = Bytes.toInt(srcKv.getValueArray(), srcKv.getValueOffset() + srcKv.getValueLength() - Bytes.SIZEOF_INT);
     	ValueBitSet srcBitSet = ValueBitSet.newInstance(srcSchema);
     	srcBitSet.or(srcValue);
     	for (int i = 0; i < srcBitSet.getMaxSetBit(); i++) {

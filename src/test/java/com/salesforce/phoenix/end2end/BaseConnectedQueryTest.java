@@ -124,6 +124,10 @@ public abstract class BaseConnectedQueryTest extends BaseTest {
                 String fullTableName = SchemaUtil.getTableName(
                         rs.getString(PhoenixDatabaseMetaData.TABLE_SCHEM_NAME),
                         rs.getString(PhoenixDatabaseMetaData.TABLE_NAME_NAME));
+                String tableType = rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) ;
+                if(fullTableName == null || fullTableName.isEmpty() || tableType == null || tableType.isEmpty()) {
+                	continue;
+                }
                 conn.createStatement().executeUpdate("DROP " + rs.getString(PhoenixDatabaseMetaData.TABLE_TYPE_NAME) + " " + fullTableName);
             }
         } finally {

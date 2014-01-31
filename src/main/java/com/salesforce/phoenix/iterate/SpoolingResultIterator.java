@@ -186,7 +186,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
             offset += WritableUtils.getVIntSize(resultSize);
             ImmutableBytesWritable value = new ImmutableBytesWritable(bytes,offset,resultSize);
             offset += resultSize;
-            Tuple result = new ResultTuple(new Result(value));
+            Tuple result = new ResultTuple(ResultUtil.toResult(value));
             return next = result;
         }
         
@@ -280,7 +280,7 @@ public class SpoolingResultIterator implements PeekingResultIterator {
                 offset += bytesRead;
                 totalBytesRead += bytesRead;
             }
-            next = new ResultTuple(new Result(new ImmutableBytesWritable(buffer,0,length)));
+            next = new ResultTuple(ResultUtil.toResult(new ImmutableBytesWritable(buffer,0,length)));
             return next;
         }
         

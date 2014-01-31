@@ -28,7 +28,7 @@
 package com.salesforce.phoenix.exception;
 
 import org.apache.hadoop.hbase.regionserver.wal.IndexedWALEditCodec;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALCellCodec;
 
 import com.salesforce.phoenix.jdbc.PhoenixDatabaseMetaData;
 import com.salesforce.phoenix.schema.PDataType;
@@ -143,7 +143,7 @@ public enum SQLExceptionCode {
     NO_DELETE_IF_IMMUTABLE_INDEX(1027, "42Y86", "Delete not allowed on a table with IMMUTABLE_ROW with non PK column in index."),
     INVALID_INDEX_STATE_TRANSITION(1028, "42Y87", "Invalid index state transition."),
     INVALID_MUTABLE_INDEX_CONFIG(1029, "42Y88", "Mutable secondary indexes must have the " 
-            + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY + " property set to " 
+            + WALCellCodec.WAL_CELL_CODEC_CLASS_KEY + " property set to " 
             +  IndexedWALEditCodec.class.getName() + " in the hbase-sites.xml of every region server"),
     CREATE_TENANT_TABLE_TENANT_ID(1030, "42Y89", "TenantId property must be set on connection if BASE_TABLE is used to create table."),
     CREATE_TENANT_TABLE_NO_PK(1031, "42Y90", "Defining PK columns not allowed for tenant-specific tables."),

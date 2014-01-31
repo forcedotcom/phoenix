@@ -30,6 +30,7 @@ package com.salesforce.phoenix.util;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.KeyValue.Type;
 import org.apache.hadoop.hbase.client.Result;
@@ -95,7 +96,7 @@ public class KeyValueUtil {
      * @param kvs
      * @param searchTerm
      */
-    public static KeyValue getColumnLatest(List<KeyValue>kvs, KeyValue searchTerm) {
+    public static Cell getColumnLatest(List<Cell>kvs, Cell searchTerm) {
         if (kvs.size() == 0) {
           return null;
         }
@@ -111,13 +112,13 @@ public class KeyValueUtil {
           return null; // doesn't exist
         }
     
-        KeyValue kv = kvs.get(pos);
-        if (Bytes.compareTo(kv.getBuffer(), kv.getFamilyOffset(), kv.getFamilyLength(),
-                searchTerm.getBuffer(), searchTerm.getFamilyOffset(), searchTerm.getFamilyLength()) != 0) {
+        Cell kv = kvs.get(pos);
+        if (Bytes.compareTo(kv.getFamilyArray(), kv.getFamilyOffset(), kv.getFamilyLength(),
+                searchTerm.getFamilyArray(), searchTerm.getFamilyOffset(), searchTerm.getFamilyLength()) != 0) {
             return null;
         }
-        if (Bytes.compareTo(kv.getBuffer(), kv.getQualifierOffset(), kv.getQualifierLength(),
-                searchTerm.getBuffer(), searchTerm.getQualifierOffset(), searchTerm.getQualifierLength()) != 0) {
+        if (Bytes.compareTo(kv.getQualifierArray(), kv.getQualifierOffset(), kv.getQualifierLength(),
+                searchTerm.getQualifierArray(), searchTerm.getQualifierOffset(), searchTerm.getQualifierLength()) != 0) {
             return null;
         }
         return kv;
@@ -126,15 +127,15 @@ public class KeyValueUtil {
     /**
      * Binary search for latest column value without allocating memory in the process
      */
-    public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] family, byte[] qualifier) {
-        KeyValue kv = kvs.get(0);
-        return KeyValueUtil.getColumnLatest(kvs, kv.getBuffer(), kv.getRowOffset(), kv.getRowLength(), family, 0, family.length, qualifier, 0, qualifier.length);
+    public static Cell getColumnLatest(List<Cell>kvs, byte[] family, byte[] qualifier) {
+        Cell kv = kvs.get(0);
+        return KeyValueUtil.getColumnLatest(kvs, kv.getRowArray(), kv.getRowOffset(), kv.getRowLength(), family, 0, family.length, qualifier, 0, qualifier.length);
     }
 
     /**
      * Binary search for latest column value without allocating memory in the process
      */
-    public static KeyValue getColumnLatest(List<KeyValue>kvs, byte[] row, int roffset, int rlength, byte[] family, int foffset, int flength, byte[] qualifier, int qoffset, int qlength) {
+    public static Cell getColumnLatest(List<Cell>kvs, byte[] row, int roffset, int rlength, byte[] family, int foffset, int flength, byte[] qualifier, int qoffset, int qlength) {
         KeyValue searchTerm = KeyValue.createFirstOnRow(row, roffset, rlength, family, foffset, flength, qualifier, qoffset, qlength);
         return getColumnLatest(kvs,searchTerm);
         

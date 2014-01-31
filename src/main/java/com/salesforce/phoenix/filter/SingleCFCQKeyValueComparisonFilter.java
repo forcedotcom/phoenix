@@ -27,7 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.filter;
 
+import java.io.IOException;
+
+import org.apache.hadoop.hbase.exceptions.DeserializationException;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.hadoop.hbase.util.Writables;
 
 import com.salesforce.phoenix.expression.Expression;
 
@@ -55,5 +59,12 @@ public class SingleCFCQKeyValueComparisonFilter extends SingleKeyValueComparison
         if (c != 0) return c;
         return Bytes.compareTo(cq, 0, cq.length, cqBuf, cqOffset, cqLength);
     }
-
+    
+    public static SingleCFCQKeyValueComparisonFilter parseFrom(final byte [] pbBytes) throws DeserializationException {
+        try {
+            return (SingleCFCQKeyValueComparisonFilter)Writables.getWritable(pbBytes, new SingleCFCQKeyValueComparisonFilter());
+        } catch (IOException e) {
+            throw new DeserializationException(e);
+        }
+    }
 }

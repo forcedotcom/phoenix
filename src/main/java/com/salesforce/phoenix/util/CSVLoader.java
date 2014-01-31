@@ -167,7 +167,6 @@ public class CSVLoader {
 	 * PDataType
 	 * 
 	 * @param columns
-	 * @return
 	 * @throws SQLException
 	 */
 	private ColumnInfo[] generateColumnInfo(List<String> columns)

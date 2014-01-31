@@ -1,0 +1,108 @@
+/*******************************************************************************
+ * Copyright (c) 2013, Salesforce.com, Inc.
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ *     Redistributions of source code must retain the above copyright notice,
+ *     this list of conditions and the following disclaimer.
+ *     Redistributions in binary form must reproduce the above copyright notice,
+ *     this list of conditions and the following disclaimer in the documentation
+ *     and/or other materials provided with the distribution.
+ *     Neither the name of Salesforce.com nor the names of its contributors may 
+ *     be used to endorse or promote products derived from this software without 
+ *     specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE 
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, 
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ ******************************************************************************/
+
+option java_package = "com.salesforce.phoenix.coprocessor.generated";
+option java_outer_classname = "PTableProtos";
+option java_generic_services = true;
+option java_generate_equals_and_hash = true;
+option optimize_for = SPEED;
+
+enum PTableType {
+  SYSTEM = 0;
+  USER = 1;
+  VIEW = 2;
+  INDEX = 3;
+  JOIN = 4;
+} 
+
+enum PDataType {
+  VARCHAR = 0;
+  CHAR = 1;
+  LONG = 2;
+  INTEGER = 3;
+  SMALLINT = 4;
+  TINYINT = 5;
+  FLOAT = 6;
+  DOUBLE = 7;
+  DECIMAL = 8;
+  TIMESTAMP = 9;
+  TIME = 10;
+  DATE = 11;
+  UNSIGNED_LONG = 12;
+  UNSIGNED_INT = 13;
+  UNSIGNED_SMALLINT = 14;
+  UNSIGNED_TINYINT = 15;
+  UNSIGNED_FLOAT = 16;
+  UNSIGNED_DOUBLE = 17;
+  BOOLEAN = 18;
+  VARBINARY = 19;
+  BINARY = 20;
+}
+
+enum PIndexState {
+  BUILDING = 0;
+  USABLE = 1;
+  UNUSABLE = 2;
+  ACTIVE = 3;
+  INACTIVE = 4;
+  DISABLE = 5;
+  REBUILD = 6;
+}
+
+message PColumn {
+  required bytes columnNameBytes = 1;
+  optional bytes familyNameBytes = 2;
+  required PDataType dataType = 3; 
+  optional int32 maxLength = 4;
+  optional int32 scale = 5;
+  required bool nullable = 6;
+  required int32 position = 7;
+  required int32 columnModifier = 8;
+}
+
+message PTableStats {
+  required string key = 1;
+  repeated bytes values = 2;
+}
+
+message PTable {
+  required bytes schemaNameBytes = 1;
+  required bytes tableNameBytes = 2;
+  required PTableType tableType = 3;
+  optional PIndexState indexState = 4;
+  required int64 sequenceNumber = 5;
+  required int64 timeStamp = 6;
+  optional bytes pkNameBytes = 7;
+  required int32 bucketNum = 8;
+  repeated PColumn columns = 9;
+  repeated PTable indexes = 10;
+  required bool isImmutableRows = 11;
+  repeated PTableStats guidePosts = 12;
+  optional bytes dataTableNameBytes = 13;
+  optional bytes baseTableNameBytes = 14;
+}

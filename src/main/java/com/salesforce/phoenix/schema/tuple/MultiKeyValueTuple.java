@@ -29,6 +29,7 @@ package com.salesforce.phoenix.schema.tuple;
 
 import java.util.List;
 
+import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.io.ImmutableBytesWritable;
 
@@ -37,23 +38,23 @@ import com.salesforce.phoenix.util.KeyValueUtil;
 
 
 public class MultiKeyValueTuple implements Tuple {
-    private List<KeyValue> values;
+    private List<Cell> values;
     
-    public MultiKeyValueTuple(List<KeyValue> values) {
+    public MultiKeyValueTuple(List<Cell> values) {
         setKeyValues(values);
     }
     
     public MultiKeyValueTuple() {
     }
 
-    public void setKeyValues(List<KeyValue> values) {
+    public void setKeyValues(List<Cell> values) {
         this.values = ImmutableList.copyOf(values);
     }
     
     @Override
     public void getKey(ImmutableBytesWritable ptr) {
-        KeyValue value = values.get(0);
-        ptr.set(value.getBuffer(), value.getRowOffset(), value.getRowLength());
+        Cell value = values.get(0);
+        ptr.set(value.getRowArray(), value.getRowOffset(), value.getRowLength());
     }
 
     @Override
@@ -62,7 +63,7 @@ public class MultiKeyValueTuple implements Tuple {
     }
 
     @Override
-    public KeyValue getValue(byte[] family, byte[] qualifier) {
+    public Cell getValue(byte[] family, byte[] qualifier) {
         return KeyValueUtil.getColumnLatest(values, family, qualifier);
     }
 
@@ -77,7 +78,7 @@ public class MultiKeyValueTuple implements Tuple {
     }
 
     @Override
-    public KeyValue getValue(int index) {
+    public Cell getValue(int index) {
         return values.get(index);
     }
 }

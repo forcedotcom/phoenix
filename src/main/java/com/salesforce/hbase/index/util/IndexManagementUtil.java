@@ -26,7 +26,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.regionserver.wal.WALEditCodec;
+import org.apache.hadoop.hbase.regionserver.wal.WALCellCodec;
 
 import com.google.common.collect.Maps;
 import com.salesforce.hbase.index.ValueGetter;
@@ -58,7 +58,7 @@ public class IndexManagementUtil {
         } catch (Throwable t) {
             return false;
         }
-        if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY, null))) {
+        if (INDEX_WAL_EDIT_CODEC_CLASS_NAME.equals(conf.get(WALCellCodec.WAL_CELL_CODEC_CLASS_KEY, null))) {
             // its installed, and it can handle compression and non-compression cases
             return true;
         }
@@ -84,7 +84,7 @@ public class IndexManagementUtil {
         if (indexLogReaderName.equals(conf.get(HLOG_READER_IMPL_KEY, indexLogReaderName))) {
             if (conf.getBoolean(HConstants.ENABLE_WAL_COMPRESSION, false)) { throw new IllegalStateException(
                     "WAL Compression is only supported with " + codecClass
-                            + ". You can install in hbase-site.xml, under " + WALEditCodec.WAL_EDIT_CODEC_CLASS_KEY); }
+                            + ". You can install in hbase-site.xml, under " + WALCellCodec.WAL_CELL_CODEC_CLASS_KEY); }
         } else {
             throw new IllegalStateException(codecClass + " is not installed, but "
                     + indexLogReaderName + " hasn't been installed in hbase-site.xml under " + HLOG_READER_IMPL_KEY);

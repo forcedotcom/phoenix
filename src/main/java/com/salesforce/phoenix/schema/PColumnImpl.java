@@ -27,16 +27,11 @@
  ******************************************************************************/
 package com.salesforce.phoenix.schema;
 
-import java.io.DataInput;
-import java.io.DataOutput;
-import java.io.IOException;
-
-import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.WritableUtils;
-
 import com.google.common.base.Preconditions;
+import com.google.protobuf.ByteString;
+import com.salesforce.phoenix.coprocessor.generated.PTableProtos;
+import com.salesforce.phoenix.protobuf.ProtobufUtil;
 import com.salesforce.phoenix.query.QueryConstants;
-import com.salesforce.phoenix.util.ByteUtil;
 
 
 public class PColumnImpl implements PColumn {
@@ -149,35 +144,6 @@ public class PColumnImpl implements PColumn {
     public String toString() {
         return (familyName == null ? "" : familyName.toString() + QueryConstants.NAME_SEPARATOR) + name.toString();
     }
-
-    @Override
-    public void readFields(DataInput input) throws IOException {
-        byte[] columnNameBytes = Bytes.readByteArray(input);
-        PName columnName = PNameFactory.newName(columnNameBytes);
-        byte[] familyNameBytes = Bytes.readByteArray(input);
-        PName familyName = familyNameBytes.length == 0 ? null : PNameFactory.newName(familyNameBytes);
-        // TODO: optimize the reading/writing of this b/c it could likely all fit in a single byte or two
-        PDataType dataType = PDataType.values()[WritableUtils.readVInt(input)];
-        int maxLength = WritableUtils.readVInt(input);
-        int scale = WritableUtils.readVInt(input);
-        boolean nullable = input.readBoolean();
-        int position = WritableUtils.readVInt(input);
-        ColumnModifier columnModifier = ColumnModifier.fromSystemValue(WritableUtils.readVInt(input));
-        init(columnName, familyName, dataType, maxLength == NO_MAXLENGTH ? null : maxLength,
-                scale == NO_SCALE ? null : scale, nullable, position, columnModifier);
-    }
-
-    @Override
-    public void write(DataOutput output) throws IOException {
-        Bytes.writeByteArray(output, name.getBytes());
-        Bytes.writeByteArray(output, familyName == null ? ByteUtil.EMPTY_BYTE_ARRAY : familyName.getBytes());
-        WritableUtils.writeVInt(output, dataType.ordinal());
-        WritableUtils.writeVInt(output, maxLength == null ? NO_MAXLENGTH : maxLength);
-        WritableUtils.writeVInt(output, scale == null ? NO_SCALE : scale);
-        output.writeBoolean(nullable);
-        WritableUtils.writeVInt(output, position);
-        WritableUtils.writeVInt(output, ColumnModifier.toSystemValue(columnModifier));
-    }
     
     @Override
     public int hashCode() {
@@ -202,4 +168,52 @@ public class PColumnImpl implements PColumn {
         } else if (!name.equals(other.name)) return false;
         return true;
     }
+
+  /**
+   * Create a PColumn instance from PBed PColumn instance
+   * @param column
+   */
+  public static PColumn createFromProto(PTableProtos.PColumn column) {
+    byte[] columnNameBytes = column.getColumnNameBytes().toByteArray();
+    PName columnName = PNameFactory.newName(columnNameBytes);
+    PName familyName = null;
+    if (column.hasFamilyNameBytes()) {
+      familyName = PNameFactory.newName(column.getFamilyNameBytes().toByteArray());
+    }
+    PDataType dataType = PDataType.values()[column.getDataType().ordinal()];
+    Integer maxLength = null;
+    if (column.hasMaxLength()) {
+      maxLength = column.getMaxLength();
+    }
+    Integer scale = null;
+    if (column.hasScale()) {
+      scale = column.getScale();
+    }
+    boolean nullable = column.getNullable();
+    int position = column.getPosition();
+    ColumnModifier columnModifier = ColumnModifier.fromSystemValue(column.getColumnModifier());
+
+    return new PColumnImpl(columnName, familyName, dataType, maxLength, scale, nullable, position,
+        columnModifier);
+  }
+
+  public static PTableProtos.PColumn toProto(PColumn column) {
+    PTableProtos.PColumn.Builder builder = PTableProtos.PColumn.newBuilder();
+    builder.setColumnNameBytes(ByteString.copyFrom(column.getName().getBytes()));
+    if (column.getFamilyName() != null) {
+      builder.setFamilyNameBytes(ByteString.copyFrom(column.getFamilyName().getBytes()));
+    }
+    builder.setDataType(ProtobufUtil.toPDataTypeProto(column.getDataType()));
+    if (column.getMaxLength() != null) {
+      builder.setMaxLength(column.getMaxLength());
+    }
+    if (column.getScale() != null) {
+      builder.setScale(column.getScale());
+    }
+    builder.setNullable(column.isNullable());
+    builder.setPosition(column.getPosition());
+    builder.setColumnModifier(ColumnModifier.toSystemValue(column.getColumnModifier()));
+
+    return builder.build();
+  }
 }
