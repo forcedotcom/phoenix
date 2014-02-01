@@ -63,8 +63,8 @@
     <test.output.tofile>true</test.output.tofile>
 
     <!-- Dependency versions -->
-    <hbase-hadoop1.version>0.96.0-hadoop1</hbase-hadoop1.version>
-    <hbase-hadoop2.version>0.96.0-hadoop2</hbase-hadoop2.version>
+    <hbase-hadoop1.version>0.96.1-hadoop1</hbase-hadoop1.version>
+    <hbase-hadoop2.version>0.96.1-hadoop2</hbase-hadoop2.version>
     <hadoop-one.version>1.0.4</hadoop-one.version>
     <hadoop-two.version>2.2.0</hadoop-two.version>
     <commons-cli.version>1.2</commons-cli.version>
@@ -529,7 +529,7 @@
         </property>
       </activation>
       <properties>
-        <hadoop.version>2.0.4-alpha</hadoop.version>
+        <hadoop.version>${hadoop-two.version}</hadoop.version>
       </properties>
       <dependencies>
         <dependency>
