@@ -34,6 +34,9 @@
         <include>sqlline:sqlline</include>
 	<include>org.codehaus.jackson:jackson-mapper-asl</include>
 	<include>org.codehaus.jackson:jackson-core-asl</include>
+	<include>commons-codec:commons-codec</include>
+	<include>org.cloudera.htrace:htrace-core</include>
+	<include>io.netty:netty</include>
             
         <!-- <include>*:jar:*</include> -->
       </includes>
