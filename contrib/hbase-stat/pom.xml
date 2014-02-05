@@ -1,0 +1,215 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.salesforce.hbase</groupId>
+  <artifactId>hbase-stat</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>HBase Stat</name>
+  <description>A simple statistics package for HBase</description>
+
+  <repositories>
+    <repository>
+      <id>apache release</id>
+      <url>https://repository.apache.org/content/repositories/releases/</url>
+    </repository>
+    <repository>
+      <id>apache non-releases</id>
+      <name>Apache non-releases</name>
+      <url>http://people.apache.org/~stack/m2/repository</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <!-- Needed to start HBase in tests -->
+    </repository>
+    <repository>
+      <id>codehaus</id>
+      <name>Codehaus Public</name>
+      <url>http://repository.codehaus.org/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+    </repository>
+  </repositories>
+
+  <properties>
+    <hbase.version>0.94.5</hbase.version>
+    <hadoop.version>1.0.4</hadoop.version>
+    <jackson.version>1.8.8</jackson.version>
+    <guava.version>12.0.1</guava.version>
+    <!-- Test properties -->
+    <mockito-all.version>1.8.5</mockito-all.version>
+    <junit.version>4.10</junit.version>
+    <test.timeout>900</test.timeout>
+    <test.output.tofile>true</test.output.tofile>
+    <!-- Plugin versions -->
+    <surefire.version>2.14</surefire.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-core</artifactId>
+      <version>${hadoop.version}</version>
+      <optional>true</optional>
+      <exclusions>
+        <exclusion>
+          <groupId>hsqldb</groupId>
+          <artifactId>hsqldb</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>net.sf.kosmosfs</groupId>
+          <artifactId>kfs</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.eclipse.jdt</groupId>
+          <artifactId>core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>net.java.dev.jets3t</groupId>
+          <artifactId>jets3t</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>oro</groupId>
+          <artifactId>oro</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase</artifactId>
+      <version>${hbase.version}</version>
+      <!-- Things HBase needs...for some reason -->
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-core-asl</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-jaxrs</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-xc</artifactId>
+      <version>${jackson.version}</version>
+    </dependency>
+
+    <!-- Test Dependencies -->
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase</artifactId>
+      <version>${hbase.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-test</artifactId>
+      <version>${hadoop.version}</version>
+      <optional>true</optional>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>${junit.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+      <version>${mockito-all.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.0</version>
+          <configuration>
+            <source>1.6</source>
+            <target>1.6</target>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <!-- Run with -Dmaven.test.skip.exec=true to build -tests.jar without running 
+        tests (this is needed for upstream projects whose tests need this jar simply for 
+        compilation) -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.4</version>
+        <executions>
+          <execution>
+            <phase>prepare-package
+            </phase>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <!-- Exclude these 2 packages, because their dependency _binary_ files 
+            include the sources, and Maven 2.2 appears to add them to the sources to compile, 
+            weird -->
+          <excludes>
+            <exclude>org/apache/jute/**</exclude>
+            <exclude>org/apache/zookeeper/**</exclude>
+            <exclude>**/*.jsp</exclude>
+            <exclude>log4j.properties</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+      <!-- Make a source jar -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <version>2.2.1</version>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>jar-no-fork</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- Specialized configuration for running tests -->
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${surefire.version}</version>
+        <configuration>
+          <forkedProcessTimeoutInSeconds>${test.timeout}</forkedProcessTimeoutInSeconds>
+          <argLine>-enableassertions -Xmx2048m
+              -Djava.security.egd=file:/dev/./urandom</argLine>
+          <redirectTestOutputToFile>${test.output.tofile}</redirectTestOutputToFile>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
