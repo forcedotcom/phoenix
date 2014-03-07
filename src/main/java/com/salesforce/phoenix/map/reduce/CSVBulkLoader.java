@@ -77,6 +77,7 @@ public class CSVBulkLoader {
 	static String schemaName = "";
 	static String tableName = "";
 	static String idxTable = "";
+	static String currentSCN = "";
 	static String createPSQL[] = null;
 	static String skipErrors = null;
 	static String zookeeperIP = null;
@@ -107,13 +108,14 @@ public class CSVBulkLoader {
 	 * -i		CSV data file path in hdfs
 	 * -s		Phoenix schema name
 	 * -t		Phoenix table name
-	 * -sql  	Phoenix create table sql path (1 SQL statement per line)
+	 * -sql		Phoenix create table sql path (1 SQL statement per line)
 	 * -zk		Zookeeper IP:<port>
 	 * -mr		MapReduce Job Tracker IP:<port>
 	 * -hd		HDFS NameNode IP:<port>
 	 * -o		Output directory path in hdfs (Optional)
-	 * -idx  	Phoenix index table name (Optional)
-	 * -error    	Ignore error while reading rows from CSV ? (1 - YES/0 - NO, defaults to 1) (OPtional)
+	 * -idx		Phoenix index table name (Optional)
+	 * -error	Ignore error while reading rows from CSV ? (1 - YES/0 - NO, defaults to 1) (OPtional)
+	 * -scn		Adds an HBase version timestamp for all imported rows
 	 * -help	Print all options (Optional)
 	 */
 
@@ -134,6 +136,7 @@ public class CSVBulkLoader {
 		options.addOption("hd", true, "HDFS NameNode IP:<port>");
 		options.addOption("sql", true, "Phoenix create table sql path");
 		options.addOption("error", true, "Ignore error while reading rows from CSV ? (1 - YES/0 - NO, defaults to 1)");
+		options.addOption("scn", true, "HBase version timestamp");
 		options.addOption("help", false, "All options");
 		
 		CommandLineParser parser = new PosixParser();
@@ -197,6 +200,9 @@ public class CSVBulkLoader {
 			skipErrors = cmd.getOptionValue("error");
 		}else{
 			skipErrors = "1";
+		}
+		if(cmd.hasOption("scn")) {
+			currentSCN = cmd.getOptionValue("currentscn");
 		}
 		
 		log("[TS - START] :: " + new Date() + "\n");
@@ -333,6 +339,7 @@ public class CSVBulkLoader {
 		conf.set("hbase.zookeeper.quorum", zookeeperIP);
 		conf.set("fs.default.name", hdfsNameNode);
 		conf.set("mapred.job.tracker", mapredIP);
+		conf.set("currentSCN", currentSCN);
 		
 		//Load the other System-Configs
 		try {
