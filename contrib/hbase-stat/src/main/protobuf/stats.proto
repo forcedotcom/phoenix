@@ -1,0 +1,14 @@
+// Statistics protobufs - used for compatability with HBase 0.96
+
+option java_package = "com.salesforce.hbase.protobuf.generated";
+option java_outer_classname = "StatisticProtos";
+option java_generate_equals_and_hash = true;
+option optimize_for = SPEED;
+
+message Histogram{
+	//all histograms have either a fixed depth or width
+	required int64 depthOrWidth = 1;
+	// fixed depth will have different values as row keys
+	//fixed width will just have counts
+	repeated bytes value = 2;
+}
